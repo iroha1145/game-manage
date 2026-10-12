@@ -5,7 +5,6 @@ import { safeUrl } from '../calendar.js'
 import { list, starCount, value } from '../wuwa-display.js'
 import WuwaRoleDetail from './WuwaRoleDetail.vue'
 import WuwaStatus from './WuwaStatus.vue'
-import InfoHint from './InfoHint.vue'
 import { vGlide } from '../motion.js'
 import MenuSelect from './MenuSelect.vue'
 import WuwaGuide from './WuwaGuide.vue'
@@ -84,7 +83,6 @@ function close() {
   <section class="wuwa-panel">
     <header class="cap-title">
       <h2>角色档案</h2>
-      <InfoHint text="点击角色查看实际面板与培养攻略。武器类型不代表实际装备。" />
       <WuwaStatus :snap="snap" />
     </header>
     <div class="toolbar">
@@ -160,7 +158,7 @@ function close() {
               {{ value(r.extra?.total_skill_level) }}</span
             ><span class="wuwa-role-tags"
               ><span v-if="r.attribute" class="chip">{{ r.attribute }}</span
-              ><span class="wuwa-role-weapon" title="武器类型">{{
+              ><span class="wuwa-role-weapon" title="角色武器类型">{{
                 value(r.weapon)
               }}</span></span
             ></span
@@ -168,14 +166,14 @@ function close() {
         >
       </button>
     </div>
-    <p v-if="!filtered.length" class="wuwa-muted">暂无符合条件的角色</p>
+    <p v-if="!filtered.length" class="wuwa-muted">{{ roles.length ? '暂无符合条件的角色，请调整筛选。' : '暂无角色记录，请刷新数据。' }}</p>
     <WuwaRoleDialog
       v-if="selected"
       :title="`${selected.name} · 角色详情`"
       @close="close"
     >
       <div v-glide class="segmented wuwa-dialog-tabs" role="group" aria-label="角色详情视图">
-        <button type="button" :aria-pressed="detailTab === 'panel'" @click="detailTab = 'panel'">实际面板</button>
+        <button type="button" :aria-pressed="detailTab === 'panel'" @click="detailTab = 'panel'">角色面板</button>
         <button type="button" :aria-pressed="detailTab === 'guide'" @click="detailTab = 'guide'">培养攻略</button>
       </div>
       <WuwaGuide v-if="detailTab === 'guide'" :character-id="selected.role_id" :character-name="selected.name" :attribute="selected.attribute || ''" />

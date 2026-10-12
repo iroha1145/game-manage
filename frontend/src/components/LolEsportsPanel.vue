@@ -59,7 +59,7 @@ async function load(refresh) {
     local.value = refresh ? value.snapshot : value; emit('snapshot', local.value)
     if (refresh) {
       if (!value.ok) error.value = '更新未成功，保留已有赛事缓存，请稍后重试。'
-      else note.value = '已检查赛事缓存；仍在有效期的分组保留原采集时间。'
+      else note.value = '赛事缓存已检查，更新时间见各分组。'
     }
   } catch (err) { if (!disposed && current === generation && err.name !== 'AbortError') error.value = err.message }
   finally { if (!disposed && current === generation) loading.value = false }
@@ -74,7 +74,7 @@ onBeforeUnmount(() => { disposed = true; generation++; controller?.abort() })
     <p v-if="local?.payload && !valid" role="alert" class="es-warning">赛事数据版本不兼容，请更新服务。</p>
     <template v-else>
       <p v-if="!local?.fetched_at && !payload.tournaments?.length" class="es-empty">本机尚无当年赛事缓存，点击「更新赛事」获取公开资料。无需启动游戏客户端。</p>
-      <div v-if="local?.stale || missing.length" class="es-notices"><p v-if="local?.stale">部分缓存可能过期或最近更新失败，保留上次成功资料。</p><p v-if="missing.length">{{ missing.map(f => ESPORTS_FAMILIES[f]).join('、') }} · 当年资料暂缺，不能据此判断没有比赛。</p></div>
+      <div v-if="local?.stale || missing.length" class="es-notices"><p v-if="local?.stale">赛事资料待更新，当前显示上次同步结果。</p><p v-if="missing.length">{{ missing.map(f => ESPORTS_FAMILIES[f]).join('、') }} · 当年资料暂缺。</p></div>
       <nav class="es-tabs" aria-label="职业赛事视图"><button v-for="[key, label] in [['schedule','赛程'],['results','赛果'],['teams','战队'],['players','选手']]" :key="key" :aria-pressed="browse.view === key" @click="change({ view: key, page: 1, teamId: '', playerId: '', matchId: '', returnTo: [] })">{{ label }}</button></nav>
       <div class="es-layout">
         <aside class="es-sidebar"><div class="es-filter-disclosure" :class="{ 'is-expanded': filtersOpen }"><button class="es-filter-toggle" aria-controls="es-filter-fields" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">筛选赛事 <span>{{ ESPORTS_FAMILIES[browse.family] || '全部赛事' }}{{ browse.date ? ' · ' + browse.date : '' }}{{ browse.filterTeamId ? ' · 已选战队' : '' }}</span></button><div id="es-filter-fields" class="es-filters">
@@ -84,13 +84,13 @@ onBeforeUnmount(() => { disposed = true; generation++; controller?.abort() })
           <div class="es-directory"><span class="es-eyebrow">赛事目录</span><button v-for="(name, key) in ESPORTS_FAMILIES" :key="key" :aria-pressed="browse.family === key" @click="filter({ family: key, filterTeamId: '' })"><strong>{{ name }}</strong><small>{{ missing.includes(key) ? '资料暂缺' : '查看已收录' }}</small></button></div>
         </div></div></aside>
         <main class="es-main">
-          <div class="es-context"><div><strong>{{ ESPORTS_FAMILIES[browse.family] || '全部目标赛事' }}</strong><span>{{ payload.season_year || '' }} · {{ familyMatches.length }} 场 / {{ filteredTeams.length }} 队已收录</span></div><details><summary>来源与覆盖</summary><p class="es-note">腾讯官方公开资料 · 已收录数量不代表完整赛事规模。</p><p v-for="item in coverage" :key="item.id" class="es-note"><strong>{{ item.name }}</strong><br>{{ esportsGroupLabel(item.meta) }}</p><p v-if="!coverage.length" class="es-note">赛事资料暂缺，无法确认覆盖范围。</p></details></div>
+          <div class="es-context"><div><strong>{{ ESPORTS_FAMILIES[browse.family] || '全部目标赛事' }}</strong><span>{{ payload.season_year || '' }} · {{ familyMatches.length }} 场 / {{ filteredTeams.length }} 队已收录</span></div><details><summary>来源与覆盖</summary><p class="es-note">腾讯官方公开资料 · 当前已收录范围</p><p v-for="item in coverage" :key="item.id" class="es-note"><strong>{{ item.name }}</strong><br>{{ esportsGroupLabel(item.meta) }}</p><p v-if="!coverage.length" class="es-note">暂无赛事覆盖资料。</p></details></div>
           <EsportsSchedule v-if="matchView" :payload="payload" :filters="browse" @select-team="showTeam" @select-match="showMatch" @page-change="page => change({ page })" @back="back" />
           <EsportsTeams v-else-if="browse.view === 'teams'" :payload="payload" :filters="browse" @select-team="showTeam" @select-player="showPlayer" @select-match="showMatch" @back="back" />
           <EsportsPlayers v-else :payload="payload" :filters="browse" @select-team="showTeam" @select-player="showPlayer" @back="back" />
         </main>
       </div>
-      <footer class="es-note es-footer">赛事目录：{{ esportsGroupLabel(payload.catalog) }}<br>当前北京时间年度 · 赛程约每 15 分钟检查，目录与阵容约每天检查 · 来源覆盖与更新可能不完整</footer>
+      <footer class="es-note es-footer">赛事目录：{{ esportsGroupLabel(payload.catalog) }}<br>按北京时间年份收录 · 赛程约每 15 分钟检查，目录与阵容约每天检查</footer>
     </template>
   </div>
 </template>

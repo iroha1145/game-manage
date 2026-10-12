@@ -26,7 +26,7 @@ function status(card) {
   if (props.readErrors[card.game_id]) return '读取异常'
   if (card.source && card.source.state !== 'ok') return card.source.label
   if (card.auth?.state === 'expired') return '登录已失效'
-  if (card.summary.stale) return '旧快照'
+  if (card.summary.stale) return '待更新'
   if (card.game_id === 'league_of_legends') return '本机客户端'
   return ({ connected: '已连接', configured: '已配置', unconfigured: '未登录' })[card.auth?.state] || (card.credentials_configured ? '已配置' : '未登录')
 }
@@ -38,13 +38,17 @@ function metricLabel(card) {
 }
 function resourceNote(card) {
   const s = card.summary
-  if (s.metric === 'gacha') return `特许寻访 · ${s.value == null ? '等待寻访记录同步' : s.pityStatus === 'exact' ? '按连续记录计算' : '有缺口或免费寻访，为最少值'}`
-  // 胜率不含重开和结果未知的对局；分母和总场数不同时写出来，免得按总场数去算。
-  if (!s.hasStamina) return s.totalGames == null ? '等待对局数据' : `最近 ${s.totalGames} 场 · ${s.wins == null ? '胜场未知' : `${s.wins} 胜`}${s.decided != null && s.decided !== s.totalGames ? ` · 胜率按 ${s.decided} 场计` : ''}`
-  if (card.game_id === 'nte') return '塔吉多体力快照 · 可能有同步延迟'
-  if (s.percent >= 100) return '快照显示体力已满'
+  if (s.metric === 'gacha') return s.value == null ? '特许寻访 · 待同步' : '特许寻访'
+  if (!s.hasStamina) {
+    if (s.totalGames == null) return '暂无对局数据'
+    const results = [`近 ${s.totalGames} 场`, s.wins == null ? '胜场未知' : `${s.wins} 胜`, s.losses == null ? '负场未知' : `${s.losses} 负`]
+    if (s.remakes > 0) results.push(`${s.remakes} 重开`)
+    if (s.unknownResults > 0) results.push(`${s.unknownResults} 场结果未知`)
+    return results.join(' · ')
+  }
+  if (s.percent >= 100) return '体力已满'
   if (s.expectedFullAt) return `预计 ${formatTime(s.expectedFullAt)} 回满`
-  return '恢复时间未提供'
+  return '回满时间未知'
 }
 </script>
 
@@ -68,21 +72,21 @@ function resourceNote(card) {
         <div class="summary-metric"><div><p>{{ metricLabel(card) }}</p><div class="summary-number" v-pop>{{ card.summary.metric === 'gacha' && card.summary.pityStatus === 'lower_bound' && card.summary.value != null ? '≥' : '' }}{{ card.summary.value ?? '—' }}<small>{{ card.summary.hasStamina ? `/ ${card.summary.maximum ?? '—'}` : METRIC_UNITS[card.summary.metric] }}</small></div></div><p class="summary-note">{{ resourceNote(card) }}</p></div>
         <div v-if="card.summary.percent != null" class="summary-meter" role="meter" :aria-label="metricLabel(card)" :aria-valuenow="card.summary.percent" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: `${Math.min(100, card.summary.percent)}%` }"></i></div>
         <div v-else class="summary-meter unknown"></div>
-        <div class="summary-account"><span>{{ card.summary.nickname || '暂无账号数据' }}<small v-if="card.summary.level != null">Lv.{{ card.summary.level }}</small></span><span class="summary-updated">{{ card.summary.fetchedAt ? `更新于 ${formatTime(card.summary.fetchedAt)}` : '尚无成功快照' }}</span><AppIcon name="arrow" :size="15" /></div>
+        <div class="summary-account"><span>{{ card.summary.nickname || '暂无账号数据' }}<small v-if="card.summary.level != null">Lv.{{ card.summary.level }}</small></span><span class="summary-updated">{{ card.summary.fetchedAt ? `更新于 ${formatTime(card.summary.fetchedAt)}` : '尚未同步' }}</span><AppIcon name="arrow" :size="15" /></div>
       </button>
     </div>
-    <div v-if="!games.length && loading" class="game-summary-grid" aria-busy="true"><span class="sr-only">正在读取游戏数据…</span><div v-for="n in 3" :key="n" class="game-summary is-skeleton" aria-hidden="true"><span class="t-skel-block" style="width:42%;height:16px"></span><span class="t-skel-block" style="width:36%;height:30px;margin-top:18px"></span><span class="t-skel-block" style="width:100%;height:6px;margin-top:12px"></span><span class="t-skel-block" style="width:64%;height:12px;margin-top:16px"></span></div></div>
+    <div v-if="!games.length && loading" class="game-summary-grid" aria-busy="true"><span class="sr-only">正在加载游戏数据…</span><div v-for="n in 3" :key="n" class="game-summary is-skeleton" aria-hidden="true"><span class="t-skel-block" style="width:42%;height:16px"></span><span class="t-skel-block" style="width:36%;height:30px;margin-top:18px"></span><span class="t-skel-block" style="width:100%;height:6px;margin-top:12px"></span><span class="t-skel-block" style="width:64%;height:12px;margin-top:16px"></span></div></div>
     <p v-else-if="!games.length" class="empty-page">暂无已启用的游戏。</p>
 
     <div class="overview-lower">
       <section><div class="section-heading"><h2>临近截止</h2><button class="text-link" @click="emit('navigate', 'calendar')">全部活动 <AppIcon name="arrow" :size="15" /></button></div>
-        <div class="overview-list"><p v-if="!events.length" class="empty-page">{{ loading ? '正在读取活动…' : '当前没有已知截止时间的待结束活动。' }}</p><button v-for="event in events.slice(0, 6)" :key="event.id" class="event-summary t-row" :style="{ '--game-color': gameStyle(event.gameId).color }" @click="emit('navigate', 'calendar', event.gameId)"><i class="event-mark" aria-hidden="true"></i><span class="event-copy"><strong>{{ event.name }}</strong><small>{{ event.gameName }} · {{ event.category || '限时活动' }} · {{ formatTime(event.end_at) }} 截止<span v-if="event.stale"> · 数据可能过期</span></small></span><span class="deadline-label" :class="{ urgent: event.remainingDays <= 3 }">{{ event.upcoming ? '未开始 · ' : '' }}剩 {{ event.remainingDays }} 天</span></button></div>
+        <div class="overview-list"><p v-if="!events.length" class="empty-page">{{ loading ? '正在读取活动…' : '暂无已收录的待结束活动。' }}</p><button v-for="event in events.slice(0, 6)" :key="event.id" class="event-summary t-row" :style="{ '--game-color': gameStyle(event.gameId).color }" @click="emit('navigate', 'calendar', event.gameId)"><i class="event-mark" aria-hidden="true"></i><span class="event-copy"><strong>{{ event.name }}</strong><small>{{ event.gameName }} · {{ event.category || '限时活动' }} · {{ formatTime(event.end_at) }} 截止<span v-if="event.stale"> · 待更新</span></small></span><span class="deadline-label" :class="{ urgent: event.remainingDays <= 3 }">{{ event.upcoming ? '未开始 · ' : '' }}剩 {{ event.remainingDays }} 天</span></button></div>
       </section>
       <section><div class="section-heading"><h2>公告与资讯</h2><div class="news-filters"><MenuSelect v-model="newsFilter" label="公告游戏筛选" :options="newsGameOptions" /><MenuSelect v-model="sourceFilter" label="资讯来源" align="end" :options="newsSourceOptions" /></div></div>
-        <div class="overview-list news-list"><p v-if="!news.length" class="empty-page">{{ loading ? '正在读取公告…' : '暂无公告快照。' }}</p><article v-for="(item, i) in news" :key="`${item.gameId}:${item.title}:${i}`" class="news-summary t-row"><a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }} <span>↗</span></a><p v-else>{{ item.title }}</p><div class="news-source"><i :style="{ background: gameStyle(item.gameId).color }"></i>{{ item.gameName }}<span> / {{ item.source_name || (item.capability === 'news' ? '资讯' : '官方公告') }}<span v-if="item.stale"> · 旧快照</span></span><time v-if="item.published_at">{{ formatTime(item.published_at) }}</time></div></article></div>
+        <div class="overview-list news-list"><p v-if="!news.length" class="empty-page">{{ loading ? '正在读取公告…' : '暂无公告。' }}</p><article v-for="(item, i) in news" :key="`${item.gameId}:${item.title}:${i}`" class="news-summary t-row"><a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }} <span>↗</span></a><p v-else>{{ item.title }}</p><div class="news-source"><i :style="{ background: gameStyle(item.gameId).color }"></i>{{ item.gameName }}<span> / {{ item.source_name || (item.capability === 'news' ? '资讯' : '官方公告') }}<span v-if="item.stale"> · 待更新</span></span><time v-if="item.published_at">{{ formatTime(item.published_at) }}</time></div></article></div>
       </section>
     </div>
-    <footer class="overview-footer"><span><AppIcon name="shield" :size="14" />数据保存在本机</span><span>日期与时间均为北京时间</span></footer>
+    <footer class="overview-footer"><span>北京时间（UTC+8）</span></footer>
   </div>
 </template>
 

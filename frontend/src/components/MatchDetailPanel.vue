@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue'
-import InfoHint from './InfoHint.vue'
 
 const props = defineProps({
   detail: { type: Object, default: null },
@@ -58,7 +57,7 @@ const teamResult = (team) => {
                 <th class="num">KDA</th>
                 <th class="num">伤害</th>
                 <th class="num">金币</th>
-                <th>装备<InfoHint text="装备当前仅显示编号，图标将在后续版本接入。" align="end" /></th>
+                <th>装备编号</th>
               </tr>
             </thead>
             <tbody>

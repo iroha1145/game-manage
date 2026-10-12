@@ -12,9 +12,9 @@ const faults = computed(() => rows.value.filter(row => row.tone === 'danger').le
 const summary = computed(() => {
   if (faults.value) return `${faults.value} 项需要关注`
   const offline = rows.value.filter(row => row.state === 'offline')
-  if (offline.length) return offline.some(row => row.retained) ? '客户端离线 · 保留旧数据' : '客户端离线 · 暂无成功快照'
+  if (offline.length) return offline.some(row => row.retained) ? '客户端离线 · 保留旧数据' : '客户端离线 · 暂无已保存的数据'
   const pending = rows.value.filter(row => !row.state || row.state === 'never').length
-  return pending ? `${pending} 项尚未采集` : '各项状态已更新'
+  return pending ? `${pending} 项尚未同步` : '各项状态已更新'
 })
 const tone = computed(() => faults.value ? 'danger' : summary.value === '各项状态已更新' ? 'good' : 'warn')
 // The details open as a fixed popover under the header chip (above it when the
@@ -66,16 +66,16 @@ onBeforeUnmount(() => listen(false))
 </script>
 <template>
   <details ref="panel" class="source-panel" @toggle="onToggle">
-    <summary :class="tone"><i class="source-dot" aria-hidden="true"></i><span class="source-label">采集状态<small>{{ rows.length }} 项能力</small></span><span class="source-summary">{{ summary }}</span><AppIcon class="source-chevron" name="chevron" :size="14" /></summary>
+    <summary :class="tone"><i class="source-dot" aria-hidden="true"></i><span class="source-label">同步状态<small>{{ rows.length }} 项数据</small></span><span class="source-summary">{{ summary }}</span><AppIcon class="source-chevron" name="chevron" :size="14" /></summary>
     <div class="source-body" :style="popStyle">
-      <div class="source-table" role="region" aria-label="各项能力采集状态">
+      <div class="source-table" role="region" aria-label="各项数据同步状态">
         <div v-for="row in rows" :key="row.capability" class="source-row">
           <div class="source-kind"><strong>{{ row.name }}</strong><span class="source-badge" :class="row.tone">{{ row.label }}</span><small v-if="row.retained">保留旧数据</small></div>
           <div class="source-times"><p>最后成功 <time>{{ row.last_success_at ? displayBeijing(row.last_success_at) : '暂无成功记录' }}</time></p><p>最后尝试 <time>{{ row.last_attempt_at ? displayBeijing(row.last_attempt_at) : '尚未尝试' }}</time></p></div>
-          <div class="source-error"><span v-if="row.consecutive_failures > 0">连续失败 {{ row.consecutive_failures }} 次</span><p v-if="row.error">{{ row.error }}</p><p v-else-if="row.state === 'ok'">最近采集成功</p></div>
+          <div class="source-error"><span v-if="row.consecutive_failures > 0">连续失败 {{ row.consecutive_failures }} 次</span><p v-if="row.error">{{ row.error }}</p><p v-else-if="row.state === 'ok'">最近同步成功</p></div>
         </div>
       </div>
-      <p class="source-note">北京时间 · 状态来自后台采集记录，页面读取快照不会重置成功时间。</p>
+      <p class="source-note">北京时间（UTC+8）</p>
     </div>
   </details>
 </template>

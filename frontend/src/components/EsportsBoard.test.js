@@ -25,7 +25,7 @@ test('results page and detail return preserve page, filters and row focus target
 test('cached-only results remain useful while missing future coverage and unknown winner are explicit', t => {
   const snap = snapshot(); snap.payload.matches = [{ ...snap.payload.matches[0], winner_team_id: 'unrelated' }]
   const root = mount(t, Panel, { snap, browseState: createEsportsBrowseState() })
-  assert.match(content(root), /当前缓存未收录进行中或未来比赛/)
+  assert.match(content(root), /当前筛选暂无进行中或待赛记录/)
   assert.match(content(root), /近期赛果/); assert.match(content(root), /胜者未确认/)
   assert.match(content(root), /全球总决赛.*资料暂缺/)
   assert.equal(nodes(root, 'span').filter(n => n.props.class === 'es-outcome').length, 0)

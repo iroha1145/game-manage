@@ -20,7 +20,7 @@ test('schedule to team to player and back retains filters; roster is not match l
   button(root, 'EDG').props.onClick(); await flush()
   assert.match(content(root), /当前阵容/); assert.match(content(root), /来源阵容可能滞后/)
   button(root, 'Player').props.onClick(); await flush()
-  assert.match(content(root), /打野/); assert.match(content(root), /历史首发/)
+  assert.match(content(root), /打野/); assert.match(content(root), /当前阵容/)
   button(root, '返回').props.onClick(); await flush()
   assert.equal(browseState.view, 'teams')
   button(root, '返回').props.onClick(); await flush()

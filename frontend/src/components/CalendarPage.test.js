@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
-import { calendarRange } from '../calendar.js'
+import { calendarRange, formatBeijingDateTime } from '../calendar.js'
 import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
 
 const CalendarPage = await loadVue(new URL('./CalendarPage.vue', import.meta.url))
@@ -12,7 +12,7 @@ test('calendar filters by initial game, keeps unknown events and exposes accessi
   const root = mount(t, CalendarPage, props)
   assert.match(content(root), /待定的活动/)
   assert.match(content(root), /起止时间均未知/)
-  assert.match(content(root), /数据可能过期/)
+  assert.match(content(root), /活动待更新/)
   const trigger = nodes(root, 'button').find(n => n.props['aria-label'] === '查看活动详情：待定的活动')
   assert.ok(trigger)
   await trigger.props.onClick()
@@ -33,11 +33,11 @@ test('an event ending before the next version update shows the notice wording un
   const root = mount(t, CalendarPage, props)
   const open = async () => { await nodes(root, 'button').find(n => n.props['aria-label'] === '查看活动详情：绚丽异彩').props.onClick(); await nextTick() }
   await open()
-  assert.match(content(root), /截止时间 · 北京时间 版本更新维护前/)
+  assert.match(content(root), /截止时间 版本更新维护前/)
   props.snapshots = events('2026-10-15T06:00:00+08:00')
   await nextTick(); await open()
   assert.match(content(root), /2026-10-15 06:00/)
-  assert.match(content(root), /时刻取自下个版本的维护预告/)
+  assert.match(content(root), /时间见下版本维护预告/)
 })
 
 test('navigation changes displayed time range and allows returning to today', async (t) => {
@@ -104,21 +104,23 @@ test('timeline renders exact range proportions, a separate single-date marker an
   assert.match(content(root), /截止早于开始/)
   await nodes(root, 'button').find(n => n.props['aria-label'] === '查看活动详情：跨月活动').props.onClick()
   await nextTick()
-  assert.match(content(root), /裁剪左侧和右侧/)
+  const detail = nodes(root, 'section').find(n => n.props['aria-labelledby'] === 'calendar-detail-title')
+  assert.ok(content(detail).includes(formatBeijingDateTime(range.start - 86400000)))
+  assert.ok(content(detail).includes(formatBeijingDateTime(range.end + 86400000)))
 })
 test('missing event snapshots and failed reads distinguish uncollected data from retained snapshots', async (t) => {
   const props = reactive({ games, snapshots: {}, readErrors: {}, initialGameId: 'nte' })
   const root = mount(t, CalendarPage, props)
-  assert.match(content(root), /尚未取得活动快照/)
+  assert.match(content(root), /暂无活动数据/)
   props.snapshots = snapshots
   props.readErrors = { nte: '网络连接失败' }
   await nextTick()
-  assert.match(content(root), /游戏数据读取或刷新异常/)
+  assert.match(content(root), /读取或刷新失败/)
   assert.match(content(root), /网络连接失败/)
-  assert.match(content(root), /保留上次成功快照/)
+  assert.match(content(root), /当前显示上次同步的活动/)
   assert.match(content(root), /待定的活动/)
   props.initialGameId = 'lol'
   await nextTick()
   assert.doesNotMatch(content(root), /网络连接失败/)
-  assert.match(content(root), /尚未取得活动快照/)
+  assert.match(content(root), /暂无活动数据/)
 })

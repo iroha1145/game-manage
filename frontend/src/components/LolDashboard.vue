@@ -33,13 +33,12 @@ const overview = computed(() => analysis.value?.overview || {})
 const coverage = computed(() => analysis.value?.coverage || {})
 const hex = computed(() => analysis.value?.hextech || {})
 const matches = computed(() => analysis.value?.matches || [])
-const knownResults = computed(() => Number.isFinite(overview.value.wins) && Number.isFinite(overview.value.losses) ? overview.value.wins + overview.value.losses : null)
 const hasArchive = computed(() => (coverage.value.archived_games ?? overview.value.games ?? 0) > 0)
 const filterLabel = computed(() => `${periods.find(([key]) => key === loadedFilter.value.days)?.[1]} · ${queues.find(([key]) => key === loadedFilter.value.queue)?.[1]}`)
 const metrics = computed(() => [
   { label: '对局场次', value: val(overview.value.games), note: `${val(overview.value.wins)} 胜 · ${val(overview.value.losses)} 负 · ${val(overview.value.unknown_results)} 未知 · ${val(overview.value.remakes)} 重开` },
-  { label: '个人胜率', value: percent(overview.value.winrate), note: `有效胜负 ${val(knownResults.value)} 场；重开与未知胜负不计入` },
-  { label: '平均参考评分', value: val(overview.value.average_score), note: `LOLhelper v3 · 3–16 分 · ${val(coverage.value.score_games)} 场可计算` },
+  { label: '个人胜率', value: percent(overview.value.winrate), note: `${val(overview.value.wins)} 胜 · ${val(overview.value.losses)} 负` },
+  { label: '平均参考评分', value: val(overview.value.average_score), note: `基于 ${val(coverage.value.score_games)} 场对局` },
   { label: '场均 K / D / A', value: `${val(overview.value.avg_kills)} / ${val(overview.value.avg_deaths)} / ${val(overview.value.avg_assists)}`, note: `已记录时长 ${val(overview.value.play_minutes)} 分钟` },
 ])
 const heatDays = computed(() => {
@@ -75,7 +74,7 @@ async function collect() {
   try {
     const data = await collectLol({ signal: collectController.signal })
     if (disposed || current !== collectGeneration) return
-    collectNote.value = `本次采集 ${val(data.games)} 场，详情 ${val(data.details)} 场；详情未取得 ${val(data.failed_details)} 场。`
+    collectNote.value = `已同步 ${val(data.games)} 场对局，取得 ${val(data.details)} 场详情${data.failed_details === 0 ? '。' : `；${val(data.failed_details)} 场详情未取得。`}`
     await load()
     if (!disposed && current === collectGeneration) emit('refresh')
   } catch (err) { if (!disposed && current === collectGeneration && err?.name !== 'AbortError') collectError.value = err.message }
@@ -111,9 +110,9 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
   <div class="lol-dashboard">
     <header v-if="section !== 'esports'" class="lol-header">
       <div><span class="eyebrow">PERSONAL MATCH ARCHIVE</span><h2>{{ analysis?.account?.nickname || '我的英雄联盟' }}</h2><p>本机战绩档案<span v-if="analysis?.account"> · 等级 {{ val(analysis.account.level) }}</span> · 客户端关闭后仍可查看</p></div>
-      <button type="button" class="collect-button" :disabled="collecting" @click="collect">{{ collecting ? '正在采集…' : '采集客户端战绩' }}</button>
+      <button type="button" class="collect-button" :disabled="collecting" @click="collect">{{ collecting ? '正在同步…' : '同步战绩' }}</button>
     </header>
-    <p v-if="collecting && section !== 'esports'" class="lol-notice" role="status">正在读取客户端近期窗口与详情，最多等待 120 秒。</p>
+    <p v-if="collecting && section !== 'esports'" class="lol-notice" role="status">正在同步近期战绩与详情，最多等待 120 秒。</p>
     <p v-if="collectError && section !== 'esports'" class="lol-error" role="alert">{{ collectError }}<span v-if="analysis && section !== 'esports'">；已有分析数据仍保留。</span></p>
     <p v-if="collectNote && section !== 'esports'" class="lol-notice" role="status">{{ collectNote }}</p>
     <div class="lol-toolbar">
@@ -122,7 +121,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
     </div>
     <p v-if="loading && section !== 'esports'" class="lol-notice" role="status">正在读取本地分析…<span v-if="analysis && section !== 'esports'">暂时展示上次读取结果。</span></p>
     <p v-if="error && section !== 'esports'" class="lol-error" role="alert">{{ error }}<span v-if="analysis && section !== 'esports'">；保留上次成功读取的数据。</span></p>
-    <details v-if="section === 'overview' && snaps.account?.payload" class="lol-panel"><summary>账号与排位快照{{ snaps.account.stale ? ' · 数据可能过期' : '' }}</summary><AccountCard :snap="snaps.account" /></details>
+    <details v-if="section === 'overview' && snaps.account?.payload" class="lol-panel"><summary>账号与排位{{ snaps.account.stale ? ' · 待更新' : '' }}</summary><AccountCard :snap="snaps.account" /></details>
     <p v-if="analysis && section !== 'esports'" class="coverage-line">当前展示：{{ filterLabel }} · 归档 {{ val(coverage.archived_games) }} 场 · 当前筛选 {{ val(overview.games) }} 场 · 有详情 {{ val(coverage.detail_games) }} 场<span v-if="analysis.collected_at"> · 采集于 {{ fmt(analysis.collected_at) }}（北京时间）</span></p>
     <LolEsportsPanel v-if="section === 'esports'" :snap="snaps.esports" :browse-state="esportsBrowse" @snapshot="emit('esports-snapshot', $event)" @browse-change="emit('esports-browse', $event)" />
     <template v-else-if="section === 'news'"><AnnouncementList game-id="league_of_legends" :snap="snaps.news" :extra-snaps="[{ ...snaps.announcement, capability: 'announcement' }]" /></template>
@@ -135,15 +134,15 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
     <template v-else-if="analysis && hasArchive">
       <template v-if="section === 'overview'">
         <SummaryMetrics :metrics="metrics" />
-        <p class="method-note">评分为 LOLhelper v3 参考评分，非官方评分；仅完整队伍指标可计算。胜率以非重开的已知胜负为分母；重开保留在对局数与活跃日历中，不计入胜负、均分、KDA和连续胜负。</p>
+        <details class="method-note"><summary>统计说明</summary><p>参考评分采用 LOLhelper v3，范围为 3–16 分，需完整队伍指标。胜率只统计已知胜负；重开与未知胜负不计入。重开计入对局场次与活跃日历，不计入平均评分、击杀／死亡／助攻与连续胜负。</p></details>
         <p v-if="overview.current_streak?.kind && overview.current_streak.kind !== 'unknown'" class="streak">最近连续{{ overview.current_streak.kind === 'win' ? '胜利' : '失利' }} {{ val(overview.current_streak.count) }} 场</p>
         <div class="lol-chart-grid"><LolTrend :rows="analysis.trend" metric="winrate" label="胜率趋势" unit="%" /><LolTrend :rows="analysis.trend" metric="average_score" label="参考评分趋势" :min="3" :max="16" /></div>
-        <section class="lol-panel"><div class="panel-heading"><h3>对局活跃日历</h3><span>{{ loadedFilter.days === 0 ? '最近 365 天' : `最近 ${loadedFilter.days} 天` }} · 北京时间</span></div><p class="method-note">颜色表示本地已归档对局数量；空格仅表示当日无归档记录。</p><div class="heatmap-scroll"><div class="heatmap"><div v-for="day in heatDays" :key="day.date" class="heat-cell" :style="day.games ? { background: 'var(--accent)', opacity: .25 + .75 * day.games / heatMaximum } : {}" :title="`${day.date}：${day.games} 场归档，${day.wins} 胜`" role="img" :aria-label="`${day.date}：${day.games} 场归档，${day.wins} 胜`" /></div></div><div class="heat-labels"><span>{{ heatDays[0]?.date }}</span><span>少 ▪ ▪ ▪ 多</span><span>{{ heatDays.at(-1)?.date }}</span></div></section>
+        <section class="lol-panel"><div class="panel-heading"><h3>对局活跃日历</h3><span>{{ loadedFilter.days === 0 ? '最近 365 天' : `最近 ${loadedFilter.days} 天` }} · 北京时间</span></div><p class="method-note">颜色越深，当日归档对局越多。</p><div class="heatmap-scroll"><div class="heatmap"><div v-for="day in heatDays" :key="day.date" class="heat-cell" :style="day.games ? { background: 'var(--accent)', opacity: .25 + .75 * day.games / heatMaximum } : {}" :title="`${day.date}：${day.games} 场归档，${day.wins} 胜`" role="img" :aria-label="`${day.date}：${day.games} 场归档，${day.wins} 胜`" /></div></div><div class="heat-labels"><span>{{ heatDays[0]?.date }}</span><span>少 ▪ ▪ ▪ 多</span><span>{{ heatDays.at(-1)?.date }}</span></div></section>
         <section class="lol-panel"><div class="panel-heading"><h3>常用英雄</h3><span>当前筛选的个人样本</span></div><div v-if="analysis.champions?.length" class="lol-table-wrap"><table><thead><tr><th>英雄</th><th>场次</th><th>胜率</th><th>参考评分</th></tr></thead><tbody><tr v-for="champion in analysis.champions" :key="champion.champion_id"><td>{{ champion.name || `英雄 #${champion.champion_id}` }}</td><td>{{ val(champion.games) }}</td><td>{{ percent(champion.winrate) }}</td><td>{{ val(champion.average_score) }}</td></tr></tbody></table></div><p v-else class="method-note">当前筛选没有可统计的英雄。</p></section>
         <section v-if="analysis.highlights?.length" class="lol-panel"><div class="panel-heading"><h3>个人高光</h3><span>本地样本记录</span></div><div class="highlights"><div v-for="(item, index) in analysis.highlights.slice(0, 6)" :key="index"><strong>{{ item.label }} · {{ val(item.value) }}</strong><span>{{ item.champion_name || '未知英雄' }} · {{ fmt(item.start_at) }}</span></div></div></section>
       </template>
       <template v-else-if="section === 'history'">
-        <p class="method-note">按时间从新到旧 · 时间均为北京时间 · 评分为 LOLhelper v3 参考评分</p>
+        <p class="method-note">按时间从新到旧 · 北京时间 · 参考评分范围 3–16 分</p>
         <p v-if="!matches.length" class="lol-empty">当前时间和模式下没有已归档对局，可调整筛选。</p>
         <article v-for="row in matches" :key="row.match_id" class="lol-match" :class="resultClass(row)">
           <div class="match-main"><div class="match-result">{{ result(row.win, row.remake) }}<small>{{ row.mode || queues.find(([id]) => id === String(row.queue_id))?.[1] || '未知模式' }}</small></div><div class="match-champion"><strong>{{ row.champion_name || `英雄 #${row.champion_id ?? '?'}` }}</strong><small>{{ fmt(row.start_at) }} · {{ row.duration_seconds == null ? '时长未知' : `${val(row.duration_seconds / 60)} 分钟` }}</small></div><div class="match-kda"><strong>{{ kda(row) }}</strong><small>K / D / A</small></div><div class="match-score"><strong>{{ val(row.score) }}</strong><small>参考评分</small></div><button type="button" :aria-expanded="expanded === row.match_id" @click="toggleDetail(row)">{{ expanded === row.match_id ? '收起详情' : '查看详情' }}</button></div>
@@ -152,11 +151,11 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
         </article>
       </template>
       <template v-else-if="section === 'hex'">
-        <section class="hex-intro lol-panel"><span class="eyebrow">HEXTECH ARAM · QUEUE 2400</span><h3>我的海克斯样本</h3><p>当前筛选内海克斯对局 {{ val(hex.games) }} 场 · 已记录强化 {{ val(hex.recorded_games) }} 场</p><p class="method-note">只统计海克斯大乱斗（2400）。个人样本胜率不代表外部强度，也不能说明强化导致胜负。重开与未知胜负不计入胜率分母。</p><p class="method-note">{{ hex.rating_note || '暂无同版本英雄与强化强度资料，因此不生成强化评级。' }}</p></section>
-        <section class="lol-panel"><div class="panel-heading"><h3>强化选择记录</h3><span>单局同名强化去重</span></div><div v-if="hex.augments?.length" class="lol-table-wrap"><table><thead><tr><th>强化</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="augment in hex.augments" :key="augment.id"><td>{{ augment.name || `强化 #${augment.id}` }}</td><td>{{ val(augment.games) }}</td><td>{{ val(augment.wins) }}</td><td>{{ percent(augment.winrate) }}</td></tr></tbody></table></div><p v-else class="method-note">暂无强化选择记录；未记录强化的对局不会虚构为零强度。</p></section>
+        <section class="hex-intro lol-panel"><span class="eyebrow">HEXTECH ARAM · QUEUE 2400</span><h3>我的海克斯样本</h3><p>当前筛选内海克斯对局 {{ val(hex.games) }} 场 · 已记录强化 {{ val(hex.recorded_games) }} 场</p><p class="method-note">仅统计个人海克斯大乱斗对局。样本胜率不代表强化强度；重开与未知胜负不计入胜率。</p><p class="method-note">{{ hex.rating_note || '暂无同版本强化评级资料。' }}</p></section>
+        <section class="lol-panel"><div class="panel-heading"><h3>强化选择记录</h3><span>单局同名强化去重</span></div><div v-if="hex.augments?.length" class="lol-table-wrap"><table><thead><tr><th>强化</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="augment in hex.augments" :key="augment.id"><td>{{ augment.name || `强化 #${augment.id}` }}</td><td>{{ val(augment.games) }}</td><td>{{ val(augment.wins) }}</td><td>{{ percent(augment.winrate) }}</td></tr></tbody></table></div><p v-else class="method-note">暂无强化选择记录。</p></section>
         <section class="lol-panel"><div class="panel-heading"><h3>强化组合</h3><span>本地出现过的组合</span></div><div v-if="hex.combinations?.length" class="lol-table-wrap"><table><thead><tr><th>组合</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="(combo, i) in hex.combinations" :key="i"><td>{{ combo.names?.join(' + ') || combo.ids?.join(' + ') || '未知组合' }}</td><td>{{ val(combo.games) }}</td><td>{{ val(combo.wins) }}</td><td>{{ percent(combo.winrate) }}</td></tr></tbody></table></div><p v-else class="method-note">暂无可统计的强化组合。</p></section>
       </template>
-      <footer class="lol-footnote">{{ coverage.scope_note || '数据来自当前账号的本机 LCU 归档，仅包含已采集窗口，不代表完整历史。' }}<span v-if="coverage.first_at"> · 归档范围 {{ fmt(coverage.first_at) }} — {{ fmt(coverage.last_at) }}</span></footer>
+      <footer class="lol-footnote">{{ coverage.scope_note || '本机保存的近期战绩，随每次同步补充。' }}<span v-if="coverage.first_at"> · 归档范围 {{ fmt(coverage.first_at) }} — {{ fmt(coverage.last_at) }}</span></footer>
     </template>
   </div>
 </template>

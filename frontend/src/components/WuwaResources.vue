@@ -4,7 +4,6 @@ import { useWuwaRequest } from '../wuwa-api.js'
 import { list, value, sourceDateTime } from '../wuwa-display.js'
 import WuwaStatus from './WuwaStatus.vue'
 import WuwaFields from './WuwaFields.vue'
-import InfoHint from './InfoHint.vue'
 const props = defineProps({
   snap: { default: null },
   accountKey: { type: String, default: '' },
@@ -119,7 +118,6 @@ const totals = computed(() => {
   <section class="wuwa-panel">
     <header class="cap-title">
       <h2>资源简报</h2>
-      <InfoHint text="期间获取量，非当前钱包余额。仅可查询来源返回的周期。" />
       <WuwaStatus v-if="snap?.stale || snap?.error" :snap="snap" />
     </header>
     <div class="wuwa-periods">
@@ -177,7 +175,7 @@ const totals = computed(() => {
         <WuwaStatus :snap="current" />
       </header>
       <p v-if="pending || error" class="wuwa-warning wuwa-meta">
-        仍显示上方标明周期的报告，尚未切换为新结果。
+        当前仍显示上一份报告。
       </p>
       <div class="wuwa-tiles wuwa-currencies">
         <section v-for="c in totals" :key="c.key" class="wuwa-currency wuwa-cq">
@@ -238,11 +236,11 @@ const totals = computed(() => {
       </details>
       <details v-if="current.data.recommend" class="wuwa-supplement">
         <summary>
-          {{ current.data.recommend.post_title || '来源推荐说明' }}
+          {{ current.data.recommend.post_title || '推荐说明' }}
         </summary>
         <p class="wuwa-description">{{ current.data.recommend.content }}</p>
       </details>
     </template>
-    <p v-else class="wuwa-muted">暂无可用报告，请选择可用周期。</p>
+    <p v-else class="wuwa-muted">{{ periods.length ? '暂无报告，请选择其他周期。' : '暂无报告，请刷新数据。' }}</p>
   </section>
 </template>

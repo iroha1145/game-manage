@@ -28,7 +28,7 @@ test('file import requires preview, carries confirmations, and changing coverage
   await file.props.onChange({ target: { files: [{ name: 'records.json', size: 30, text: async () => '{"format":"test"}' }] } }); await nextTick()
   await button(root, '校验并预览').props.onClick(); await nextTick()
   assert.match(content(root), /新增 2/)
-  const confirm = nodes(nodes(root, 'label').find(n => content(n).includes('记录包含截至导出时')), 'input')[0]
+  const confirm = nodes(nodes(root, 'label').find(n => content(n).includes('包含导出时该卡池')), 'input')[0]
   confirm.props['onUpdate:modelValue'](true); await nextTick()
   assert.equal(button(root, '确认导入到本机'), undefined)
   await button(root, '校验并预览').props.onClick(); await nextTick()

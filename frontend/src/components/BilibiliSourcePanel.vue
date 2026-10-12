@@ -58,35 +58,35 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
   <section v-if="visible.length" class="bili-panel" aria-label="B站官方动态来源">
     <header class="bili-head">
       <h2>B站官方动态来源</h2>
-      <span>60 天回补 · 仅图文通知</span>
+      <span>近 60 天 · 图文动态</span>
     </header>
     <div class="bili-body">
       <div class="bili-intro">
-        <span class="eyebrow">采集范围</span>
-        <InfoHint text="收录游戏内图文通知，以及官方网页活动、创作征集等社区资讯。社区资讯仅展示，不加入活动日历或提醒；视频、PV/EP和实机展示仍过滤。日历继续要求可确认的游戏内日期。" />
+        <span class="eyebrow">收录范围</span>
+        <InfoHint text="收录官方图文通知与社区资讯；日期明确的游戏内活动会加入日历和提醒。" />
       </div>
       <p v-if="error" role="alert" class="bili-alert">{{ error }}</p>
       <div v-for="s in visible" :key="s.uid" class="bili-status">
         <div class="bili-status-head">
           <strong>{{ SOURCE_NAMES[s.game_id] || s.game_id }} · UID {{ s.uid }}</strong>
-          <span v-if="s.running" class="chip">采集中</span>
+          <span v-if="s.running" class="chip">同步中…</span>
         </div>
-        <p :class="{ warning: s.status === 'error' }" role="status" class="status-line">{{ s.message || '等待首次采集' }} · 已读取 {{ s.pages || 0 }} 页</p>
+        <p :class="{ warning: s.status === 'error' }" role="status" class="status-line">{{ s.message || '等待首次同步' }} · 已读取 {{ s.pages || 0 }} 页</p>
         <dl class="kv-list cols-2 bili-kv">
           <div><dt>已保存</dt><dd>{{ s.total }} 条</dd></div>
           <div><dt>收入资讯</dt><dd>{{ s.article_count ?? s.accepted }} 条</dd></div>
-          <div><dt>历史回补</dt><dd>{{ s.history_complete ? '60天历史已回补' : '60天历史尚未完整回补' }}</dd></div>
-          <div v-if="s.last_success"><dt>最近成功</dt><dd>{{ formatTime(s.last_success) }}</dd></div>
-          <div v-if="s.next_retry && s.next_retry * 1000 > Date.now()"><dt>下次可请求</dt><dd>{{ formatTime(s.next_retry * 1000) }}</dd></div>
+          <div><dt>历史回补</dt><dd>{{ s.history_complete ? '近 60 天已回补' : '近 60 天待回补' }}</dd></div>
+          <div v-if="s.last_success"><dt>最近同步</dt><dd>{{ formatTime(s.last_success) }}</dd></div>
+          <div v-if="s.next_retry && s.next_retry * 1000 > Date.now()"><dt>下次可同步</dt><dd>{{ formatTime(s.next_retry * 1000) }}</dd></div>
         </dl>
         <div class="bili-actions">
-          <button :disabled="busy || s.running" class="ui-button small-button" @click="refresh(s.game_id, false)">采集新动态</button>
-          <button :disabled="busy || s.running" class="ui-button small-button" @click="refresh(s.game_id, true)">回补60天</button>
+          <button :disabled="busy || s.running" class="ui-button small-button" @click="refresh(s.game_id, false)">刷新数据</button>
+          <button :disabled="busy || s.running" class="ui-button small-button" @click="refresh(s.game_id, true)">回补历史</button>
           <button class="ui-button ghost small-button" @click="audit(s.game_id)">查看筛选记录</button>
         </div>
       </div>
       <div class="login-row">
-        <button type="button" class="text-link" @click="showLogin = !showLogin">{{ login ? '更新B站登录信息' : '配置B站登录信息（匿名受限时）' }}</button>
+        <button type="button" class="text-link" @click="showLogin = !showLogin">{{ login ? '更新 B 站登录' : '登录 B 站账号' }}</button>
       </div>
       <BilibiliLoginPanel v-if="showLogin" :account="account" @account-changed="accountChanged" @close="showLogin=false" />
       <div v-if="selected" class="bili-audit">
@@ -96,7 +96,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
             <MenuSelect v-model="decision" label="筛选记录" :options="[{ value: 'accepted', label: '游戏内通知' }, { value: 'excluded', label: '其他采集记录' }, { value: '', label: '全部' }]" />
           </span>
         </div>
-        <p v-if="!filtered.length" class="muted bili-empty">暂无符合条件的已采集记录；不代表官方没有发布。</p>
+        <p v-if="!filtered.length" class="muted bili-empty">暂无符合条件的动态</p>
         <article v-for="r in filtered" :key="r.id">
           <a v-if="safeUrl(r.url)" :href="safeUrl(r.url)" target="_blank" rel="noopener noreferrer" class="audit-title">{{ r.title || '无文字动态' }} ↗</a>
           <div class="audit-meta">

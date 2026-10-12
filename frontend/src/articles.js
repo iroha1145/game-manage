@@ -80,10 +80,10 @@ export function prepareArticles(snapshots) {
 }
 
 export function contentNote(item) {
-  if (item.content_status === 'video') return '这是视频内容，请前往原文观看。'
-  if (item.content_status === 'external') return '这是外部专题或活动页面，请前往原文查看完整内容。'
-  if (item.content_status === 'stale') return `${item.content_error || '正文更新失败'}，以下保留上次成功正文。`
+  if (item.content_status === 'video') return '视频内容，请查看原文。'
+  if (item.content_status === 'external') return '专题或活动页面，请查看原文。'
+  if (item.content_status === 'stale') return `${item.content_error || '正文同步失败'}。当前显示已保存的正文。`
   if (item.content_status === 'error') return item.content_error || '正文暂时无法读取，请稍后刷新或查看原文。'
-  if (item.content_status !== 'full') return item.content_error || '来源暂未提供可读取的正文，请查看原文。'
+  if (item.content_status !== 'full') return item.content_error || '暂无正文，请查看原文。'
   return ''
 }

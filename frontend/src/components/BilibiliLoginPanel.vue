@@ -10,10 +10,10 @@ const mode=ref('qr'),session=ref(null),state=ref('ready'),busy=ref(false),error=
 const username=ref(''),password=ref(''),mobile=ref(''),code=ref(''),sessdata=ref(''),csrf=ref(''),buvid=ref(''),proof=ref(null)
 const cooldown=ref(0),qrExpires=ref(0)
 const validMobile=computed(()=>/^1[3-9][0-9]{9}$/.test(mobile.value))
-const stateText=computed(()=>({waiting_scan:'等待使用哔哩哔哩 App 扫码',waiting_confirm:'已扫码，请在 App 确认',verifying:'正在验证账号',pending_save:'账号已验证，等待保存',complete:'登录账号已保存',expired:'登录已过期，请重新开始',blocked:'本次登录已停止',failed:'登录未完成，请重新验证或重试'})[state.value]||'')
+const stateText=computed(()=>({waiting_scan:'等待使用哔哩哔哩 App 扫码',waiting_confirm:'已扫码，请在 App 确认',verifying:'正在验证账号',pending_save:'账号已验证，等待保存',complete:'登录成功',expired:'登录已过期，请重新登录',blocked:'本次登录已停止',failed:'登录未完成，请重新验证或重试'})[state.value]||'')
 let generation=0,widgetGeneration=0,proofDeadline=0,controller=new AbortController(),timer,widget,stopped=false,qrDeadline=0,cooldownDeadline=0
 function destroyWidget() {widgetGeneration++;try{widget?.destroy?.()}catch{} widget=null;proof.value=null;proofDeadline=0}
-function validProof() {if(!proof.value||Date.now()>=proofDeadline){destroyWidget();error.value='人工验证已过期，请重新验证';return false}return true}
+function validProof() {if(!proof.value||Date.now()>=proofDeadline){destroyWidget();error.value='安全验证已过期，请重新验证';return false}return true}
 function clearSecrets() {password.value=code.value=sessdata.value=csrf.value=buvid.value='';destroyWidget()}
 function cancel(sid) { if(sid) void cancelBilibiliSession(sid).catch(()=>{}) }
 function invalidate() {
@@ -33,7 +33,7 @@ function update(result) {
   state.value=result.state||state.value
   if(state.value==='complete') {
     const account=result.account;const warning=result.warning;invalidate();state.value='complete'
-    message.value=warning||'账号已验证并加密保存，可手动采集动态';emit('account-changed',account)
+    message.value=warning||'登录成功';emit('account-changed',account)
   }
 }
 async function handleError(e,run) {
@@ -96,7 +96,7 @@ async function prepareCaptcha() {
         // the installed SDK only consumes validate/seccode from the widget.
         if(result?.geetest_validate&&result.geetest_seccode)proof.value={validate:result.geetest_validate,seccode:result.geetest_seccode}
       })
-      const failed=()=>{if(run===generation&&widgetRun===widgetGeneration&&!stopped){proof.value=null;error.value='人工验证未完成，请重新验证'}}
+      const failed=()=>{if(run===generation&&widgetRun===widgetGeneration&&!stopped){proof.value=null;error.value='安全验证未完成，请重新验证'}}
       object.onError(failed);object.onClose?.(()=>{if(!proof.value)failed()})
       object.onReady(()=>{if(run===generation&&widgetRun===widgetGeneration&&!stopped)object.verify()})
     })
@@ -134,7 +134,7 @@ onUnmounted(()=>{stopped=true;invalidate()})
 
 <template>
   <section class="bili-login" aria-label="B站登录">
-    <p class="login-note">用于读取B站官方动态。登录凭据仅在本机加密保存，密码和短信验证码不保存。接口可能因B站风控暂时不可用。</p>
+    <p class="login-note">用于同步 B 站官方动态。凭据在本机加密保存，不保存密码和短信验证码。</p>
     <p v-if="props.account.configured" class="login-note">当前账号：{{ props.account.nickname || props.account.uid || '已配置' }} · {{ props.account.state === 'validated' ? '本次运行已验证' : '已配置，尚未重新验证' }}</p>
     <nav class="login-tabs" aria-label="B站登录方式">
       <button v-for="[value,label] in modes" :key="value" type="button" :aria-pressed="mode===value" @click="selectMode(value)">{{ label }}</button>
@@ -154,25 +154,25 @@ onUnmounted(()=>{stopped=true;invalidate()})
       <form v-else-if="mode==='password'" @submit.prevent="submitPassword">
         <label>手机号 / 邮箱 / 账号<input v-model="username" maxlength="254" autocomplete="username" /></label>
         <label>密码<input v-model="password" type="password" maxlength="512" autocomplete="current-password" /></label>
-        <button type="button" class="ui-button" :disabled="busy || !username.trim()" @click="prepareCaptcha">{{ proof ? '重新人工验证' : '完成人工验证' }}</button>
-        <button type="submit" class="ui-button primary" :disabled="busy || !proof || !password">登录并保存</button>
+        <button type="button" class="ui-button" :disabled="busy || !username.trim()" @click="prepareCaptcha">{{ proof ? '重新验证' : '安全验证' }}</button>
+        <button type="submit" class="ui-button primary" :disabled="busy || !proof || !password">登录</button>
       </form>
       <form v-else-if="mode==='sms'" @submit.prevent="submitSms">
         <label>中国大陆手机号 +86<input v-model="mobile" inputmode="tel" maxlength="11" autocomplete="tel-national" /></label>
-        <button type="button" class="ui-button" :disabled="busy || !validMobile || cooldown>0" @click="prepareCaptcha">{{ proof ? '重新人工验证' : '完成人工验证' }}</button>
+        <button type="button" class="ui-button" :disabled="busy || !validMobile || cooldown>0" @click="prepareCaptcha">{{ proof ? '重新验证' : '安全验证' }}</button>
         <button type="button" class="ui-button" :disabled="busy || !validMobile || !proof || cooldown>0" @click="sendSms">{{ cooldown ? `${cooldown} 秒后重发` : '发送短信验证码' }}</button>
         <label>短信验证码<input v-model="code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" /></label>
-        <button type="submit" class="ui-button primary" :disabled="busy || state!=='sms_sent' || !/^[0-9]{4,8}$/.test(code)">登录并保存</button>
+        <button type="submit" class="ui-button primary" :disabled="busy || state!=='sms_sent' || !/^[0-9]{4,8}$/.test(code)">登录</button>
       </form>
       <form v-else @submit.prevent="importCookie">
         <p class="login-note">备用入口：从已登录的 bilibili.com 浏览器 Cookie 复制，验证有效后保存。</p>
         <label>SESSDATA<input v-model="sessdata" type="password" maxlength="4096" autocomplete="off" /></label>
         <label>bili_jct（可选）<input v-model="csrf" type="password" maxlength="128" autocomplete="off" /></label>
         <label>buvid3（可选）<input v-model="buvid" type="password" maxlength="256" autocomplete="off" /></label>
-        <button type="submit" class="ui-button primary" :disabled="busy || !sessdata">验证并加密保存</button>
+        <button type="submit" class="ui-button primary" :disabled="busy || !sessdata">验证并保存</button>
       </form>
     </template>
-    <p v-if="state==='blocked'"><a href="https://passport.bilibili.com/login" target="_blank" rel="noopener noreferrer">前往B站官方登录页完成安全验证</a>，然后重新开始。</p>
+    <p v-if="state==='blocked'"><a href="https://passport.bilibili.com/login" target="_blank" rel="noopener noreferrer">前往B站官方登录页完成安全验证</a>，然后重新登录。</p>
     <button type="button" class="text-link close-login" @click="close">关闭登录</button>
   </section>
 </template>

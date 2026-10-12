@@ -32,7 +32,7 @@ function receiveGuide(value) {
     </header>
     <WuwaGuideUpdates :character-id="characterId" :name="original?.name || characterName" :attribute="original?.attribute || attribute" :sources="guide?.sources || []" @guide="receiveGuide" />
     <template v-if="guide">
-      <p class="guide-intro">培养建议 · 各项保留版本、适用条件与核查状态</p>
+      <p class="guide-intro">培养建议</p>
       <p class="wuwa-meta">{{ guide.reviewedAt ? `资料核查于 ${guide.reviewedAt}` : guide.fetchedAt ? '原帖自动提炼，尚未人工核查' : `资料核查于 ${guideUpdatedAt}` }} · {{ reviewedCount }}/5 项已核对原帖<span v-if="reviewedCount < 5"> · 其余条目标明状态</span></p>
       <p v-if="guide.extractionNote" class="guide-note">{{ guide.extractionNote }}</p>
       <div class="guide-grid">
@@ -43,7 +43,7 @@ function receiveGuide(value) {
             <span class="guide-state">{{ stateLabel(section.status) }}</span>
           </header>
           <WuwaGuideVisual v-if="section.text" :text="section.text" :section-key="section.key" :character-id="characterId" />
-          <p v-else class="guide-advice">暂无已核实的推荐，暂不补写。</p>
+          <p v-else class="guide-advice">暂无推荐方案</p>
           <p v-if="section.note" class="guide-note">{{ section.note }}</p>
           <footer v-if="sourceFor(section)">
             <span class="guide-version">{{ guideVersion(sourceFor(section)) }}</span>
@@ -54,8 +54,8 @@ function receiveGuide(value) {
         </article>
       </div>
       <details :key="guide.id" class="guide-sources">
-        <summary>来源与补充资料 · {{ guide.sources.length }} 篇</summary>
-        <p class="wuwa-meta">适用版本与发布时间分别列出；每项显示核查状态。点击检查更新可读取新帖图文并提炼。</p>
+        <summary>参考资料 · {{ guide.sources.length }} 篇</summary>
+        <p class="wuwa-meta">点击“检查更新”查看新的图文攻略。</p>
         <article v-for="source in guide.sources" :key="source.id" class="guide-source">
           <span class="guide-version">{{ guideVersion(source) }}</span>
           <a v-if="guideSourceUrl(source.url)" :href="guideSourceUrl(source.url)" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{{ source.title }} ↗</a>

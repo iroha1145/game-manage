@@ -65,22 +65,22 @@ async function download() {
   <section class="cap-card endfield-gacha" aria-labelledby="endfield-gacha-title">
     <header class="cap-title">
       <h2 id="endfield-gacha-title">寻访记录</h2>
-      <InfoHint text="官方只能查到约 90 天的记录，本工具从第一次同步开始在本机长期保存。退出登录不会删除本机记录。" />
+      <InfoHint text="官方可查询约 90 天记录；同步后保存在本机，退出登录不会删除本机记录。" />
       <span class="cap-meta"><template v-if="summary">共 <b>{{ summary.total }}</b> 抽<template v-if="fetchedAt"> · 同步于 {{ fetchedAt }}</template></template><button type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button></span>
     </header>
     <p v-if="!accountId" class="notice">登录终末地后，点「刷新数据」开始同步寻访记录。</p>
     <p v-else-if="!summary" class="notice">尚未同步寻访记录，点「刷新数据」开始同步。</p>
     <template v-else>
       <p v-if="!summary.complete" class="notice warn" role="status">还有未同步完的记录，下次刷新会接着同步。</p>
-      <p v-if="!pools.length" class="empty">近 90 天没有寻访记录。</p>
+      <p v-if="!pools.length" class="empty">本机暂无寻访记录。</p>
       <div v-else class="pool-grid">
         <article v-for="pool in pools" :key="pool.key" class="pool-card">
           <header class="pool-head">
             <h3>{{ pool.label }}</h3>
-            <span v-if="pool.gaps" class="chip warn">{{ pool.pending ? '有未同步完的区段' : '有查不到的缺口' }}<InfoHint align="end" text="缺口前后的抽数接不上，跨过缺口的「距上次 6★」只给最少值（≥）。" /></span>
+            <span v-if="pool.gaps" class="chip warn">{{ pool.pending ? '部分待同步' : '记录有缺口' }}<InfoHint align="end" text="记录不连续时，跨缺口的抽数以 ≥ 表示已知最少值。" /></span>
           </header>
           <div class="pity">
-            <span class="k">距上次 6★<InfoHint v-if="pool.since_last_six?.status === 'lower_bound'" text="这是最少抽数：记录有缺口、含免费寻访（是否计入垫抽尚未核实），或更早的抽数已查不到。" /></span>
+            <span class="k">距上次 6★<InfoHint v-if="pool.since_last_six?.status === 'lower_bound'" text="≥ 表示已知最少抽数。记录缺口、更早记录缺失或免费寻访会影响统计；免费寻访是否计入保底尚不确定。" /></span>
             <strong>{{ pityText(pool.since_last_six) }}</strong>
           </div>
           <div class="stack-bar" role="img" :aria-label="split(pool).map(part => `${part.label} ${part.count}`).join('，')">
@@ -97,7 +97,7 @@ async function download() {
         </article>
       </div>
       <details class="panel record-list" @toggle="opened = $event.target.open">
-        <summary>逐条记录<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
+        <summary>逐条记录（北京时间）<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
         <div class="panel-body">
           <div class="toolbar">
             <MenuSelect v-model="recordPool" label="卡池" :options="poolOptions" :disabled="busy" />

@@ -16,7 +16,7 @@ test('real panel displays provided skill and chain icons and tolerates empty ech
   assert.ok(urls.includes('https://web-static.kurobbs.com/chain.png'))
   assert.match(content(root), /Lv.0/)
   assert.match(content(root), /完整技能条件/)
-  assert.match(content(root), /未提供装备声骸/)
+  assert.match(content(root), /暂无装备声骸数据/)
 })
 
 test('broken icons fall back to a name marker and retry when the source changes', async t => {

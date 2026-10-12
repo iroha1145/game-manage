@@ -97,7 +97,7 @@ async function saveRule() {
     await saveLedgerRule({ pool_id: rulePool.value, s_hard_pity: Number(ruleLimit.value), reset_reward_type: ruleType.value,
       source_note: ruleNote.value, confirmed: ruleConfirmed.value })
     if (id !== generation) return
-    message.value = '卡池规则已保存，按用户设置计算'; await load()
+    message.value = '自定义规则已保存'; await load()
   } catch (e) { if (id === generation) error.value = e.message }
   finally { if (id === generation) busy.value = false }
 }
@@ -114,20 +114,19 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
   <section class="cap-card ledger" aria-label="本地逐抽账本">
     <header class="cap-title ledger-head">
       <h2>逐抽账本</h2>
-      <InfoHint text="逐条保存真实记录。导入覆盖范围与社区统计分别计算。" />
-      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已保存记录 · 截至导入文件时间<InfoHint text="只包含已导入文件里的记录，不代表已经覆盖账号全部历史。" /></span>
+      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已导入记录</span>
       <span class="head-actions">
         <label v-if="accountId" class="check"><input type="checkbox" v-model="segmented" :disabled="busy" />分段导出大账本</label>
         <button v-if="accountId" type="button" class="ui-button small-button" :disabled="busy" @click="load">刷新账本</button>
         <button type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button>
       </span>
     </header>
-    <p v-if="!accountId" class="notice">请先在社区账号登录异环并刷新账号资料，账本按游戏角色独立保存。</p>
+    <p v-if="!accountId" class="notice">请先登录异环并刷新账号资料。账本按角色分别保存。</p>
     <template v-else>
       <div v-if="segmented" class="toolbar export-controls">
         <label>从第 <input type="number" v-model="exportStart" min="1" :disabled="busy" /> 条开始</label>
         <button v-if="exportNext != null" type="button" class="ui-button small-button" :disabled="busy" @click="nextExport">下载下一段</button>
-        <InfoHint align="end" text="每段最多 2,000 条，过大时自动缩小。分段恢复保留流水，垫抽范围需原始连续记录重新证明。" />
+        <InfoHint align="end" text="每段最多 2,000 条。恢复后需重新确认记录连续，才能计算垫抽。" />
         <p class="export-warning">请按提示下载全部分段，期间不要导入新记录。</p>
       </div>
       <p v-if="error" role="alert" class="notice error">{{ error }}</p><p v-if="message" role="status" class="notice">{{ message }}</p>
@@ -136,26 +135,26 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
           <div class="file-row">
             <label class="file-picker">选择 JSON 文件<input type="file" accept=".json,application/json" :disabled="busy" @change="chooseFile" /></label>
             <span v-if="fileName" class="file-name">{{ fileName }}</span>
-            <InfoHint align="end" text="支持 nte-history-export v1 和本账本导出的 JSON；最大 8 MB / 50,000 条。塔吉多出 S 汇总不能作为逐抽历史导入。" />
+            <InfoHint align="end" text="支持本账本和 nte-history-export v1 文件，最多 8 MB、50,000 条。" />
           </div>
-          <div class="coverage"><label><input type="checkbox" v-model="latest" :disabled="busy" />记录包含截至导出时该卡池最新的一抽</label><label><input type="checkbox" v-model="continuous" :disabled="busy" />已核对所导入记录连续，没有漏页或缺行</label><label><input type="checkbox" v-model="identity" :disabled="busy" />文件未标明 UID 时，我确认它属于当前角色</label></div>
-          <div class="panel-actions"><button type="button" class="ui-button small-button" :disabled="busy || !documentData" @click="inspect">校验并预览</button><InfoHint text="这些确认仅说明你核对过的范围。文件自带缺页或解码失败警告时，垫抽仍会标记未知。" /></div>
+          <div class="coverage"><label><input type="checkbox" v-model="latest" :disabled="busy" />包含导出时该卡池的最新一抽</label><label><input type="checkbox" v-model="continuous" :disabled="busy" />记录连续，无漏页或缺行</label><label><input type="checkbox" v-model="identity" :disabled="busy" />文件未标明角色编号时，确认属于当前角色</label></div>
+          <div class="panel-actions"><button type="button" class="ui-button small-button" :disabled="busy || !documentData" @click="inspect">校验并预览</button><InfoHint text="文件有缺页或读取错误时，需补全记录才能计算垫抽。" /></div>
           <div v-if="preview" class="preview" role="status">
             <p class="preview-head"><strong>预览</strong><span class="chip"><b>{{ preview.record_count }}</b> 条</span><span class="chip">新增 <b>{{ preview.new_records }}</b></span><span class="chip">重复 <b>{{ preview.duplicates }}</b></span></p>
-            <p v-if="preview.imported_rules?.length">将同时恢复文件中的 {{ preview.imported_rules.length }} 条用户设置规则。</p>
-            <p v-if="preview.identity_confirmation_required" class="warn">文件缺少角色身份，请勾选归属确认后重新预览。</p>
+            <p v-if="preview.imported_rules?.length">同时恢复文件中的 {{ preview.imported_rules.length }} 条自定义规则。</p>
+            <p v-if="preview.identity_confirmation_required" class="warn">文件未标明角色，请勾选“确认属于当前角色”后重新预览。</p>
             <ul v-if="preview.warnings?.length"><li v-for="(note, index) in preview.warnings" :key="index">{{ requirementLabel(note) }}</li></ul>
             <ul v-if="preview.missing_requirements?.length"><li v-for="(note, index) in preview.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul>
             <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">确认导入到本机</button>
           </div>
-          <details class="source-help"><summary>文件从哪里来？还缺哪些接口？</summary><p>现有社区接口不含全部逐抽。可使用真实游戏历史导出文件；记录只能覆盖已捕获、已翻阅的范围。</p><p><a href="https://github.com/Golumpa/nte-exporter" target="_blank" rel="noopener noreferrer">nte-exporter 格式与使用说明 ↗</a>：游戏历史通信导出，国服兼容尚未实测。国服截图 OCR 导出目前需要转换成账本规范并核对识别结果。</p><p>仍缺：经验证的国服全量历史接口及分页方式、历史保留期限、不同卡池继承和 UP 规则。没有这些证据时不会宣称自动全量同步或必出 UP。</p></details>
+          <details class="source-help"><summary>导入文件说明</summary><p>使用逐抽历史导出文件，或本账本导出的备份。社区出 S 汇总无法导入。</p><p><a href="https://github.com/Golumpa/nte-exporter" target="_blank" rel="noopener noreferrer">nte-exporter 文件格式说明 ↗</a></p></details>
         </div>
       </details>
       <div v-if="summary?.pools?.length" class="pool-grid">
         <article v-for="item in summary.pools" :key="item.pool_id" class="pool-card">
-          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">按用户规则<InfoHint align="end" text="按用户设置的规则计算，不表示已核实官方规则或必出 UP。" /></span><button type="button" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
+          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">自定义规则</span><button type="button" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
           <dl class="kv-grid pity-kv"><div><dt>当前垫抽</dt><dd>{{ pityLabel(item.pity) }}</dd></div><div><dt>距所设 S 保底</dt><dd>{{ item.pity?.hard_pity_remaining == null ? '未知' : `${item.pity.hard_pity_remaining} 抽` }}</dd></div></dl>
-          <p class="muted">已导入 {{ item.total_pulls }} 次计数抽取<template v-if="item.pity?.as_of"><span class="sep" aria-hidden="true" />记录范围：{{ ledgerDate(item.pity.latest_record_at || item.pity.as_of) }}</template></p>
+          <p class="muted">已导入 {{ item.total_pulls }} 次计数抽取<template v-if="item.pity?.as_of"><span class="sep" aria-hidden="true" />最新记录：{{ ledgerDate(item.pity.latest_record_at || item.pity.as_of) }}</template></p>
           <p v-if="item.pity?.basis" class="muted">{{ requirementLabel(item.pity.basis) }}</p>
           <ul v-if="item.pity?.missing_requirements?.length" class="requirements"><li v-for="(note, index) in item.pity.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul>
         </article>
@@ -166,8 +165,8 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
           <label>S 硬保底抽数<input v-model="ruleLimit" type="number" min="1" max="1000" required /></label>
           <div class="field">重置奖励<MenuSelect v-model="ruleType" label="重置奖励" :options="[{ value: 'character', label: 'S 角色' }, { value: 'arc', label: 'S 弧盘' }]" /></div>
           <label class="wide">规则依据<input v-model="ruleNote" maxlength="200" required placeholder="例如：游戏内某卡池规则及核对日期" /></label>
-          <label class="wide check"><input type="checkbox" v-model="ruleConfirmed" required />我已核对这项卡池规则，按我的设置计算</label>
-          <div class="wide panel-actions"><button class="ui-button small-button" :disabled="busy || !rulePool || !ruleConfirmed">保存规则</button><InfoHint text="只有记录完整性和奖励语义满足条件，才计算所设保底剩余。请核对游戏内对应卡池规则。" /></div>
+          <label class="wide check"><input type="checkbox" v-model="ruleConfirmed" required />已核对游戏内规则，按此设置计算</label>
+          <div class="wide panel-actions"><button class="ui-button small-button" :disabled="busy || !rulePool || !ruleConfirmed">保存规则</button><InfoHint text="请填写对应卡池的游戏内规则。记录完整且奖励类型明确时，显示距所设 S 保底的抽数。" /></div>
         </form>
       </details>
       <div class="toolbar records-toolbar">
@@ -175,7 +174,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
         <MenuSelect v-model="pool" label="卡池" :options="[{ value: '', label: '全部卡池' }, ...(summary?.pools || []).map(item => ({ value: item.pool_id, label: poolLabel(item.pool_id) }))]" @change="offset = 0" />
         <span class="count">{{ recordTotal }} 条</span>
       </div>
-      <p v-if="!records.length" class="empty">暂无逐抽记录<InfoHint align="end" text="导入后即可查看；这里不会用社区出 S 明细补造历史。" /></p>
+      <p v-if="!records.length" class="empty">暂无逐抽记录，请导入 JSON 文件。</p>
       <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间（源文件）</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td>{{ row.reward_name || row.reward_id }}</td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
       <nav v-if="recordTotal > 100" class="pagination" aria-label="抽卡记录分页"><button type="button" class="ui-button small-button" :disabled="offset === 0 || busy" @click="offset = Math.max(0, offset - 100)">上一页</button><span>{{ Math.floor(offset / 100) + 1 }} / {{ Math.ceil(recordTotal / 100) }}</span><button type="button" class="ui-button small-button" :disabled="offset + 100 >= recordTotal || busy" @click="offset += 100">下一页</button></nav>
     </template>

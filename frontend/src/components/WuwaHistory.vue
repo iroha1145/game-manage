@@ -87,7 +87,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
     <header class="cap-title">
       <h2>成长记录</h2>
       <InfoHint
-        text="从成功观测开始记录。同一角色首次记录是基线，不计作练度提升；一次观测不能说明趋势。完整详情仅在你打开角色面板后记录。"
+        text="刷新数据后保存角色与玩法记录；完整角色面板需打开详情后记录。"
       />
       <button
         type="button"
@@ -95,7 +95,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
         :disabled="busy"
         @click="backfill"
       >
-        回补本地快照
+        回补历史
       </button>
     </header>
     <div class="wuwa-history-bar">
@@ -116,10 +116,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
       </nav>
       <p v-if="archive" class="wuwa-meta wuwa-bar-end">
         开始记录 {{ stamp(archive.archive_started_at) }}（北京时间） ·
-        {{ value(archive.total) }} 条观测，非变化次数<InfoHint
-          :text="typeof archive.coverage === 'string' && archive.coverage ? archive.coverage : '仅保存成功观测；首次记录之前未知。'"
-          align="end"
-        />
+        累计 {{ value(archive.total) }} 条记录
       </p>
     </div>
     <p v-if="busy" role="status" class="wuwa-meta">正在读取历史…</p>
@@ -129,9 +126,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
     </p>
     <template v-if="archive"
       ><p v-if="!list(archive.items).length" class="wuwa-notice">
-        尚无此类历史。<InfoHint
-          text="官方旧成绩不可用不代表没有成绩；可尝试回补已有同账号快照。"
-        />
+        暂无记录，请刷新数据或回补历史。
       </p>
       <ul v-else class="wuwa-history">
         <li v-for="item in list(archive.items)" :key="item.id">
@@ -151,13 +146,11 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
               class="badge"
               :class="item.delta == null ? 'wuwa-badge-off' : 'wuwa-badge-on'"
               >{{
-                item.delta == null ? '首次观测 · 基线' : '观测到变化'
+                item.delta == null ? '首次记录' : '有变化'
               }}</span
             >
             <span class="wuwa-meta wuwa-history-times"
-              >来源 {{ stamp(item.source_at) }} · 观测
-              {{ stamp(item.observed_at) }} · 入档
-              {{ stamp(item.archived_at) }}（北京时间）</span
+              >记录时间 {{ stamp(item.observed_at) }}（北京时间）</span
             >
           </header>
           <table
@@ -205,7 +198,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
             </p>
           </details>
           <details class="wuwa-supplement">
-            <summary>查看本次观测详情</summary>
+            <summary>查看本次记录详情</summary>
             <WuwaTower
               v-if="kind === 'tower'"
               :data="item.payload"
@@ -241,7 +234,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
       class="ui-button small-button"
       @click="load()"
     >
-      重试读取历史
+      刷新数据
     </button>
   </section>
 </template>

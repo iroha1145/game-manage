@@ -56,7 +56,7 @@ test('challenge boss filtering never fills a missing boss with unrelated guides'
   nodes(root,'select')[0].props['onUpdate:modelValue']('叹息古龙')
   await tick()
   assert.equal(nodes(root,'article').length,0)
-  assert.match(content(root),/暂未收录此首领/)
+  assert.match(content(root),/暂无该首领图文攻略/)
 })
 
 test('activity details retain source errors and stale status inside the dialog',async t=>{
@@ -64,14 +64,14 @@ test('activity details retain source errors and stale status inside the dialog',
   await click(root,'查看详情')
   const dialog=nodes(root,'dialog')[0]
   assert.match(content(dialog),/玩法采集失败/)
-  assert.match(content(dialog),/旧数据/)
+  assert.match(content(dialog),/待更新/)
 })
 
 test('empty news keeps source failure visible without requiring a private account',async t=>{
   const root=mount(t,await component('WuwaDashboard'),{initialSection:'news',snaps:{news:{payload:[],stale:true,error:'公告采集失败'}}})
   assert.match(content(root),/暂无公告与资讯/)
   assert.match(content(root),/公告采集失败/)
-  assert.match(content(root),/数据可能过期/)
+  assert.match(content(root),/待更新/)
 })
 
 test('tower lineup pictures are inline, switch per source, and recover after an image failure',async t=>{

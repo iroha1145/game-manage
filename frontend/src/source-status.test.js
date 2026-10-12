@@ -14,12 +14,12 @@ test('offline and unconfigured are nonfault states, retaining successful data wh
   const offline = describeSource({ state: 'offline', last_success_at: '2026-09-14T12:00:00Z', consecutive_failures: 0 })
   assert.equal(offline.label, '客户端离线'); assert.equal(offline.tone, 'muted'); assert.equal(offline.retained, true)
   assert.equal(describeSource({ state: 'unconfigured' }).label, '未配置')
-  assert.equal(describeSource(null).label, '尚未采集')
+  assert.equal(describeSource(null).label, '尚未同步')
 })
 test('backend auth failure takes priority over a fresh stored payload', () => {
   const s = sourceForGame('nte', [{ game_id: 'nte', capability: 'stamina', state: 'ok' },
     { game_id: 'nte', capability: 'roles', state: 'auth_expired', error: '重新登录' }])
-  assert.equal(s.label, '登录失效'); assert.equal(s.tone, 'danger')
+  assert.equal(s.label, '登录已失效'); assert.equal(s.tone, 'danger')
 })
 test('status aggregation isolates games and keeps native capability names', () => {
   const rows = [{ game_id: 'nte', state: 'error' }, { game_id: 'league_of_legends', state: 'offline' }]

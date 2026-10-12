@@ -1,6 +1,6 @@
 const STATUS = {
-  never: ['尚未采集', 'muted'], ok: ['最近成功', 'good'], offline: ['客户端离线', 'muted'],
-  unconfigured: ['未配置', 'muted'], auth_expired: ['登录失效', 'danger'], error: ['采集异常', 'danger'],
+  never: ['尚未同步', 'muted'], ok: ['已同步', 'good'], offline: ['客户端离线', 'muted'],
+  unconfigured: ['未配置', 'muted'], auth_expired: ['登录已失效', 'danger'], error: ['同步失败', 'danger'],
 }
 const PRIORITY = { auth_expired: 6, error: 5, offline: 4, unconfigured: 3, never: 2, ok: 1 }
 export function describeSource(row) {

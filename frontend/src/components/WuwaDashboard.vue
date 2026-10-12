@@ -147,7 +147,7 @@ const roleNames = computed(() =>
       /><WuwaActivities
         v-else-if="section === 'activities'"
         :snap="current.activities"
-      /><WuwaModuleCard v-else-if="section === 'resources'" title="资源简报" description="期间获取量，非当前钱包余额；在详情中切换周、月或版本报告。" :snap="current.resources" :metrics="[
+      /><WuwaModuleCard v-else-if="section === 'resources'" title="资源简报" description="查看各周期获取的资源；在详情中切换周、月或版本报告。" :snap="current.resources" :metrics="[
         {label:'当前报告贝币',value:current.resources?.payload?.current?.data?.total_coin},
         {label:'当前报告星声',value:current.resources?.payload?.current?.data?.total_star},
       ]">
@@ -158,8 +158,8 @@ const roleNames = computed(() =>
         <WuwaResources :snap="current.resources" :account-key="accountKey" />
       </WuwaModuleCard>
       <template v-else-if="accountKey">
-        <WuwaModuleCard v-if="section === 'gacha'" title="抽卡历史" description="本地抽卡档案、出金统计与手动导入。只有点击导入才会使用授权链接。"><WuwaGacha :account-key="accountKey" /></WuwaModuleCard>
-        <WuwaModuleCard v-if="section === 'history'" title="成长记录" description="跨期深塔成绩、角色练度和完整面板的历史观测。"><WuwaHistory :account-key="accountKey" :role-names="roleNames" /></WuwaModuleCard>
+        <WuwaModuleCard v-if="section === 'gacha'" title="抽卡历史" description="查看已导入抽卡记录与五星统计。"><WuwaGacha :account-key="accountKey" /></WuwaModuleCard>
+        <WuwaModuleCard v-if="section === 'history'" title="成长记录" description="查看跨期深塔成绩与角色培养变化。"><WuwaHistory :account-key="accountKey" :role-names="roleNames" /></WuwaModuleCard>
       </template>
       <p v-else class="wuwa-panel">
         尚未读取到当前账号标识，请刷新数据后重试。

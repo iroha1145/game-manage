@@ -46,11 +46,15 @@ export function summaryFor(game, snapshots = {}) {
   const value = finiteValue(metric === 'stamina' ? stamina?.current : metric === 'gacha' ? pity?.count : stats?.winrate)
   const maximum = finiteValue(stamina?.maximum)
   const primary = snapshots[metric] || snapshots.account
+  const totalGames = finiteValue(stats?.total_games), wins = finiteValue(stats?.wins)
+  const decided = finiteValue(stats?.decided_games), remakes = finiteValue(stats?.remakes)
   return {
     nickname: account?.nickname || null, level: finiteValue(account?.level), hasStamina, metric,
     pityStatus: pity?.status || null,
     value, maximum, percent: metric === 'stamina' ? percentOf(value, maximum) : metric === 'stats' ? value : null,
-    expectedFullAt: stamina?.expected_full_at || null, totalGames: finiteValue(stats?.total_games), wins: finiteValue(stats?.wins), decided: finiteValue(stats?.decided_games),
+    expectedFullAt: stamina?.expected_full_at || null, totalGames, wins, decided, remakes,
+    losses: decided != null && wins != null && decided >= wins ? decided - wins : null,
+    unknownResults: totalGames != null && decided != null && remakes != null && totalGames >= decided + remakes ? totalGames - decided - remakes : null,
     fetchedAt: primary?.fetched_at || null, stale: !!primary?.stale,
   }
 }
