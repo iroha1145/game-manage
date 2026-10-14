@@ -142,7 +142,7 @@ test('profile uses confirmed crystal material terminology for stored resource fi
   assert.doesNotMatch(content(root), /储存波片/)
 })
 
-test('full detail preserves role, skin, current branch and set metadata without hiding supplemental fields', async (t) => {
+test('full detail preserves role, skin and set metadata without hiding supplemental fields', async (t) => {
   const root = mount(t, await component('WuwaRoleDetail'), {
     data: {
       active_branch_id: 0,
@@ -187,10 +187,9 @@ test('full detail preserves role, skin, current branch and set metadata without 
     '角色基本信息',
     '武器类型 长刃',
     '已解锁共鸣链 0',
-    '当前分支（来源编号） 0',
     '外观品质 典藏',
     '附加外观标记 否',
-    '套装已装备数量 0',
+    '套装已装备 0 件',
     '角色补充值',
     '外观补充值',
     '声骸补充值',
@@ -206,7 +205,7 @@ test('whole snapshot staleness remains visible when nested source states were on
       stale: true,
     },
   })
-  assert.match(content(root), /旧数据/)
+  assert.match(content(root), /待更新/)
 })
 
 test('profile preserves zero, unknown world level and independent collection counts', async (t) => {
@@ -301,7 +300,7 @@ test('combat defaults deep realm and preserves independent error and stale sibli
   assert.match(content(root), /0 \/ 3/)
   assert.match(content(root), /今汐/)
   assert.match(content(root), /来源请求失败/)
-  assert.match(content(root), /旧数据/)
+  assert.match(content(root), /待更新/)
 })
 test('role requests are lazy and stale responses cannot replace newer selection or switched account', async (t) => {
   const pending = []
@@ -460,7 +459,7 @@ test('history exposes archive origin, first observation, paged seasons and no in
   await tick()
   assert.match(content(root), /2026-09-16/)
   assert.match(content(root), /2026-09-30/)
-  assert.match(content(root), /首次观测/)
+  assert.match(content(root), /首次记录/)
   await click(root, '下一页')
   assert.ok(calls.includes('/api/wuwa/history?kind=tower&limit=50&offset=50'))
   await click(root, '回补')
@@ -595,7 +594,7 @@ test('account switch discards pending role and archive responses', async (t) => 
     }),
   )
   await tick()
-  assert.match(content(root), /全档案 0 抽/)
+  assert.match(content(root), /已导入 0 抽/)
 })
 test('file import reads local JSON only after explicit click and masks error response', async (t) => {
   const requests = []
@@ -667,12 +666,12 @@ test('file import stays busy from the file read until the archive reloads', asyn
   })
   await tick()
   await click(root, '导入文件')
-  assert.match(content(root), /正在读取 \/ 导入/)
+  assert.match(content(root), /正在处理记录/)
   assert.equal(fileInput().props.disabled, true)
   finish('{"uid":"account","list":[]}')
   await tick()
   await tick()
-  assert.doesNotMatch(content(root), /正在读取 \/ 导入/)
+  assert.doesNotMatch(content(root), /正在处理记录/)
   assert.equal(fileInput().props.disabled, false)
 })
 test('leaving gacha during file read cancels deferred import before it sends a POST', async (t) => {

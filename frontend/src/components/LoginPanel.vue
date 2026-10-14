@@ -4,7 +4,7 @@ import { createAuthSession, getAuthStatus, loginAuth, logoutAuth, sendAuthSms } 
 
 const emit = defineEmits(['account-changed'])
 const GAMES = [{ id: 'wuthering_waves', name: '鸣潮' }, { id: 'nte', name: '异环' }, { id: 'endfield', name: '终末地' }]
-const LOGIN_HINTS = { endfield: '终末地使用鹰角通行证绑定的手机号登录，目前只支持官服。' }
+const LOGIN_HINTS = { endfield: '使用官服鹰角通行证绑定的中国大陆手机号登录。' }
 const STATE_LABELS = { connected: '已连接', configured: '已配置', expired: '登录已失效', unconfigured: '未登录' }
 const accounts = ref({})
 const statusError = ref('')
@@ -94,7 +94,7 @@ watch(error, (value) => {
 watch(expired, (value) => {
   if (value) {
     destroyCaptcha()
-    error.value = '登录会话已过期，请重新开始。'
+    error.value = '登录会话已过期，请重新登录。'
   }
 })
 
@@ -131,7 +131,7 @@ function loadGeetest() {
       cancelScriptLoad = null
       if (failure) {
         script.remove()
-        reject(new Error('人工验证加载失败，请检查网络后重新开始。'))
+        reject(new Error('安全验证加载失败，请检查网络后重新登录。'))
       } else resolve()
     }
     const loaded = () => finish(typeof window.initGeetest4 !== 'function')
@@ -151,7 +151,7 @@ async function mountCaptcha(requestId, currentSession) {
   captchaTimer = setTimeout(() => {
     if (disposed || requestId !== generation || widgetId !== widgetGeneration) return
     destroyCaptcha()
-    error.value = '人工验证加载超时，请重新开始。'
+    error.value = '安全验证加载超时，请重新登录。'
   }, 20000)
   window.initGeetest4({ captchaId: currentSession.captcha_id, product: 'float', language: 'zho' }, (instance) => {
     if (disposed || requestId !== generation || widgetId !== widgetGeneration || expired.value) {
@@ -169,12 +169,12 @@ async function mountCaptcha(requestId, currentSession) {
       if (disposed || requestId !== generation || expired.value || captcha !== instance) return
       const proof = instance.getValidate()
       captchaValidated.value = !!(proof?.lot_number && proof?.captcha_output && proof?.pass_token && proof?.gen_time)
-      error.value = captchaValidated.value ? '' : '人工验证未完成，请重试。'
+      error.value = captchaValidated.value ? '' : '安全验证未完成，请重试。'
     })
     instance.onError(() => {
       if (disposed || requestId !== generation || captcha !== instance) return
       captchaValidated.value = false
-      error.value = '人工验证暂时不可用，请重新开始。'
+      error.value = '安全验证暂时不可用，请重新登录。'
     })
     instance.onFail(() => {
       if (disposed || requestId !== generation || captcha !== instance) return
@@ -205,7 +205,7 @@ async function startSession() {
     const data = await createAuthSession(game)
     if (disposed || requestId !== generation) return
     if (!data.session_id || !(Number(data.expires_in) > 0) || (needsCaptcha.value && !data.captcha_id)) {
-      throw new Error('登录服务响应异常，请重新开始。')
+      throw new Error('登录服务响应异常，请重新登录。')
     }
     now.value = Date.now()
     session.value = { ...data, expiresAt: now.value + Number(data.expires_in) * 1000 }
@@ -225,7 +225,7 @@ async function sendSms() {
     const proof = captcha?.getValidate()
     if (!captchaValidated.value || !proof?.lot_number || !proof?.captcha_output || !proof?.pass_token || !proof?.gen_time) {
       captchaValidated.value = false
-      error.value = '请先完成人工验证。'
+      error.value = '请先完成安全验证。'
       return
     }
     body.captcha = { ...proof, captcha_id: session.value.captcha_id }
@@ -270,7 +270,7 @@ async function submitLogin() {
     resetSession()
     mobile.value = ''
     expanded.value = false
-    notice.value = `${selectedName.value}登录成功，切换到手游并点击对应游戏的「刷新」加载数据。`
+    notice.value = `${selectedName.value}登录成功。前往游戏档案刷新数据。`
     emit('account-changed', { game, loggedIn: true })
     await refreshStatus()
   } catch (e) {
@@ -293,7 +293,7 @@ async function logout(game) {
     if (data.ok !== true) throw new Error('退出未成功，请重试。')
     statusGeneration += 1
     accounts.value = { ...accounts.value, [game]: data.account || { configured: false, state: 'unconfigured', source: 'none' } }
-    notice.value = '已清除此游戏在本工具中的授权。'
+    notice.value = '已退出登录'
     emit('account-changed', { game, loggedIn: false })
     await refreshStatus()
   } catch (e) {
@@ -345,18 +345,18 @@ onBeforeUnmount(() => {
     <p v-if="statusError" class="error" role="alert">{{ statusError }}</p>
     <form v-if="expanded" class="login-form" @submit.prevent="submitLogin">
       <div class="form-header"><h3>登录{{ selectedName }}</h3><button type="button" class="text-button" :disabled="!!busy" @click="closeForm">收起</button></div>
-      <p class="muted">{{ LOGIN_HINTS[selectedGame] || '请使用游戏社区绑定的中国大陆手机号。' }}退出仅清除本工具授权。</p>
+      <p class="muted">{{ LOGIN_HINTS[selectedGame] || '使用游戏社区绑定的中国大陆手机号登录。' }}</p>
       <label for="community-mobile">手机号</label>
       <input id="community-mobile" v-model.trim="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="11" placeholder="11 位中国大陆手机号" :readonly="!!busy" />
       <p v-if="mobile && !validMobile" class="field-hint">请输入有效的 11 位中国大陆手机号。</p>
       <div class="session-row">
-        <button type="button" class="primary" :disabled="!!busy || !validMobile || cooldown > 0" @click="startSession">{{ busy === 'session' ? '准备中…' : (session ? '重新开始' : '开始登录') }}</button>
+        <button type="button" class="primary" :disabled="!!busy || !validMobile || cooldown > 0" @click="startSession">{{ busy === 'session' ? '准备中…' : (session ? '重新登录' : '开始登录') }}</button>
         <span v-if="session" class="muted">{{ expired ? '会话已过期' : `本次登录剩余 ${timeLabel}` }}</span>
         <span v-else-if="cooldown" class="muted">请 {{ cooldown }} 秒后重试</span>
       </div>
       <template v-if="session && !expired">
         <div v-if="needsCaptcha" class="captcha-area">
-          <p class="muted">{{ captchaValidated ? '人工验证已完成，可以发送短信。' : (captchaReady ? '请点击下方极验组件完成人工验证。' : '正在加载人工验证…') }}</p>
+          <p class="muted">{{ captchaValidated ? '验证通过' : (captchaReady ? '请完成安全验证' : '正在加载安全验证…') }}</p>
           <div id="community-login-captcha"></div>
         </div>
         <label for="community-code">短信验证码</label>
@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
           <input id="community-code" v-model.trim="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="4–8 位数字验证码" :readonly="!!busy" />
           <button type="button" :disabled="!canSend" @click="sendSms">{{ busy === 'sms' ? '发送中…' : (cooldown ? `${cooldown} 秒后重发` : '发送验证码') }}</button>
         </div>
-        <button type="submit" class="primary submit-button" :disabled="!!busy || !validMobile || !validCode">{{ busy === 'login' ? '登录中…' : '登录并保存' }}</button>
+        <button type="submit" class="primary submit-button" :disabled="!!busy || !validMobile || !validCode">{{ busy === 'login' ? '登录中…' : '登录' }}</button>
       </template>
     </form>
     <p v-if="error" class="error" :class="{ 'is-shaking': shaking }" role="alert">{{ error }}</p>

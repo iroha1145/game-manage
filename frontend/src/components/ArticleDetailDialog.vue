@@ -12,13 +12,13 @@ const { dialog, closing, requestClose, backdropDown, backdropClick, animationEnd
     <header class="article-dialog-head"><div><p class="article-kicker">{{ article.categoryLabel }}<span v-if="article.source_name"> · {{ article.source_name }}</span></p><h2 :id="headingId">{{ article.title }}</h2></div><button type="button" class="ui-button" autofocus @click="requestClose">关闭详情</button></header>
     <div class="article-dialog-body">
       <p v-if="article.published_at" class="article-muted">{{ formatTime(article.published_at) }}</p>
-      <p v-if="article.source_stale" class="article-note" role="status">来源采集异常或数据可能过期，保留旧记录。</p>
+      <p v-if="article.source_stale" class="article-note" role="status">内容待更新，当前显示已保存的记录。</p>
       <p v-if="contentNote(article)" class="article-note" role="status">{{ contentNote(article) }}</p>
       <div v-if="article.tags.length" class="article-tags"><span v-for="tag in article.tags" :key="tag" class="chip">{{ tag }}</span></div>
       <div v-if="article.body && !['video', 'external'].includes(article.content_status)" class="article-body">{{ article.body }}</div>
       <p v-else-if="article.excerpt" class="article-body">{{ article.excerpt }}</p>
       <div v-if="article.images.length && !['video', 'external'].includes(article.content_status)" class="article-images"><img v-for="(url, index) in article.images" :key="url" :src="url" :alt="`${article.title} · 原文图片 ${index + 1}`" loading="lazy" referrerpolicy="no-referrer" /></div>
-      <footer class="article-links"><a v-for="(link, index) in article.links" :key="link.url" :href="link.url" target="_blank" rel="noopener noreferrer">{{ index === 0 ? '查看原文 ↗' : `其他来源 · ${link.name} ↗` }}</a><span v-if="!article.links.length" class="article-muted">来源未提供有效原文链接</span></footer>
+      <footer class="article-links"><a v-for="(link, index) in article.links" :key="link.url" :href="link.url" target="_blank" rel="noopener noreferrer">{{ index === 0 ? '查看原文 ↗' : `其他来源 · ${link.name} ↗` }}</a><span v-if="!article.links.length" class="article-muted">暂无原文链接</span></footer>
     </div>
   </dialog>
 </template>

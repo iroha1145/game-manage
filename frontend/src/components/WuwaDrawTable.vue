@@ -20,7 +20,7 @@ const fullTime = (v) =>
     <table class="data-table wuwa-draws">
       <thead>
         <tr>
-          <th>时间（来源时区）</th>
+          <th>时间</th>
           <th>卡池</th>
           <th>获得物品</th>
           <th class="num">星级</th>

@@ -71,7 +71,7 @@ const other = computed(() => entries.value.filter(([k]) => !fieldLabels[k]))
       ><WuwaFields :data="item" :inline="small(item)" />
     </div>
     <details v-if="other.length" class="wuwa-supplement">
-      <summary>来源补充字段（{{ other.length }}）</summary>
+      <summary>更多资料（{{ other.length }}）</summary>
       <div class="wuwa-other">
         <div
           v-for="[key, item] in other"

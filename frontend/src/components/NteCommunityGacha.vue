@@ -54,9 +54,9 @@ function obtained(value) {
     <header class="cap-title stats-header">
       <h2>近期抽卡记录</h2>
       <span class="source-tag">社区统计</span>
-      <InfoHint v-if="snap?.payload && !legacy" text="来源：塔吉多社区 · 统计窗口内数据，可能存在同步延迟" />
+      <InfoHint v-if="snap?.payload && !legacy" text="来源：塔吉多社区，仅含近期统计。" />
       <span v-if="officialTitle" class="luck-title" :class="titleTone"><small>近期评价</small><strong>{{ officialTitle }}</strong></span>
-      <span class="cap-meta read-time">最近读取 <time>{{ fetched }}</time><span v-if="snap?.stale" class="badge badge-stale">旧快照 · 等待更新</span></span>
+      <span class="cap-meta read-time">更新于 <time>{{ fetched }}</time>（北京时间）<span v-if="snap?.stale" class="badge badge-stale">待更新</span></span>
     </header>
     <p v-if="!snap?.payload" class="empty">暂无社区抽卡数据，请登录后刷新。</p>
     <p v-else-if="legacy" class="empty">抽卡数据格式已升级，请刷新后查看。</p>
@@ -72,8 +72,8 @@ function obtained(value) {
       <section v-if="pools.length" class="history-panel" aria-label="已出 S 明细">
         <div class="history-bar">
           <nav v-glide class="pool-tabs segmented" aria-label="选择抽卡统计卡池"><button v-for="(pool, index) in pools" :key="index" type="button" :aria-pressed="selected === index" @click="selected = index">{{ pool.name || '未命名卡池' }}</button></nav>
-          <h3>已出 S 记录 <span>{{ entries.length }} 条</span></h3>
-          <InfoHint align="end" text="仅展示已抽出的 S 级条目与本次出 S 抽数，不展示当前垫抽。" />
+          <h3>已出 S 记录（北京时间） <span>{{ entries.length }} 条</span></h3>
+          <InfoHint align="end" text="显示每次抽出 S 级的抽数。" />
         </div>
         <p v-if="!entries.length" class="empty">该卡池暂无已出 S 明细。</p>
         <ol v-else class="pull-list">
@@ -84,7 +84,7 @@ function obtained(value) {
             <time class="pull-time">{{ obtained(entry.obtained_at) }}</time>
           </li>
         </ol>
-        <footer v-if="entries.length" class="bar-legend"><span><i class="short" />欧 / 超欧</span><span><i class="medium" />普通 / 非</span><span><i class="long" />超非</span><span v-if="scale">本池标尺 {{ scale }} 抽</span><InfoHint align="end" text="评价与配色沿用塔吉多；横条表示这次出 S 的抽数，不表示当前垫抽。未提供评价时显示灰色，未提供标尺时不绘制比例。" /></footer>
+        <footer v-if="entries.length" class="bar-legend"><span><i class="short" />欧 / 超欧</span><span><i class="medium" />普通 / 非</span><span><i class="long" />超非</span><span v-if="scale">本池标尺 {{ scale }} 抽</span><InfoHint align="end" text="评价来自塔吉多社区。" /></footer>
       </section>
     </template>
   </section>

@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { fieldLabels, value } from '../wuwa-display.js'
 import WuwaFields from './WuwaFields.vue'
 import WuwaStatus from './WuwaStatus.vue'
-import InfoHint from './InfoHint.vue'
 import WuwaModuleCard from './WuwaModuleCard.vue'
 const props = defineProps({ snap: { default: null } })
 const sections = computed(() =>
@@ -51,7 +50,6 @@ const tiles = computed(() => {
   <section class="wuwa-panel">
     <header class="cap-title">
       <h2>玩法进度</h2>
-      <InfoHint text="按当前来源返回的玩法展示，名称与内容随版本变化。" />
       <WuwaStatus :snap="snap" />
     </header>
     <div v-if="tiles.length" class="wuwa-tiles wuwa-activities">
@@ -80,6 +78,6 @@ const tiles = computed(() => {
         <WuwaStatus :snap="snap" />
       </WuwaModuleCard>
     </div>
-    <p v-else class="wuwa-muted">尚未获得玩法数据</p>
+    <p v-else class="wuwa-muted">暂无玩法记录，请刷新数据。</p>
   </section>
 </template>

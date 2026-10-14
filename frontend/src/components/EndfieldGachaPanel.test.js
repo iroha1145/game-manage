@@ -23,7 +23,7 @@ test('pools show exact and lower-bound pity wording and an unfinished sync', asy
   assert.match(text, /距上次 6★ 2 抽/)
   assert.match(text, /提弗洛斯 ≥28 抽/)
   assert.match(text, /还有未同步完的记录/)
-  assert.match(text, /有未同步完的区段/)
+  assert.match(text, /部分待同步/)
   assert.equal(calls.length, 0) // 逐条记录未展开时不读取
 })
 

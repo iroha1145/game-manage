@@ -82,8 +82,8 @@ test('all capabilities distinguish missing snapshots from legacy schemas and sho
     assert.match(content(empty), /暂无数据.*登录.*刷新/)
     const legacy = mount(t, NteDataCard, { capability, snap: { payload: { raw: true }, fetched_at: '2026-09-14T10:00:00+08:00', stale: true } })
     assert.match(content(legacy), /数据格式已更新，请刷新/)
-    assert.match(content(legacy), /数据可能过期/)
-    assert.match(content(legacy), capability === 'stamina' ? /读取于/ : /更新于/)
+    assert.match(content(legacy), /待更新/)
+    assert.match(content(legacy), /更新于/)
   }
 })
 
@@ -93,8 +93,8 @@ test('stamina reports the actual source read time rather than the later cache-sa
     fetched_at: '2026-09-15T00:50:25+08:00',
   } })
   assert.match(content(root), /0 \/ 320/)
-  assert.match(content(root), /读取于 2026-09-15 00:50/)
-  assert.match(content(root), /社区数据可能延迟/)
+  assert.match(content(root), /更新于 2026-09-15 00:50（北京时间）/)
+  assert.doesNotMatch(content(root), /以游戏内为准|社区数据可能延迟/)
 })
 
 test('empty normalized collections show no-data rather than an empty card', (t) => {
@@ -144,6 +144,6 @@ test('news capability displays its own heading, freshness and only safe source l
     { title: '合法资讯', url: 'https://example.com/news', published_at: '2026-09-14T00:00:00Z' },
     { title: '不安全链接', url: 'javascript:alert(1)' },
   ] } })
-  assert.match(content(root), /资讯.*数据可能过期/)
+  assert.match(content(root), /资讯.*待更新/)
   assert.deepEqual(nodes(root, 'a').map(n => n.props.href), ['https://example.com/news'])
 })

@@ -137,12 +137,16 @@ test('stamina summary preserves real zero and unknown denominator', () => {
   assert.equal(unknown.value, null); assert.equal(unknown.percent, null)
 })
 
-test('LoL win rate summary carries the decided-game count used as its denominator', () => {
+test('LoL summary separates losses, remakes and unknown results without guessing legacy counts', () => {
   const lol = { game_id: 'league_of_legends', capabilities: ['account', 'match', 'stats'] }
   const s = summaryFor(lol, { stats: snapshot({ total_games: 20, wins: 10, winrate: 55.6, decided_games: 18, remakes: 1 }) })
   assert.equal(s.value, 55.6); assert.equal(s.totalGames, 20); assert.equal(s.decided, 18)
+  assert.equal(s.losses, 8); assert.equal(s.remakes, 1); assert.equal(s.unknownResults, 1)
   const old = summaryFor(lol, { stats: snapshot({ total_games: 20, wins: 11, winrate: 55 }) })
   assert.equal(old.decided, null)
+  assert.equal(old.losses, null); assert.equal(old.remakes, null); assert.equal(old.unknownResults, null)
+  const remakesOnly = summaryFor(lol, { stats: snapshot({ total_games: 2, wins: 0, decided_games: 0, remakes: 2, winrate: null }) })
+  assert.equal(remakesOnly.value, null); assert.equal(remakesOnly.losses, 0); assert.equal(remakesOnly.unknownResults, 0)
 })
 
 test('Endfield summary shows special headhunting pity instead of a win rate', () => {

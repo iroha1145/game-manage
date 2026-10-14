@@ -145,13 +145,11 @@ function rarities(pool) {
   <section class="wuwa-panel">
     <header class="cap-title">
       <h2>抽卡历史</h2>
-      <InfoHint
-        text="由你决定何时导入。打开此页只读取本地档案；链接仅在点击导入时使用，用后清空。文件在本机解析后交给本地服务。"
-      />
     </header>
     <details class="wuwa-import" :open="importOpen" @toggle="importOpen = $event.target.open">
       <summary>导入记录</summary>
       <div class="wuwa-import-body">
+        <p class="wuwa-meta">授权链接仅用于本次导入，用后清空；记录保存在本机。</p>
         <form class="toolbar wuwa-import-row" @submit.prevent="importUrl">
           <input
             class="grow"
@@ -161,7 +159,7 @@ function rarities(pool) {
             aria-label="官方记录授权链接"
             :value="url"
             @input="url = $event.target.value"
-            placeholder="粘贴官方记录授权链接，不保存到浏览器"
+            placeholder="粘贴抽卡记录授权链接"
           /><button
             type="submit"
             class="ui-button small-button primary"
@@ -189,17 +187,17 @@ function rarities(pool) {
             导入文件</button
           ><InfoHint
             label="文件说明"
-            text="支持带 UID 的 WWUID 或规范化导出；最大 2 MiB。"
+            text="支持含账号 UID 的 WWUID 或标准格式导出文件；最大 2 MiB。"
           />
         </div>
       </div>
     </details>
-    <p v-if="busy" role="status" class="wuwa-meta">正在读取 / 导入，请稍候…</p>
+    <p v-if="busy" role="status" class="wuwa-meta">正在处理记录…</p>
     <p v-if="error" class="wuwa-error" role="alert">{{ error }}</p>
     <div v-if="outcome" class="wuwa-notice" role="status">
       <p>
         收到 {{ value(outcome.received) }} 条 · 新增
-        {{ value(outcome.inserted) }} 条（重复记录不会重复计数）
+        {{ value(outcome.inserted) }} 条
       </p>
       <p v-if="outcome.state === 'need_import'">
         本次未获得记录；已有档案保持不变。
@@ -212,20 +210,17 @@ function rarities(pool) {
     </div>
     <template v-if="archive"
       ><p v-if="archive.state === 'need_import'" class="wuwa-notice">
-        尚无已导入记录。导入前的账号抽卡历史未知。
+        暂无抽卡记录，请通过上方链接或文件导入。
       </p>
       <p class="wuwa-coverage">
-        <span class="wuwa-meta" role="heading" aria-level="3">覆盖范围</span>
-        <span class="badge badge-stale">不完整历史</span>
+        <span class="wuwa-meta" role="heading" aria-level="3">记录范围</span>
+        <span class="badge badge-stale">部分历史</span>
         <span class="wuwa-range"
           >{{ sourceTime(archive.coverage?.earliest) }} —
           {{ sourceTime(archive.coverage?.latest) }}</span
         >
         <InfoHint
-          :text="`${
-            archive.coverage?.message ||
-            '仅代表已导入窗口，未导入或已过保留期的记录未知；无保底推断。'
-          }（记录采用来源时区）`"
+          text="仅统计已导入记录，未导入或已过保留期的记录不在其中。记录时间沿用原始时区，导入时间为北京时间。"
         />
         <span class="wuwa-meta wuwa-coverage-end"
           >最近导入 {{ stamp(archive.coverage?.imported_at) }} · 来源
@@ -246,7 +241,7 @@ function rarities(pool) {
       <section class="wuwa-section">
         <h3 class="wuwa-subhead">
           各池统计<span class="wuwa-meta"
-            >全档案 {{ value(archive.total) }} 抽 · 按记录条数计算</span
+            >已导入 {{ value(archive.total) }} 抽</span
           >
         </h3>
         <div v-if="list(archive.pools).length" class="wuwa-tiles wuwa-pools">
@@ -325,7 +320,7 @@ function rarities(pool) {
       class="ui-button small-button"
       @click="load()"
     >
-      重试读取档案
+      刷新数据
     </button>
   </section>
 </template>

@@ -72,13 +72,13 @@ test('recommendation search includes its plain description', async (t) => {
 })
 
 test('snapshots distinguish absent, legacy, stale and valid empty data', (t) => {
-  assert.match(content(mount(t, NteAssetsPanel, { capability: 'teams', snap: null })), /尚未采集/)
+  assert.match(content(mount(t, NteAssetsPanel, { capability: 'teams', snap: null })), /暂无数据/)
   const legacy = mount(t, NteAssetsPanel, { capability: 'teams', snap: { payload: { entries: [{ id: 'x', name: '旧数据' }] } } })
   assert.match(content(legacy), /刷新/)
   assert.doesNotMatch(content(legacy), /旧数据/)
   assert.match(content(card(t, 'teams', { entries: [] })), /暂无官方配队推荐/)
   const stale = mount(t, NteAssetsPanel, { capability: 'vehicles', snap: { ...snap({ entries: [] }), stale: true } })
-  assert.match(content(stale), /缓存.*过期/)
+  assert.match(content(stale), /待更新/)
 })
 
 test('house search resolves resident names and furniture names', async (t) => {

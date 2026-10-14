@@ -55,7 +55,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
   <section class="cap-card nte-roles-panel">
     <div class="cap-title">
       角色练度
-      <InfoHint v-if="roles.length" text="未提供的排序值排在最后。收藏仅保存在当前浏览器，按异环账号区分。" />
+      <InfoHint v-if="roles.length" text="收藏保存在当前浏览器，按异环账号分别保存。" />
       <span v-if="snap?.stale" class="badge badge-stale">数据可能过期</span>
       <span v-if="roles.length" class="chip-list summary">
         <span class="chip">角色总数 <b>{{ roles.length }}</b></span>
@@ -84,7 +84,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
           <strong>角色对比</strong>
           <span class="compare-count">已选 {{ selected.length }} / 4</span>
           <InfoHint v-if="selected.length < 2" text="至少选择 2 名角色，最多 4 名。切换筛选后保留对比选择。" />
-          <InfoHint v-else text="按字段名称对齐；战技与城区技能数值为等级，属性保留来源值与单位。未提供不等于零。" />
+          <InfoHint v-else text="对比角色属性与技能等级。" />
           <span v-if="compared.length" class="compare-chips">
             <button v-for="role in compared" :key="keyOf(role)" type="button" class="compare-chip" :aria-label="`移除对比${role.name || '角色'}`" @click="toggleCompare(role)">{{ display(role.name) }}<AppIcon name="close" :size="11" /></button>
           </span>

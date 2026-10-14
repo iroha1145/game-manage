@@ -19,15 +19,15 @@ watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all'
 </script>
 <template>
   <section class="cap-card article-list">
-    <div class="cap-title article-heading"><h2>公告与资讯</h2><span v-if="stale" class="badge badge-stale">数据可能过期</span><span v-if="fetchedAt" class="cap-meta">更新于 {{ formatTime(fetchedAt) }}</span><slot name="actions" /></div>
+    <div class="cap-title article-heading"><h2>公告与资讯</h2><span v-if="stale" class="badge badge-stale">待更新</span><span v-if="fetchedAt" class="cap-meta">更新于 {{ formatTime(fetchedAt) }}</span><slot name="actions" /></div>
     <p v-for="error in errors" :key="error" class="article-error" role="status">{{ error }}</p>
     <nav v-if="rows.length" class="article-filters" aria-label="文章内容分类"><button type="button" :aria-pressed="category === 'all'" @click="category = 'all'">全部 <span>{{ rows.length }}</span></button><button v-for="item in categories" :key="item.id" type="button" :aria-pressed="category === item.id" @click="category = item.id">{{ item.label }} <span>{{ item.count }}</span></button></nav>
     <p v-if="!rows.length" class="empty">暂无公告与资讯</p>
     <ul v-else class="item-list">
       <li v-for="it in filtered" :key="it.key" class="item">
         <p class="item-title"><button type="button" class="item-link" @click="selectedKey = it.key">{{ it.title }}</button></p>
-        <p class="item-meta"><span class="chip article-category">{{ it.categoryLabel }}</span><span v-if="it.source_name" class="item-source">{{ it.source_name }}</span><span v-if="it.source_stale" class="badge badge-stale">来源采集异常，保留旧记录</span><span v-if="date(it.published_at)" class="item-date">{{ date(it.published_at) }}</span></p>
-        <p v-if="it.excerpt" class="item-summary">{{ it.excerpt }}</p><p v-else class="item-summary article-missing">{{ contentNote(it) || '正文仅包含图片，点击查看详情。' }}</p>
+        <p class="item-meta"><span class="chip article-category">{{ it.categoryLabel }}</span><span v-if="it.source_name" class="item-source">{{ it.source_name }}</span><span v-if="it.source_stale" class="badge badge-stale">待更新</span><span v-if="date(it.published_at)" class="item-date">{{ date(it.published_at) }}</span></p>
+        <p v-if="it.excerpt" class="item-summary">{{ it.excerpt }}</p><p v-else class="item-summary article-missing">{{ contentNote(it) || '图片公告，查看详情' }}</p>
         <div v-if="it.tags.length" class="item-tags"><span v-for="tag in it.tags" :key="tag" class="chip">{{ tag }}</span></div>
         <div class="item-actions"><button type="button" @click="selectedKey = it.key">查看详情</button><a v-if="it.url" :href="it.url" target="_blank" rel="noopener noreferrer">原文 ↗</a></div>
       </li>

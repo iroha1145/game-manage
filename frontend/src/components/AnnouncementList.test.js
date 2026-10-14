@@ -70,7 +70,7 @@ for (const [gameId, title, expected] of [
 test('duplicate snapshots form one dated list and retain the fuller body and stale source state', async t => {
   const root = mount(t, List, { gameId: 'league_of_legends', snap: { payload: [article('更新维护通知', '', { published_at: '2026-10-01T00:00:00Z' })] }, extraSnaps: [{ stale: true, capability: 'announcement', payload: [article('更新维护通知', '保留的完整正文', { published_at: '2026-10-01T00:00:00Z', content_status: 'full' })] }] })
   assert.equal(nodes(root, 'button').filter(n => content(n) === '更新维护通知').length, 1)
-  assert.match(content(root), /数据可能过期|旧记录/)
+  assert.match(content(root), /待更新/)
   await click(root, '更新维护通知')
   assert.match(content(nodes(root, 'dialog')[0]), /保留的完整正文/)
 })

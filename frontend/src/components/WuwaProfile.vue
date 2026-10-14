@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { fieldLabels, stamp, value, list } from '../wuwa-display.js'
 import WuwaStatus from './WuwaStatus.vue'
 import WuwaFields from './WuwaFields.vue'
-import InfoHint from './InfoHint.vue'
 const props = defineProps({ snap: { default: null } })
 const profile = computed(() => props.snap?.payload?.extra?.profile || {})
 const server = computed(() => props.snap?.payload?.extra?.server_id)
@@ -83,9 +82,7 @@ const hasRest = computed(() =>
     </dl>
     <section class="wuwa-section">
       <h3 class="wuwa-subhead">
-        收集记录<InfoHint
-          text="以下为来源记录数量；分类可能重叠，未合计为完成率。"
-        />
+        收集记录
       </h3>
       <div class="wuwa-columns">
         <div v-for="(text, key) in collections" :key="key">

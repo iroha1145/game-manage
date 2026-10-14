@@ -11,5 +11,5 @@ test('player directory shows source position without inferring match appearances
     players: [{ id: 'p', nickname: 'Player' }], teams: [{ id: 'a', name: 'Club' }],
     roster_memberships: [{ team_id: 'a', player_id: 'p', scope: 'source_current', position: '打野' }],
   } })
-  assert.match(content(root), /打野/); assert.match(content(root), /来源阵容/)
+  assert.match(content(root), /打野/); assert.match(content(root), /Club/); assert.doesNotMatch(content(root), /单场登场阵容/)
 })

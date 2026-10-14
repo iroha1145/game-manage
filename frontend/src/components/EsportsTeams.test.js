@@ -4,7 +4,7 @@ import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
 const Component = await loadVue(new URL('./EsportsTeams.vue', import.meta.url))
 test('a team with missing roster has an explicit missing state', t => {
   const root = mount(t, Component, { filters: { teamId: 'a' }, payload: { teams: [{ id: 'a', name: 'EDG' }] } })
-  assert.match(content(root), /EDG/); assert.match(content(root), /阵容资料暂缺/); assert.match(content(root), /来源当前名单/)
+  assert.match(content(root), /EDG/); assert.match(content(root), /阵容资料暂缺/); assert.match(content(root), /当前阵容/)
 })
 test('team profile shares compact score rows and preserves a zero score', t => {
   const root = mount(t, Component, { filters: { teamId: 'a' }, payload: {

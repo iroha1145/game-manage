@@ -5,7 +5,6 @@ import { safeUrl } from '../calendar.js'
 import { displayRoleValue } from '../nte-roles.js'
 import { computed } from 'vue'
 import { vPop } from '../motion.js'
-import InfoHint from './InfoHint.vue'
 
 const props = defineProps({
   snap: { type: Object, default: null },
@@ -54,9 +53,8 @@ const medals = computed(() => [
   <section class="cap-card nte-card">
     <div class="cap-title">
       {{ titles[capability] || '异环数据' }}
-      <template v-if="capability === 'stamina' && payload !== null && !legacy"><span class="delay-note">以游戏内为准</span><InfoHint text="来源：塔吉多角色面板。社区数据可能延迟，请以游戏内体力为准。" /></template>
-      <span v-if="snap?.stale" class="badge badge-stale">数据可能过期</span>
-      <span v-if="fetchedAt" class="cap-meta">{{ capability === 'stamina' ? '读取于' : '更新于' }} {{ fetchedAt }}</span>
+      <span v-if="snap?.stale" class="badge badge-stale">待更新</span>
+      <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}（北京时间）</span>
     </div>
 
     <p v-if="payload === null" class="empty">暂无数据，请登录后刷新</p>
@@ -149,8 +147,6 @@ const medals = computed(() => [
 </template>
 
 <style scoped>
-/* Stamina comes from a community panel that can lag: the short note stays visible, the detail sits behind ⓘ. */
-.delay-note { color: var(--text-faint); font-size: 11px; font-weight: 400; }
 .nte-card { min-width: 0; overflow-wrap: anywhere; --medal-bronze: #c98a5a; --medal-silver: #a9b1bd; --medal-gold: #e2b340; }
 :root[data-theme="light"] .nte-card { --medal-bronze: #9c5a2b; --medal-silver: #7c8698; --medal-gold: #ad7a00; }
 .cap-title { position: relative; }

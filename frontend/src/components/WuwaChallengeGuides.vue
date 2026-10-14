@@ -18,11 +18,10 @@ const guides = computed(() => selectChallengeGuides(props.mode, selectedBoss.val
   <section aria-label="挑战社区攻略" class="challenge-guides">
     <header class="wuwa-heading"><h3>社区攻略</h3><span class="wuwa-meta">核查于 {{ challengeGuideUpdatedAt }}</span></header>
     <p v-if="mode === 'tower'" class="wuwa-meta">仅展示当期图文攻略，按原帖标注的深塔周期筛选。</p>
-    <p v-else class="wuwa-meta">较新优先，旧版保留版本。周期、增益、首领与队伍需对应；尚未自动核对本期环境。</p>
     <label v-if="mode === 'hologram'" class="boss-filter">筛选首领
       <select v-model="selectedBoss"><option value="">全部首领与入门资料</option><option v-for="boss in options" :key="boss" :value="boss">{{ boss }}</option></select>
     </label>
-    <p v-if="!guides.length" class="wuwa-muted">{{ mode === 'tower' ? '暂未收录当期图文攻略，等待更新。' : '暂未收录此首领的已核查攻略。可选择全部查看入门资料，不套用其他首领的打法。' }}</p>
+    <p v-if="!guides.length" class="wuwa-muted">{{ mode === 'tower' ? '暂无当期图文攻略，待更新。' : '暂无该首领图文攻略，可选择“全部首领与入门资料”。' }}</p>
     <div class="challenge-guide-list">
       <article v-for="guide in guides" :key="guide.id" class="wuwa-inset challenge-guide-card" :class="{ 'has-lineups': guide.lineupImages?.length }">
         <div class="challenge-guide-title">

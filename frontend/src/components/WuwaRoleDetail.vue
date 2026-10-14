@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { safeUrl } from '../calendar.js'
 import { fieldLabels, list, starCount, value } from '../wuwa-display.js'
 import WuwaFields from './WuwaFields.vue'
-import InfoHint from './InfoHint.vue'
 import WuwaIcon from './WuwaIcon.vue'
 const props = defineProps({ data: { type: Object, default: () => ({}) } })
 const chains = computed(() => list(props.data.chain_list))
@@ -57,18 +56,6 @@ const isAttributeList = (v) =>
             <span class="wuwa-field-label" role="heading" aria-level="4">角色外观</span
             ><WuwaFields :data="data.role_skin" />
           </div>
-          <dl class="wuwa-kv">
-            <div>
-              <dt>当前分支（来源编号）</dt>
-              <dd>
-                {{ value(data.active_branch_id) }}
-                <InfoHint
-                  text="分支编号仅为来源标识，不代表已解锁数量或练度。"
-                  align="end"
-                />
-              </dd>
-            </div>
-          </dl>
         </div>
       </div>
     </section>
@@ -88,7 +75,7 @@ const isAttributeList = (v) =>
     </section>
 
     <section class="wuwa-detail-section">
-      <h3 class="wuwa-subhead">实际装备武器</h3>
+      <h3 class="wuwa-subhead">装备武器</h3>
       <div v-if="data.weapon_data" class="wuwa-equip">
         <WuwaIcon :src="data.weapon_data.weapon?.weapon_icon" :name="data.weapon_data.weapon?.weapon_name || '武器'" />
         <div class="wuwa-equip-body">
@@ -131,7 +118,7 @@ const isAttributeList = (v) =>
             {{ data.weapon_data.weapon?.effect_description }}
           </p>
           <details class="wuwa-supplement">
-            <summary>武器来源补充资料</summary>
+            <summary>武器详情</summary>
             <WuwaFields
               :data="data.weapon_data.weapon"
               :exclude="[
@@ -155,7 +142,7 @@ const isAttributeList = (v) =>
         </div>
       </div>
       <p v-else class="wuwa-muted">
-        未提供装备武器<InfoHint text="角色列表中的武器类型不代表实际装备。" />
+        暂无装备武器数据
       </p>
     </section>
 
@@ -193,7 +180,7 @@ const isAttributeList = (v) =>
             {{ entry.skill.description }}
           </p>
           <details class="wuwa-supplement">
-            <summary>分支说明与来源资料</summary>
+            <summary>分支详情</summary>
             <WuwaFields
               :data="entry.skill"
               :exclude="['name', 'type', 'description']"
@@ -290,11 +277,11 @@ const isAttributeList = (v) =>
             <WuwaIcon :src="echo.fetter_detail?.icon_url" :name="echo.fetter_detail?.name || '套装'" size="small" />
             <strong>{{ echo.fetter_detail?.name || '套装未知' }}</strong>
             <span class="wuwa-meta"
-              >套装已装备数量 {{ value(echo.fetter_detail?.num) }}</span
+              >套装已装备 {{ value(echo.fetter_detail?.num) }} 件</span
             >
           </p>
           <details class="wuwa-supplement">
-            <summary>声骸技能与来源资料</summary>
+            <summary>声骸详情</summary>
             <template v-if="echo.phantom_prop?.skill_description">
               <p class="wuwa-field-label">声骸技能</p>
               <p class="wuwa-description">
@@ -333,7 +320,7 @@ const isAttributeList = (v) =>
           </details>
         </article>
       </div>
-      <p v-else class="wuwa-muted">未提供装备声骸</p>
+      <p v-else class="wuwa-muted">暂无装备声骸数据</p>
       <dl v-if="sets.length" class="wuwa-sets">
         <div v-for="set in sets" :key="set.key">
           <dt>{{ set.name }}</dt>

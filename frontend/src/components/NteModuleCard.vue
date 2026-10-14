@@ -25,13 +25,12 @@ watch(()=>props.capability,()=>{opened.value=false})
     <SummaryMetrics v-else-if="metrics.length" :metrics="metrics" :compact="!inline" />
     <p v-else class="module-state">{{ snap?.payload && snap.payload.schema_version !== 1 ? '数据格式已更新，请刷新' : '暂无数据，请登录后刷新' }}</p>
     <template v-if="capability === 'stamina'">
-      <p class="source-note">来源：塔吉多角色面板。体力和都市活力可能延迟或不准确，请以游戏内为准。</p>
       <p class="module-state">周本剩余 · {{ snap?.payload?.schema_version === 1 ? snap.payload.weekly_remaining ?? '未提供' : '未提供' }}</p>
     </template>
     <slot name="preview" />
     <div v-if="previews.length" class="module-previews"><span v-for="(role,index) in previews" :key="index"><NteIcon :src="role.icon" :name="role.name || '角色'" /><small>{{ role.name }}</small></span></div>
     <p v-if="error" class="module-error" role="status">{{ error }}</p>
-    <footer><span v-if="snap?.stale" class="old">旧数据</span><span v-if="readAt">{{ displayBeijing(readAt) }}</span><span v-else-if="capability === 'guides' || capability === 'teams'">公开资料</span></footer>
+    <footer><span v-if="snap?.stale" class="old">旧数据</span><span v-if="readAt">更新于 {{ displayBeijing(readAt) }}（北京时间）</span><span v-else-if="capability === 'guides' || capability === 'teams'">公开资料</span></footer>
     <NteDetailDialog v-if="!inline && opened" :title="title" @close="opened = false"><slot /></NteDetailDialog>
   </section>
 </template>
@@ -39,7 +38,7 @@ watch(()=>props.capability,()=>{opened.value=false})
 .module-account,.module-stamina{grid-column:1/-1}
 .inline-content :deep(.cap-card){padding:0;border:0;background:none;box-shadow:none;margin-top:16px}
 .inline-content :deep(.cap-title),.inline-content :deep(.fetched-at){display:none}
-.source-note{margin-top:15px;padding:10px 12px;border-left:2px solid var(--accent);background:var(--accent-soft);font-size:11px;color:var(--text-muted);line-height:1.8}.module-state{margin-top:12px}
+.module-state{margin-top:12px}
 .module-previews{display:flex;flex-wrap:wrap;gap:10px;margin-top:17px}.module-previews>span{display:grid;justify-items:center;gap:5px}.module-previews small{font-size:10px;color:var(--text-muted);max-width:55px;text-align:center}
 .nte-module-card{min-width:0;padding:23px;border:1px solid var(--border);background:var(--card-bg);border-radius:12px}.nte-module-card>header{display:flex;align-items:center;gap:11px}.module-mark{display:grid;place-items:center;width:39px;height:42px;border-radius:9px;border:1px solid var(--border);color:var(--accent);background:var(--accent-soft)}.nte-module-card h2{font-size:17px;font-weight:550}.nte-module-card>header>button{margin-left:auto;cursor:pointer;padding:8px 10px;border:1px solid var(--border);background:transparent;border-radius:7px;color:var(--accent);font:inherit;font-size:12px}.module-metrics{display:flex;gap:22px;flex-wrap:wrap;margin:24px 0 15px}.module-metrics>div{display:grid;gap:9px;min-width:75px}.module-metrics span,.module-state{font-size:11px;color:var(--text-muted)}.module-metrics strong{font-size:20px;font-weight:550;overflow-wrap:anywhere}.module-error{color:var(--danger);font-size:12px;line-height:1.7;margin-top:10px}.nte-module-card footer{display:flex;gap:10px;color:var(--text-muted);font-size:10px;min-height:12px;margin-top:17px}.old{color:var(--accent)}@media(max-width:650px){.nte-module-card{padding:17px}.nte-module-card>header{flex-wrap:wrap}.nte-module-card h2{font-size:15px}.module-metrics{gap:16px}}
 </style>

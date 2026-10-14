@@ -12,11 +12,11 @@ test('B站面板不把异常空列表称为历史完成，能查看过滤原因'
   t.after(()=>{globalThis.fetch=previous})
   const root = mount(t, Panel, {})
   await new Promise(resolve=>setImmediate(resolve)); await nextTick()
-  assert.match(content(root), /60天历史尚未完整回补/)
+  assert.match(content(root), /近 60 天待回补/)
   assert.match(content(root), /动态列表异常为空/)
   await nodes(root,'button').find(n=>content(n)==='查看筛选记录').props.onClick()
   await nextTick()
-  assert.match(content(root), /暂无符合条件的已采集记录/)
+  assert.match(content(root), /暂无符合条件的动态/)
 })
 
 const status = () => ({ sources: [{ game_id: 'nte', uid: '1', status: 'ok', message: '', history_complete: true, total: 0, accepted: 0, running: false }], login: { configured: false } })
@@ -26,7 +26,7 @@ function serve(t, handler) {
   globalThis.fetch = handler
   t.after(() => { globalThis.fetch = previous })
 }
-const collect = root => nodes(root, 'button').find(n => content(n) === '采集新动态').props.onClick()
+const collect = root => nodes(root, 'button').find(n => content(n) === '刷新数据').props.onClick()
 
 test('source counts include community articles and explain calendar separation', async t => {
   serve(t, async () => ({ ok: true, json: async () => ({ ...status(), sources: [{ ...status().sources[0], article_count: 2, total: 3, accepted: 0 }] }) }))
@@ -41,7 +41,7 @@ test('source panel opens all Bilibili login modes and reports configured versus 
     ?{session_id:'FAKE_QR',state:'waiting_scan',qr_image:'data:image/png;base64,FAKE',qr_expires_in:180}
     :{...status(),login:{configured:true,uid:'10001',nickname:'Test',state:'configured'}}}))
   const root=mount(t,Panel,{});await flush()
-  await nodes(root,'button').find(n=>content(n).includes('更新B站登录信息')).props.onClick();await flush()
+  await nodes(root,'button').find(n=>content(n).includes('更新 B 站登录')).props.onClick();await flush()
   for(const label of ['扫码登录','账号密码','手机号验证码','Cookie 导入'])assert.match(content(root),new RegExp(label))
   assert.match(content(root), /尚未重新验证/)
   assert.equal(nodes(root,'form').length,0)

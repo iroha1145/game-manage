@@ -124,7 +124,7 @@ test('refreshing the profile does not discard an in-flight attendance response',
   })
   const root = mount(t, Dashboard, { snaps: {} })
   await flush(); await flush()
-  nodes(root, 'button').find(n => content(n).includes('手动刷新档案')).props.onClick()
+  nodes(root, 'button').find(n => content(n).includes('刷新档案')).props.onClick()
   await flush()
   finishAttendance(response({ supported: true, status: 'signed', calendar: [{ done: true }] }))
   await flush()

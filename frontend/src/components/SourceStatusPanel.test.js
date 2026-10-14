@@ -7,12 +7,12 @@ test('collection panel displays retained data, native capability and actual atte
     { game_id: 'nte', capability: 'progress', state: 'error', consecutive_failures: 3, error: '上游异常', last_success_at: '2026-09-14T12:00:00Z', last_attempt_at: '2026-09-14T17:00:00Z' },
   ] })
   const text = content(root)
-  for (const expected of ['成就进度', '采集异常', '保留旧数据', '2026-09-14 20:00', '2026-09-15 01:00', '3', '上游异常', '角色练度', '尚未采集']) assert.ok(text.includes(expected), expected)
+  for (const expected of ['成就进度', '同步失败', '保留旧数据', '2026-09-14 20:00', '2026-09-15 01:00', '3', '上游异常', '角色练度', '尚未同步']) assert.ok(text.includes(expected), expected)
 })
 
 test('first offline attempt never claims an old snapshot was retained', t => {
   const root = mount(t, Panel, { game: { game_id: 'league_of_legends', capabilities: ['account'] },
     collection: [{ game_id: 'league_of_legends', capability: 'account', state: 'offline', last_success_at: null, consecutive_failures: 0 }] })
-  assert.match(content(root), /客户端离线.*暂无成功快照/)
+  assert.match(content(root), /客户端离线.*暂无已保存的数据/)
   assert.doesNotMatch(content(root), /已保留快照|保留旧数据/)
 })
