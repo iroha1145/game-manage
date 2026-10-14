@@ -4,6 +4,7 @@ import pytest
 import respx
 
 from game_assistant.adapters.endfield.adapter import EndfieldAdapter
+from game_assistant.adapters.endfield.hypergryph import HypergryphClient
 from game_assistant.config import Settings
 from game_assistant.models import Capability
 
@@ -104,3 +105,11 @@ async def test_unexpected_errors_are_logged_by_type_only(tmp_path, monkeypatch, 
     result = await subject.fetch(Capability.GACHA)
     assert (result.ok, result.error_kind) == (False, "invalid_data")
     assert "RuntimeError" in caplog.text and "hg-secret" not in caplog.text
+
+
+@respx.mock
+async def test_skland_code_requests_a_skland_grant_code():
+    grant = respx.post(HG + "/user/oauth2/v2/grant").respond(200, json={"status": 0, "data": {"code": "grant-code"}})
+    async with HypergryphClient() as client:
+        assert await client.skland_code("hg-secret") == "grant-code"
+    assert grant.calls[0].request.read() == b'{"token":"hg-secret","appCode":"4ca99fa6b56cc2ba","type":0}'

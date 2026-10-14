@@ -4,7 +4,7 @@ import { createAuthSession, getAuthStatus, loginAuth, logoutAuth, sendAuthSms } 
 
 const emit = defineEmits(['account-changed'])
 const GAMES = [{ id: 'wuthering_waves', name: '鸣潮' }, { id: 'nte', name: '异环' }, { id: 'endfield', name: '终末地' }]
-const LOGIN_HINTS = { endfield: '使用官服鹰角通行证绑定的中国大陆手机号登录。' }
+const LOGIN_HINTS = { endfield: '使用官服鹰角通行证绑定的中国大陆手机号登录。登录后可在终末地页面一键连接森空岛。' }
 const STATE_LABELS = { connected: '已连接', configured: '已配置', expired: '登录已失效', unconfigured: '未登录' }
 const accounts = ref({})
 const statusError = ref('')

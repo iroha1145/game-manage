@@ -30,6 +30,7 @@ export const getMap = (filters = {}, signal) => {
 export const getMapMark = (mapId, markId, signal) => request(`/map/marks/${encodeURIComponent(markId)}?map_id=${encodeURIComponent(mapId)}`, { signal })
 export const getSklandStatus = signal => request('/skland/status', { signal })
 export const connectSkland = (cred, device_id) => request('/skland/connect', { method: 'POST', body: { cred, ...(device_id ? { device_id } : {}) } })
+export const connectSklandWithPassport = () => request('/skland/passport', { method: 'POST' })
 export const chooseSklandRole = (role_id, server_id) => request('/skland/role', { method: 'POST', body: { role_id, server_id } })
 export const disconnectSkland = () => request('/skland/connection', { method: 'DELETE' })
 export const getSklandCard = signal => request('/skland/card', { signal })

@@ -7,12 +7,22 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from game_assistant.auth.store import CredentialStoreError
-from game_assistant.adapters.endfield.skland_client import SklandClient, SklandError, sign_request
+from fastapi.testclient import TestClient
+
+from game_assistant.api import create_app
+from game_assistant.auth.service import LoginService
+from game_assistant.auth.store import CredentialStore, CredentialStoreError
+from game_assistant.adapters.endfield.hypergryph import EXPIRED_MESSAGE, EndfieldError
+from game_assistant.adapters.endfield.skland_client import PASSPORT_REJECTED, SklandClient, SklandError, sign_request
 from game_assistant.adapters.endfield.skland_parse import parse_card, parse_challenge
 from game_assistant.config import Settings
-from game_assistant.endfield_skland import EndfieldSklandService
+from game_assistant.endfield_skland import (
+    PASSPORT_CHANGED, PASSPORT_EXPIRED, EndfieldSklandService, credential_path,
+)
 from game_assistant.endfield_skland_routes import install_endfield_skland_routes
+from game_assistant.snapshots import SnapshotStore
+from tests.test_api import FakeRegistry
+from tests.test_registry import DummyAdapter
 
 
 class FakeClient:
@@ -20,22 +30,34 @@ class FakeClient:
         self.calls = []
         self.fail_card = False
         self.fail_challenge = False
+        self.fail_exchange = False
+        self.exchanges = 0
+        self.expired_creds = set()
+
+    async def cred_by_code(self, code):
+        self.calls.append(("cred_by_code", code))
+        if self.fail_exchange:
+            raise SklandError(PASSPORT_REJECTED)
+        self.exchanges += 1
+        # Every exchange is a new server-side session of the passport's account.
+        account = {"code:hg-one": "account-one", "code:hg-two": "account-two"}.get(code, "account-other")
+        return f"{account}#{self.exchanges}"
 
     async def refresh(self, cred):
         self.calls.append(("refresh", cred))
-        if cred == "expired":
+        if cred == "expired" or cred in self.expired_creds:
             raise SklandError("森空岛登录已失效，请重新连接", expired=True)
         return "token"
 
     async def binding(self, cred, token, device_id=""):
         self.calls.append(("binding", cred, device_id))
-        role = "r1" if cred == "account-one" else "r2"
+        role = "r1" if cred.split("#")[0] == "account-one" else "r2"
         return {"list": [{"appCode": "endfield", "bindingList": [{"uid": "not-role-id", "roles": [
             {"roleId": role, "serverId": "1", "nickname": f"角色{role}"},
             {"roleId": role + "b", "serverId": "2", "nickname": "备用"}]}]}]}
 
     async def user(self, cred, token, device_id=""):
-        return {"user": {"id": "u1" if cred == "account-one" else "u2"}}
+        return {"user": {"id": "u1" if cred.split("#")[0] == "account-one" else "u2"}}
 
     async def card(self, cred, token, role_id, server_id, user_id, device_id=""):
         self.calls.append(("card", cred, role_id, server_id, user_id))
@@ -375,3 +397,206 @@ async def test_operator_detail_equipment_stale_and_role_isolation(tmp_path):
     assert stale['stale'] and stale['operator'] == data['operator']
     await service.select_role('r1b', '2')
     assert (await service.read_operator('c1'))['operator'] is None
+
+
+# ---- 用鹰角通行证一键连接 ----
+
+def passport_service(tmp_path, identity=("hg-one", "uid-1", "r1"), grant_error=None):
+    """森空岛服务 + 可变的通行证身份（模拟 LoginService 写入的设置）+ 记录授权调用的假通行证客户端。"""
+    fake = FakeClient()
+    current = {"identity": identity}
+    grants = []
+
+    class Hypergryph:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return None
+
+        async def skland_code(self, token):
+            grants.append(token)
+            if grant_error:
+                raise grant_error
+            return f"code:{token}"
+
+    def build():
+        return EndfieldSklandService(str(tmp_path / "a.db"), client=fake,
+                                     passport=lambda: current["identity"], hypergryph=Hypergryph)
+    return build(), fake, current, grants, build
+
+
+async def test_cred_by_code_is_unsigned_and_sends_no_session_or_device_headers():
+    seen = []
+    def handle(request):
+        seen.append(request)
+        return httpx.Response(200, json={"code": 0, "data": {"cred": "new-cred", "token": "t", "userId": "u"}})
+    client = SklandClient(httpx.MockTransport(handle))
+    assert await client.cred_by_code("grant-code") == "new-cred"
+    request = seen[0]
+    assert (request.method, request.url.host, request.url.path) == (
+        "POST", "zonai.skland.com", "/api/v1/user/auth/generate_cred_by_code")
+    assert json.loads(request.content) == {"kind": 1, "code": "grant-code"}
+    assert not {"cred", "sign", "did"} & {key.lower() for key in request.headers.keys()}
+
+
+@pytest.mark.parametrize("response", [
+    httpx.Response(200, json={"code": 10001, "message": "设备信息无效 SECRET-CODE"}),
+    httpx.Response(401, json={}),
+    httpx.Response(200, json={"code": 0, "data": {"token": "no-cred"}}),
+])
+async def test_cred_by_code_rejection_is_safe_and_not_an_expired_login(response):
+    client = SklandClient(httpx.MockTransport(lambda request: response))
+    with pytest.raises(SklandError) as error:
+        await client.cred_by_code("SECRET-CODE")
+    assert str(error.value) == PASSPORT_REJECTED and not error.value.expired
+
+
+async def test_passport_connect_selects_same_role_and_never_stores_passport_token(tmp_path):
+    service, fake, current, grants, build = passport_service(tmp_path)
+    status = await service.connect_with_passport()
+    assert status["connected"] and status["source"] == "passport" and status["passport_available"]
+    assert (status["selected_role_id"], status["selected_server_id"]) == ("r1", "1")
+    assert grants == ["hg-one"] and ("cred_by_code", "code:hg-one") in fake.calls
+    saved = service.store.load()["session"]
+    assert (saved["passport_uid"], saved["passport_role_id"], saved["device_id"]) == ("uid-1", "r1", "")
+    assert "hg-one" not in json.dumps(saved)
+    assert (await service.read_card())["payload"]["base"]["role_id"] == "r1"
+    # A restart reuses the saved session instead of creating another one upstream.
+    assert build().status()["source"] == "passport" and fake.exchanges == 1
+
+
+async def test_passport_connect_requires_login_and_failure_keeps_manual_session(tmp_path):
+    service, fake, current, grants, _ = passport_service(tmp_path, identity=("", "", ""))
+    await service.connect("account-two")
+    assert not service.status()["passport_available"]
+    with pytest.raises(SklandError, match="请先在「社区账号」登录终末地"):
+        await service.connect_with_passport()
+    current["identity"] = ("hg-one", "uid-1", "r1")
+    fake.fail_exchange = True
+    with pytest.raises(SklandError) as error:
+        await service.connect_with_passport()
+    assert str(error.value) == PASSPORT_REJECTED
+    status = service.status()
+    assert status["source"] == "manual" and status["roles"][0]["role_id"] == "r2"
+
+
+async def test_passport_role_missing_from_skland_is_not_auto_selected(tmp_path):
+    service, *_ = passport_service(tmp_path, identity=("hg-one", "uid-1", "r9"))
+    status = await service.connect_with_passport()
+    assert status["connected"] and status["selected_role_id"] is None
+    with pytest.raises(SklandError, match="请先选择终末地角色"):
+        await service.read_card()
+
+
+@pytest.mark.parametrize("grant_error, message, expired", [
+    (EndfieldError(EXPIRED_MESSAGE, status_code=401, expired=True), PASSPORT_EXPIRED, True),
+    (EndfieldError("接口错误 status=1", status_code=1), PASSPORT_REJECTED, False),
+    (EndfieldError("网络错误: ConnectError"), "森空岛暂时无法连接，请稍后重试", False),
+])
+async def test_passport_grant_errors_are_mapped_without_saving(tmp_path, grant_error, message, expired):
+    service, *_ = passport_service(tmp_path, grant_error=grant_error)
+    with pytest.raises(SklandError) as error:
+        await service.connect_with_passport()
+    assert (str(error.value), error.value.expired) == (message, expired)
+    assert not service.status()["connected"] and service.store.load() == {}
+
+
+async def test_passport_logout_or_switch_clears_only_passport_session(tmp_path):
+    service, fake, current, _, _ = passport_service(tmp_path)
+    await service.connect_with_passport()
+    await service.read_card()
+    current["identity"] = ("hg-one-relogin", "uid-1", "r1")  # same account, new token
+    await service.on_passport_changed("endfield")
+    assert service.status()["connected"]
+    current["identity"] = ("", "", "")  # LoginService has applied the logout
+    assert not service.status()["connected"]  # reported at once, without a network call
+    await service.on_passport_changed("endfield")
+    assert service.store.load() == {}
+    await service.connect("account-two")
+    current["identity"] = ("hg-two", "uid-2", "r2")
+    await service.on_passport_changed("endfield")
+    assert service.status()["source"] == "manual"
+
+
+async def test_reads_refuse_a_passport_session_after_a_missed_switch(tmp_path):
+    service, fake, current, _, _ = passport_service(tmp_path)
+    await service.connect_with_passport()
+    current["identity"] = ("hg-two", "uid-2", "r2")
+    with pytest.raises(SklandError, match=PASSPORT_CHANGED):
+        await service.read_card(force=True)
+    assert service.store.load() == {} and not any(call[0] == "card" for call in fake.calls)
+
+
+async def test_expired_passport_session_is_renewed_once_and_keeps_chosen_role(tmp_path):
+    service, fake, current, grants, _ = passport_service(tmp_path)
+    await service.connect_with_passport()
+    await service.select_role("r1b", "2")
+    first = service.store.load()["session"]["cred"]
+    fake.expired_creds.add(first)
+    card = await service.read_card(force=True)
+    assert card["error"] is None and card["payload"]["base"]["role_id"] == "r1b"
+    renewed = service.store.load()["session"]
+    assert renewed["cred"] != first and (renewed["role_id"], renewed["server_id"]) == ("r1b", "2")
+    assert grants == ["hg-one", "hg-one"]
+
+
+async def test_failed_renewal_keeps_stale_card_and_manual_sessions_never_renew(tmp_path):
+    service, fake, current, grants, _ = passport_service(tmp_path)
+    await service.connect_with_passport()
+    good = await service.read_card()
+    fake.expired_creds.add(service.store.load()["session"]["cred"])
+    fake.fail_exchange = True
+    card = await service.read_card(force=True)
+    assert card["stale"] and card["error"] == PASSPORT_REJECTED and card["payload"] == good["payload"]
+    manual, manual_fake = await connected_service(tmp_path / "manual")
+    manual_fake.expired_creds.add("account-one")
+    result = await manual.read_card(force=True)
+    assert result["stale"] and not any(call[0] == "cred_by_code" for call in manual_fake.calls)
+
+
+async def test_passport_logout_waits_for_in_flight_read_then_drops_session(tmp_path):
+    service, fake, current, _, _ = passport_service(tmp_path)
+    await service.connect_with_passport()
+    started, resume = asyncio.Event(), asyncio.Event()
+    original = fake.card
+    async def slow_card(*args, **kwargs):
+        started.set()
+        await resume.wait()
+        return await original(*args, **kwargs)
+    fake.card = slow_card
+    read = asyncio.create_task(service.read_card(force=True))
+    await started.wait()
+    current["identity"] = ("", "", "")
+    change = asyncio.create_task(service.on_passport_changed("endfield"))
+    await asyncio.sleep(0)
+    assert not change.done()
+    resume.set()
+    assert (await read)["payload"]["base"]["role_id"] == "r1"  # requested before the logout
+    await change
+    assert service.store.load() == {}
+    with pytest.raises(SklandError):
+        await service.read_card()
+
+
+async def test_saved_session_without_source_is_a_manual_session(tmp_path):
+    CredentialStore(credential_path(str(tmp_path / "a.db"))).save({"session": {
+        "cred": "account-one", "device_id": "", "user_id": "u1", "role_id": "r1", "server_id": "1",
+        "roles": [{"role_id": "r1", "server_id": "1", "nickname": "角色r1"}]}})
+    service = EndfieldSklandService(str(tmp_path / "a.db"), client=FakeClient())
+    status = service.status()
+    assert status["connected"] and status["source"] == "manual" and not status["passport_available"]
+
+
+def test_installer_follows_login_service_and_passport_route_is_protected(tmp_path):
+    settings = Settings(db_path=str(tmp_path / "db"))
+    app = create_app(registry=FakeRegistry(DummyAdapter()), store=SnapshotStore(settings.db_path),
+                     settings=settings, start_scheduler=False)
+    assert app.state.auth._account_listeners == [app.state.endfield_skland.on_passport_changed]
+    client = TestClient(app, base_url="http://127.0.0.1:8010")
+    assert client.post("/api/endfield/skland/passport").status_code == 403
+    response = client.post("/api/endfield/skland/passport", headers={"X-Game-Assistant": "1"})
+    assert response.status_code == 409 and "社区账号" in response.json()["detail"]
+    assert client.get("/api/endfield/skland/status").json()["passport_available"] is False
+    settings.endfield_hg_token, settings.endfield_uid, settings.endfield_role_id = "hg", "uid", "r1"
+    assert client.get("/api/endfield/skland/status").json()["passport_available"] is True

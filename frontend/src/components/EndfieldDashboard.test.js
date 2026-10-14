@@ -173,3 +173,61 @@ test('changing a map category returns to the first page', async t => {
   await flush(); await flush()
   assert.ok(calls.at(-1).includes('type_id=ore') && calls.at(-1).includes('offset=0'))
 })
+
+test('passport login offers one-click Skland connection and loads the matching role', async t => {
+  const calls = []
+  let status = { connected: false, passport_available: true, roles: [] }
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    calls.push([options.method || 'GET', url])
+    if (url.endsWith('/skland/passport')) {
+      status = { connected: true, source: 'passport', passport_available: true, roles: [{ role_id: 'r1', server_id: '1', nickname: '管理员' }], selected_role_id: 'r1', selected_server_id: '1' }
+      return response(status)
+    }
+    if (url.endsWith('/status')) return response(status)
+    if (url.endsWith('/card')) return response({ payload: { base: { name: '管理员', level: 40 } } })
+    if (url.endsWith('/attendance')) return response({ supported: true, status: 'unsigned', calendar: [] })
+    return response({})
+  })
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush()
+  assert.match(content(root), /手动连接（备用）/)
+  assert.equal(nodes(root, 'details')[0].props.open, false)
+  nodes(root, 'button').find(n => content(n) === '用鹰角通行证连接').props.onClick()
+  await flush(); await flush()
+  assert.ok(calls.some(([method, url]) => method === 'POST' && url.endsWith('/skland/passport')))
+  assert.ok(calls.some(([, url]) => url.endsWith('/skland/card')))
+  assert.match(content(root), /已用鹰角通行证连接森空岛/)
+  assert.equal(nodes(root, 'span').find(n => content(n) === '鹰角通行证')?.props.class, 'badge')
+})
+
+test('a rejected one-click connection explains why and opens the manual form', async t => {
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.endsWith('/skland/passport')) return { ok: false, status: 502, json: async () => ({ detail: '森空岛未接受通行证授权，请改用手动连接' }) }
+    if (url.endsWith('/status')) return response({ connected: false, passport_available: true, roles: [] })
+    return response({})
+  })
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush()
+  nodes(root, 'button').find(n => content(n) === '用鹰角通行证连接').props.onClick()
+  await flush()
+  assert.match(content(root), /森空岛未接受通行证授权，请改用手动连接/)
+  assert.equal(nodes(root, 'details')[0].props.open, true)
+})
+
+test('without a passport login only the expanded manual form is offered', async t => {
+  t.mock.method(globalThis, 'fetch', async () => response({ connected: false, passport_available: false, roles: [] }))
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush()
+  assert.match(content(root), /在「社区账号」登录终末地后，可一键连接森空岛/)
+  assert.equal(nodes(root, 'details')[0].props.open, true)
+  assert.ok(!nodes(root, 'button').some(n => content(n) === '用鹰角通行证连接'))
+})
+
+test('a passport session whose role differs from Skland asks the user to choose', async t => {
+  t.mock.method(globalThis, 'fetch', async url => url.endsWith('/status')
+    ? response({ connected: true, source: 'passport', passport_available: true, roles: [{ role_id: 'r2', server_id: '1', nickname: '其他角色' }], selected_role_id: null, selected_server_id: null })
+    : response({}))
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush()
+  assert.match(content(root), /森空岛绑定的角色与通行证登录的角色不同，请确认后手动选择/)
+})

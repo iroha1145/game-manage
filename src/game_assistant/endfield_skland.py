@@ -4,10 +4,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from game_assistant.auth.store import CredentialStore, CredentialStoreError
-from game_assistant.adapters.endfield.skland_client import SklandClient, SklandError, TOOLS
+from game_assistant.adapters.endfield.hypergryph import EndfieldError, HypergryphClient
+from game_assistant.adapters.endfield.skland_client import PASSPORT_REJECTED, SklandClient, SklandError, TOOLS
 from game_assistant.adapters.endfield.skland_parse import (
     obj, parse_attendance, parse_attendance_calendar, parse_card, parse_challenge, parse_operator, parse_roles, parse_user_id,
 )
+
+PASSPORT_REQUIRED = "请先在「社区账号」登录终末地"
+PASSPORT_EXPIRED = "鹰角通行证登录已失效，请在「社区账号」重新登录"
+PASSPORT_CHANGED = "鹰角通行证账号已变化，请重新连接森空岛"
 
 
 def credential_path(db_path: str) -> Path:
@@ -28,8 +33,11 @@ class EndfieldSklandService:
     ttl_seconds = 120
 
     def __init__(self, db_path: str, *, client: SklandClient | None = None,
-                 store: CredentialStore | None = None, clock=None):
+                 store: CredentialStore | None = None, clock=None, passport=None, hypergryph=None):
         self.client = client or SklandClient()
+        # passport() → (通行证令牌, uid, role_id)，取自登录服务写入的设置；未登录时为空。
+        self._passport_reader = passport or (lambda: ("", "", ""))
+        self._hypergryph = hypergryph or HypergryphClient
         self.store = store or CredentialStore(credential_path(db_path))
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self._lock = asyncio.Lock()
@@ -49,11 +57,27 @@ class EndfieldSklandService:
 
     def status(self) -> dict:
         session = self._session
-        return {"connected": bool(session.get("cred")), "roles": session.get("roles", []),
-                "selected_role_id": session.get("role_id"), "selected_server_id": session.get("server_id"),
+        connected = bool(session.get("cred")) and self._belongs_to_passport(session)
+        return {"connected": connected, "source": (session.get("source") or "manual") if connected else None,
+                "passport_available": self._passport() is not None,
+                "roles": session.get("roles", []) if connected else [],
+                "selected_role_id": session.get("role_id") if connected else None,
+                "selected_server_id": session.get("server_id") if connected else None,
                 "error": self._storage_error}
 
-    def _save(self, session: dict):
+    def _passport(self) -> dict | None:
+        token, uid, role_id = (str(value or "") for value in self._passport_reader())
+        return {"token": token, "uid": uid, "role_id": role_id} if token and role_id else None
+
+    def _belongs_to_passport(self, session: dict) -> bool:
+        """Manual sessions are independent; a passport session follows the current login."""
+        if session.get("source") != "passport":
+            return True
+        passport = self._passport()
+        return bool(passport) and (session.get("passport_uid"), session.get("passport_role_id")) == (
+            passport["uid"], passport["role_id"])
+
+    def _save(self, session: dict, *, clear_cache: bool = True):
         try:
             self.store.save({"session": session} if session else {})
         except CredentialStoreError:
@@ -61,11 +85,27 @@ class EndfieldSklandService:
         self._session = session
         self._storage_error = None
         self._version += 1
-        self._cache = None
-        self._challenge_cache = {}
-        self._operator_cache = {}
-        self._tool_cache = {}
-        self._last_attendance = None
+        if clear_cache:
+            self._cache = None
+            self._challenge_cache = {}
+            self._operator_cache = {}
+            self._tool_cache = {}
+            self._last_attendance = None
+
+    async def _validated(self, cred: str, device_id: str = "") -> tuple[dict, str]:
+        """Check a session before it may replace the saved one; returns (session, signing token)."""
+        token = await self.client.refresh(cred)
+        try:
+            roles = parse_roles(await self.client.binding(cred, token, device_id))
+            user_id = parse_user_id(await self.client.user(cred, token, device_id))
+        except (TypeError, ValueError, KeyError, AttributeError):
+            raise SklandError('森空岛绑定资料格式已变化，原连接已保留') from None
+        if not user_id:
+            raise SklandError("森空岛未提供账号标识，连接未保存")
+        if not roles:
+            raise SklandError("森空岛账号没有可用的国服终末地角色")
+        return {"cred": cred, "device_id": device_id, "roles": roles,
+                "user_id": user_id, "role_id": None, "server_id": None}, token
 
     async def connect(self, cred: str, device_id: str = "") -> dict:
         if not isinstance(cred, str) or not 1 <= len(cred.strip()) <= 4096 or any(ord(c) < 32 for c in cred):
@@ -74,28 +114,54 @@ class EndfieldSklandService:
             raise SklandError("设备标识格式不正确")
         cred, device_id = cred.strip(), device_id.strip()
         async with self._lock:
-            token = await self.client.refresh(cred)
-            try:
-                roles = parse_roles(await self.client.binding(cred, token, device_id))
-                user_id = parse_user_id(await self.client.user(cred, token, device_id))
-            except (TypeError, ValueError, KeyError, AttributeError):
-                raise SklandError('森空岛绑定资料格式已变化，原连接已保留') from None
-            if not user_id:
-                raise SklandError("森空岛未提供账号标识，连接未保存")
-            if not roles:
-                raise SklandError("森空岛账号没有可用的国服终末地角色")
+            session, _ = await self._validated(cred, device_id)
             # Validation completes before old account is replaced.
-            self._save({"cred": cred, "device_id": device_id, "roles": roles,
-                        "user_id": user_id, "role_id": None, "server_id": None})
+            self._save({**session, "source": "manual"})
             return self.status()
+
+    async def _passport_session(self, passport: dict, keep: tuple | None = None) -> tuple[dict, str]:
+        """Exchange the passport token for a new Skland session (no device id) and pick its role."""
+        try:
+            async with self._hypergryph() as client:
+                code = await client.skland_code(passport["token"])
+        except EndfieldError as error:
+            if error.expired:
+                raise SklandError(PASSPORT_EXPIRED, expired=True) from None
+            temporary = error.status_code is None or error.message.startswith("HTTP ")
+            raise SklandError("森空岛暂时无法连接，请稍后重试" if temporary else PASSPORT_REJECTED) from None
+        session, token = await self._validated(await self.client.cred_by_code(code))
+        roles = session["roles"]
+        # Keep the user's choice on renewal; otherwise only the passport's own role is auto-selected.
+        role = (next((r for r in roles if (r["role_id"], r["server_id"]) == keep), None) if keep else None) \
+            or next((r for r in roles if r["role_id"] == passport["role_id"]), None)
+        return {**session, "source": "passport", "passport_uid": passport["uid"],
+                "passport_role_id": passport["role_id"],
+                "role_id": role["role_id"] if role else None,
+                "server_id": role["server_id"] if role else None}, token
+
+    async def connect_with_passport(self) -> dict:
+        async with self._lock:
+            passport = self._passport()
+            if not passport:
+                raise SklandError(PASSPORT_REQUIRED)
+            session, _ = await self._passport_session(passport)
+            # Validation completes before the saved session is replaced.
+            self._save(session)
+            return self.status()
+
+    async def on_passport_changed(self, game: str) -> None:
+        """Run after a passport login or logout: drop a passport session that no longer matches."""
+        if game != "endfield":
+            return
+        async with self._lock:
+            if self._session.get("cred") and not self._belongs_to_passport(self._session):
+                self._save({})
 
     async def select_role(self, role_id: str, server_id: str) -> dict:
         if not isinstance(role_id, str) or not isinstance(server_id, str):
             raise SklandError("角色参数不正确")
         async with self._lock:
-            session = self._session
-            if not session.get("cred"):
-                raise SklandError("请先连接森空岛")
+            session = self._connected()
             if not any(r["role_id"] == role_id and r["server_id"] == server_id for r in session.get("roles", [])):
                 raise SklandError("该角色不在当前绑定列表中")
             self._save({**session, "role_id": role_id, "server_id": server_id})
@@ -106,17 +172,42 @@ class EndfieldSklandService:
             self._save({})
             return self.status()
 
-    def _selected(self):
+    def _connected(self):
         s = self._session
         if not s.get("cred"):
             raise SklandError("请先连接森空岛")
+        if not self._belongs_to_passport(s):
+            # Backstop for a missed login/logout notification: never read another account's data.
+            self._save({})
+            raise SklandError(PASSPORT_CHANGED)
+        return s
+
+    def _selected(self):
+        s = self._connected()
         if not s.get("role_id") or not s.get("server_id"):
             raise SklandError("请先选择终末地角色")
         return s
 
     async def _token(self, s):
-        # Short-lived token is never persisted or returned.
-        return await self.client.refresh(s["cred"])
+        """Returns (session, token). The short-lived token is never persisted or returned.
+
+        An expired passport session is exchanged again once with the current passport login.
+        """
+        try:
+            return s, await self.client.refresh(s["cred"])
+        except SklandError as error:
+            if not error.expired or s.get("source") != "passport":
+                raise
+        passport = self._passport()
+        if not passport:
+            raise SklandError(PASSPORT_CHANGED)
+        selected = (s.get("role_id"), s.get("server_id"))
+        renewed, token = await self._passport_session(passport, keep=selected)
+        # Same role: keep the last good data as the stale fallback if the next request fails.
+        self._save(renewed, clear_cache=(renewed["role_id"], renewed["server_id"]) != selected)
+        if not renewed["role_id"]:
+            raise SklandError("请先选择终末地角色")
+        return renewed, token
 
     async def read_card(self, force: bool = False) -> dict:
         async with self._lock:
@@ -126,7 +217,7 @@ class EndfieldSklandService:
                 if age < self.ttl_seconds and not self._cache["stale"]:
                     return self._cache.copy()
             try:
-                token = await self._token(s)
+                s, token = await self._token(s)
                 detail = await self.client.card(s["cred"], token, s["role_id"], s["server_id"],
                                                 s["user_id"], s.get("device_id", ""))
                 if not isinstance(detail, dict):
@@ -170,7 +261,7 @@ class EndfieldSklandService:
         async with self._lock:
             s = self._selected()
             try:
-                token = await self._token(s)
+                s, token = await self._token(s)
                 detail = await self.client.operator(s['cred'], token, s['role_id'], s['server_id'],
                                                      s['user_id'], char_id, s.get('device_id', ''))
                 operator = parse_operator(detail)
@@ -187,7 +278,7 @@ class EndfieldSklandService:
                 return {'operator': None, 'fetched_at': None, 'stale': True, 'error': error}
 
     async def _read_attendance_unlocked(self, session: dict) -> dict:
-        token = await self._token(session)
+        session, token = await self._token(session)
         calendar = await self.client.attendance_calendar(session["cred"], token, session["role_id"],
                                                          session["server_id"], session.get("device_id", ""))
         records = await self.client.attendance_records(session["cred"], token, session["role_id"],
@@ -200,7 +291,7 @@ class EndfieldSklandService:
     async def sign_attendance(self) -> dict:
         async with self._lock:
             s = self._selected()
-            token = await self._token(s)
+            s, token = await self._token(s)
             response = await self.client.attendance(s["cred"], token, s["role_id"], s["server_id"],
                                                     s.get("device_id", ""))
             try:
@@ -231,7 +322,7 @@ class EndfieldSklandService:
             s = self._selected()
             key = (kind, season_id, contract_id, record_id)
             try:
-                token = await self._token(s)
+                s, token = await self._token(s)
                 data = await self.client.challenge(kind, s["cred"], token, s["role_id"], s["server_id"],
                                                    s["user_id"], s.get("device_id", ""),
                                                    season_id=season_id, contract_id=contract_id, record_id=record_id)
@@ -257,7 +348,7 @@ class EndfieldSklandService:
             s = self._selected()
             key = (kind, char_id)
             try:
-                token = await self._token(s)
+                s, token = await self._token(s)
                 data = await self.client.tool(kind, s["cred"], token, s["role_id"],
                                               s["server_id"], s.get("device_id", ""), char_id=char_id)
                 field = {'characters': 'chars', 'weapons': 'weapons', 'equipment': 'equips',
