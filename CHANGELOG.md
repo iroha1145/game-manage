@@ -2,16 +2,17 @@
 
 ## Unreleased
 
+- Endfield: one-click Skland connection from the Hypergryph SMS login. The passport token is exchanged for a Skland session without a device id, the passport's own role is selected automatically, an expired session is exchanged again once, and the session is dropped when the passport logs out or switches account. Pasting a Skland cred remains as the manual fallback. Verified with a live official-server account on 2026-10-14 together with SMS login and headhunting sync; attendance sign-in is not yet verified. Design: `docs/superpowers/specs/2026-10-14-endfield-skland-passport-connect-design.md`.
 - Fixed game navigation labels and icons disappearing after selection: animated backgrounds now keep their own stacking context when Vue updates theme classes. Game-specific colors remain intact in both themes.
 - Refined the shared surfaces, navigation, game headers and overview cards using Option Pro's paper styling, with subtle hover lighting, restrained entrance motion and animated progress updates. Pointer effects respect reduced-motion preferences; navigation motion cleans up pending frames on unmount.
 - Kept the compact activity timeline with inline labels, striped event bands and circular today markers. Aligned weekday, date and today text without overlap, while preserving exact date proportions, source details and per-game colors.
 - Motion refinements preserve the initial PR's compact cards and centered Wuwa/NTE dialogs: selected mobile tabs stay visible, dialogs open and close with short transitions, and focus and scrolling are restored reliably. References and interaction rules are in `docs/frontend-motion.md`.
 - Endfield toolbox: official-site news/calendar with stale-cache fallback, public map search and marker details, encrypted local Skland connection with explicit role selection, profile/operator/region/ship and challenge views, manual attendance, official reference tools, and local blueprint CRUD/export. Shared dashboard themes and controls are preserved.
-- Added the official `E_CharacterGachaPoolType_Rerun` headhunting category. Public news/map reads and the official record-page enum were verified on 2026-09-28; private account flows remain covered by simulated tests rather than live-account verification. See `docs/endfield-toolbox.md`.
+- Added the official `E_CharacterGachaPoolType_Rerun` headhunting category. Public news/map reads and the official record-page enum were verified on 2026-09-28; private account flows were first verified with a live account on 2026-10-14 (attendance sign-in still unverified). See `docs/endfield-toolbox.md`.
 - Arknights: Endfield (official server): Hypergryph account SMS login, account card, headhunting records synced from the official API into a local ledger (seqId de-duplication, resumable first sync, gap-aware pity counts), record list and export.
 - Endfield Bilibili source (UID 1265652806) with an announcement parser for version-name titles, relative starts, “until the next version update” ends resolved from the next maintenance notice, dependent ends and multi-phase times.
 - Bilibili rule version 5 keeps Endfield notices whose body mentions web events.
-- Existing installations must add `endfield = "1265652806"` under `[bilibili_sources]` in `config.toml`. Endfield endpoints are not yet verified against a real account.
+- Existing installations must add `endfield = "1265652806"` under `[bilibili_sources]` in `config.toml`.
 
 ## 0.1.0 — 2026-09-19
 

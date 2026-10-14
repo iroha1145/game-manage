@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { vGlide } from '../motion.js'
 import { formatTime } from '../dashboard.js'
 import {
-  getPublic, refreshPublic, getMap, getMapMark, getSklandStatus, connectSkland, chooseSklandRole,
+  getPublic, refreshPublic, getMap, getMapMark, getSklandStatus, connectSkland, connectSklandWithPassport, chooseSklandRole,
   disconnectSkland, getSklandCard, refreshSklandCard, getAttendance, signAttendance,
   getChallenges, getSklandTools, getSklandOperator, getBlueprints, exportBlueprints, saveBlueprint, updateBlueprint, deleteBlueprint, safeExternalUrl,
 } from '../endfield-tools-api.js'
@@ -30,12 +30,14 @@ const mapId = ref(''), levelId = ref(''), typeId = ref(''), mapQuery = ref(''), 
 const toolKind = ref('characters'), toolQuery = ref(''), toolPage = ref(0), toolData = ref(null), toolBusy = ref(false), toolError = ref('')
 const blueprints = ref([]), blueprintBusy = ref(false), blueprintError = ref(''), editingId = ref(null)
 const blueprintName = ref(''), blueprintCode = ref(''), blueprintNotes = ref('')
-const cred = ref(''), deviceId = ref(''), actionBusy = ref(false), actionError = ref(''), actionMessage = ref('')
+const cred = ref(''), deviceId = ref(''), actionBusy = ref(false), actionError = ref(''), actionMessage = ref(''), manualOpen = ref(false)
 let statusSeq = 0, privateSeq = 0, attendanceSeq = 0, operatorSeq = 0, challengeSeq = 0, mapSeq = 0, markSeq = 0, toolSeq = 0, publicSeq = 0, blueprintsSeq = 0
 let mapController = null
 let destroyed = false
 
 const connected = computed(() => !!status.value?.connected)
+const passportAvailable = computed(() => !!status.value?.passport_available)
+const connectionSource = computed(() => ({ passport: '鹰角通行证', manual: '手动连接' })[status.value?.source] || '')
 const selectedRole = computed(() => status.value?.roles?.find(role => String(role.role_id) === String(status.value.selected_role_id) && String(role.server_id) === String(status.value.selected_server_id)))
 const roleKey = computed(() => selectedRole.value ? `${selectedRole.value.role_id}:${selectedRole.value.server_id}` : '')
 const originalAccount = computed(() => props.snaps.account?.payload || null)
@@ -235,6 +237,15 @@ async function connect() {
   } catch (error) { actionError.value = error.message }
   finally { actionBusy.value = false }
 }
+async function connectWithPassport() {
+  actionBusy.value = true; actionError.value = ''; actionMessage.value = ''
+  try {
+    const data = await connectSklandWithPassport()
+    clearPrivate(); status.value = data
+    actionMessage.value = data.selected_role_id ? '已用鹰角通行证连接森空岛。' : '已连接森空岛，请确认角色。'
+  } catch (error) { actionError.value = error.message; manualOpen.value = true }
+  finally { actionBusy.value = false }
+}
 async function selectRole(event) {
   const role = status.value?.roles?.find(item => `${item.role_id}:${item.server_id}` === event.target.value)
   if (!role || event.target.value === roleKey.value) return
@@ -284,6 +295,8 @@ async function downloadBlueprints() {
 }
 function submitMapSearch() { submittedQuery.value = mapQuery.value.trim(); if (mapOffset.value) mapOffset.value = 0; else loadMap() }
 
+// Without a passport login the manual form is the only way in, so show it expanded.
+watch(() => status.value?.passport_available, available => { manualOpen.value = available !== true }, { immediate: true })
 watch(roleValue, (next, previous) => {
   if (next === previous) return
   clearPrivate()
@@ -315,17 +328,26 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
     <div class="endfield-nav"><nav v-glide class="segmented" aria-label="终末地数据分区"><button v-for="[id, label] in tabs" :key="id" type="button" :aria-pressed="section === id" @click="section = id">{{ label }}</button></nav><button type="button" class="text-link" @click="emit('calendar')"><AppIcon name="calendar" :size="15" />活动日历<AppIcon name="arrow" :size="15" /></button></div>
 
     <div v-if="['overview','operators','challenges'].includes(section)" class="endfield-stack">
-      <section class="cap-card"><div class="cap-title">森空岛游戏档案<span v-if="card?.stale" class="badge badge-stale">待更新</span></div>
+      <section class="cap-card"><div class="cap-title">森空岛游戏档案<span v-if="connected && connectionSource" class="badge">{{ connectionSource }}</span><span v-if="card?.stale" class="badge badge-stale">待更新</span></div>
         <p v-if="statusBusy" class="hint" role="status">正在读取连接状态…</p>
         <p v-if="statusError" class="error" role="alert">{{ statusError }}</p>
-        <form v-if="!statusBusy && !connected" class="field-grid" @submit.prevent="connect">
-          <p class="hint">连接森空岛后，可查看理智、干员、探索和挑战记录。凭据只在本机加密保存。</p>
-          <label>森空岛凭据<input v-model="cred" type="password" required autocomplete="off" placeholder="填写 cred" /></label>
-          <label>官方设备标识（可选）<input v-model="deviceId" type="password" autocomplete="off" placeholder="已有设备标识时填写" /></label>
-          <button type="submit" class="ui-button" :disabled="actionBusy">{{ actionBusy ? '连接中…' : '连接森空岛' }}</button>
-        </form>
+        <template v-if="!statusBusy && !connected">
+          <div v-if="passportAvailable" class="passport-connect">
+            <p class="hint">使用已登录的鹰角通行证连接，无需复制凭据。可查看理智、干员、探索和挑战记录。</p>
+            <button type="button" class="ui-button" :disabled="actionBusy" @click="connectWithPassport">{{ actionBusy ? '连接中…' : '用鹰角通行证连接' }}</button>
+          </div>
+          <p v-else class="hint">在「社区账号」登录终末地后，可一键连接森空岛；也可以手动连接。</p>
+          <details class="manual-connect" :open="manualOpen" @toggle="manualOpen = $event.target.open"><summary>手动连接（备用）</summary>
+            <form class="field-grid" @submit.prevent="connect">
+              <p class="hint">填写森空岛网页会话凭据。凭据只在本机加密保存。</p>
+              <label>森空岛凭据<input v-model="cred" type="password" required autocomplete="off" placeholder="填写 cred" /></label>
+              <label>官方设备标识（可选）<input v-model="deviceId" type="password" autocomplete="off" placeholder="已有设备标识时填写" /></label>
+              <button type="submit" class="ui-button" :disabled="actionBusy">{{ actionBusy ? '连接中…' : '连接森空岛' }}</button>
+            </form>
+          </details>
+        </template>
         <div v-else-if="connected" class="role-bar"><label>森空岛角色<select :value="roleKey" :disabled="actionBusy" @change="selectRole"><option value="">请选择角色</option><option v-for="role in list(status.roles)" :key="`${role.role_id}:${role.server_id}`" :value="`${role.role_id}:${role.server_id}`">{{ roleLabel(role) }}</option></select></label><button type="button" class="ui-button" :disabled="actionBusy || !roleKey || cardBusy" @click="loadCard(true)"><AppIcon name="refresh" :size="14" />刷新档案</button><button type="button" class="ui-button" :disabled="actionBusy" @click="disconnect">断开</button></div>
-        <p v-if="connected && !roleKey" class="hint">请选择一个森空岛角色。</p>
+        <p v-if="connected && !roleKey" class="hint">{{ status.source === 'passport' ? '森空岛绑定的角色与通行证登录的角色不同，请确认后手动选择。' : '请选择一个森空岛角色。' }}</p>
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p><p v-if="actionMessage" class="hint" role="status">{{ actionMessage }}</p>
       </section>
 
@@ -432,4 +454,5 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
 .tool-search{display:grid;gap:5px;color:var(--text-muted);font-size:12px;margin:12px 0}.tool-search input{box-sizing:border-box;min-height:36px;border:1px solid var(--border);border-radius:7px;padding:7px 9px;background:var(--card-bg);color:var(--text)}
 .catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.catalog-item{display:grid;gap:5px;align-content:start}.catalog-item h3{margin:0}.catalog-description{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.catalog-item details{margin-top:4px;border-top:1px solid var(--border);padding-top:6px;color:var(--text-muted);font-size:12px;overflow-wrap:anywhere}.catalog-item summary{cursor:pointer;color:var(--accent)}.catalog-item details li{padding:4px 0;border-bottom:1px solid var(--border)}.catalog-item details a{display:inline-flex;align-items:center;gap:4px;margin-top:7px}@media(max-width:720px){.catalog-grid{grid-template-columns:1fr}}
 .operator-item .ui-button{margin-top:8px;font-size:12px}.operator-detail{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:grid;gap:5px}
+.passport-connect{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}.passport-connect .hint{margin:0}.manual-connect{margin-top:10px}.manual-connect>summary{cursor:pointer;color:var(--text-muted);font-size:12px;margin-bottom:8px}
 </style>

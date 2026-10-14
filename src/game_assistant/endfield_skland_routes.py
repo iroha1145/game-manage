@@ -9,8 +9,8 @@ from game_assistant.endfield_skland import EndfieldSklandService
 
 def _http_error(exc: SklandError):
     message = str(exc)
-    status = 401 if exc.expired else 409 if message.startswith("请先") else 400
-    if message.startswith("森空岛暂时") or message.startswith("森空岛响应"):
+    status = 401 if exc.expired else 409 if message.startswith(("请先", "鹰角通行证账号已变化")) else 400
+    if message.startswith(("森空岛暂时", "森空岛响应", "森空岛未接受")):
         status = 502
     return HTTPException(status_code=status, detail=message)
 
@@ -33,8 +33,15 @@ async def _json_object(request: Request) -> dict:
 
 
 def install_endfield_skland_routes(app, settings):
-    service = EndfieldSklandService(settings.db_path)
+    def passport():
+        # LoginService keeps these settings in step with the Endfield SMS login.
+        return settings.endfield_hg_token, settings.endfield_uid, settings.endfield_role_id
+
+    service = EndfieldSklandService(settings.db_path, passport=passport)
     app.state.endfield_skland = service
+    auth = getattr(app.state, "auth", None)
+    if auth is not None:
+        auth.add_account_listener(service.on_passport_changed)
     router = APIRouter(prefix="/api/endfield/skland")
 
     @router.get("/status")
@@ -46,6 +53,13 @@ def install_endfield_skland_routes(app, settings):
         body = await _json_object(request)
         try:
             return await service.connect(body.get("cred"), body.get("device_id", ""))
+        except SklandError as exc:
+            raise _http_error(exc) from None
+
+    @router.post("/passport")
+    async def passport_connect():
+        try:
+            return await service.connect_with_passport()
         except SklandError as exc:
             raise _http_error(exc) from None
 

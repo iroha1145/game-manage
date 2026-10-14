@@ -10,7 +10,7 @@ import httpx
 
 from game_assistant.adapters.endfield.endpoints import (
     BINDING_APP_CODE, BINDING_LIST, CHAR_RECORD, GACHA_APP_CODE, OAUTH_GRANT,
-    OFFICIAL_SERVER_ID, U8_TOKEN_BY_UID, USER_AGENT, WEAPON_POOLS, WEAPON_RECORD,
+    OFFICIAL_SERVER_ID, SKLAND_APP_CODE, U8_TOKEN_BY_UID, USER_AGENT, WEAPON_POOLS, WEAPON_RECORD,
 )
 
 EXPIRED_MESSAGE = "鹰角通行证登录已失效，请在「社区账号」重新登录终末地"
@@ -93,6 +93,12 @@ class HypergryphClient:
         data = await request_data(self._client, "POST", OAUTH_GRANT,
                                   body={"token": token, "appCode": GACHA_APP_CODE, "type": 1})
         return _required_text(data, "token")
+
+    async def skland_code(self, token: str) -> str:
+        """通行证令牌 → 森空岛授权码（一次性，只在内存中使用）。"""
+        data = await request_data(self._client, "POST", OAUTH_GRANT,
+                                  body={"token": token, "appCode": SKLAND_APP_CODE, "type": 0})
+        return _required_text(data, "code")
 
     async def binding_list(self, grant_token: str) -> Any:
         return await request_data(self._client, "GET", BINDING_LIST,

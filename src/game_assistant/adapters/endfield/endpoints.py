@@ -30,6 +30,9 @@ WEAPON_RECORD = f"{EF_WEBVIEW}/api/record/weapon"
 
 # 公开协议常量（寻访记录授权的 appCode），不是用户凭据。
 GACHA_APP_CODE = "be36d44aa36bfb5b"
+# 森空岛的授权 appCode：grant {token, appCode, type:0} → data.code，再由 zonai 换取 cred。
+# 2026-10-14 用官服真实账号实测：换取 cred 及之后的只读接口都不需要设备标识（dId）。
+SKLAND_APP_CODE = "4ca99fa6b56cc2ba"
 BINDING_APP_CODE = "endfield"
 OFFICIAL_SERVER_ID = "1"
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "

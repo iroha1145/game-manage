@@ -56,6 +56,7 @@ class LoginService:
         self._versions = {g: 0 for g in GAMES}
         self._account_generations = {g: 0 for g in GAMES}
         self._errors = {}
+        self._account_listeners = []
         self.registry = self.snapshots = None
         try:
             self._saved = self.store.load()
@@ -82,6 +83,17 @@ class LoginService:
             if adapter.game_id in GAMES:
                 adapter._auth = self
                 self._apply(adapter.game_id)
+
+    def add_account_listener(self, callback):
+        """Awaited as callback(game) after a login or logout replaces the account (not on renewal)."""
+        self._account_listeners.append(callback)
+
+    async def _notify_account_change(self, game):
+        for callback in self._account_listeners:
+            try:
+                await callback(game)
+            except Exception as exc:
+                logger.warning("账号变更通知失败 (%s)", type(exc).__name__, extra={'game': game})
 
     def _game(self, game):
         if game not in GAMES:
@@ -242,14 +254,19 @@ class LoginService:
             account['_updated_at'] = self.clock()
             self._persist(game, account, clear_snapshots=True)
             self._sessions.pop(sid, None)
-            return {'ok': True, 'account': self.status()['accounts'][game]}
+            result = {'ok': True, 'account': self.status()['accounts'][game]}
+        # Outside the game lock: a listener may wait for its own in-flight requests.
+        await self._notify_account_change(game)
+        return result
 
     async def logout(self, game):
         self._game(game)
         async with self._locks[game]:
             self._persist(game, {'logged_out': True}, clear_snapshots=True)
             self._sessions = {sid: s for sid, s in self._sessions.items() if s['game'] != game}
-            return {'ok': True, 'account': self.status()['accounts'][game]}
+            result = {'ok': True, 'account': self.status()['accounts'][game]}
+        await self._notify_account_change(game)
+        return result
 
     async def _renew(self, game):
         try:

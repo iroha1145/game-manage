@@ -308,3 +308,19 @@ async def test_public_endfield_capability_never_requires_login(tmp_path):
         return FetchResult(ok=True, payload=[])
     result = await service.fetch('endfield', Capability.EVENTS, action)
     assert result.ok and result.credential_version is None
+
+
+async def test_account_listeners_follow_endfield_login_and_logout(tmp_path):
+    service, settings = make_endfield_service(tmp_path)
+    seen = []
+    async def broken(game):
+        raise RuntimeError('listener failure')
+    async def listener(game):
+        # Runs after the new account (or the logout) has been applied to settings.
+        seen.append((game, settings.endfield_hg_token))
+    service.add_account_listener(broken)
+    service.add_account_listener(listener)
+    await endfield_login(service)
+    assert service.status()['accounts']['endfield']['configured']
+    await service.logout('endfield')
+    assert seen == [('endfield', 'secret-hg'), ('endfield', '')]
