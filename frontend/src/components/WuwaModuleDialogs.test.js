@@ -69,7 +69,8 @@ test('activity details retain source errors and stale status inside the dialog',
 
 test('empty news keeps source failure visible without requiring a private account',async t=>{
   const root=mount(t,await component('WuwaDashboard'),{initialSection:'news',snaps:{news:{payload:[],stale:true,error:'公告采集失败'}}})
-  assert.match(content(root),/暂无公告与资讯/)
+  assert.match(content(root),/采集失败.*保留上次成功数据/)
+  assert.doesNotMatch(content(root),/暂无公告与资讯/)
   assert.match(content(root),/公告采集失败/)
   assert.match(content(root),/数据可能过期/)
 })

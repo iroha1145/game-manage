@@ -6,6 +6,8 @@ import MenuSelect from './MenuSelect.vue'
 import { beijingDayStart, calendarRange, collectCalendarEvents, eventGeometry, eventStatus, formatBeijingDateTime, groupCalendarEvents, safeUrl, shiftCalendarAnchor } from '../calendar.js'
 import { gameStyle } from '../dashboard.js'
 import { prefersReducedMotion, vGlide } from '../motion.js'
+import { collectionState, hasFreshPublicFallback } from '../snapshot-state.js'
+import CloudSnapshotStatus from './CloudSnapshotStatus.vue'
 
 const props = defineProps({
   games: { type: Array, default: () => [] },
@@ -13,6 +15,7 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   initialGameId: { type: String, default: '' },
   readErrors: { type: Object, default: () => ({}) },
+  showSourceStatus: { type:Boolean, default:false },
 })
 const now = ref(Date.now())
 const anchor = ref(now.value)
@@ -74,7 +77,11 @@ const selected = computed(() => events.value.find(event => event.id === selected
 const sourceUrl = computed(() => safeUrl(selected.value?.source_url))
 const filteredGames = computed(() => props.games.filter(game => !filter.value || game.game_id === filter.value))
 const staleGames = computed(() => filteredGames.value.filter(game => props.snapshots[game.game_id]?.events?.stale).map(game => game.display_name))
-const missingGames = computed(() => filteredGames.value.filter(game => (!Array.isArray(game.capabilities) || game.capabilities.includes('events')) && !Array.isArray(props.snapshots[game.game_id]?.events?.payload)).map(game => game.display_name))
+const eventGames = computed(() => filteredGames.value.filter(game => !Array.isArray(game.capabilities) || game.capabilities.includes('events')))
+const missingGames = computed(() => eventGames.value.filter(game => !collectionState(props.snapshots[game.game_id]?.events) && !Array.isArray(props.snapshots[game.game_id]?.events?.payload)).map(game => game.display_name))
+const neverGames = computed(() => eventGames.value.filter(game => collectionState(props.snapshots[game.game_id]?.events) === 'never').map(game => game.display_name))
+const failedCollections = computed(() => eventGames.value.filter(game => collectionState(props.snapshots[game.game_id]?.events) === 'failed').map(game => ({ id: game.game_id, name: game.display_name, partial: hasFreshPublicFallback(props.snapshots[game.game_id]?.events), retained: Array.isArray(props.snapshots[game.game_id]?.events?.payload) })))
+const emptyTitle = computed(() => failedCollections.value.length ? '活动采集失败，等待可用快照' : neverGames.value.length ? '尚未采集活动数据' : eventGames.value.length && eventGames.value.every(game => collectionState(props.snapshots[game.game_id]?.events) === 'collected') ? '已采集，暂无活动数据' : '暂无活动数据')
 const failedReads = computed(() => filteredGames.value.filter(game => props.readErrors[game.game_id]).map(game => ({
   id: game.game_id, name: game.display_name, error: props.readErrors[game.game_id], retained: Array.isArray(props.snapshots[game.game_id]?.events?.payload),
 })))
@@ -126,8 +133,11 @@ async function closeDetail() {
       </div>
       <div class="calendar-meta"><span><strong>{{ visibleEvents.length }}</strong> 项活动<span v-if="events.length > visibleEvents.length"> · 共 {{ events.length }} 项</span></span><div class="calendar-legend"><span><i class="legend-range" />活动区间</span><span><i class="legend-point" />日期标记</span><span><i class="legend-today" />现在</span></div></div>
       <p v-if="staleGames.length" class="calendar-stale" role="status">数据可能过期 · {{ staleGames.join('、') }}，活动安排请以原始公告为准。</p>
+      <p v-for="failure in failedCollections" :key="failure.id" class="calendar-read-error" role="status">{{ failure.name }} · {{ failure.partial ? '部分来源不可用，显示可用来源数据。' : `活动采集失败。${failure.retained ? '保留上次成功快照，请留意活动更新时间。' : '尚无可显示的成功快照。'}` }}</p>
       <p v-for="failure in failedReads" :key="failure.id" class="calendar-read-error" role="status">{{ failure.name }} · 游戏数据读取或刷新异常：{{ failure.error }}。{{ failure.retained ? '保留上次成功快照，请留意活动更新时间。' : '尚无可显示的成功快照。' }}</p>
       <p v-if="missingGames.length && !loading" class="calendar-missing" role="status">{{ missingGames.join('、') }} · 尚未取得活动快照，请刷新后查看。</p>
+      <p v-if="neverGames.length && !loading" class="calendar-missing" role="status">{{ neverGames.join('、') }} · 尚未采集活动，请等待公共采集。</p>
+      <section v-if="showSourceStatus" class="calendar-source-states"><div v-for="game in filteredGames" :key="game.game_id"><strong>{{ game.display_name }}</strong><CloudSnapshotStatus :snapshots="snapshots[game.game_id] || {}" :capabilities="['events']" /></div></section>
       <p v-if="loading && !events.length" class="calendar-empty" role="status">正在读取活动快照…</p>
 
       <div v-else class="timeline-scroll" tabindex="0" role="region" aria-label="活动日期横轴，可横向和纵向滚动" :style="{ '--day-count': range.days.length, '--timeline-min': `${184 + range.days.length * (mode === 'fortnight' ? 39 : 26)}px` }">
@@ -148,7 +158,7 @@ async function closeDetail() {
               </div>
             </div>
           </template>
-          <div v-else class="calendar-empty timeline-empty"><span aria-hidden="true">◇</span><strong>{{ events.length ? '当前范围没有可定位的活动' : '暂无活动数据' }}</strong><p>{{ events.length ? '可切换时间范围，或查看下方未确定日期的活动。' : '采集到的活动公告将在这里按真实日期展示。' }}</p></div>
+          <div v-else class="calendar-empty timeline-empty"><span aria-hidden="true">◇</span><strong>{{ events.length ? '当前范围没有可定位的活动' : emptyTitle }}</strong><p>{{ events.length ? '可切换时间范围，或查看下方未确定日期的活动。' : '采集到的活动公告将在这里按真实日期展示。' }}</p></div>
         </div>
       </div>
       <div class="calendar-footer"><span>日期按时间比例展示 · “更新后”仅表示开始日期，具体时刻见公告</span><span>↔ 可横向滚动</span></div>

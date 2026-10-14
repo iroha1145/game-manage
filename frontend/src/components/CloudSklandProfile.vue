@@ -1,0 +1,25 @@
+<script setup>
+import { computed } from 'vue'
+import AccountCard from './AccountCard.vue'
+import StaminaCard from './StaminaCard.vue'
+import CloudDataTree from './CloudDataTree.vue'
+const props=defineProps({payload:{type:Object,default:()=>({})},fetchedAt:{type:String,default:''}})
+const profile=computed(()=>({payload:{nickname:props.payload.base?.name,level:props.payload.base?.level},fetched_at:props.fetchedAt}))
+const list=value=>Array.isArray(value)?value:[]
+const named=value=>typeof value === 'string' ? value : value?.name || value?.title || '未提供'
+const pair=value=>`${show(value?.count)} / ${show(value?.total)}`
+const show=value=>value==null||value===''?'未提供':String(value)
+</script>
+<template>
+  <div class="cloud-skland-profile"><AccountCard :snap="profile" /><StaminaCard :snap="{payload:payload.stamina ?? null,fetched_at:fetchedAt}" label="理智" />
+    <section class="cap-card"><h3>日常与周期进度</h3><p v-if="!list(payload.progress).length">尚无日常进度</p><p v-for="(row,index) in list(payload.progress)" :key="index">{{ row.name || '周期进度' }}：{{ show(row.cur) }} / {{ show(row.total) }}</p></section>
+    <section class="cap-card"><h3>干员档案</h3><p v-if="!list(payload.operators).length">尚无干员目录</p><div class="profile-grid"><article v-for="(operator,index) in list(payload.operators)" :key="operator.id || index" class="inner-card"><h4>{{ operator.name || `干员 ${index+1}` }} · {{ show(operator.rarity) }}★</h4><p>等级 {{ show(operator.level) }} · 潜能 {{ show(operator.potential) }}</p><p v-if="operator.profession || operator.property">{{ show(operator.profession) }} · {{ show(operator.property) }}</p><p v-if="operator.weapon">武器：{{ named(operator.weapon) }} · 等级 {{ show(operator.weapon.level) }}</p></article></div></section>
+    <section class="cap-card"><h3>区域探索</h3><p v-if="!list(payload.regions).length">尚无区域资料</p><details v-for="(region,index) in list(payload.regions)" :key="region.id || index" open><summary>{{ region.name || `区域 ${index+1}` }} · 等级 {{ show(region.level) }}</summary><p v-if="region.money">调度券：{{ pair(region.money) }}</p><p v-for="settlement in list(region.settlements)" :key="settlement.id || settlement.name">{{ named(settlement) }} · 等级 {{ show(settlement.level) }} · 资金 {{ show(settlement.money) }} / {{ show(settlement.money_max) }}</p><div class="profile-grid"><article v-for="level in list(region.levels)" :key="level.id || level.name" class="inner-card"><h4>{{ named(level) }}</h4><p>谜质 {{ pair(level.puzzles) }} · 储藏箱 {{ pair(level.chests) }}</p><p>装备箱 {{ pair(level.equipment_chests) }} · 维修点 {{ pair(level.pieces) }} · 黑匣子 {{ pair(level.blackboxes) }}</p></article></div><p v-for="(entry,i) in list(region.collections)" :key="entry.level_id || i">{{ entry.level_id || '区域收集' }}：谜质 {{ show(entry.puzzle_count) }} · 储藏箱 {{ show(entry.chest_count) }} · 维修点 {{ show(entry.piece_count) }} · 黑匣子 {{ show(entry.blackbox_count) }}</p></details></section>
+    <section class="cap-card"><h3>帝江号</h3><p v-if="!list(payload.ship).length">尚无舱室资料</p><details v-for="(room,index) in list(payload.ship)" :key="room.id || index"><summary>{{ room.name || `舱室 ${index+1}` }} · 等级 {{ show(room.level) }}</summary><p v-for="(operator,i) in list(room.operators)" :key="operator.charId || i">{{ operator.name || operator.charId || '驻守干员' }} · 体力 {{ show(operator.physicalStrength) }} · 好感度 {{ show(operator.favorability) }}</p><p v-if="!list(room.operators).length">暂无驻守干员</p></details></section>
+    <section class="cap-card"><h3>成就</h3><p>已完成数量：{{ show(payload.achievements?.count) }}</p><p>勋章：{{ payload.achievements?.medals == null ? '未提供' : list(payload.achievements.medals).length }}</p><ul><li v-for="(medal,index) in list(payload.achievements?.medals)" :key="medal.id || index">{{ named(medal) }}</li></ul></section>
+    <details class="cap-card"><summary>查看来源字段</summary><CloudDataTree :value="payload" /></details>
+  </div>
+</template>
+<style scoped>
+.cloud-skland-profile{display:grid;gap:14px;min-width:0}h3{margin:0 0 12px;font-size:15px}p{line-height:1.6}ul{padding-left:20px;display:grid;gap:8px}summary{cursor:pointer;padding:8px 0}.profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.inner-card{border:1px solid var(--border);padding:12px;border-radius:9px}.inner-card h4{margin:0 0 8px}@media(max-width:720px){.profile-grid{grid-template-columns:1fr}}
+</style>

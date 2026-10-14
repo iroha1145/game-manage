@@ -11,8 +11,11 @@ import AppIcon from './AppIcon.vue'
 import EndfieldGachaPanel from './EndfieldGachaPanel.vue'
 import AnnouncementList from './AnnouncementList.vue'
 
-const props = defineProps({ snaps: { type: Object, default: () => ({}) }, initialSection: { type: String, default: 'overview' } })
-const emit = defineEmits(['calendar'])
+const props = defineProps({ cloudAccount:Object, cloudRole:String, isAdmin:Boolean, snaps: { type: Object, default: () => ({}) }, initialSection: { type: String, default: 'overview' } })
+const emit = defineEmits(['calendar','refresh'])
+const cloud = computed(()=>!!props.cloudAccount)
+const passport = computed(()=>!cloud.value || props.cloudAccount.provider === 'hypergryph')
+const canMaintain = computed(()=>!cloud.value || props.isAdmin)
 const tabs = [
   ['overview', '概览'], ['operators', '干员与探索'], ['challenges', '挑战记录'],
   ['gacha', '抽卡统计'], ['map', '地图与图鉴'], ['blueprints', '蓝图收藏'], ['news', '公告与资讯'],
@@ -39,13 +42,13 @@ const connected = computed(() => !!status.value?.connected)
 const selectedRole = computed(() => status.value?.roles?.find(role => String(role.role_id) === String(status.value.selected_role_id) && String(role.server_id) === String(status.value.selected_server_id)))
 const roleKey = computed(() => selectedRole.value ? `${selectedRole.value.role_id}:${selectedRole.value.server_id}` : '')
 const originalAccount = computed(() => props.snaps.account?.payload || null)
-const gachaAccountId = computed(() => originalAccount.value?.role_id == null ? '' : String(originalAccount.value.role_id))
+const gachaAccountId = computed(() => cloud.value ? `${props.cloudAccount.account_id}:${props.cloudRole}` : originalAccount.value?.role_id == null ? '' : String(originalAccount.value.role_id))
 const cardPayload = computed(() => card.value?.payload || null)
 const display = value => value === null || value === undefined || value === '' ? '未知' : String(value)
 const dateText = value => value ? formatTime(value) : '未知'
 const list = value => Array.isArray(value) ? value : []
 const humanError = value => typeof value === 'string' ? value : value ? '暂时无法读取，请稍后重试。' : ''
-const roleLabel = role => `${role.nickname || '未命名角色'} · ${role.role_id} / ${role.server_id}`
+const roleLabel = role => cloud.value ? `${role.nickname || '未命名角色'} · ${role.role_id}` : `${role.nickname || '未命名角色'} · ${role.role_id} / ${role.server_id}`
 const named = value => typeof value === 'string' ? value : (value?.name || value?.title || '未知')
 const regionSummary = item => `等级 ${display(item.level)} · ${list(item.levels).length} 个区域 · ${list(item.settlements).length} 处据点`
 const shipSummary = item => `${item.name || '舱室'} · 等级 ${display(item.level)} · ${list(item.operators).length} 名干员`
@@ -104,6 +107,11 @@ const toolDescription = item => {
 }
 
 async function loadStatus() {
+  if (cloud.value) {
+    const selected = props.cloudAccount.roles?.find(row=>row.role_id === props.cloudRole)
+    status.value = props.cloudAccount.provider === 'skland' ? {connected:true,roles:[{role_id:props.cloudRole,server_id:'',nickname:selected?.display_name}],selected_role_id:props.cloudRole,selected_server_id:''} : {connected:false,roles:[]}
+    return
+  }
   const seq = ++statusSeq
   statusBusy.value = true; statusError.value = ''
   try {
@@ -130,7 +138,7 @@ async function loadOperator(id) {
   try {
     const data = await getSklandOperator(id)
     if (destroyed || seq !== operatorSeq || owner !== roleKey.value) return
-    operatorDetail.value = data.operator || null; operatorStale.value = !!data.stale; operatorError.value = humanError(data.error)
+    operatorDetail.value = data.operator || data.payload || null; operatorStale.value = !!data.stale; operatorError.value = humanError(data.error)
     if (!operatorDetail.value && !operatorError.value) operatorError.value = '暂时无法读取这名干员的配装。'
   } catch (error) { if (seq === operatorSeq) operatorError.value = error.message }
   finally { if (seq === operatorSeq) operatorBusy.value = false }
@@ -147,6 +155,7 @@ async function loadTool() {
   finally { if (seq === toolSeq) toolBusy.value = false }
 }
 async function loadCard(refresh = false) {
+  if (cloud.value && refresh) { emit('refresh'); return }
   if (!roleKey.value) return
   const seq = ++privateSeq, owner = roleKey.value
   cardBusy.value = true; cardError.value = ''
@@ -158,6 +167,7 @@ async function loadCard(refresh = false) {
   finally { if (seq === privateSeq) cardBusy.value = false }
 }
 async function loadAttendance(sign = false) {
+  if (cloud.value && sign) return
   if (!roleKey.value) return
   const seq = ++attendanceSeq, owner = roleKey.value
   attendanceBusy.value = true; attendanceError.value = ''
@@ -216,6 +226,7 @@ async function loadMark(mark) {
   finally { if (seq === markSeq) markBusy.value = false }
 }
 async function loadBlueprints() {
+  if (cloud.value && props.cloudAccount.provider !== 'skland') return
   const seq = ++blueprintsSeq
   blueprintBusy.value = true; blueprintError.value = ''
   try {
@@ -306,6 +317,7 @@ watch(mapOffset, () => { if (section.value === 'map') loadMap() })
 watch(challengeKind, () => { if (section.value === 'challenges') loadChallenge() })
 watch(toolKind, () => { ++toolSeq; toolBusy.value = false; toolData.value = null; toolError.value = ''; toolQuery.value = ''; toolPage.value = 0 })
 watch(toolQuery, () => { toolPage.value = 0 })
+watch(()=>props.snaps.account, snap=>{if(cloud.value && props.cloudAccount.provider === 'skland' && snap?.payload)card.value=snap})
 onMounted(() => { loadStatus(); if (section.value === 'map') { loadPublic(); loadMap() } if (section.value === 'blueprints') loadBlueprints(); if (section.value === 'news') loadPublic() })
 onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++privateSeq; ++operatorSeq; ++challengeSeq; ++mapSeq; ++markSeq; ++toolSeq; ++publicSeq; ++blueprintsSeq })
 </script>
@@ -318,20 +330,20 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
       <section class="cap-card"><div class="cap-title">森空岛档案<span v-if="card?.stale" class="badge badge-stale">数据可能过期</span></div>
         <p v-if="statusBusy" class="hint" role="status">正在读取连接状态…</p>
         <p v-if="statusError" class="error" role="alert">{{ statusError }}</p>
-        <form v-if="!statusBusy && !connected" class="field-grid" @submit.prevent="connect">
+        <form v-if="!cloud && !statusBusy && !connected" class="field-grid" @submit.prevent="connect">
           <p class="hint">连接森空岛后，可查看理智、干员、探索和挑战记录。凭据只在本机加密保存。</p>
           <label>森空岛凭据<input v-model="cred" type="password" required autocomplete="off" placeholder="填写 cred" /></label>
           <label>官方设备标识（可选）<input v-model="deviceId" type="password" autocomplete="off" placeholder="已有设备标识时填写" /></label>
           <button type="submit" class="ui-button" :disabled="actionBusy">{{ actionBusy ? '连接中…' : '连接森空岛' }}</button>
         </form>
-        <div v-else-if="connected" class="role-bar"><label>森空岛角色<select :value="roleKey" :disabled="actionBusy" @change="selectRole"><option value="">请选择角色</option><option v-for="role in list(status.roles)" :key="`${role.role_id}:${role.server_id}`" :value="`${role.role_id}:${role.server_id}`">{{ roleLabel(role) }}</option></select></label><button type="button" class="ui-button" :disabled="actionBusy || !roleKey || cardBusy" @click="loadCard(true)"><AppIcon name="refresh" :size="14" />手动刷新档案</button><button type="button" class="ui-button" :disabled="actionBusy" @click="disconnect">断开</button></div>
-        <p v-if="connected && !roleKey" class="hint">请选择一个森空岛角色。</p>
-        <p v-if="roleKey" class="hint">当前森空岛档案：{{ roleLabel(selectedRole) }}。寻访统计使用下方单独标明的通行证账号。</p>
+        <div v-else-if="connected && !cloud" class="role-bar"><label>森空岛角色<select :value="roleKey" :disabled="actionBusy" @change="selectRole"><option value="">请选择角色</option><option v-for="role in list(status.roles)" :key="`${role.role_id}:${role.server_id}`" :value="`${role.role_id}:${role.server_id}`">{{ roleLabel(role) }}</option></select></label><button type="button" class="ui-button" :disabled="actionBusy || !roleKey || cardBusy" @click="loadCard(true)"><AppIcon name="refresh" :size="14" />手动刷新档案</button><button type="button" class="ui-button" :disabled="actionBusy" @click="disconnect">断开</button></div>
+        <p v-if="cloud" class="hint">{{ cloudAccount.provider === 'skland' ? '森空岛档案' : '鹰角寻访' }} · {{ cloudAccount.roles?.find(r=>r.role_id === cloudRole)?.display_name || cloudRole }}。请在页面上方切换授权与角色。</p><p v-if="cloud && !connected" class="hint">当前是鹰角寻访授权；查看档案、干员、探索与挑战需单独选择森空岛授权。</p><p v-if="connected && !roleKey" class="hint">请选择一个森空岛角色。</p>
+        <p v-if="roleKey" class="hint">当前森空岛档案：{{ roleLabel(selectedRole) }}。{{ cloud ? '仅显示当前森空岛授权，不合并鹰角寻访身份。' : '寻访统计使用下方单独标明的通行证账号。' }}</p>
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p><p v-if="actionMessage" class="hint" role="status">{{ actionMessage }}</p>
       </section>
 
       <template v-if="section === 'overview'">
-        <section class="cap-card"><div class="cap-title">寻访账号<span v-if="snaps.account?.stale" class="badge badge-stale">数据可能过期</span></div><p class="hint">寻访记录所属账号，与上方森空岛角色分别管理。</p><p class="identity">{{ originalAccount?.nickname || '未知昵称' }} · 角色编号 {{ display(originalAccount?.role_id) }}</p></section>
+        <section v-if="passport" class="cap-card"><div class="cap-title">寻访账号<span v-if="snaps.account?.stale" class="badge badge-stale">数据可能过期</span></div><p class="hint">寻访记录所属账号，与上方森空岛角色分别管理。</p><p class="identity">{{ originalAccount?.nickname || '未知昵称' }} · 角色编号 {{ display(originalAccount?.role_id) }}</p></section>
         <template v-if="roleKey"><p v-if="cardBusy" class="hint" role="status">正在读取档案…</p><p v-if="cardError" class="error" role="alert">{{ cardError }}</p>
           <div v-if="cardPayload" class="endfield-grid">
             <section class="cap-card"><div class="cap-title">账号与理智<span v-if="card?.fetched_at" class="cap-meta">更新于 {{ dateText(card.fetched_at) }}</span></div><p class="identity">{{ cardPayload.base?.name || selectedRole?.nickname || '未知昵称' }} · 等级 {{ display(cardPayload.base?.level) }}</p><dl class="fact-list"><div><dt>理智</dt><dd>{{ display(cardPayload.stamina?.current) }} / {{ display(cardPayload.stamina?.maximum) }}</dd></div><div><dt>预计回满</dt><dd>{{ dateText(cardPayload.stamina?.expected_full_at) }}</dd></div><div><dt>数据时间</dt><dd>{{ dateText(cardPayload.stamina?.updated_at) }}</dd></div></dl></section>
@@ -345,7 +357,7 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
               <div class="attendance-summary"><strong>{{ { signed: '今日已签', unsigned: '今日待签', unknown: '状态未知' }[attendance?.status] || '尚未读取' }}</strong><span v-if="list(attendance?.calendar).length">本期已签 {{ signedDays }} 天</span></div>
               <p v-if="attendance?.today_award" class="hint">今日奖励：{{ named(attendance.today_award) }}<template v-if="attendance.today_award.count != null"> × {{ attendance.today_award.count }}</template></p>
               <p v-if="attendance?.updated_at" class="hint">更新于 {{ dateText(attendance.updated_at) }}</p>
-              <button type="button" class="ui-button" :disabled="attendanceBusy || attendance?.status === 'signed'" @click="loadAttendance(true)">手动签到</button>
+              <button v-if="!cloud" type="button" class="ui-button" :disabled="attendanceBusy || attendance?.status === 'signed'" @click="loadAttendance(true)">手动签到</button>
             </template>
           </section>
         </template>
@@ -387,7 +399,7 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
       <template v-if="section === 'challenges' && roleKey"><section class="cap-card"><div class="cap-title">挑战记录<span v-if="challenge?.stale" class="badge badge-stale">数据可能过期</span></div><div class="segmented" aria-label="挑战类型"><button v-for="[key,label] in [['war','战争'],['monument','丰碑'],['crisis','危机']]" :key="key" type="button" :aria-pressed="challengeKind === key" @click="challengeKind = key">{{ label }}</button></div><p v-if="challengeBusy" class="hint" role="status">正在读取挑战记录…</p><p v-if="challengeError" class="error" role="alert">{{ challengeError }}</p><p v-if="challenge?.supported === false" class="empty">当前账号暂不支持这项挑战。</p><p v-if="challengeKind === 'crisis' && challenge?.summary?.highest != null" class="hint">历史最高：{{ challenge.summary.highest }} · 挑战次数：{{ display(challenge.summary.challenge_count) }}</p><p v-if="challengeKind === 'war' && list(challenge?.summary?.honors).length" class="hint">已获得 {{ list(challenge.summary.honors).length }} 项荣誉。</p><p v-if="!challengeBusy && !list(challenge?.records).length && challenge?.supported !== false" class="empty">暂无挑战记录</p><div v-else><details v-for="(item, i) in list(challenge?.records)" :key="i" class="record-detail" open><summary>{{ item.name || (item.id ? '记录 ' + item.id : '挑战记录') }}<strong>{{ challengeResult(item, challengeKind) }}</strong></summary><p v-if="item.start_at || item.end_at" class="hint">{{ dateText(item.start_at) }} — {{ dateText(item.end_at) }}</p><div v-for="week in list(item.weeks)" :key="week.id" class="inner-card"><h3>{{ week.name || week.id || '轮换' }} · {{ display(week.stars) }} 星</h3><div v-for="(group, j) in list(week.groups)" :key="j"><p>{{ group.name || '关卡' }} · {{ display(group.star) }} 星</p><p v-for="stage in stageList(group)" :key="stage.id || stage.difficulty" class="hint">{{ stage.difficulty }}：{{ stage.name || '关卡' }} · {{ passText(stage) }}</p></div></div><div v-for="(group, j) in list(item.groups)" :key="j" class="inner-card"><p>{{ group.name || '关卡组' }}</p><p v-for="stage in stageList(group)" :key="stage.id || stage.difficulty" class="hint">{{ stage.difficulty }}：{{ stage.name || '关卡' }} · {{ passText(stage) }}</p></div><p v-if="challengeKind === 'crisis'" class="hint">{{ passText(item) }}</p></details></div></section></template>
     </div>
 
-    <div v-else-if="section === 'gacha'" class="endfield-stack"><section class="cap-card"><div class="cap-title">寻访账号<span v-if="snaps.gacha?.stale" class="badge badge-stale">寻访数据可能过期</span></div><p class="identity">{{ originalAccount?.nickname || '未知昵称' }} · 角色编号 {{ display(originalAccount?.role_id) }}</p></section><EndfieldGachaPanel :snap="snaps.gacha" :account-id="gachaAccountId" /></div>
+    <div v-else-if="section === 'gacha'" class="endfield-stack"><section v-if="passport" class="cap-card"><div class="cap-title">寻访账号<span v-if="snaps.gacha?.stale" class="badge badge-stale">寻访数据可能过期</span></div><p class="identity">{{ originalAccount?.nickname || '未知昵称' }} · 角色编号 {{ display(originalAccount?.role_id) }}</p></section><EndfieldGachaPanel v-if="passport" :snap="snaps.gacha" :account-id="gachaAccountId" /><p v-if="!passport" class="cap-card hint">寻访数据使用独立鹰角授权，请在页面上方切换。</p></div>
 
     <div v-else-if="section === 'map'" class="endfield-stack"><section class="cap-card"><div class="cap-title">官方地图</div><form class="map-filters" @submit.prevent="submitMapSearch"><label>地图<select v-model="mapId"><option value="">请选择地图</option><option v-for="item in list(map?.maps)" :key="item.id" :value="item.id">{{ item.name }}</option></select></label><label>区域<select v-model="levelId"><option value="">默认区域</option><option v-for="item in list(selectedMap?.levels)" :key="item.id" :value="item.id">{{ item.name }}</option></select></label><label>点位类型<select v-model="typeId"><option value="">全部类型</option><option v-for="item in list(map?.categories)" :key="item.id" :value="item.id">{{ item.name }}</option></select></label><label>搜索点位<input v-model="mapQuery" type="search" placeholder="输入名称" /></label><button type="submit" class="ui-button" :disabled="mapBusy">搜索</button></form><p v-if="mapBusy" class="hint" role="status">正在读取地图点位…</p><p v-if="mapError" class="error" role="alert">{{ mapError }}</p><p v-if="map?.stale" class="badge badge-stale">地图数据可能过期</p><p v-if="!mapBusy && !list(map?.marks).length" class="empty">暂无匹配点位</p><ul v-else class="mark-list"><li v-for="(mark, i) in list(map?.marks)" :key="mark.id || i"><div><strong>{{ display(mark.name) }}</strong><p class="hint">坐标 {{ display(mark.x) }}，{{ display(mark.y) }}，{{ display(mark.z) }}<span v-if="mark.description"> · {{ mark.description }}</span></p></div><div class="actions"><button type="button" class="ui-button" :disabled="markBusy" @click="loadMark(mark)">查看详情</button><a v-if="safeExternalUrl(mark.url)" :href="safeExternalUrl(mark.url)" target="_blank" rel="noopener noreferrer">官方地图<AppIcon name="arrow" :size="14" /></a></div></li></ul><section v-if="markDetail || markBusy || markError" class="inner-card mark-detail"><p v-if="markBusy" class="hint" role="status">正在读取点位详情…</p><p v-if="markError" class="error" role="alert">{{ markError }}</p><template v-if="markDetail"><h3>{{ markDetail.typeSub?.name || markDetail.typeMain?.name || "地图点位" }}</h3><p v-if="markDetail.desc">{{ markDetail.desc }}</p><p>坐标：{{ display(markDetail.pos?.x) }}，{{ display(markDetail.pos?.y) }}，{{ display(markDetail.pos?.z) }}</p><a v-if="safeExternalUrl(markDetail.link)" :href="safeExternalUrl(markDetail.link)" target="_blank" rel="noopener noreferrer">{{ markDetail.linkText || "查看官方说明" }}<AppIcon name="arrow" :size="14" /></a></template></section><div v-if="map?.total > map?.limit" class="actions"><button type="button" class="ui-button" :disabled="mapBusy || mapOffset === 0" @click="mapOffset = Math.max(0, mapOffset - map.limit)">上一页</button><span class="hint">{{ mapOffset + 1 }}–{{ Math.min(mapOffset + map.limit, map.total) }} / {{ map.total }}</span><button type="button" class="ui-button" :disabled="mapBusy || mapOffset + map.limit >= map.total" @click="mapOffset += map.limit">下一页</button></div></section><section class="cap-card"><div class="cap-title">官方百科与养成</div><p v-if="publicBusy" class="hint" role="status">正在读取官方入口…</p><p v-if="publicError" class="error" role="alert">{{ publicError }}</p><p v-if="!officialTools.length" class="empty">暂未取得官方入口</p><ul v-else class="tool-grid"><li v-for="tool in officialTools" :key="tool.id"><a :href="safeExternalUrl(tool.url)" target="_blank" rel="noopener noreferrer"><strong>{{ tool.name }}</strong><AppIcon name="arrow" :size="14" /></a><p class="hint">{{ tool.description }}</p><p v-if="tool.status === 'unavailable'" class="hint">请前往官网查询；本页暂不能读取百科目录。</p></li></ul></section>
       <section class="cap-card"><div class="cap-title">森空岛资料查询<span v-if="toolData?.stale" class="badge badge-stale">数据可能过期</span></div>
@@ -420,9 +432,9 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
         </template>
       </section></div>
 
-    <div v-else-if="section === 'blueprints'" class="endfield-stack"><section class="cap-card"><div class="cap-title">蓝图收藏<button type="button" class="ui-button" :disabled="blueprintBusy" @click="downloadBlueprints">导出备份</button></div><p class="hint">分享码和备注保存在本机。</p><form class="field-grid" @submit.prevent="submitBlueprint"><label>名称<input v-model="blueprintName" type="text" maxlength="100" required /></label><label>分享码<input v-model="blueprintCode" type="text" maxlength="2000" required /></label><label>备注<textarea v-model="blueprintNotes" maxlength="2000" rows="2" /></label><div class="actions"><button type="submit" class="ui-button" :disabled="blueprintBusy">{{ editingId === null ? '保存蓝图' : '保存修改' }}</button><button v-if="editingId !== null" type="button" class="ui-button" @click="resetBlueprint">取消编辑</button></div></form><p v-if="blueprintError" class="error" role="alert">{{ blueprintError }}</p><p v-if="blueprintBusy" class="hint" role="status">正在处理蓝图…</p><p v-if="!blueprintBusy && !blueprints.length" class="empty">还没有收藏蓝图</p><ul v-else class="blueprint-list"><li v-for="item in blueprints" :key="item.id"><strong>{{ item.name }}</strong><code>{{ item.code }}</code><p v-if="item.notes" class="hint">{{ item.notes }}</p><div class="actions"><button type="button" class="ui-button" @click="copyCode(item.code)">复制分享码</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="editBlueprint(item)">编辑</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="removeBlueprint(item.id)">删除</button></div></li></ul></section></div>
+    <div v-else-if="section === 'blueprints'" class="endfield-stack"><p v-if="cloud && cloudAccount.provider !== 'skland'" class="cap-card hint">蓝图保存在森空岛授权与角色的本人空间，请在页面上方选择森空岛授权。</p><section v-else class="cap-card"><div class="cap-title">蓝图收藏<button type="button" class="ui-button" :disabled="blueprintBusy" @click="downloadBlueprints">导出备份</button></div><p class="hint">{{ cloud ? '分享码和备注保存在当前用户、授权与角色的云端空间。' : '分享码和备注保存在本机。' }}</p><form class="field-grid" @submit.prevent="submitBlueprint"><label>名称<input v-model="blueprintName" type="text" maxlength="100" required /></label><label>分享码<input v-model="blueprintCode" type="text" maxlength="2000" required /></label><label>备注<textarea v-model="blueprintNotes" maxlength="2000" rows="2" /></label><div class="actions"><button type="submit" class="ui-button" :disabled="blueprintBusy">{{ editingId === null ? '保存蓝图' : '保存修改' }}</button><button v-if="editingId !== null" type="button" class="ui-button" @click="resetBlueprint">取消编辑</button></div></form><p v-if="blueprintError" class="error" role="alert">{{ blueprintError }}</p><p v-if="blueprintBusy" class="hint" role="status">正在处理蓝图…</p><p v-if="!blueprintBusy && !blueprints.length" class="empty">还没有收藏蓝图</p><ul v-else class="blueprint-list"><li v-for="item in blueprints" :key="item.id"><strong>{{ item.name }}</strong><code>{{ item.code }}</code><p v-if="item.notes" class="hint">{{ item.notes }}</p><div class="actions"><button type="button" class="ui-button" @click="copyCode(item.code)">复制分享码</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="editBlueprint(item)">编辑</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="removeBlueprint(item.id)">删除</button></div></li></ul></section></div>
 
-    <div v-else-if="section === 'news'" class="endfield-stack"><AnnouncementList game-id="endfield" :snap="publicNewsSnap || snaps.news || snaps.announcement" :extra-snaps="publicNewsSnap && snaps.news ? [snaps.news] : []"><template #actions><button type="button" class="ui-button" :disabled="publicBusy" @click="loadPublic(true)"><AppIcon name="refresh" :size="14" />{{ publicBusy ? '正在读取…' : '刷新资讯' }}</button></template></AnnouncementList><p v-if="publicBusy" class="hint" role="status">正在读取公开资讯…</p><p v-if="publicError && !publicNewsSnap" class="error" role="alert">{{ publicError }}</p></div>
+    <div v-else-if="section === 'news'" class="endfield-stack"><AnnouncementList game-id="endfield" :snap="publicNewsSnap || snaps.news || snaps.announcement" :extra-snaps="publicNewsSnap && snaps.news ? [snaps.news] : []"><template #actions><button v-if="canMaintain" type="button" class="ui-button" :disabled="publicBusy" @click="loadPublic(true)"><AppIcon name="refresh" :size="14" />{{ publicBusy ? '正在读取…' : '刷新资讯' }}</button></template></AnnouncementList><p v-if="publicBusy" class="hint" role="status">正在读取公开资讯…</p><p v-if="publicError && !publicNewsSnap" class="error" role="alert">{{ publicError }}</p></div>
   </div>
 </template>
 

@@ -1,5 +1,6 @@
+import { requestResponse } from './http-client.js'
 async function request(path) {
-  const response = await fetch(`/api/endfield/gacha/${path}`)
+  const response = await requestResponse(`/api/endfield/gacha/${path}`)
   let result
   try { result = await response.json() } catch { throw new Error('寻访账本服务返回异常，请稍后重试') }
   if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : '寻访账本请求失败，请稍后重试')

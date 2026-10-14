@@ -1,3 +1,4 @@
+import { requestResponse } from './http-client.js'
 async function request(refresh, { signal } = {}) {
   const controller = new AbortController(), cancel = () => controller.abort()
   if (signal?.aborted) cancel()
@@ -5,7 +6,7 @@ async function request(refresh, { signal } = {}) {
   let timedOut = false
   const timer = setTimeout(() => { timedOut = true; cancel() }, refresh ? 135000 : 30000)
   try {
-    const response = await fetch(refresh ? '/api/lol/esports/refresh' : '/api/games/league_of_legends/snapshot/esports', {
+    const response = await requestResponse(refresh ? '/api/lol/esports/refresh' : '/api/games/league_of_legends/snapshot/esports', {
       method: refresh ? 'POST' : 'GET', signal: controller.signal, cache: 'no-store', referrerPolicy: 'no-referrer',
       ...(refresh ? { headers: { 'X-Game-Assistant': '1' } } : {}),
     })

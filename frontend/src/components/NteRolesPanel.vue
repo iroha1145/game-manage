@@ -9,7 +9,7 @@ import MenuSelect from './MenuSelect.vue'
 import NteIcon from './NteIcon.vue'
 import { nteRoleIcon, nteNamedIcon, nteSkillIcon } from '../nte-icons.js'
 
-const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: String, default: '' } })
+const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: [String,Object], default: '' } })
 const payload = computed(() => props.snap?.payload ?? null)
 const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 const legacy = computed(() => payload.value !== null && payload.value.schema_version !== 1)
@@ -55,7 +55,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
   <section class="cap-card nte-roles-panel">
     <div class="cap-title">
       角色练度
-      <InfoHint v-if="roles.length" text="未提供的排序值排在最后。收藏仅保存在当前浏览器，按异环账号区分。" />
+      <InfoHint v-if="roles.length" text="未提供的排序值排在最后。收藏仅保存在当前浏览器，按网站用户、授权账号及游戏角色区分。" />
       <span v-if="snap?.stale" class="badge badge-stale">数据可能过期</span>
       <span v-if="roles.length" class="chip-list summary">
         <span class="chip">角色总数 <b>{{ roles.length }}</b></span>

@@ -1,5 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { isCloudMode } from '../http-client.js'
+const cloudMode = isCloudMode()
 import { getLedgerSummary, getLedgerRecords, previewLedger, importLedger, getLedgerRules, saveLedgerRule, exportLedger, pityLabel, ledgerDate, poolLabel, requirementLabel, resultLabel } from '../nte-gacha-api.js'
 import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
@@ -111,7 +113,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
 </script>
 
 <template>
-  <section class="cap-card ledger" aria-label="本地逐抽账本">
+  <section class="cap-card ledger" :aria-label="cloudMode ? '本人逐抽账本' : '本地逐抽账本'">
     <header class="cap-title ledger-head">
       <h2>逐抽账本</h2>
       <InfoHint text="逐条保存真实记录。导入覆盖范围与社区统计分别计算。" />
@@ -146,7 +148,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
             <p v-if="preview.identity_confirmation_required" class="warn">文件缺少角色身份，请勾选归属确认后重新预览。</p>
             <ul v-if="preview.warnings?.length"><li v-for="(note, index) in preview.warnings" :key="index">{{ requirementLabel(note) }}</li></ul>
             <ul v-if="preview.missing_requirements?.length"><li v-for="(note, index) in preview.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul>
-            <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">确认导入到本机</button>
+            <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">{{ cloudMode ? '确认导入到本人空间' : '确认导入到本机' }}</button>
           </div>
           <details class="source-help"><summary>文件从哪里来？还缺哪些接口？</summary><p>现有社区接口不含全部逐抽。可使用真实游戏历史导出文件；记录只能覆盖已捕获、已翻阅的范围。</p><p><a href="https://github.com/Golumpa/nte-exporter" target="_blank" rel="noopener noreferrer">nte-exporter 格式与使用说明 ↗</a>：游戏历史通信导出，国服兼容尚未实测。国服截图 OCR 导出目前需要转换成账本规范并核对识别结果。</p><p>仍缺：经验证的国服全量历史接口及分页方式、历史保留期限、不同卡池继承和 UP 规则。没有这些证据时不会宣称自动全量同步或必出 UP。</p></details>
         </div>

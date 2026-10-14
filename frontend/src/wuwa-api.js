@@ -1,7 +1,8 @@
+import { requestResponse } from './http-client.js'
 import { onBeforeUnmount, watch } from 'vue'
 
 export async function wuwaRequest(path, { signal, body } = {}) {
-  const response = await fetch(`/api/wuwa/${path}`, {
+  const response = await requestResponse(`/api/wuwa/${path}`, {
     signal,
     cache: 'no-store',
     referrerPolicy: 'no-referrer',
@@ -47,7 +48,7 @@ export function useWuwaRequest(accountKey, reset = () => {}) {
     },
     { flush: 'sync' },
   )
-  onBeforeUnmount(cancel)
+  onBeforeUnmount(() => { cancel(); reset() })
   return {
     cancel,
     async run(path, body) {

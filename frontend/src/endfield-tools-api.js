@@ -1,9 +1,10 @@
+import { requestResponse } from './http-client.js'
 const base = '/api/endfield'
 
 async function request(path, { method = 'GET', body, signal } = {}) {
   let response
   try {
-    response = await fetch(`${base}${path}`, {
+    response = await requestResponse(`${base}${path}`, {
       method, signal,
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       ...(method === 'GET' ? {} : { headers: { 'Content-Type': 'application/json', 'X-Game-Assistant': '1' } }),

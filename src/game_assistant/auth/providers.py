@@ -24,6 +24,7 @@ from game_assistant.adapters.endfield.parse import select_official_role
 from game_assistant.adapters.neverness.endpoints import GAME_ID as NTE_GAME_ID
 from game_assistant.adapters.neverness.tajiduo_client import make_ds_header
 from game_assistant.adapters.wuthering_waves.rolebox_client import USER_AGENT
+from game_assistant.config import WUWA_PUBLIC_IP_URLS
 
 WUWA_CAPTCHA_ID = "ec4aa4174277d822d73f2442a165a2cd"
 LAOHU_APP_KEY = "89155cc4e8634ec5b1b6364013b23e3e"
@@ -32,6 +33,7 @@ _LAOHU = "https://user.laohu.com"
 _TAJIDUO = "https://bbs-api.tajiduo.com"
 _INVALID_SESSION = "登录已过期，请重新登录"
 _BAD_RESPONSE = "登录服务返回异常，请稍后重试"
+PUBLIC_IP_LOOKUP_ERROR = "无法获取有效公网地址，请检查网络后重试"
 
 
 class AuthError(Exception):
@@ -102,16 +104,22 @@ async def _request(url: str, *, headers: dict, data: dict | None = None,
 class WuwaLoginProvider:
     captcha_id = WUWA_CAPTCHA_ID
 
+    def __init__(self, *, include_roles=False, public_ip_url='https://api.ipify.org'):
+        if public_ip_url not in WUWA_PUBLIC_IP_URLS:
+            raise ValueError('unsupported_public_ip_resolver')
+        self.include_roles = include_roles
+        self.public_ip_url = public_ip_url
+
     async def start_context(self) -> dict:
         try:
             async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
-                response = await client.get("https://api.ipify.org")
+                response = await client.get(self.public_ip_url)
             response.raise_for_status()
             address = ipaddress.ip_address(response.text.strip())
             if not address.is_global:
                 raise ValueError
         except (httpx.HTTPError, ValueError):
-            raise AuthError("无法获取有效公网地址，请检查网络后重试") from None
+            raise AuthError(PUBLIC_IP_LOOKUP_ERROR) from None
         return {"did": str(uuid.uuid4()), "dev_code": f"{address}, {USER_AGENT}"}
 
     def _headers(self, context: dict) -> dict:
@@ -152,6 +160,12 @@ class WuwaLoginProvider:
                        "role_id": _required(selected, "roleId"), "server_id": _required(selected, "serverId"),
                        "user_id": _text(account.get("userId")) or _text(selected.get("userId")) or _required(selected, "roleId"),
                        "nickname": _text(selected.get("roleName"))}
+        if self.include_roles:
+            credentials['_verified_roles'] = [
+                {'role_id':_text(role.get('roleId')),'server_id':_text(role.get('serverId')),
+                 'nickname':_text(role.get('roleName'))} for role in roles if isinstance(role,dict)
+                and _text(role.get('gameId',3))=='3' and _text(role.get('roleId')) not in ('','0')
+                and _text(role.get('serverId'))]
         return await self.renew(credentials)
 
     async def renew(self, credentials: dict) -> dict:
@@ -165,6 +179,9 @@ class WuwaLoginProvider:
 
 
 class NteLoginProvider:
+    def __init__(self, *, include_roles=False):
+        self.include_roles = include_roles
+
     async def start_context(self) -> dict:
         return {"device_id": "HT" + uuid.uuid4().hex[:14].upper()}
 
@@ -224,6 +241,11 @@ class NteLoginProvider:
         if not selected:
             raise AuthError("该账号未绑定异环角色，请先在塔吉多绑定角色")
         credentials.update({"role_id": _required(selected, "roleId"), "nickname": _text(selected.get("roleName"))})
+        if self.include_roles:
+            credentials['_verified_roles'] = [
+                {'role_id':_text(role.get('roleId')),'server_id':'official','nickname':_text(role.get('roleName'))}
+                for role in roles if isinstance(role,dict) and _text(role.get('gameId',NTE_GAME_ID))==NTE_GAME_ID
+                and _text(role.get('roleId')).isdigit() and int(role['roleId'])>0]
         return credentials
 
     async def renew(self, credentials: dict) -> dict:

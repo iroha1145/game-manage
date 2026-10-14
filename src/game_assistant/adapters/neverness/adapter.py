@@ -2,14 +2,17 @@
 import logging
 import json
 import time
-from datetime import datetime, timezone
+import re
+from urllib.parse import urlencode
+from datetime import datetime, timedelta, timezone
 
 from game_assistant import event_calendar
 from game_assistant.adapters.base import BaseGameAdapter
 from game_assistant.adapters.neverness import tajiduo
 from game_assistant.adapters.neverness import parse
 from game_assistant.adapters.neverness import assets
-from game_assistant.adapters.neverness.endpoints import GAME_ID
+from game_assistant.adapters.neverness.endpoints import GAME_ID, GET_POST_FULL
+from game_assistant.adapters.neverness.data_models import NteCalendarEvent
 from game_assistant.adapters.neverness.tajiduo_client import (
     TajiduoClient, TajiduoError, TajiduoWebClient,
 )
@@ -22,7 +25,35 @@ logger = logging.getLogger(__name__)
 OFFICIAL_POST_COUNT = 20
 
 # 版本公告标题关键词（官方栏目帖 subject 匹配，取发布时间最新的一篇）
-VERSION_TITLE_KEYS = ("版本更新公告", "版本内容说明", "维护更新公告")
+VERSION_TITLE_KEYS = ("更新公告", "更新优化公告", "内容说明", "维护更新公告")
+VERSION_NUMBER = re.compile(r'(?<!\d)(\d+\.\d+)\s*版本')
+
+
+def _parse_notice_events(post, detail, version):
+    # content 为 HTML 或明文：strip_html 对明文原样按行拆分
+    lines = event_calendar.strip_html(str(detail.get("content") or ""))
+    title = str(post.get('subject') or '')
+    post_id = str(post.get('postId') or '')
+    declarations = [VERSION_NUMBER.search(title), VERSION_NUMBER.search('\n'.join(lines)[:4000])]
+    if any(declared and declared[1] != version for declared in declarations):
+        raise ValueError('public notice version mismatch')
+    published = event_calendar.parse_ms_or_iso(post.get('createTime'))
+    events = []
+    if published is not None:
+        from game_assistant.sources.public_content import parse_post_events
+        # Use the already supported NTE quote/short-date format. A source
+        # publication year is required; never substitute collection time.
+        source_url = GET_POST_FULL + '?' + urlencode({'postId': post_id})
+        notice = {'id':post_id, 'title':title, 'body':'\n'.join(lines), 'decision':'accepted',
+                  'published_at':published.isoformat(), 'url':source_url}
+        events = [NteCalendarEvent(**{**row, 'source':'community', 'source_name':'塔吉多官方公告',
+            'source_title':title, 'published_at':published, 'end_precision':'minute'})
+            for row in parse_post_events(notice, 'nte', version)]
+    if not events:
+        # Preserve legacy notices with bracket headings and explicit years.
+        events = event_calendar.parse_events_from_lines(
+            lines, source_post_id=post_id, source_title=title)
+    return events
 
 
 class _UnconfiguredCredentialsError(TajiduoError):
@@ -111,20 +142,79 @@ class NteAdapter(BaseGameAdapter):
                 if not column_id:
                     raise TajiduoError("未能在社区数据中定位官方资讯栏目")
                 raw = await web.get_official_post_list(
-                    column_id, count=OFFICIAL_POST_COUNT)
+                    column_id, count=OFFICIAL_POST_COUNT, official_type=3)
                 post = event_calendar.find_version_post(
-                    tajiduo._extract_rows(raw), VERSION_TITLE_KEYS,
+                    [row for row in tajiduo._extract_rows(raw) if isinstance(row, dict)
+                     and VERSION_NUMBER.search(str(row.get('subject') or ''))], VERSION_TITLE_KEYS,
                     title_key="subject", time_key="createTime")
                 if not post:
                     return FetchResult(ok=False, error='未找到版本公告，保留上次成功日历',
                                        error_kind='source_error')
                 post_id = str(post.get("postId") or "")
                 detail = await web.get_post_full(post_id)
-            # content 为 HTML 或明文：strip_html 对明文原样按行拆分
-            lines = event_calendar.strip_html(str(detail.get("content") or ""))
-            events = event_calendar.parse_events_from_lines(
-                lines, source_post_id=post_id,
-                source_title=str(post.get("subject") or ""))
+                version = VERSION_NUMBER.search(str(post.get('subject') or '')).group(1)
+                events = _parse_notice_events(post, detail, version)
+                if not events:
+                    return FetchResult(ok=False, error='版本公告正文为空或无法解析活动，保留上次成功日历',
+                                       error_kind='invalid_data')
+                # Reuse the same bounded NOTICE page. Failure of a selected
+                # independent notice must retain the previous full snapshot.
+                from game_assistant.sources.public_content import _same_event
+                base_stamp = event_calendar.parse_ms_or_iso(post.get('createTime'))
+                candidates = []
+                for row in tajiduo._extract_rows(raw):
+                    if not isinstance(row, dict) or str(row.get('postId')) == post_id:
+                        continue
+                    title = str(row.get('subject') or '')
+                    if not re.search(r'限定棋盘|弧盘研募|限时活动|活动(?:公告|开启|时间)', title):
+                        continue
+                    declared = VERSION_NUMBER.search(title)
+                    stamp = event_calendar.parse_ms_or_iso(row.get('createTime'))
+                    if declared and declared[1] != version:
+                        continue
+                    if not declared and (not stamp or not base_stamp or stamp < base_stamp - timedelta(days=7)):
+                        continue
+                    if stamp and stamp > datetime.now(timezone.utc):
+                        continue
+                    candidates.append(row)
+                candidates.sort(key=lambda r: event_calendar.parse_ms_or_iso(r.get('createTime'))
+                                or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                seen = {post_id}
+                independent = []
+                for row in candidates:
+                    ident = str(row.get('postId') or '')
+                    if ident in seen:
+                        continue
+                    if len(seen) >= 7:
+                        break
+                    seen.add(ident)
+                    detail = await web.get_post_full(ident)
+                    if detail.get('postId') is not None and str(detail['postId']) != ident:
+                        raise ValueError('public notice identity mismatch')
+                    body = '\n'.join(event_calendar.strip_html(str(detail.get('content') or '')))
+                    declarations = [VERSION_NUMBER.search(str(row.get('subject') or '')), VERSION_NUMBER.search(body[:4000])]
+                    declared = next((d for d in declarations if d), None)
+                    stamp = event_calendar.parse_ms_or_iso(row.get('createTime'))
+                    if any(d and d[1] != version for d in declarations):
+                        continue
+                    if not declared and stamp and base_stamp and stamp < base_stamp:
+                        continue
+                    parsed = _parse_notice_events(row, {**detail, 'content':'● '+str(row.get('subject') or '')+'\n'+body}, version)
+                    if not parsed:
+                        raise ValueError('independent public notice has no dated events')
+                    if not declared:
+                        base_rows = [e.model_dump(mode='json') for e in events]
+                        start_day = min((e.get('start_at') or e.get('start_date') or (base_stamp.isoformat() if base_stamp else ''))[:10] for e in base_rows)
+                        end_day = max((e.get('end_at') or '')[:10] for e in base_rows)
+                        parsed = [e for e in parsed if e.end_at and start_day <= e.end_at.date().isoformat() <= end_day]
+                    independent.extend(parsed)
+                if independent:
+                    merged = []
+                    for event in sorted(independent + events, key=lambda e: getattr(e, 'published_at', None)
+                                        or datetime.min.replace(tzinfo=timezone.utc), reverse=True):
+                        if not any(_same_event(old.model_dump(mode='json'), event.model_dump(mode='json')) for old in merged):
+                            merged.append(event)
+                    events = merged
             if not events:
                 return FetchResult(ok=False, error='版本公告正文为空或无法解析活动，保留上次成功日历',
                                    error_kind='invalid_data')

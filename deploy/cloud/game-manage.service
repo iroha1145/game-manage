@@ -1,0 +1,39 @@
+[Unit]
+Description=Game Manage dedicated cloud API and frontend
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=game-manage-cloud
+Group=game-manage-cloud
+WorkingDirectory=/opt/game-manage-cloud/current
+EnvironmentFile=/etc/game-manage-cloud/service.env
+ExecStart=/opt/game-manage-cloud/current/.venv/bin/python -m game_assistant.cloud_runtime --config /etc/game-manage-cloud/cloud.toml
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=45
+KillSignal=SIGTERM
+UMask=0077
+MemoryHigh=512M
+MemoryMax=768M
+TasksMax=128
+CPUQuota=150%
+OOMPolicy=stop
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/game-manage-cloud
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=game-manage-cloud
+LogNamespace=game-manage-cloud
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=100
+
+[Install]
+WantedBy=multi-user.target

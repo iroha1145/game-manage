@@ -7,6 +7,21 @@ import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
 const CalendarPage = await loadVue(new URL('./CalendarPage.vue', import.meta.url))
 const games = [{ game_id: 'nte', display_name: '异环' }, { game_id: 'lol', display_name: '英雄联盟' }]
 const snapshots = { nte: { events: { payload: [{ name: '待定的活动', category: '限时活动', source_title: '版本公告', source_post_id: '123', end_at: null }], fetched_at: '2026-09-14T10:00:00+08:00', stale: true } } }
+test('cloud event collection state distinguishes never, failed retained data and collected empty events', async t => {
+  const props = reactive({ games, snapshots: { nte: { events: { state: 'never', payload: null } } }, initialGameId: 'nte' })
+  const root = mount(t, CalendarPage, props)
+  assert.match(content(root), /尚未采集活动/)
+  assert.doesNotMatch(content(root), /暂无活动数据/)
+  props.snapshots = { nte: { events: { ...snapshots.nte.events, state: 'error' } } }; await nextTick()
+  assert.match(content(root), /活动采集失败.*保留上次成功快照/)
+  assert.match(content(root), /待定的活动/)
+  props.snapshots = { nte: { events: { state: 'error', payload: null } } }; await nextTick()
+  assert.match(content(root), /活动采集失败.*尚无/)
+  assert.doesNotMatch(content(root), /尚未采集活动/)
+  props.snapshots = { nte: { events: { state: 'ok', payload: [] } } }; await nextTick()
+  assert.match(content(root), /已采集.*暂无活动数据/)
+  assert.doesNotMatch(content(root), /尚未采集|采集失败/)
+})
 test('calendar filters by initial game, keeps unknown events and exposes accessible source details', async (t) => {
   const props = reactive({ games, snapshots, initialGameId: 'nte' })
   const root = mount(t, CalendarPage, props)

@@ -1,3 +1,4 @@
+import { isCloudMode } from './http-client.js'
 import { finiteValue } from './dashboard.js'
 
 export const roleId = role => role?.id === null || role?.id === undefined ? '' : String(role.id).trim()
@@ -21,6 +22,11 @@ export function filterRoles(entries, { search = '', quality = '', element = '', 
 }
 
 export function favoritesKey(accountId) {
+  if (isCloudMode()) {
+    const keys = ['user_id','account_id','role_id']
+    if (!accountId || typeof accountId !== 'object' || keys.some(key => typeof accountId[key] !== 'string' || !accountId[key].trim())) return null
+    return `game-manage:cloud:nte:${keys.map(key => encodeURIComponent(accountId[key])).join(':')}:favorites:v1`
+  }
   return typeof accountId === 'string' && accountId.trim() ? `game-manage:nte:${encodeURIComponent(accountId.trim())}:favorites:v1` : null
 }
 export function loadFavorites(accountId, storage) {

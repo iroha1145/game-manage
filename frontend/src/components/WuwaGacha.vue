@@ -1,4 +1,6 @@
 <script setup>
+import { isCloudMode } from '../http-client.js'
+const cloudMode = isCloudMode()
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
 import { value, list, stamp } from '../wuwa-display.js'
@@ -146,7 +148,7 @@ function rarities(pool) {
     <header class="cap-title">
       <h2>抽卡历史</h2>
       <InfoHint
-        text="由你决定何时导入。打开此页只读取本地档案；链接仅在点击导入时使用，用后清空。文件在本机解析后交给本地服务。"
+        :text="cloudMode ? '读取与导入本人云端抽卡档案；仅点击导入时使用授权链接，用后清空。文件先在当前浏览器解析。' : '由你决定何时导入。打开此页只读取本地档案；链接仅在点击导入时使用，用后清空。文件在本机解析后交给本地服务。'"
       />
     </header>
     <details class="wuwa-import" :open="importOpen" @toggle="importOpen = $event.target.open">

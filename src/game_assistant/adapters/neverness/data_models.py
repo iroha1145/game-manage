@@ -4,7 +4,22 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from game_assistant.models import StaminaInfo
+from game_assistant.models import StaminaInfo, GameEvent
+
+
+class NteCalendarEvent(GameEvent):
+    """Official notice dates retain their source precision through serialization."""
+    version: str | None = None
+    source: Literal['community'] = 'community'
+    source_name: str = '塔吉多官方公告'
+    source_url: str | None = None
+    published_at: datetime | None = None
+    aliases: list[str] = Field(default_factory=list)
+    start_date: str | None = None
+    start_text: str | None = None
+    start_precision: Literal['relative', 'day', 'minute'] | None = None
+    end_precision: Literal['minute'] | None = None
+    time_text: str | None = None
 
 
 class NtePayload(BaseModel):

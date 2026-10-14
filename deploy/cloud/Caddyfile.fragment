@@ -1,0 +1,14 @@
+# Proposed NEW site only; do not replace existing sync.rekibot.cloud or :8443.
+# Validate the combined operator config before reload. API port must match cloud.toml.
+game.rekibot.cloud {
+    @private_control path /internal /internal/*
+    respond @private_control 404
+    reverse_proxy 127.0.0.1:8020 {
+        header_up Host game.rekibot.cloud
+    }
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Strict-Transport-Security "max-age=31536000"
+    }
+}

@@ -41,8 +41,81 @@ def _dpapi(data: bytes, decrypt: bool = False) -> bytes:
 
 
 class CredentialStore:
-    def __init__(self, path):
+    def __init__(self, path, *, connection=None, key_path=None):
         self.path = Path(path)
+        self.connection = connection
+        self.key_path = Path(key_path) if key_path is not None else None
+
+    def _grant_key(self):
+        # Cloud keys are provisioned explicitly; never generate a replacement.
+        if self.key_path is None:
+            raise CredentialStoreError('授权密钥不可用')
+        try:
+            if self.key_path.is_symlink():
+                raise ValueError('symlink')
+            if os.name != 'nt' and self.key_path.stat().st_mode & 0o077:
+                raise ValueError('permissions')
+            key = self.key_path.read_bytes()
+            if len(key) != 32:
+                raise ValueError('key length')
+            return key
+        except Exception:
+            raise CredentialStoreError('授权密钥不可用') from None
+
+    @staticmethod
+    def _binding(user_id, grant_id, version):
+        return json.dumps(['cloud-grant-v1', user_id, grant_id, version],
+                          separators=(',', ':')).encode()
+
+    def seal_grant(self, user_id, grant_id, credentials, version):
+        try:
+            from Crypto.Cipher import AES
+            if not isinstance(credentials, dict) or type(version) is not int or version < 1:
+                raise ValueError('invalid grant')
+            cipher = AES.new(self._grant_key(), AES.MODE_GCM, nonce=os.urandom(16))
+            cipher.update(self._binding(user_id, grant_id, version))
+            body, tag = cipher.encrypt_and_digest(json.dumps(credentials, ensure_ascii=False).encode())
+            return b'GRANT1\n' + cipher.nonce + tag + body
+        except Exception:
+            raise CredentialStoreError('授权凭据保存失败') from None
+
+    def load_grant(self, user_id: str, grant_id: str) -> dict:
+        try:
+            row = self.connection.execute(
+                'SELECT g.version,g.encrypted_payload FROM grants g JOIN users u ON u.user_id=g.user_id '
+                "WHERE g.user_id=? AND g.grant_id=? AND g.state='active' AND u.disabled_at IS NULL",
+                (user_id, grant_id)).fetchone()
+            if row is None:
+                raise ValueError('grant unavailable')
+            version, raw = row
+            if not isinstance(raw, bytes) or not raw.startswith(b'GRANT1\n'):
+                raise ValueError('envelope')
+            from Crypto.Cipher import AES
+            cipher = AES.new(self._grant_key(), AES.MODE_GCM, nonce=raw[7:23])
+            cipher.update(self._binding(user_id, grant_id, version))
+            data = json.loads(cipher.decrypt_and_verify(raw[39:], raw[23:39]))
+            if not isinstance(data, dict):
+                raise ValueError('payload')
+            return data
+        except Exception:
+            raise CredentialStoreError('授权凭据不可用，请重新授权') from None
+
+    def save_grant(self, user_id: str, grant_id: str, credentials: dict, version: int) -> None:
+        sealed = self.seal_grant(user_id, grant_id, credentials, version)
+        from game_assistant.accounts.service import transaction
+        try:
+            with transaction(self.connection):
+                cursor = self.connection.execute(
+                    "UPDATE grants SET encrypted_payload=?,state='active',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+                    "WHERE user_id=? AND grant_id=? AND version=? AND state IN ('pending','active') "
+                    'AND EXISTS(SELECT 1 FROM users WHERE user_id=? AND disabled_at IS NULL)',
+                    (sealed, user_id, grant_id, version, user_id))
+                if cursor.rowcount != 1:
+                    raise CredentialStoreError('授权版本已失效')
+        except CredentialStoreError:
+            raise
+        except Exception:
+            raise CredentialStoreError('授权凭据保存失败') from None
 
     def _key(self, create=False):
         key_path = self.path.with_suffix(self.path.suffix + '.key')

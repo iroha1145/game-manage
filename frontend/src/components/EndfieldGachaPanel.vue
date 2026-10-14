@@ -1,4 +1,6 @@
 <script setup>
+import { isCloudMode } from '../http-client.js'
+const cloudMode = isCloudMode()
 import { computed, ref, watch } from 'vue'
 import { fetchedLabel } from '../time.js'
 import { exportRecords, getRecords, pityText, pullDate, rarityLabel } from '../endfield-gacha-api.js'
@@ -65,7 +67,7 @@ async function download() {
   <section class="cap-card endfield-gacha" aria-labelledby="endfield-gacha-title">
     <header class="cap-title">
       <h2 id="endfield-gacha-title">寻访记录</h2>
-      <InfoHint text="官方只能查到约 90 天的记录，本工具从第一次同步开始在本机长期保存。退出登录不会删除本机记录。" />
+      <InfoHint :text="cloudMode ? '官方记录有查询时限，云端档案保留已同步数据；撤销授权会禁止读取。' : '官方只能查到约 90 天的记录，本工具从第一次同步开始在本机长期保存。退出登录不会删除本机记录。'" />
       <span class="cap-meta"><template v-if="summary">共 <b>{{ summary.total }}</b> 抽<template v-if="fetchedAt"> · 同步于 {{ fetchedAt }}</template></template><button type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button></span>
     </header>
     <p v-if="!accountId" class="notice">登录终末地后，点「刷新数据」开始同步寻访记录。</p>

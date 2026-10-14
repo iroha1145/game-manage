@@ -1,4 +1,5 @@
 import httpx
+import uuid
 
 from game_assistant.adapters.wuthering_waves.endpoints import (
     EVENT_LIST, POST_DETAIL, ROLE_LIST, WIDGET_DATA, WIDGET_REFRESH,
@@ -78,4 +79,31 @@ class KuroClient:
         detail = data.get("postDetail") if isinstance(data, dict) else None
         if not isinstance(detail, dict):
             raise KuroError(-3, "帖子详情响应结构异常")
+        return detail
+
+
+class KuroPublicClient(KuroClient):
+    """Attempt public forum reads without borrowing any game account identity.
+
+    The official browser creates a separate anonymous 32-character devCode.
+    It stays in this client's memory; no game grant, private did or token is used.
+    """
+    def __init__(self):
+        super().__init__('')
+        self._anonymous_dev_code = uuid.uuid4().hex
+
+    def _headers(self) -> dict:
+        return {'version':'3.0.0', 'countryCode':'CN', 'source':'h5',
+                'devCode':self._anonymous_dev_code}
+
+    async def get_post_detail(self, post_id: str) -> dict:
+        raw = await self._post(POST_DETAIL,
+            {'postId':post_id, 'isOnlyPublisher':0, 'showOrderType':2})
+        data = raw.get('data')
+        detail = data.get('postDetail') if isinstance(data, dict) else None
+        if not isinstance(detail, dict):
+            raise KuroError(-3, '帖子详情响应结构异常')
+        returned_id = detail.get('postId', detail.get('id'))
+        if returned_id is not None and str(returned_id) != str(post_id):
+            raise KuroError(-3, '帖子详情与公告来源不匹配')
         return detail

@@ -9,7 +9,7 @@ import uuid
 from copy import deepcopy
 
 from game_assistant.adapters.wuthering_waves.kuro_client import AUTH_EXPIRED_CODES, KuroClient
-from game_assistant.auth.providers import AuthError, EndfieldLoginProvider, NteLoginProvider, WuwaLoginProvider
+from game_assistant.auth.providers import AuthError, EndfieldLoginProvider, NteLoginProvider, WuwaLoginProvider, PUBLIC_IP_LOOKUP_ERROR
 from game_assistant.auth.store import CredentialStoreError
 from game_assistant.models import Capability, FetchResult
 
@@ -28,6 +28,7 @@ FIELDS = {
 }
 # Public feeds remain available without a community session.
 PUBLIC_CAPABILITIES = {
+    'wuthering_waves': (Capability.ANNOUNCEMENT, Capability.EVENTS),
     'nte': (Capability.ANNOUNCEMENT, Capability.EVENTS, Capability.TEAMS),
     'endfield': (Capability.ANNOUNCEMENT, Capability.NEWS, Capability.EVENTS),
 }
@@ -45,7 +46,7 @@ class LoginService:
     def __init__(self, settings, store, providers=None, clock=time.time):
         self.settings, self.store, self.clock = settings, store, clock
         if providers is None:
-            providers = {'wuthering_waves': WuwaLoginProvider(), 'nte': NteLoginProvider(),
+            providers = {'wuthering_waves': WuwaLoginProvider(public_ip_url=settings.wuwa_login_public_ip_url), 'nte': NteLoginProvider(),
                          'endfield': EndfieldLoginProvider()}
         self.providers = providers
         self._locks = {g: asyncio.Lock() for g in GAMES}
@@ -146,7 +147,10 @@ class LoginService:
                 context = await self.providers[game].start_context()
             except Exception as exc:
                 logger.warning("无法初始化登录 (%s)", type(exc).__name__, extra={'game': game})
-                raise LoginError('无法初始化登录，请检查网络后重试', 502) from None
+                # Only this project-generated fixed error is exposed, never arbitrary provider text.
+                message = (PUBLIC_IP_LOOKUP_ERROR if isinstance(exc, AuthError) and exc.message == PUBLIC_IP_LOOKUP_ERROR
+                           else '无法初始化登录，请检查网络后重试')
+                raise LoginError(message, 502) from None
             sid = secrets.token_urlsafe(32)
             self._sessions[sid] = {'game': game, 'context': context,
                 'expires': self.clock() + 600, 'attempts': 0, 'mobile': None, 'sent': False}
@@ -321,3 +325,165 @@ class LoginService:
             self._errors.pop(game, None)
         result.credential_version = version
         return result
+
+
+class _EphemeralStore:
+    """Explicit empty context; never falls back to a local credential file."""
+    def load(self):
+        return {game: {'logged_out': True} for game in GAMES}
+
+    def save(self, accounts):
+        pass
+
+
+class ScopedLoginService:
+    """Cloud website-owned login sessions and versioned grant renewal.
+
+    Protocol and input validation reuse the local login service. Mutable account
+    state lives in a separate context for each website user and provider.
+    """
+    provider_games = {'kuro': 'wuthering_waves', 'tajiduo': 'nte', 'hypergryph': 'endfield'}
+    aliases = {'wuthering_waves': 'kuro', 'nte': 'tajiduo', 'endfield': 'hypergryph'}
+
+    def __init__(self, accounts, *, providers=None, clock=time.time, public_ip_url='https://api.ipify.org'):
+        self.accounts, self.clock = accounts, clock
+        accounts.login = self
+        self.providers = providers if providers is not None else {
+            'kuro': WuwaLoginProvider(include_roles=True, public_ip_url=public_ip_url), 'tajiduo': NteLoginProvider(include_roles=True), 'hypergryph': EndfieldLoginProvider()}
+        self._contexts, self._sessions, self._grant_locks = {}, {}, {}
+        accounts._listeners.append(self._invalidate)
+
+    def provider(self, value):
+        provider = self.aliases.get(value,value)
+        if provider not in self.provider_games or provider not in self.providers:
+            raise LoginError('该社区不支持短信登录',404)
+        return provider
+
+    def _context(self, principal, provider):
+        self.accounts._user(principal)
+        key = (principal.user_id,provider)
+        if key not in self._contexts:
+            from game_assistant.config import Settings
+            self._contexts[key] = LoginService(Settings.model_construct(), _EphemeralStore(),
+                providers={self.provider_games[provider]: self.providers[provider]}, clock=self.clock)
+        return self._contexts[key]
+
+    def _owned(self, principal, provider, sid):
+        self.accounts._user(principal)
+        record = self._sessions.get(sid)
+        if not record or record[:2] != (principal.user_id,provider):
+            raise LoginError('登录会话不存在',404)
+        context = self._context(principal,provider)
+        context._session(self.provider_games[provider],sid)
+        return context
+
+    async def start(self, principal, provider):
+        provider = self.provider(provider)
+        context = self._context(principal,provider)
+        result = await context.start(self.provider_games[provider])
+        # Drop expired and superseded ownership entries with their contexts.
+        self._sessions = {sid: owner for sid,owner in self._sessions.items()
+                          if sid in self._contexts[owner[:2]]._sessions}
+        self._sessions[result['session_id']] = (principal.user_id,provider)
+        return result
+
+    async def sms(self, principal, provider, sid, mobile, captcha=None):
+        provider = self.provider(provider)
+        context = self._owned(principal,provider,sid)
+        return await context.sms(self.provider_games[provider],sid,mobile,captcha)
+
+    async def login(self, principal, provider, sid, mobile, code):
+        provider = self.provider(provider)
+        context = self._owned(principal,provider,sid)
+        game = self.provider_games[provider]
+        await context.login(game,sid,mobile,code)
+        try:
+            # A revoke while awaiting the upstream must also cancel this login.
+            if self._sessions.get(sid) != (principal.user_id,provider):
+                raise LoginError('登录会话已失效',410)
+            self._sessions.pop(sid,None)
+            credentials = deepcopy(context._accounts[game])
+            return self.accounts.save_verified(principal,provider,credentials)
+        except CredentialStoreError:
+            raise LoginError('授权凭据保存失败，原授权已保留',500) from None
+        finally:
+            # The completed protocol context is never the grant credential cache.
+            context._accounts[game] = {'logged_out': True}
+            context._saved = _EphemeralStore().load()
+            context._apply(game)
+
+    def _invalidate(self, user_id, grant_id):
+        row = self.accounts.connection.execute('SELECT provider FROM grants WHERE user_id=? AND grant_id=?',
+                                                (user_id,grant_id)).fetchone()
+        if row:
+            key = (user_id,row[0])
+            for sid,owner in list(self._sessions.items()):
+                if owner == key:
+                    self._sessions.pop(sid,None)
+            context = self._contexts.get(key)
+            if context:
+                context._sessions.clear()
+
+    async def renew(self, principal, grant_id, *, role_id=None, server_id=None):
+        from game_assistant.accounts.service import transaction
+        self.accounts._user(principal)
+        lock = self._grant_locks.setdefault((principal.user_id,grant_id),asyncio.Lock())
+        async with lock:
+            row = self.accounts.connection.execute("SELECT provider,version FROM grants WHERE user_id=? AND grant_id=? AND state='active'",
+                                                    (principal.user_id,grant_id)).fetchone()
+            if row is None:
+                raise LoginError('授权已失效，请重新授权',404,'auth_expired')
+            provider,version = row
+            if provider not in self.providers:
+                raise LoginError('该社区不支持续期',400,'auth_expired')
+            try:
+                credentials = self.accounts.credentials.load_grant(principal.user_id,grant_id)
+                if role_id is not None:
+                    if not any(str(role.get('role_id'))==role_id and str(role.get('server_id'))==server_id
+                               for role in credentials.get('_verified_roles',[])):
+                        raise LoginError('该角色不在授权绑定列表中',404,'auth_expired')
+                    credentials.update(role_id=role_id,server_id=server_id)
+                updated = await self.providers[provider].renew(deepcopy(credentials))
+                updated['_updated_at'] = self.clock()
+                sealed = self.accounts.credentials.seal_grant(principal.user_id,grant_id,updated,version+1)
+                with transaction(self.accounts.connection):
+                    cursor = self.accounts.connection.execute(
+                        "UPDATE grants SET version=version+1,encrypted_payload=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+                        "WHERE user_id=? AND grant_id=? AND version=? AND state='active' "
+                        'AND EXISTS(SELECT 1 FROM users WHERE user_id=? AND disabled_at IS NULL)',
+                        (sealed,principal.user_id,grant_id,version,principal.user_id))
+                    if cursor.rowcount != 1:
+                        raise LoginError('授权已改变，旧续期已丢弃',409,'auth_expired')
+                return updated,version+1
+            except LoginError:
+                raise
+            except AuthError as error:
+                raise LoginError(error.message,502,'auth_expired' if error.code in AUTH_EXPIRED_CODES else 'source_error') from None
+            except CredentialStoreError:
+                raise LoginError('授权凭据不可用，请重新授权',500,'auth_expired') from None
+            except Exception:
+                raise LoginError('授权续期失败，请稍后重试',502,'source_error') from None
+
+    async def connect_skland(self, principal, cred, device_id=''):
+        from game_assistant.adapters.endfield.skland_client import SklandClient, SklandError
+        from game_assistant.adapters.endfield.skland_parse import parse_roles,parse_user_id
+        self.accounts._user(principal)
+        if not isinstance(cred,str) or not 1 <= len(cred.strip()) <= 4096 or any(ord(c)<32 for c in cred):
+            raise LoginError('请输入有效的森空岛凭据')
+        if not isinstance(device_id,str) or len(device_id)>512 or any(ord(c)<32 for c in device_id):
+            raise LoginError('设备标识格式不正确')
+        try:
+            client = SklandClient()
+            token = await client.refresh(cred.strip())
+            roles = parse_roles(await client.binding(cred.strip(),token,device_id))
+            user_id = parse_user_id(await client.user(cred.strip(),token,device_id))
+            if not user_id or not roles:
+                raise LoginError('森空岛未提供已验证的国服角色',502)
+            role = roles[0]
+            return self.accounts.save_verified(principal,'skland',{'cred':cred.strip(),'device_id':device_id,
+                'user_id':user_id,'role_id':role['role_id'],'server_id':role['server_id'],
+                'nickname':role.get('nickname',''),'roles':roles,'_updated_at':self.clock()})
+        except LoginError:
+            raise
+        except (SklandError,CredentialStoreError,ValueError,TypeError,KeyError):
+            raise LoginError('森空岛授权验证失败，原授权已保留',502) from None

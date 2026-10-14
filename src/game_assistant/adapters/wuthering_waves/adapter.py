@@ -4,10 +4,9 @@ import asyncio
 import time
 from datetime import datetime, timezone
 
-from game_assistant import event_calendar
 from game_assistant.adapters.base import BaseGameAdapter
 from game_assistant.adapters.wuthering_waves import announcements, role, rolebox, widget
-from game_assistant.adapters.wuthering_waves.kuro_client import AUTH_EXPIRED_CODES, KuroClient, KuroError
+from game_assistant.adapters.wuthering_waves.kuro_client import AUTH_EXPIRED_CODES, KuroClient, KuroPublicClient, KuroError
 from game_assistant.adapters.wuthering_waves.rolebox_client import (
     RoleBoxClient, RoleBoxError,
 )
@@ -39,6 +38,7 @@ class WutheringWavesAdapter(BaseGameAdapter):
 
     def __init__(self, settings: Settings):
         self._client: KuroClient | None = None
+        self._public_client = KuroPublicClient()
         self._settings = settings
         self._combat_cache = {}
         self._resource_cache = {}
@@ -71,9 +71,9 @@ class WutheringWavesAdapter(BaseGameAdapter):
         await client.refresh_data(role_id, server_id)
         self._rolebox_refresh_key, self._rolebox_refresh_time = key, time.monotonic()
 
-    async def _guarded_run(self, run) -> FetchResult:
+    async def _guarded_run(self, run, *, requires_credentials=True) -> FetchResult:
         """run 是零参协程工厂；统一处理未配置凭据与客户端错误。"""
-        if self._client is None:
+        if requires_credentials and self._client is None:
             return FetchResult(ok=False, error="未配置凭据", error_kind='unconfigured')
         try:
             return await run()
@@ -82,13 +82,14 @@ class WutheringWavesAdapter(BaseGameAdapter):
         except RoleBoxError as e:
             return FetchResult(ok=False, error=e.message, error_code=e.code,
                 error_source='rolebox',
-                error_kind='auth_expired' if e.code in AUTH_EXPIRED_CODES else 'source_error')
+                error_kind='auth_expired' if requires_credentials and e.code in AUTH_EXPIRED_CODES else 'source_error')
         except KuroError as e:
             # Network failures (code -1) get a fixed message on the page; the
             # client's own text only names the exception type.
-            message = '网络请求失败，请稍后重试' if e.code == -1 else e.message
+            message = ('公共来源请求失败，请稍后重试' if not requires_credentials else
+                       '网络请求失败，请稍后重试' if e.code == -1 else e.message)
             return FetchResult(ok=False, error=f"库街区接口错误: {message}", error_code=e.code,
-                error_kind='auth_expired' if e.code in AUTH_EXPIRED_CODES else 'source_error')
+                error_kind='auth_expired' if requires_credentials and e.code in AUTH_EXPIRED_CODES else 'source_error')
         except Exception as exc:
             # 解析器异常不得穿透 fetch 破坏失效隔离。只记类型：异常文本可能带上游数据。
             logger.warning("鸣潮数据处理异常，保留上次成功数据 (%s)", type(exc).__name__)
@@ -173,7 +174,7 @@ class WutheringWavesAdapter(BaseGameAdapter):
 
     async def fetch_announcement(self) -> FetchResult:
         async def run():
-            raw = await self._client.find_event_list(3)  # eventType 3=公告
+            raw = await self._public_client.find_event_list(3)  # eventType 3=公告
             items = announcements.parse_announcement_list(raw)
             from game_assistant.sources.article_content import article_content
             slots = asyncio.Semaphore(3)
@@ -183,44 +184,35 @@ class WutheringWavesAdapter(BaseGameAdapter):
                     return item
                 try:
                     async with slots:
-                        detail = await self._client.get_post_detail(item.id)
+                        detail = await self._public_client.get_post_detail(item.id)
                     if detail.get('postId') is not None and str(detail['postId']) != item.id:
                         raise ValueError('article identity mismatch')
                     return item.model_copy(update=article_content(detail.get('postH5Content')))
-                except KuroError as error:
-                    if error.code in AUTH_EXPIRED_CODES:
-                        raise  # Keep the existing credential-renewal path.
+                except KuroError:
+                    pass  # Public source failures cannot expire a private game grant.
                 except ValueError:
                     pass
                 return item.model_copy(update={'content_status': 'error', 'content_error': '库街区正文暂时无法读取'})
 
             return FetchResult(ok=True, payload=await asyncio.gather(*(enrich(item) for item in items)))
-        return await self._guarded_run(run)
+        return await self._guarded_run(run, requires_credentials=False)
 
     async def fetch_events(self) -> FetchResult:
         async def run():
-            # 活动日历：公告列表找版本公告 → 帖子详情 H5 正文 → 行级解析活动
-            # （起止时间/名称/类型，event_calendar 共用解析器，服务器时间=UTC+8）
-            raw = await self._client.find_event_list(3)  # eventType 3=公告
+            from .public_calendar import read_calendar
+            raw = await self._public_client.find_event_list(3)  # eventType 3=公告
             data = raw.get("data") or {}
             rows = data.get("list") if isinstance(data, dict) else data
-            post = event_calendar.find_version_post(
-                rows, VERSION_TITLE_KEYS,
-                title_key="postTitle", time_key="publishTime")
-            if not post:
+            if not any(any(k in str(r.get('postTitle') or '') for k in VERSION_TITLE_KEYS)
+                       for r in rows or [] if isinstance(r, dict)):
                 return FetchResult(ok=False, error='未找到版本公告，保留上次成功日历',
                                    error_kind='source_error')
-            post_id = str(post.get("postId") or "")
-            detail = await self._client.get_post_detail(post_id)
-            lines = event_calendar.strip_html(str(detail.get("postH5Content") or ""))
-            events = event_calendar.parse_events_from_lines(
-                lines, source_post_id=post_id,
-                source_title=str(detail.get("postTitle") or ""))
+            events = await read_calendar(self._public_client, rows, VERSION_TITLE_KEYS)
             if not events:
                 return FetchResult(ok=False, error='版本公告正文为空或无法解析活动，保留上次成功日历',
                                    error_kind='invalid_data')
             return FetchResult(ok=True, payload=events)
-        return await self._guarded_run(run)
+        return await self._guarded_run(run, requires_credentials=False)
 
     async def fetch_exploration(self) -> FetchResult:
         async def run():

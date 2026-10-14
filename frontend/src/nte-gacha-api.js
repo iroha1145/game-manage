@@ -1,5 +1,6 @@
+import { requestResponse } from './http-client.js'
 async function request(path, body) {
-  const response = await fetch(`/api/nte/gacha/${path}`, body === undefined ? {} : {
+  const response = await requestResponse(`/api/nte/gacha/${path}`, body === undefined ? {} : {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Game-Assistant': '1' }, body: JSON.stringify(body),
   })
   let result
