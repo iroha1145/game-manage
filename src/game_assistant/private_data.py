@@ -52,13 +52,13 @@ class ScopedLedger:
     """Every public operation receives and verifies the already-resolved scope."""
     METHODS={
         'nte':{'preview','import_document','records','rules','set_rule','summary','export'},
-        'wuwa_gacha':{'import_records','read'},
+        'wuwa_gacha':{'import_records','read','preview','commit_preview','set_rule','export'},
         'wuwa_history':{'append','capture','read','backfill'},
         'endfield_gacha':{'sync','summary','records','export','add_records'},
         'blueprints':{'items','save','delete'},
     }
     TABLES={'nte':('records','batches','rules','accounts'),
-        'wuwa_gacha':('wuwa_gacha','wuwa_gacha_imports'), 'wuwa_history':('wuwa_history',),
+        'wuwa_gacha':('wuwa_gacha','wuwa_gacha_imports','wuwa_gacha_batches','wuwa_gacha_aggregates','wuwa_gacha_rules'), 'wuwa_history':('wuwa_history',),
         'endfield_gacha':('records','pools','breaks'),'blueprints':('blueprints',)}
 
     def __init__(self,scope,path,kind,role_uid,server_id,store):
@@ -85,8 +85,8 @@ class ScopedLedger:
                     return self._store.capture(*args,**kwargs)
                 if self.kind=='wuwa_history' and name=='backfill':
                     raise ValueError('Cloud history backfill requires scoped snapshots')
-                if self.kind=='wuwa_gacha' and name=='import_records':
-                    return self._store.import_records(args[0],self.role_uid,self.server_id,**kwargs)
+                if self.kind=='wuwa_gacha' and name in ('import_records','preview','commit_preview'):
+                    return getattr(self._store,name)(args[0],self.role_uid,self.server_id,**kwargs)
                 prefix=(self.role_uid,self.server_id) if self.kind.startswith('wuwa_') else (self.role_uid,)
                 method='_add' if name=='add_records' else name
                 return getattr(self._store,method)(*prefix,*args,**kwargs)

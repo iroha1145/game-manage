@@ -39,20 +39,21 @@ def _parse_notice_events(post, detail, version):
         raise ValueError('public notice version mismatch')
     published = event_calendar.parse_ms_or_iso(post.get('createTime'))
     events = []
-    if published is not None:
+    if published is not None or any(event_calendar.CN_DATE_RANGE_RE.search(line) for line in lines):
         from game_assistant.sources.public_content import parse_post_events
         # Use the already supported NTE quote/short-date format. A source
         # publication year is required; never substitute collection time.
         source_url = GET_POST_FULL + '?' + urlencode({'postId': post_id})
         notice = {'id':post_id, 'title':title, 'body':'\n'.join(lines), 'decision':'accepted',
-                  'published_at':published.isoformat(), 'url':source_url}
+                  'published_at':published.isoformat(), 'url':source_url,
+                  'source':'community', 'source_name':'塔吉多官方公告'}
         events = [NteCalendarEvent(**{**row, 'source':'community', 'source_name':'塔吉多官方公告',
-            'source_title':title, 'published_at':published, 'end_precision':'minute'})
+            'source_title':title, 'published_at':published})
             for row in parse_post_events(notice, 'nte', version)]
     if not events:
         # Preserve legacy notices with bracket headings and explicit years.
-        events = event_calendar.parse_events_from_lines(
-            lines, source_post_id=post_id, source_title=title)
+        events = [NteCalendarEvent(**{**e.model_dump(), 'version':version}) for e in event_calendar.parse_events_from_lines(
+            lines, source_post_id=post_id, source_title=title)]
     return events
 
 
@@ -143,15 +144,35 @@ class NteAdapter(BaseGameAdapter):
                     raise TajiduoError("未能在社区数据中定位官方资讯栏目")
                 raw = await web.get_official_post_list(
                     column_id, count=OFFICIAL_POST_COUNT, official_type=3)
-                post = event_calendar.find_version_post(
-                    [row for row in tajiduo._extract_rows(raw) if isinstance(row, dict)
-                     and VERSION_NUMBER.search(str(row.get('subject') or ''))], VERSION_TITLE_KEYS,
-                    title_key="subject", time_key="createTime")
+                from game_assistant.version_calendar import maintenance
+                bases = [row for row in tajiduo._extract_rows(raw) if isinstance(row, dict)
+                         and VERSION_NUMBER.search(str(row.get('subject') or ''))
+                         and any(k in str(row.get('subject') or '') for k in VERSION_TITLE_KEYS)]
+                bases.sort(key=lambda r: event_calendar.parse_ms_or_iso(r.get('createTime'))
+                           or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                notices = []
+                post = None
+                for candidate in bases[:3]:
+                    published = event_calendar.parse_ms_or_iso(candidate.get('createTime'))
+                    if published and published > datetime.now(timezone.utc):
+                        continue
+                    candidate_id = str(candidate.get('postId') or '')
+                    candidate_detail = await web.get_post_full(candidate_id)
+                    body = '\n'.join(event_calendar.strip_html(str(candidate_detail.get('content') or '')))
+                    candidate_notice = dict(id=candidate_id, title=candidate.get('subject'), body=body,
+                        published_at=published.isoformat() if published else None,
+                        url=GET_POST_FULL+'?'+urlencode({'postId':candidate_id}), source_name='塔吉多官方公告')
+                    notices.append(candidate_notice)
+                    release, _ = maintenance(candidate_notice)
+                    if release and release > datetime.now(timezone.utc):
+                        continue
+                    post, detail = candidate, candidate_detail
+                    break
                 if not post:
                     return FetchResult(ok=False, error='未找到版本公告，保留上次成功日历',
                                        error_kind='source_error')
                 post_id = str(post.get("postId") or "")
-                detail = await web.get_post_full(post_id)
+                base_detail = dict(detail)
                 version = VERSION_NUMBER.search(str(post.get('subject') or '')).group(1)
                 events = _parse_notice_events(post, detail, version)
                 if not events:
@@ -205,8 +226,9 @@ class NteAdapter(BaseGameAdapter):
                     if not declared:
                         base_rows = [e.model_dump(mode='json') for e in events]
                         start_day = min((e.get('start_at') or e.get('start_date') or (base_stamp.isoformat() if base_stamp else ''))[:10] for e in base_rows)
-                        end_day = max((e.get('end_at') or '')[:10] for e in base_rows)
-                        parsed = [e for e in parsed if e.end_at and start_day <= e.end_at.date().isoformat() <= end_day]
+                        end_day = max((e.get('end_at') or e.get('end_date') or '')[:10] for e in base_rows)
+                        parsed = [e for e in parsed if (e.end_at or e.end_date)
+                                  and start_day <= (e.end_at.date().isoformat() if e.end_at else e.end_date) <= end_day]
                     independent.extend(parsed)
                 if independent:
                     merged = []
@@ -218,6 +240,12 @@ class NteAdapter(BaseGameAdapter):
             if not events:
                 return FetchResult(ok=False, error='版本公告正文为空或无法解析活动，保留上次成功日历',
                                    error_kind='invalid_data')
+            from game_assistant.version_calendar import version_metadata
+            meta = version_metadata('nte', dict(id=post_id, title=post.get('subject'),
+                body='\n'.join(event_calendar.strip_html(str(base_detail.get('content') or ''))),
+                published_at=base_stamp.isoformat() if base_stamp else None, fetched_at=datetime.now(timezone.utc).isoformat(),
+                url=GET_POST_FULL+'?'+urlencode({'postId':post_id}), source_name='塔吉多官方公告'), notices)
+            events = [event.model_copy(update={'version_metadata':meta}) for event in events]
             return FetchResult(ok=True, payload=events)
         return await self._guarded_run(run)
 

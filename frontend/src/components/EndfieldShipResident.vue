@@ -3,7 +3,7 @@ import { shipPercent } from '../endfield-ship.js'
 import { displayValue as display } from '../endfield-reports.js'
 import EndfieldArtwork from './EndfieldArtwork.vue'
 import AppIcon from './AppIcon.vue'
-defineProps({ operator: {type:Object,required:true} })
+defineProps({ operator: {type:Object,required:true}, imageMode:Boolean })
 </script>
 <template>
   <article class="ef-resident">
@@ -11,7 +11,7 @@ defineProps({ operator: {type:Object,required:true} })
     <div class="resident-copy"><h3>{{ operator.name || operator.id || operator.charId || '驻守干员' }}</h3>
       <div class="resident-meters"><div class="resident-meter"><div><span><AppIcon name="sun" :size="12" />心情</span><strong>{{ shipPercent(operator.mood_percent) }}</strong></div><progress v-if="operator.mood_percent != null" :value="operator.mood_percent" max="100" :aria-label="`${operator.name || '驻守干员'}心情`" /><span v-else class="unknown-meter">{{ operator.mood_raw > 10000 ? '超出模型范围' : '观测值未知' }}</span></div>
       <div class="resident-meter trust-meter"><div><span><AppIcon name="shield" :size="12" />信赖 <small>{{ operator.trust_level_name || '阶段未知' }}</small></span><strong>{{ shipPercent(operator.trust_percent) }}</strong></div><progress v-if="operator.trust_percent != null" :value="operator.trust_percent" max="200" :aria-label="`${operator.name || '驻守干员'}信赖`" /><span v-else class="unknown-meter">观测值未知</span></div></div>
-      <details class="resident-raw"><summary>查看原始观测值</summary><dl><div><dt>心情观测值</dt><dd>{{ display(operator.mood_raw) }}</dd></div><div><dt>信赖观测值</dt><dd>{{ display(operator.trust_raw) }}</dd></div></dl></details>
+      <details v-if="!imageMode" class="resident-raw"><summary>查看原始观测值</summary><dl><div><dt>心情观测值</dt><dd>{{ display(operator.mood_raw) }}</dd></div><div><dt>信赖观测值</dt><dd>{{ display(operator.trust_raw) }}</dd></div></dl></details>
     </div>
   </article>
 </template>

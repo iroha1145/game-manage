@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, JsonValue
 
 from game_assistant.models import StaminaInfo, GameEvent
 
@@ -17,8 +17,15 @@ class NteCalendarEvent(GameEvent):
     aliases: list[str] = Field(default_factory=list)
     start_date: str | None = None
     start_text: str | None = None
-    start_precision: Literal['relative', 'day', 'minute'] | None = None
-    end_precision: Literal['minute'] | None = None
+    start_precision: Literal['relative', 'day', 'minute', 'unknown'] | None = None
+    start_source: dict[str, JsonValue] | None = None
+    start_estimated: bool | None = None
+    start_basis: Literal['scheduled_maintenance', 'notice_relative_date'] | None = None
+    start_date_precision: Literal['day'] | None = None
+    end_date: str | None = None
+    end_text: str | None = None
+    end_precision: Literal['minute', 'day', 'unknown', 'permanent'] | None = None
+    permanent: bool = False
     time_text: str | None = None
 
 
@@ -52,20 +59,60 @@ class NteStamina(StaminaInfo):
 
 
 class NteWeapon(BaseModel):
+    id: str | None = None
     name: str | None = None
     level: int | None = None
     quality: str | None = None
     mix_level: int | None = None
+    breakthrough_level: int | None = None
+    group_type: str | None = None
+    description: str | None = None
+    buff_name: str | None = None
+    buff_description: str | None = None
+    lbd: JsonValue | None = None
+    properties: list['NteProperty'] = Field(default_factory=list)
 
 
 class NteProperty(BaseModel):
-    name: str
-    value: str
+    id: str | None = None
+    name: str | None = None
+    value: str | None = None
+
+
+class NteSkillItem(BaseModel):
+    title: str | None = None
+    desc: str | None = None
 
 
 class NteSkill(BaseModel):
+    id: str | None = None
+    type: str | None = None
     name: str | None = None
     level: int | None = None
+    items: list[NteSkillItem] = Field(default_factory=list)
+
+
+class NteEquippedItem(BaseModel):
+    id: str | None = None
+    name: str | None = None
+    level: int | None = None
+    main_properties: list[NteProperty] = Field(default_factory=list)
+    properties: list[NteProperty] = Field(default_factory=list)
+    # The reference API schema does not prove these scoring inputs.
+    quality: str | None = None
+    area: int | None = None
+    substats_complete: bool | None = None
+
+
+class NteSuit(BaseModel):
+    id: str | None = None
+    name: str | None = None
+    description_two: str | None = None
+    description_four: str | None = None
+    conditions: JsonValue | None = None
+    activation_count: int | None = None
+    core: list[NteEquippedItem] = Field(default_factory=list)
+    pie: list[NteEquippedItem] = Field(default_factory=list)
 
 
 class NteRole(BaseModel):
@@ -82,6 +129,9 @@ class NteRole(BaseModel):
     properties: list[NteProperty] = Field(default_factory=list)
     skills: list[NteSkill] = Field(default_factory=list)
     city_skills: list[NteSkill] = Field(default_factory=list)
+    group_type: str | None = None
+    awaken_effects: list[str] = Field(default_factory=list)
+    suit: NteSuit | None = None
 
 
 class NteRoles(NtePayload):

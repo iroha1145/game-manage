@@ -4,6 +4,7 @@ import { fetchedLabel } from '../time.js'
 
 const props = defineProps({
   snap: { type: Object, default: null },
+  imageMode: Boolean,
 })
 
 const payload = computed(() => props.snap?.payload ?? null)
@@ -20,7 +21,7 @@ const rankedSolo = computed(() => {
   <div class="cap-card">
     <div class="cap-title">
       账号
-      <span v-if="snap?.stale" class="badge badge-stale">数据可能过期</span>
+      <span v-if="snap?.stale && !imageMode" class="badge badge-stale">数据可能过期</span>
       <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}</span>
     </div>
 

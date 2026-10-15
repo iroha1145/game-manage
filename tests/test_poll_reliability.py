@@ -29,11 +29,19 @@ def freeze(monkeypatch, instant):
 async def test_daily_reminders_reset_at_beijing_midnight(tmp_path, monkeypatch):
     eng = engine(tmp_path)
     result = FetchResult(ok=True, payload=StaminaInfo(current=240, maximum=240,
-                        updated_at=datetime.now(timezone.utc)))
+                        updated_at=datetime(2026, 9, 14, 15, 59, tzinfo=timezone.utc)))
     for hour, minute in [(15, 59), (16, 1)]:
         freeze(monkeypatch, datetime(2026, 9, 14, hour, minute, tzinfo=timezone.utc))
         await eng.handle_poll('g', 'G', Capability.STAMINA, result)
     assert len(eng.notifier.sent) == 2
+    # The same actual source read is still fresh two minutes later; the day
+    # rollover must never rewrite it as a new cache/source-read timestamp.
+    assert eng.dedup.already_sent('stamina_full:g:2026-09-14')
+    assert eng.dedup.already_sent('stamina_full:g:2026-09-15')
+    freeze(monkeypatch, datetime(2026, 9, 15, 16, 1, tzinfo=timezone.utc))
+    await eng.handle_poll('g','G',Capability.STAMINA,result)
+    assert len(eng.notifier.sent) == 2
+    assert not eng.dedup.already_sent('stamina_full:g:2026-09-16')
 
 
 @pytest.mark.parametrize('seconds,expected', [(0, False), (-1, False), (1, True),

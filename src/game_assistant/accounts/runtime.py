@@ -148,6 +148,13 @@ class _GrantGuard:
             result = await action()
             if self.runtime.accounts.describe(self.scope)['version'] != version:
                 raise AccountNotFoundError()
+            if not result.ok and result.error_kind == 'auth_expired' and self.runtime.login and info['provider'] == 'skland' and self.credentials.get('_parent'):
+                updated,version = await self.runtime.login.renew_skland(Principal(self.scope.user_id,False),info['grant_id'],
+                    expected_version=version,role_id=info['game_uid'],server_id=info['server'])
+                self.apply(updated,version)
+                result = await action()
+                if self.runtime.accounts.describe(self.scope)['version'] != version:
+                    raise AccountNotFoundError()
             rolebox = capability in (Capability.ROLES,Capability.EXPLORATION,Capability.CALABASH,Capability.STAMINA,
                                     Capability.PROGRESS,Capability.COMBAT,Capability.ACTIVITIES,Capability.RESOURCES) or result.error_source=='rolebox'
             invalid = (result.error_code in (10900,10901,10903) or rolebox and result.error_code in (401,403)) if game=='wuthering_waves' else result.error_code in (401,402,403)

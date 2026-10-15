@@ -51,5 +51,5 @@ test('explicit refresh uses write protection and exposes stale fallback', async 
   const root=mount(t,Panel,{roles:[]});await flush();await flush()
   await nodes(root,'button').find(n=>content(n)==='刷新原帖').props.onClick();await flush()
   assert.equal(written.method,'POST');assert.equal(written.headers['X-Game-Assistant'],'1')
-  assert.match(content(root),/原帖暂时无法读取/);assert.match(content(root),/推荐甲弧盘/)
+  assert.match(content(root),/暂时无法读取.*重试/);assert.match(content(root),/推荐甲弧盘/)
 })

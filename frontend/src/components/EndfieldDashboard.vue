@@ -7,6 +7,7 @@ import {
   getChallenges, getSklandTools, getSklandOperator, getBlueprints, exportBlueprints, saveBlueprint, updateBlueprint, deleteBlueprint, safeExternalUrl,
 } from '../endfield-tools-api.js'
 import AppIcon from './AppIcon.vue'
+import { friendlyDataError } from '../cloud-display.js'
 import EndfieldGachaPanel from './EndfieldGachaPanel.vue'
 import EndfieldGachaSummary from './EndfieldGachaSummary.vue'
 import { gachaView } from '../endfield-gacha-summary.js'
@@ -61,7 +62,7 @@ const cardPayload = computed(() => card.value?.payload || null)
 const display = value => value === null || value === undefined || value === '' ? '未知' : String(value)
 const dateText = value => value ? formatTime(value) : '未知'
 const list = value => Array.isArray(value) ? value : []
-const humanError = value => typeof value === 'string' ? value : value ? '暂时无法读取，请稍后重试。' : ''
+const humanError = value => value === '暂时无法连接服务，请稍后重试。' ? value : value ? friendlyDataError(value) : ''
 const roleLabel = role => cloud.value ? `${role.nickname || '未命名角色'} · ${role.role_id}` : `${role.nickname || '未命名角色'} · ${role.role_id} / ${role.server_id}`
 const named = value => typeof value === 'string' ? value : (value?.name || value?.title || '未知')
 const regionSummary = item => `等级 ${display(item.level)} · ${list(item.levels).length} 个区域 · ${list(item.settlements).length} 处据点`
@@ -130,7 +131,7 @@ async function loadStatus() {
     if (destroyed || seq !== statusSeq) return
     status.value = data
     statusError.value = humanError(data.error)
-  } catch (error) { if (seq === statusSeq) statusError.value = error.message }
+  } catch (error) { if (seq === statusSeq) statusError.value = humanError(error.message) }
   finally { if (seq === statusSeq) statusBusy.value = false }
 }
 function clearPrivate() {
@@ -151,7 +152,7 @@ async function loadOperator(id) {
     if (destroyed || seq !== operatorSeq || owner !== roleKey.value) return
     operatorDetail.value = data.operator || data.payload || null; operatorStale.value = !!data.stale; operatorFetchedAt.value = data.fetched_at || null; operatorError.value = humanError(data.error)
     if (!operatorDetail.value && !operatorError.value) operatorError.value = '暂时无法读取这名干员的配装。'
-  } catch (error) { if (seq === operatorSeq) operatorError.value = error.message }
+  } catch (error) { if (seq === operatorSeq) operatorError.value = humanError(error.message) }
   finally { if (seq === operatorSeq) operatorBusy.value = false }
 }
 function closeOperator() {
@@ -168,7 +169,7 @@ async function loadTool() {
     const data = await getSklandTools(kind)
     if (destroyed || seq !== toolSeq || owner !== roleKey.value || kind !== toolKind.value) return
     toolData.value = data; toolError.value = humanError(data.error)
-  } catch (error) { if (seq === toolSeq) toolError.value = error.message }
+  } catch (error) { if (seq === toolSeq) toolError.value = humanError(error.message) }
   finally { if (seq === toolSeq) toolBusy.value = false }
 }
 async function loadCard(refresh = false) {
@@ -181,8 +182,8 @@ async function loadCard(refresh = false) {
     if (destroyed || seq !== privateSeq || owner !== roleKey.value) return
     card.value = data; cardError.value = humanError(data.error)
   } catch (error) { if (!destroyed && seq === privateSeq && owner === roleKey.value && error.name !== 'AbortError') {
-    cardError.value = error.message
-    if (card.value?.payload) card.value = { ...card.value, stale: true, error: error.message }
+    cardError.value = humanError(error.message)
+    if (card.value?.payload) card.value = { ...card.value, stale: true, error: humanError(error.message) }
   } }
   finally { if (seq === privateSeq) cardBusy.value = false }
 }
@@ -196,8 +197,8 @@ async function loadAttendance(sign = false) {
     if (destroyed || seq !== attendanceSeq || owner !== roleKey.value) return
     attendance.value = attendanceEnvelope(data); attendanceError.value = humanError(attendance.value?.error)
   } catch (error) { if (!destroyed && seq === attendanceSeq && owner === roleKey.value && error.name !== 'AbortError') {
-    attendanceError.value = error.message
-    if (attendance.value) attendance.value = { ...attendance.value, stale: true, error: error.message }
+    attendanceError.value = humanError(error.message)
+    if (attendance.value) attendance.value = { ...attendance.value, stale: true, error: humanError(error.message) }
   } }
   finally { if (seq === attendanceSeq) attendanceBusy.value = false }
 }
@@ -213,7 +214,7 @@ async function loadChallenge() {
     const next = challengeReport(data, kind), error = humanError(data.error)
     challenge.value = error && previous && !next.available && next.supported !== false ? retainedChallenge(previous, error) : data
     challengeError.value = error
-  } catch (error) { if (current()) { challengeError.value = error.message; challenge.value = retainedChallenge(previous, error.message) } }
+  } catch (error) { if (current()) { challengeError.value = humanError(error.message); challenge.value = retainedChallenge(previous, humanError(error.message)) } }
   finally { if (seq === challengeSeq) challengeBusy.value = false }
 }
 async function loadPublic(refresh = false) {
@@ -223,7 +224,7 @@ async function loadPublic(refresh = false) {
     const data = refresh ? await refreshPublic() : await getPublic()
     if (destroyed || seq !== publicSeq) return
     publicData.value = data; publicError.value = humanError(data.news?.error)
-  } catch (error) { if (seq === publicSeq) publicError.value = error.message }
+  } catch (error) { if (seq === publicSeq) publicError.value = humanError(error.message) }
   finally { if (seq === publicSeq) publicBusy.value = false }
 }
 async function loadMap() {
@@ -238,7 +239,7 @@ async function loadMap() {
     if (destroyed || seq !== mapSeq) return
     map.value = data; mapError.value = humanError(data.error)
     if (!mapId.value && list(data.maps).length) mapId.value = data.maps[0].id
-  } catch (error) { if (seq === mapSeq && error.name !== 'AbortError') mapError.value = error.message }
+  } catch (error) { if (seq === mapSeq && error.name !== 'AbortError') mapError.value = humanError(error.message) }
   finally { if (seq === mapSeq) mapBusy.value = false }
 }
 async function loadMark(mark) {
@@ -249,7 +250,7 @@ async function loadMark(mark) {
     const data = await getMapMark(owner, mark.id)
     if (destroyed || seq !== markSeq || owner !== mapId.value) return
     markDetail.value = data.info; markError.value = humanError(data.error)
-  } catch (error) { if (seq === markSeq) markError.value = error.message }
+  } catch (error) { if (seq === markSeq) markError.value = humanError(error.message) }
   finally { if (seq === markSeq) markBusy.value = false }
 }
 async function loadBlueprints() {
@@ -260,7 +261,7 @@ async function loadBlueprints() {
     const data = await getBlueprints()
     if (destroyed || seq !== blueprintsSeq) return
     blueprints.value = list(data.items)
-  } catch (error) { if (seq === blueprintsSeq) blueprintError.value = error.message }
+  } catch (error) { if (seq === blueprintsSeq) blueprintError.value = humanError(error.message) }
   finally { if (seq === blueprintsSeq) blueprintBusy.value = false }
 }
 async function connect() {
@@ -270,7 +271,7 @@ async function connect() {
     const data = await connectSkland(cred.value.trim(), deviceId.value.trim())
     cred.value = ''; deviceId.value = ''; clearPrivate(); status.value = data
     actionMessage.value = '森空岛账号已连接。'
-  } catch (error) { actionError.value = error.message }
+  } catch (error) { actionError.value = humanError(error.message) }
   finally { actionBusy.value = false }
 }
 async function connectWithPassport() {
@@ -279,7 +280,7 @@ async function connectWithPassport() {
     const data = await connectSklandWithPassport()
     clearPrivate(); status.value = data
     actionMessage.value = data.selected_role_id ? '已用鹰角通行证连接森空岛。' : '已连接森空岛，请确认角色。'
-  } catch (error) { actionError.value = error.message; manualOpen.value = true }
+  } catch (error) { actionError.value = humanError(error.message); manualOpen.value = true }
   finally { actionBusy.value = false }
 }
 async function selectRole(event) {
@@ -287,13 +288,13 @@ async function selectRole(event) {
   if (!role || event.target.value === roleKey.value) return
   clearPrivate(); actionBusy.value = true; actionError.value = ''; actionMessage.value = ''
   try { status.value = await chooseSklandRole(role.role_id, role.server_id) }
-  catch (error) { actionError.value = error.message; await loadStatus(); if (roleKey.value) { loadCard(); if (section.value === 'overview') loadAttendance() } }
+  catch (error) { actionError.value = humanError(error.message); await loadStatus(); if (roleKey.value) { loadCard(); if (section.value === 'overview') loadAttendance() } }
   finally { actionBusy.value = false }
 }
 async function disconnect() {
   actionBusy.value = true; actionError.value = ''; actionMessage.value = ''; clearPrivate()
   try { status.value = await disconnectSkland(); actionMessage.value = '已断开森空岛连接。' }
-  catch (error) { actionError.value = error.message; await loadStatus(); if (roleKey.value) { loadCard(); if (section.value === 'overview') loadAttendance() } }
+  catch (error) { actionError.value = humanError(error.message); await loadStatus(); if (roleKey.value) { loadCard(); if (section.value === 'overview') loadAttendance() } }
   finally { actionBusy.value = false }
 }
 function editBlueprint(item) {
@@ -308,13 +309,13 @@ async function submitBlueprint() {
     if (editingId.value === null) await saveBlueprint(item)
     else await updateBlueprint(editingId.value, item)
     resetBlueprint(); await loadBlueprints()
-  } catch (error) { blueprintError.value = error.message }
+  } catch (error) { blueprintError.value = humanError(error.message) }
   finally { blueprintBusy.value = false }
 }
 async function removeBlueprint(id) {
   blueprintBusy.value = true; blueprintError.value = ''
   try { await deleteBlueprint(id); if (editingId.value === id) resetBlueprint(); await loadBlueprints() }
-  catch (error) { blueprintError.value = error.message }
+  catch (error) { blueprintError.value = humanError(error.message) }
   finally { blueprintBusy.value = false }
 }
 async function copyCode(code) {
@@ -327,7 +328,7 @@ async function downloadBlueprints() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url; link.download = 'endfield-blueprints.json'; link.click(); URL.revokeObjectURL(url)
-  } catch (error) { blueprintError.value = error.message }
+  } catch (error) { blueprintError.value = humanError(error.message) }
 }
 function submitMapSearch() { submittedQuery.value = mapQuery.value.trim(); if (mapOffset.value) mapOffset.value = 0; else loadMap() }
 

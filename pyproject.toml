@@ -27,6 +27,7 @@ dev = [
 ]
 ocr = ["rapidocr-onnxruntime>=1.4,<2", "opencv-python>=4.8,<5", "numpy>=1.24,<3"]
 qq = ["qqbot-agent-sdk==1.2.2"]
+qq-render = ["playwright==1.58.0"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -38,3 +39,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+game_assistant = ["character-search-catalog.json"]

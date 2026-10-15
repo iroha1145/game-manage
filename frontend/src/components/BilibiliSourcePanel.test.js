@@ -119,14 +119,17 @@ test('a collection that finishes while two reads overlap emits collected once', 
   assert.equal(collected, 1)
 })
 
-test('the panel is always open and names every mobile game, Endfield included', async (t) => {
+test('the source panel defaults to more information and retains every mobile game, Endfield included', async (t) => {
   const previous = globalThis.fetch
   const source = (game_id, uid) => ({ game_id, uid, status: 'ok', message: '', history_complete: true, total: 1, accepted: 1, running: false })
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ sources: [source('wuthering_waves', '1955897084'), source('nte', '3546636978489848'), source('endfield', '1265652806')], login: { configured: false } }) })
   t.after(() => { globalThis.fetch = previous })
   const root = mount(t, Panel, {})
   await new Promise(resolve => setImmediate(resolve)); await nextTick()
-  assert.equal(nodes(root, 'details').length, 0)
+  const fold=nodes(root,'details').find(node=>node.props.class==='bili-panel')
+  assert.ok(fold)
+  assert.ok(!fold.props.open)
+  assert.match(content(nodes(fold,'summary')[0]),/更多信息/)
   const text = content(root)
   for (const name of ['鸣潮', '异环', '终末地']) assert.match(text, new RegExp(`${name} · UID`))
   assert.doesNotMatch(text, /endfield · UID/)

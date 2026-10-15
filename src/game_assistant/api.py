@@ -63,6 +63,8 @@ def create_app(registry=None, store=None, scheduler=None, notifier=None,
     install_wuwa_routes(app)
     from game_assistant.wuwa_archive_routes import install_wuwa_archive_routes
     install_wuwa_archive_routes(app)
+    from game_assistant.assessment_routes import install_assessment_routes
+    install_assessment_routes(app)
     from game_assistant.lol_routes import install_lol_routes
     install_lol_routes(app)
     from game_assistant.sources.bilibili_service import BilibiliService
@@ -186,6 +188,7 @@ def create_app(registry=None, store=None, scheduler=None, notifier=None,
         if bili:
             await bili.close()
         app.state.endfield_public.close()
+        app.state.assessments.close()
 
     @app.get("/api/games/{game_id}/match/{match_id}/detail")
     async def match_detail(game_id: str, match_id: str) -> dict:

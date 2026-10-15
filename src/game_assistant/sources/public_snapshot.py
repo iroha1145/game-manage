@@ -100,7 +100,9 @@ def read_public_snapshot(store, game, capability, settings, bilibili=None, *, no
     stale = all(r.get('source_stale', False) for r in rows) if rows else bool(times and statuses[native_cap]['stale'])
     effective.update(game_id=game, capability=capability, observed_at=now.isoformat(),
                      stale=stale, source_statuses=source_statuses)
+    from game_assistant.version_calendar import snapshot_version
+    meta = snapshot_version(game, rows, version=version, stale=stale, statuses=source_statuses, now=now) if capability == 'events' else None
     return dict(payload=rows if rows or any(snapshots.values()) else None,
                 fetched_at=max(times, default=None), stale=stale,
                 poll_status=effective, primary_source=primary_source, version=version,
-                bilibili_status=state, complete=None)
+                bilibili_status=state, complete=None, version_metadata=meta)

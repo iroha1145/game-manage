@@ -127,6 +127,15 @@ test('cloud independent details retain attendance and card after transport failu
 })
 
 const article=(index,extra={})=>({id:`a${index}`,title:`公告 ${index}`,source:'official',source_name:'官网',published_at:`2026-10-${String(index).padStart(2,'0')}`,url:`https://example.com/${index}`,...extra})
+test('news summary uses ordinary wording, folds attribution and never reflects raw update errors',t=>{
+ const root=mount(t,News,{snapshots:[{state:'error',stale:true,error:'raw_transport_token=synthetic-secret',fetched_at:'2026-10-15T00:00:00Z',payload:[article(1,{source_name:'合成官网来源'})]}]})
+ assert.match(content(root),/已有公告待更新.*公告暂时无法更新.*显示上次内容/)
+ assert.match(content(root),/更新于 2026-10-15 08:00.*最新 5 条/)
+ assert.doesNotMatch(content(root),/快照|采集|来源状态|raw_transport_token|synthetic-secret/)
+ const source=nodes(root,'details').find(node=>content(node).includes('合成官网来源'))
+ assert.ok(source);assert.ok(!source.props.open)
+ for(const meta of nodes(root,'p').filter(node=>node.props.class==='article-meta'))assert.doesNotMatch(content(meta),/合成官网来源/)
+})
 test('news summary reuses safe merged articles, caps latest five and preserves date-only precision',t=>{
  let all=0;t.mock.method(globalThis,'fetch',()=>{assert.fail('summary must not fetch')})
  const snapshots=[{state:'ok',fetched_at:'2026-10-15T00:00:00Z',payload:Array.from({length:6},(_,index)=>article(index+1))},{payload:[article(6,{source:'bilibili',source_name:'B站'}),article(7,{url:'javascript:alert(1)',source_stale:true})]}]
@@ -136,19 +145,19 @@ test('news summary reuses safe merged articles, caps latest five and preserves d
  assert.equal(nodes(root,'h3').filter(node=>content(node).includes('公告 6')).length,1)
  assert.match(content(root),/官网/);assert.match(content(root),/2026-10-07/)
  assert.doesNotMatch(content(root),/2026-10-07 00:00|2026-10-07 08:00/)
- assert.match(content(root),/快照更新于 2026-10-15 08:00/)
+ assert.match(content(root),/更新于 2026-10-15 08:00/)
  assert.ok(nodes(root,'a').every(node=>node.props.href.startsWith('https://')))
  button(root,'查看全部公告 →').props.onClick();assert.equal(all,1)
 })
 
 test('news summary distinguishes no snapshot, successful empty, retained failure and fresh partial fallback',async t=>{
  const props=reactive({snapshots:[]}),root=mount(t,News,props)
- assert.match(content(root),/尚未采集公告快照/)
- props.snapshots=[{state:'ok',payload:[]}];await nextTick();assert.match(content(root),/已采集，暂无公告与资讯/)
+ assert.match(content(root),/暂无公告，可前往公告与资讯查看/)
+ props.snapshots=[{state:'ok',payload:[]}];await nextTick();assert.match(content(root),/暂无公告与资讯/)
  props.snapshots=[{state:'error',stale:true,error:'采集异常',payload:[article(1)]}];await nextTick()
- assert.match(content(root),/已有公告待更新/);assert.match(content(root),/保留上次成功公告/);assert.match(content(root),/公告 1/)
+ assert.match(content(root),/已有公告待更新/);assert.match(content(root),/显示上次内容/);assert.match(content(root),/公告 1/)
  props.snapshots=[{state:'error',stale:false,payload:[article(1)],poll_status:{source_statuses:{official:{state:'ok'},bilibili:{state:'error'}}}}];await nextTick()
- assert.match(content(root),/部分来源不可用，显示可用来源数据/);assert.doesNotMatch(content(root),/已有公告待更新|保留上次成功公告/)
+ assert.match(content(root),/部分公告暂未更新，先显示已有内容/);assert.doesNotMatch(content(root),/已有公告待更新|显示上次内容/)
 })
 
 test('formal overview shows existing public snapshots without collection and all link opens the news section',async t=>{

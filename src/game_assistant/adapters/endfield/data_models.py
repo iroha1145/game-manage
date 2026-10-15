@@ -67,7 +67,7 @@ class EndfieldGachaPool(BaseModel):
     newest_at: int | None = None
     oldest_at: int | None = None
     gaps: int = 0
-    pending: bool = False
+    pending: bool | None = None
     last_sync_at: str | None = None
 
 

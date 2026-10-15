@@ -78,7 +78,7 @@ test('snapshots distinguish absent, legacy, stale and valid empty data', (t) => 
   assert.doesNotMatch(content(legacy), /旧数据/)
   assert.match(content(card(t, 'teams', { entries: [] })), /暂无官方配队推荐/)
   const stale = mount(t, NteAssetsPanel, { capability: 'vehicles', snap: { ...snap({ entries: [] }), stale: true } })
-  assert.match(content(stale), /待更新/)
+  assert.ok(nodes(stale, 'span').some(node => String(node.props.class).includes('badge-stale') && content(node) === '缓存已过期'))
 })
 
 test('house search resolves resident names and furniture names', async (t) => {

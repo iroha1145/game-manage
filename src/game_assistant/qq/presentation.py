@@ -139,7 +139,7 @@ def help_document(game=None):
     if game in (None,'endfield'):
         sections.append({'title':'终末地专项','layout':'help','fields':[field(title,'终末地 '+title) for title in ('理智','练度','地区','帝江号','光荣之路','挑战','寻访战报')]+[field('干员配装','终末地 干员 精确名称')]})
     card=document('help',game or 'all',prefix+' · 帮助' if game else '帮助 · 游戏管家',subtitle='游戏前缀：鸣潮、异环、终末地；公共单游戏活动无需绑定',sections=sections,
-        notices=['先登录网站生成绑定码，再发送绑定指令；收到成功回复即完成。','无前缀的近期活动、活动、日历汇总本人已授权游戏；近期活动指未来168小时内开始或结束，日历显示当前自然月。',
+        notices=['先登录网站生成绑定码，再发送绑定指令；收到成功回复即完成。','无前缀活动查询按本人授权游戏分别展示；近期活动指未来168小时内开始或结束，日历保留来源版本已结束及未来活动；覆盖待核验。',
                  '角色名称精确匹配；未知不补零。终末地鹰角寻访与森空岛档案分开展示。'])
     card['version']=3
     return card
@@ -322,21 +322,31 @@ def role_sections(game, entry, asset_cache=None):
     return sections
 
 
-def role_card(game, provider, snapshot, name=None, asset_cache=None):
+def resolve_role(game, provider, snapshot, name):
+    from ..character_search import resolve_character
+    return resolve_character(game, name, role_entries(game, snapshot.payload, provider))
+
+
+def role_card(game, provider, snapshot, name=None, asset_cache=None, *, resolution=None):
     entries=role_entries(game,snapshot.payload,provider)
     common=dict(footer='更新时间：'+format_time(snapshot.fetched_at)+' · 完整性：'+metadata(snapshot)[2]['value'])
     state=metadata(snapshot)[0]['value']
     if name is not None:
-        matches=[entry for entry in entries if entry.get('name')==name]
-        if not matches:
-            card=message(game,label(game,provider)+' · 角色','本人角色缓存中未找到该角色；请核对精确名称或在网站采集。')
+        resolution = resolution if resolution is not None else resolve_role(game,provider,snapshot,name)
+        if resolution['status']=='none':
+            card=message(game,label(game,provider)+' · 角色','本人角色缓存中未找到该角色；可按名称、别名、拼音或首字母搜索，或在网站采集。')
             card['notices'].append(state)
             card['footer']=common['footer']
             return card
-        if len(matches)>1:
-            return message(game,label(game,provider)+' · 角色','缓存存在同名角色，无法确定唯一详情；请在网站核对角色。')
-        entry=matches[0]
-        return with_image(document('detail',game,label(game,provider)+' · '+text(name),sections=role_sections(game,entry,asset_cache),
+        if resolution['status']!='resolved':
+            from ..character_search import character_label
+            candidates=resolution['candidates'][:12]
+            notice='缓存存在同名角色，无法确定唯一详情。' if resolution['status']=='ambiguous' else '未找到精确匹配，以下仅为候选。'
+            return document('list',game,label(game,provider)+' · 角色候选',sections=[{'title':'本人已授权角色候选','layout':'grid','rows':[
+                {'title':character_label(game,item['entry']), 'fields':[field('角色标识',item['character_id'] or '未提供')]} for item in candidates]}],
+                notices=[state,notice,'请发送完整角色名称与形态，或在网站点击确认。'],**common)
+        entry=resolution['entry']
+        return with_image(document('detail',game,label(game,provider)+' · '+text(entry.get('name')),sections=role_sections(game,entry,asset_cache),
             notices=[state,'仅展示本人角色缓存中的已采集字段；装备不代表完整库存。'],**common),image_ref(asset_cache,game,'role',entry.get('id') or entry.get('role_id') or name,entry.get('icon_url') or entry.get('avatar_url')))
     out=[]
     for entry in entries:

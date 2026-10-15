@@ -9,9 +9,12 @@ import { vGlide } from '../motion.js'
 import MenuSelect from './MenuSelect.vue'
 import WuwaGuide from './WuwaGuide.vue'
 import WuwaRoleDialog from './WuwaRoleDialog.vue'
+import { normalizeSearch, searchCharacters } from '../character-search.js'
+import WuwaGuideBrowser from './WuwaGuideBrowser.vue'
 const props = defineProps({
   snap: { default: null },
   accountKey: { type: String, default: '' },
+  imageMode: { type: Boolean, default: false },
 })
 const search = ref(''),
   attribute = ref(''),
@@ -23,6 +26,7 @@ const search = ref(''),
   error = ref(''),
   loading = ref(false)
 const detailTab = ref('panel')
+const browseGuides = ref(false)
 function reset() {
   selected.value = null
   detailTab.value = 'panel'
@@ -41,12 +45,13 @@ const filtered = computed(() =>
   roles.value
     .filter(
       (r) =>
-        (r.name || '').includes(search.value) &&
+        (!normalizeSearch(search.value) || searchMatches.value.has(r)) &&
         (!attribute.value || r.attribute === attribute.value) &&
         (!weapon.value || r.weapon === weapon.value) &&
         (!rarity.value || String(r.star_level) === rarity.value),
     )
     .sort((a, b) => {
+      if (normalizeSearch(search.value) && searchMatches.value.get(a) !== searchMatches.value.get(b)) return searchMatches.value.get(a) - searchMatches.value.get(b)
       const read = (r) =>
         sort.value === 'total_skill_level'
           ? r.extra?.total_skill_level
@@ -54,8 +59,10 @@ const filtered = computed(() =>
       return (read(b) ?? -1) - (read(a) ?? -1)
     }),
 )
+const searchMatches = computed(() => new Map(searchCharacters('wuthering_waves', search.value, roles.value).map(item => [item.entry, item.score])))
 // Rarity as stars: 5★ in the game gold, 4★ in the purple series (same as the gacha split).
 async function open(role) {
+  if (props.imageMode) return
   selected.value = role
   detail.value = null
   error.value = ''
@@ -81,16 +88,18 @@ function close() {
 </script>
 <template>
   <section class="wuwa-panel">
+    <button v-if="!imageMode" type="button" class="ui-button small-button" :aria-expanded="browseGuides" @click="browseGuides=!browseGuides">公开角色攻略</button>
+    <WuwaGuideBrowser v-if="browseGuides" :roles="roles" @role="open" />
     <header class="cap-title">
       <h2>角色档案</h2>
       <WuwaStatus :snap="snap" />
     </header>
-    <div class="toolbar">
+    <div v-if="!imageMode" class="toolbar">
       <input
         class="grow"
         type="search"
         aria-label="搜索角色"
-        placeholder="搜索角色"
+        placeholder="名称、别名、拼音或首字母"
         :value="search"
         @input="search = $event.target.value"
       /><MenuSelect
@@ -124,11 +133,12 @@ function close() {
       >
     </div>
     <div class="wuwa-role-grid">
-      <button
+      <component :is="imageMode ? 'article' : 'button'"
         v-for="(r, index) in filtered"
         :key="r.role_id"
-        type="button"
+        :type="imageMode ? undefined : 'button'"
         class="wuwa-role t-item"
+        :data-render-block="imageMode ? '' : undefined"
         :style="{ '--i': Math.min(index, 11) }"
         :aria-pressed="selected?.role_id === r.role_id"
         @click="open(r)"
@@ -164,7 +174,7 @@ function close() {
             ></span
           ></span
         >
-      </button>
+      </component>
     </div>
     <p v-if="!filtered.length" class="wuwa-muted">{{ roles.length ? '暂无符合条件的角色，请调整筛选。' : '暂无角色记录，请刷新数据。' }}</p>
     <WuwaRoleDialog

@@ -16,7 +16,22 @@ test('failure, no collection, success empty and unsupported have separate messag
  assert.match(content(mount(t,Component,{kind:'crisis',error:'失败'})),/失败 尚无可显示的已采集资料/)
  assert.doesNotMatch(content(mount(t,Component,{kind:'crisis',error:'失败'})),/本次返回没有|暂无挑战记录/)
  assert.match(content(mount(t,Component,{kind:'crisis'})),/尚未采集危机记录/)
- assert.match(content(mount(t,Component,{kind:'crisis',value:{kind:'crisis',fetched_at,records:[],summary:{highest:0,challenge_count:0}}})),/来源历史最高值 0.*来源挑战次数 0.*本次返回没有危机记录/)
+ assert.match(content(mount(t,Component,{kind:'crisis',value:{kind:'crisis',fetched_at,records:[],summary:{highest:0,challenge_count:0}}})),/历史最高值 0.*挑战次数 0.*本次返回没有危机记录/)
  assert.match(content(mount(t,Component,{kind:'crisis',value:{kind:'crisis',supported:false}})),/暂不支持危机挑战/)
  assert.match(content(mount(t,Component,{kind:'war',value:{kind:'war',fetched_at,stale:true,error:'失败',records:[]}})),/已有资料待更新.*上次成功资料/)
+})
+
+test('image reports expose each category observation and retained state without source controls or diagnostics',t=>{
+ for(const [kind,label,date,stale] of [['war','战争','2026-10-15T01:02:00Z',false],['monument','丰碑','2026-10-15T02:03:00Z',true],['crisis','危机','2026-10-15T03:04:00Z',false]]) {
+  const root=mount(t,Component,{kind,imageMode:true,error:stale?'raw_transport_detail':'',value:{kind,fetched_at:date,stale,records:[],summary:{highest:0,challenge_count:0}}})
+  assert.match(content(root),new RegExp(`${label}观测时间 2026-10-15 ${kind==='war'?'09:02':kind==='monument'?'10:03':'11:04'}`))
+  assert.equal(content(root).includes('已有资料待更新'),stale)
+  assert.equal(nodes(root,'button').length,0)
+  assert.doesNotMatch(content(root),/raw_transport_detail|本次接口返回|没有来源上限|来源历史最高值|来源挑战次数/)
+ }
+ const unknown=mount(t,Component,{kind:'war',imageMode:true})
+ assert.match(content(unknown),/观测时间 未知.*尚未采集战争记录/)
+ const web=mount(t,Component,{kind:'war',value:{kind:'war',fetched_at,records:[]}})
+ const disclosure=nodes(web,'details').find(node=>String(node.props.class).includes('challenge-status'))
+ assert.ok(disclosure);assert.ok(!disclosure.props.open);assert.match(content(disclosure),/本次接口返回.*没有来源上限/)
 })

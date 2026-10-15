@@ -33,7 +33,7 @@ class EndfieldSklandService:
     ttl_seconds = 120
 
     @classmethod
-    def for_scope(cls, scope, session, *, client=None, clock=None):
+    def for_scope(cls, scope, session, *, client=None, clock=None, grant_guard=None, grant_renew=None):
         """Read-only cloud service; credentials come from the resolved grant."""
         from .private_data import validate_scope
         validate_scope(scope)
@@ -41,6 +41,8 @@ class EndfieldSklandService:
                 for k in ('cred','user_id','role_id','server_id')):
             raise ValueError('A verified Skland session is required')
         service=cls('',store=_GrantSession(session),client=client,clock=clock)
+        service._cloud_renew = grant_renew
+        service._cloud_guard = grant_guard
         return ScopedSkland(scope,service)
 
     def __init__(self, db_path: str, *, client: SklandClient | None = None,
@@ -207,6 +209,11 @@ class EndfieldSklandService:
         try:
             return s, await self.client.refresh(s["cred"])
         except SklandError as error:
+            if error.expired and getattr(self,'_cloud_renew',None) and s.get('_parent'):
+                renewed = await self._cloud_renew()
+                self._session = renewed
+                self._version += 1
+                return renewed, await self.client.refresh(renewed['cred'])
             if not error.expired or s.get("source") != "passport":
                 raise
         passport = self._passport()
@@ -410,11 +417,19 @@ class ScopedSkland:
     def __init__(self,scope,service):
         self.scope,self._service=scope,service
 
-    def _check(self,scope):
+    def _check(self,scope,*,active=True):
         from .private_data import validate_scope
         validate_scope(scope)
         if scope!=self.scope:
             raise PermissionError('Private scope does not match')
+        guard = getattr(self._service,'_cloud_guard',None)
+        if guard and active:
+            guard()
+
+    @property
+    def grant_version(self):
+        guard = getattr(self._service,'_cloud_guard',None)
+        return guard() if guard else None
 
     def __getattr__(self,name):
         if name not in self.METHODS:
@@ -427,7 +442,12 @@ class ScopedSkland:
         async def read(scope,*args,**kwargs):
             self._check(scope)
             result=await getattr(self._service,name)(*args,**kwargs)
-            self._check(scope)
+            try:
+                self._check(scope)
+            except Exception:
+                # A response already in flight may refill a cache after close().
+                self.clear(scope)
+                raise
             return result
         return read
 
@@ -456,7 +476,7 @@ class ScopedSkland:
         return deepcopy(value) if isinstance(value,dict) and value.get('kind')==kind else None
 
     def clear(self,scope):
-        self._check(scope)
+        self._check(scope,active=False)
         service=self._service
         service._cache=None
         service._challenge_cache.clear()

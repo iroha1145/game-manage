@@ -42,13 +42,15 @@ def test_private_reads_empty_backfill_no_network_and_logout(tmp_path, monkeypatc
 
 def test_write_guard_body_limit_identity_and_secret_errors(tmp_path):
     client, app, adapter = make_client(tmp_path)
-    path = '/api/wuwa/gacha/import'
+    path = '/api/wuwa/gacha/preview'
     body = {'records': {'info': {'uid': '100'}, 'list': [record()]}}
     assert client.post(path, json=body).status_code == 403
     headers = {'X-Game-Assistant': '1', 'Origin': 'https://evil.test'}
     assert client.post(path, json=body, headers=headers).status_code == 403
     headers['Origin'] = 'http://testserver'
-    assert client.post(path, json=body, headers=headers).json()['inserted'] == 1
+    preview=client.post(path,json=body,headers=headers).json()
+    assert client.get('/api/wuwa/gacha').json()['total']==0
+    assert client.post('/api/wuwa/gacha/import',json={'preview_id':preview['preview_id']},headers=headers).json()['inserted']==1
     assert client.get('/api/wuwa/gacha').json()['total'] == 1
     response = client.post(path, content=b'x' * (2 * 1024 * 1024 + 1), headers=headers)
     assert response.status_code == 413
@@ -74,9 +76,25 @@ def test_import_session_switch_discards_inflight_rows(tmp_path, monkeypatch):
         app.state.auth.generation += 1
         return {'records': {'info': {'uid': '100'}, 'list': [record()]}, 'failed_pools': []}
     monkeypatch.setattr(routes, 'fetch_official', switched)
-    response = client.post('/api/wuwa/gacha/import', json={'url': 'transient'}, headers={'X-Game-Assistant': '1'})
+    response = client.post('/api/wuwa/gacha/preview', json={'url': 'transient'}, headers={'X-Game-Assistant': '1'})
     assert response.status_code == 409
     assert client.get('/api/wuwa/gacha').json()['total'] == 0
+
+
+def test_url_preview_does_not_write_and_direct_http_import_is_rejected(tmp_path,monkeypatch):
+    client,_,_=make_client(tmp_path)
+    from game_assistant import wuwa_archive_routes as routes
+    async def official(*args):
+        return {'records':{'info':{'uid':'100'},'list':[record()]},'failed_pools':['2']}
+    monkeypatch.setattr(routes,'fetch_official',official)
+    headers={'X-Game-Assistant':'1'}
+    p=client.post('/api/wuwa/gacha/preview',json={'url':'TRANSIENT_SECRET'},headers=headers)
+    assert p.status_code==200 and 'TRANSIENT_SECRET' not in p.text
+    assert client.get('/api/wuwa/gacha').json()['total']==0
+    for body in ({'url':'TRANSIENT_SECRET'},{'records':{'info':{'uid':'100'},'list':[record()]}}):
+        assert client.post('/api/wuwa/gacha/import',json=body,headers=headers).status_code==422
+    result=client.post('/api/wuwa/gacha/import',json={'preview_id':p.json()['preview_id']},headers=headers)
+    assert result.status_code==200 and result.json()['inserted']==1
 
 
 def test_actual_role_detail_read_archives_only_success(tmp_path):
@@ -96,3 +114,34 @@ def test_actual_role_detail_read_archives_only_success(tmp_path):
     adapter.fetch_role_detail = failed
     assert client.get('/api/wuwa/roles/1501').status_code == 502
     assert len(client.get('/api/wuwa/history?kind=role_detail').json()['items']) == 1
+def test_preview_commit_replay_rule_and_export(tmp_path):
+    client,app,adapter=make_client(tmp_path)
+    headers={'X-Game-Assistant':'1'}
+    document={'info':{'uid':'100','server_id':'S'},'list':[record(id='one')]}
+    preview=client.post('/api/wuwa/gacha/preview',json={'records':document},headers=headers)
+    assert preview.status_code==200
+    assert client.get('/api/wuwa/gacha').json()['total']==0
+    token=preview.json()['preview_id']
+    assert client.post('/api/wuwa/gacha/import',json={'preview_id':token},headers=headers).json()['inserted']==1
+    assert client.post('/api/wuwa/gacha/import',json={'preview_id':token},headers=headers).status_code==409
+    rule=dict(pool='1',hard_pity=80,reset_rarity='5',version='personal',sharing='independent',basis='user_configured')
+    assert client.post('/api/wuwa/gacha/rules',json=rule,headers=headers).status_code==200
+    assert client.get('/api/wuwa/gacha/export').json()['rules']==[rule]
+    token=client.post('/api/wuwa/gacha/preview',json={'records':document},headers=headers).json()['preview_id']
+    app.state.auth.generation+=1
+    assert client.post('/api/wuwa/gacha/import',json={'preview_id':token},headers=headers).status_code==409
+    assert client.post('/api/wuwa/gacha/preview',json={'records':document},headers={'X-Game-Assistant':'1','Origin':'https://evil.test'}).status_code==403
+
+
+def test_preview_aggregate_source_selection_and_invalid_body(tmp_path):
+    client,_,_=make_client(tmp_path)
+    headers={'X-Game-Assistant':'1'}
+    payload={'data':{'uid':'100','card_analysis_json':{'pool':{'five_cards':[
+        dict(cardPoolType=99,name='未知五星',time='2026-01-01',draw_total=90)]}}}}
+    preview=client.post('/api/wuwa/gacha/preview',json={'source':'mcgf','records':payload},headers=headers)
+    assert preview.status_code==200
+    assert client.post('/api/wuwa/gacha/import',json={'preview_id':preview.json()['preview_id']},headers=headers).status_code==200
+    archive=client.get('/api/wuwa/gacha').json()
+    assert archive['total']==0 and archive['aggregates']['total']==1
+    assert client.post('/api/wuwa/gacha/preview',content=b'x'*(2*1024*1024+1),headers=headers).status_code==413
+    assert client.post('/api/wuwa/gacha/preview',json={'source':'xhh','records':payload},headers=headers).status_code==422

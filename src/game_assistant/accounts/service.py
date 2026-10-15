@@ -64,6 +64,22 @@ class AccountService:
                              for r in self.connection.execute(
                                  'SELECT role_id,display_name,is_default FROM roles WHERE account_id=? AND user_id=?',
                                  (row[0], principal.user_id))]
+            if item['provider'] == 'skland' and item['state'] == 'active':
+                from game_assistant.auth.store import CredentialStoreError
+                try:
+                    saved = self.credentials.load_grant(principal.user_id,item['grant_id'])
+                    verified = {(str(r.get('role_id')),str(r.get('server_id'))) for r in saved.get('_verified_roles',[])}
+                    item['roles'] = [role for role in item['roles'] if (
+                        self.connection.execute('SELECT game_uid FROM roles WHERE role_id=?',(role['role_id'],)).fetchone()[0],
+                        item['server']) in verified]
+                    if not item['roles']:
+                        item['state'] = 'role_unavailable'
+                    parent = saved.get('_parent')
+                    item['authorization_source'] = 'passport' if parent else 'manual'
+                    if parent:
+                        item.update(parent_account_id=parent['account_id'],parent_role_id=parent['role_id'])
+                except CredentialStoreError:
+                    item['state'] = 'credential_unavailable'
             result.append(item)
         return result
 
@@ -76,9 +92,14 @@ class AccountService:
             (scope.account_id, scope.role_id, scope.user_id)).fetchone()
         if active and row[4] != 'active':
             raise AccountNotFoundError()
+        if active and row[1] == 'skland':
+            saved = self.credentials.load_grant(scope.user_id,row[2])
+            if not any(str(role.get('role_id')) == row[5] and str(role.get('server_id')) == row[6]
+                       for role in saved.get('_verified_roles',[])):
+                raise AccountNotFoundError()
         return dict(zip(('game','provider','grant_id','version','state','game_uid','server'), row))
 
-    def save_verified(self, principal, provider, credentials):
+    def save_verified(self, principal, provider, credentials, *, expected_versions=None):
         """Internal-only: credentials are returned by a verified provider, never body UIDs."""
         self._user(principal)
         game = PROVIDER_GAMES[provider]
@@ -98,16 +119,25 @@ class AccountService:
             from game_assistant.auth.service import LoginError
             raise LoginError('社区角色资料格式不正确',502)
         credentials = {**credentials,'_verified_roles':verified}
+        if provider == 'hypergryph':
+            credentials['_authorization_id'] = uuid.uuid4().hex
         if not any(str(item['role_id'])==role and str(item['server_id'])==server for item in verified):
             from game_assistant.auth.service import LoginError
             raise LoginError('默认角色不在社区绑定列表中',502)
         with transaction(self.connection):
+            if credentials.get('_parent') is not None:
+                self.credentials.validate_parent(principal.user_id,credentials['_parent'])
+            if expected_versions is not None and self.grant_versions(principal,provider) != expected_versions:
+                from game_assistant.auth.service import LoginError
+                raise LoginError('授权已改变，请重新连接森空岛',409,'authorization_changed')
             old = self.connection.execute('SELECT grant_id FROM grants WHERE user_id=? AND provider=? AND provider_subject=? ORDER BY created_at LIMIT 1',
                                           (principal.user_id,provider,subject)).fetchone()
             if old:
                 grant_id = old[0]
+                derived = self._revoke_derived(principal,grant_id) if provider == 'hypergryph' else []
                 self.connection.execute("UPDATE grants SET version=version+1,state='pending' WHERE grant_id=?", (grant_id,))
             else:
+                derived = []
                 grant_id = uuid.uuid4().hex
                 self.connection.execute('INSERT INTO grants(grant_id,user_id,provider,provider_subject) VALUES(?,?,?,?)',
                                         (grant_id,principal.user_id,provider,subject))
@@ -142,6 +172,9 @@ class AccountService:
                 if is_selected:
                     selected = account_id,role_id
         self._changed(principal.user_id,grant_id)
+        for child in derived:
+            self._changed(principal.user_id,child)
+            self._cleanup_after_commit(principal,child)
         cleanup_pending = self._cleanup_after_commit(principal,grant_id) if old else False
         account_id,role_id = selected
         return {'ok': True, 'account_id': account_id, 'role_id': role_id, 'grant_id': grant_id, 'version': version,
@@ -163,6 +196,25 @@ class AccountService:
     def _changed(self, user_id, grant_id):
         for callback in self._listeners:
             callback(user_id,grant_id)
+
+    def grant_versions(self, principal, provider):
+        return dict(self.connection.execute('SELECT grant_id,version FROM grants WHERE user_id=? AND provider=?',
+                                            (principal.user_id,provider)))
+
+    def _revoke_derived(self, principal, parent_grant):
+        from game_assistant.auth.store import CredentialStoreError
+        children = []
+        for (grant_id,) in self.connection.execute("SELECT grant_id FROM grants WHERE user_id=? AND provider='skland' AND state='active'",
+                                                  (principal.user_id,)).fetchall():
+            try:
+                saved = self.credentials.load_grant(principal.user_id,grant_id)
+            except CredentialStoreError:
+                continue  # Undecryptable grants already fail closed on every read.
+            if saved.get('_parent',{}).get('grant_id') == parent_grant:
+                self.connection.execute("UPDATE grants SET version=version+1,state='revoked',encrypted_payload=NULL WHERE user_id=? AND grant_id=?",
+                                        (principal.user_id,grant_id))
+                children.append(grant_id)
+        return children
 
     def _cleanup_after_commit(self,principal,grant_id):
         try:
@@ -186,7 +238,11 @@ class AccountService:
         if self.connection.in_transaction:
             raise RuntimeError('Account mutations require a dedicated idle connection')
         with transaction(self.connection):
+            derived = self._revoke_derived(principal,grant_id)
             self.connection.execute("UPDATE grants SET version=version+1,state='revoked',encrypted_payload=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id=? AND grant_id=?",
                                     (principal.user_id,grant_id))
         self._changed(principal.user_id,grant_id)
+        for child in derived:
+            self._changed(principal.user_id,child)
+            self._cleanup_after_commit(principal,child)
         return {'ok': True,'cleanup_pending':self._cleanup_after_commit(principal,grant_id)}

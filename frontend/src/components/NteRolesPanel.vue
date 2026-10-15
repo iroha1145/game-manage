@@ -7,9 +7,12 @@ import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
 import NteIcon from './NteIcon.vue'
+import NteEquippedDetails from './NteEquippedDetails.vue'
+import RoleAssessment from './RoleAssessment.vue'
 import { nteRoleIcon, nteNamedIcon, nteSkillIcon } from '../nte-icons.js'
 
-const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: [String,Object], default: '' } })
+const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: [String,Object], default: '' }, focusCharacterId:{type:String,default:''}, imageMode:{type:Boolean,default:false}, detailMode:{type:Boolean,default:false} })
+const emit=defineEmits(['guide'])
 const payload = computed(() => props.snap?.payload ?? null)
 const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 const legacy = computed(() => payload.value !== null && payload.value.schema_version !== 1)
@@ -20,6 +23,7 @@ const favorites = ref([]), storageError = ref(''), selected = ref([]), failedIma
 const canPersist = computed(() => Boolean(favoritesKey(props.accountId)))
 const keyOf = role => roleId(role) ? `id:${roleId(role)}` : `row:${roles.value.indexOf(role)}`
 watch(() => props.accountId, () => {
+  if (props.imageMode) return
   const loaded = loadFavorites(props.accountId)
   favorites.value = loaded.ids; storageError.value = loaded.error ?? ''; selected.value = []; favoritesOnly.value = false
 }, { immediate: true })
@@ -27,6 +31,7 @@ watch(roles, () => { selected.value = selected.value.filter(key => roles.value.s
 const options = field => [...new Set(roles.value.map(role => role[field]).filter(value => typeof value === 'string' && value))].sort((a, b) => a.localeCompare(b, 'zh-CN'))
 const qualities = computed(() => options('quality')), elements = computed(() => options('element'))
 const visible = computed(() => filterRoles(roles.value, { search: search.value, quality: quality.value, element: element.value, favoritesOnly: favoritesOnly.value, favorites: favorites.value, sort: sort.value, direction: direction.value }))
+watch(()=>props.focusCharacterId,id=>{if(id)search.value=id},{immediate:true})
 const compared = computed(() => selected.value.map(key => roles.value.find(role => keyOf(role) === key)).filter(Boolean))
 const groups = computed(() => comparisonGroups(compared.value))
 const qualityCount = value => roles.value.filter(role => role.quality === value).length
@@ -52,7 +57,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
 </script>
 
 <template>
-  <section class="cap-card nte-roles-panel">
+  <section class="cap-card nte-roles-panel" :class="{ 'role-detail-view': detailMode }">
     <div class="cap-title">
       角色练度
       <InfoHint v-if="roles.length" text="收藏保存在当前浏览器，按网站用户、授权账号及游戏角色分别保存。" />
@@ -64,12 +69,13 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
       </span>
       <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}</span>
     </div>
-    <p v-if="payload === null" class="empty">暂无数据，请登录后刷新</p>
+    <p v-if="payload === null" class="empty">暂无数据，请刷新后查看</p>
     <p v-else-if="legacy" class="empty">数据格式已更新，请刷新</p>
     <p v-else-if="!roles.length" class="empty">暂无数据</p>
     <template v-else>
-      <div class="toolbar">
-        <input class="grow" type="search" aria-label="搜索角色" placeholder="搜索角色名称" :value="search" @input="search = $event.target.value" />
+      <p v-if="imageMode && !detailMode" class="notice">完整角色概览。查看装备、属性与技能详情：异环 角色 名称</p>
+      <div v-if="!imageMode" class="toolbar">
+        <input class="grow" type="search" aria-label="搜索角色" placeholder="名称、别名、拼音或首字母" :value="search" @input="search = $event.target.value" />
         <MenuSelect v-model="quality" label="品质筛选" :options="[{ value: '', label: '全部品质' }, ...qualities]" />
         <MenuSelect v-model="element" label="元素筛选" :options="[{ value: '', label: '全部元素' }, ...elements]" />
         <MenuSelect v-model="sort" label="角色排序" :options="[{ value: 'level', label: '按等级' }, { value: 'awaken_level', label: '按觉醒' }, { value: 'mix_level', label: '按混频' }, { value: 'name', label: '按名称' }]" />
@@ -77,9 +83,9 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
         <label class="favorite-filter"><input type="checkbox" aria-label="仅收藏" :checked="favoritesOnly" @change="favoritesOnly = $event.target.checked" /><span>仅收藏</span></label>
         <span class="count">显示 {{ visible.length }} / {{ roles.length }}</span>
       </div>
-      <p v-if="!canPersist" class="notice">当前账号身份未提供，暂不可收藏。</p>
+      <p v-if="!canPersist && !imageMode" class="notice">当前账号身份未提供，暂不可收藏。</p>
       <p v-if="storageError" class="notice" role="status">{{ storageError }}</p>
-      <div class="compare-tray" role="group" aria-label="角色对比选择">
+      <div v-if="!imageMode" class="compare-tray" role="group" aria-label="角色对比选择">
         <div class="compare-heading">
           <strong>角色对比</strong>
           <span class="compare-count">已选 {{ selected.length }} / 4</span>
@@ -101,21 +107,23 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
       </div>
       <p v-if="!visible.length" class="empty">没有符合筛选条件的角色</p>
       <ul v-else class="role-grid">
-        <li v-for="(role, index) in visible" :key="keyOf(role)" class="role-card t-item" :class="{ compared: isCompared(role) }" :style="{ '--i': Math.min(index, 11) }">
-          <div class="role-top">
-            <img v-if="safeUrl(role.icon_url) && !failedImages.has(safeUrl(role.icon_url))" :key="safeUrl(role.icon_url)" :src="safeUrl(role.icon_url)" :alt="role.name || '角色'" loading="lazy" class="avatar" @error="imageFailed" />
+        <li v-for="(role, index) in visible" :key="keyOf(role)" class="role-card t-item" :data-render-block="imageMode && !detailMode ? '' : undefined" :class="{ compared: isCompared(role) }" :style="{ '--i': Math.min(index, 11) }">
+          <div class="role-top" :data-render-block="imageMode && detailMode ? '' : undefined">
+            <img v-if="safeUrl(role.icon_url) && !failedImages.has(safeUrl(role.icon_url))" :key="safeUrl(role.icon_url)" :src="safeUrl(role.icon_url)" :alt="role.name || '角色'" :loading="imageMode ? 'eager' : 'lazy'" class="avatar" @error="imageFailed" />
             <NteIcon v-else :src="nteRoleIcon(role.id)" :name="role.name || '角色'" />
             <div class="role-heading">
               <strong :title="role.name">{{ display(role.name) }}</strong>
               <span class="role-sub"><span class="rank" :class="`rank-${role.quality}`">{{ display(role.quality) }}</span><span>{{ display(role.element) }}</span><span class="level">Lv{{ display(role.level) }}</span></span>
             </div>
-            <div class="role-actions">
+            <div v-if="!imageMode" class="role-actions">
+              <button v-if="!imageMode" type="button" class="ui-button small-button" :aria-label="`查看${role.name || '角色'}攻略`" :disabled="!roleId(role)" @click="emit('guide',roleId(role))">攻略</button>
               <button type="button" class="icon-button favorite" :aria-label="`${isFavorite(role) ? '取消收藏' : '收藏'}${role.name || '角色'}`" :aria-pressed="isFavorite(role)" :disabled="!canPersist || !roleId(role)" :title="favoriteTitle(role)" @click="toggleFavorite(role)"><AppIcon name="star" :size="15" /></button>
               <button type="button" class="icon-button" :aria-label="`对比${role.name || '角色'}`" :aria-pressed="isCompared(role)" :disabled="selected.length >= 4 && !isCompared(role)" :title="isCompared(role) ? '移出对比' : '加入对比'" @click="toggleCompare(role)"><AppIcon :name="isCompared(role) ? 'close' : 'plus'" :size="15" /></button>
             </div>
           </div>
-          <details class="role-more">
-            <summary>
+          <p v-if="imageMode && !detailMode" class="chip-list"><span class="chip">觉醒 <b>{{ display(role.awaken_level) }}</b></span><span class="chip">混频 <b>{{ display(role.mix_level) }}</b></span><span class="chip">羁遇累计经验 <b>{{ display(role.affinity_exp) }}</b></span></p>
+          <details v-if="!imageMode || detailMode" class="role-more" :open="imageMode || detailMode || (focusCharacterId===roleId(role) && !!focusCharacterId)">
+            <summary :data-render-block="imageMode ? '' : undefined">
               <span class="chip">觉醒 <b>{{ display(role.awaken_level) }}</b></span>
               <span class="chip">混频 <b>{{ display(role.mix_level) }}</b></span>
               <span class="chip">羁遇累计经验 <b>{{ display(role.affinity_exp) }}</b></span>
@@ -123,16 +131,18 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
               <AppIcon name="chevron" :size="14" class="t-disclosure" />
             </summary>
             <div class="detail-body">
-              <section class="detail-group">
+              <div :data-render-block="imageMode ? '' : undefined"><RoleAssessment game="nte" :character-id="roleId(role)" :scope-key="accountId" :role-data="role" :image-mode="imageMode" :initial-assessment="role.assessment" /></div>
+              <section class="detail-group" :data-render-block="imageMode ? '' : undefined">
                 <h4>弧盘</h4>
                 <p v-if="role.weapon" class="weapon"><NteIcon :src="nteNamedIcon('weapons', role.weapon.name)" :name="role.weapon.name || '弧盘'" size="small" /><strong>{{ display(role.weapon.name) }}</strong><span class="chip">{{ display(role.weapon.quality) }}</span><span class="chip">Lv{{ display(role.weapon.level) }}</span><span class="chip">混频 <b>{{ display(role.weapon.mix_level) }}</b></span></p>
                 <p v-else class="muted">暂无数据</p>
               </section>
-              <section v-for="group in [{ name: '属性', rows: role.properties, value: 'value' }, { name: '战技', rows: role.skills, value: 'level' }, { name: '城区技能', rows: role.city_skills, value: 'level' }]" :key="group.name" class="detail-group">
+              <section v-for="group in [{ name: '属性', rows: role.properties, value: 'value' }, { name: '战技', rows: role.skills, value: 'level' }, { name: '城区技能', rows: role.city_skills, value: 'level' }]" :key="group.name" class="detail-group" :data-render-block="imageMode ? '' : undefined">
                 <h4>{{ group.name }}</h4>
                 <dl v-if="list(group.rows).length" class="detail-rows"><div v-for="(entry, index) in list(group.rows)" :key="index"><dt class="skill-name"><NteIcon v-if="group.value === 'level'" :src="nteSkillIcon(role.id, entry.name)" :name="entry.name || '技能'" size="small" /><span :title="display(entry.name)">{{ display(entry.name) }}</span></dt><dd>{{ group.value === 'level' && display(entry[group.value]) !== '未提供' ? 'Lv' : '' }}{{ display(entry[group.value]) }}</dd></div></dl>
                 <p v-else class="muted">暂无数据</p>
               </section>
+              <NteEquippedDetails :role="role" :image-mode="imageMode" />
             </div>
           </details>
         </li>
@@ -145,6 +155,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
 .skill-name { display:flex;align-items:center;gap:6px;min-width:0; }
 .skill-name > span:last-child { overflow:hidden;text-overflow:ellipsis; }
 .nte-roles-panel { min-width: 0; overflow-wrap: anywhere; }
+.role-detail-view .role-grid { grid-template-columns: 1fr; }
 .cap-title { position: relative; }
 .summary { gap: 4px; }
 .muted { color: var(--text-muted); font-size: 12px; line-height: 1.6; }

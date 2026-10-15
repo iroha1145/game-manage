@@ -1,5 +1,6 @@
 """Endfield commands cross the real local image pipeline; external I/O is mocked."""
 import base64
+import os
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -37,6 +38,10 @@ from tests.test_qq_unified_queries import no_external_network
 ])
 async def test_endfield_commands_render_upload_and_passively_send_once(
         tmp_path, monkeypatch, raw, command, title, snapshots):
+    executable=os.environ.get('QQ_RENDER_TEST_EXECUTABLE')
+    font=os.environ.get('QQ_RENDER_TEST_FONT')
+    if not executable or not font:
+        pytest.skip('Endfield delivery now uses shared Vue; set QQ_RENDER_TEST_EXECUTABLE and QQ_RENDER_TEST_FONT')
     # Reuse the real scoped cache facade. Its fixture rejects credential loading,
     # service construction and operator upstream calls during a QQ query.
     query, scope, grant, private, scoped = scoped_query_fixture(tmp_path)
@@ -65,7 +70,7 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
     app = create_cloud_app(Settings(
         cloud_db_path=str(tmp_path / 'cloud.db'), cloud_allowed_origins=['https://cloud.example'],
         qq_app_id='app', qq_service_token='fixture-service', qq_images_enabled=True,
-        qq_image_font_path=cjk_font_path()), start_scheduler=False)
+        qq_image_font_path=font,qq_browser_render_executable_path=executable), start_scheduler=False)
     service = app.state.qq_query
     service.query_service = query
     query.accounts._listeners.append(service.invalidate)
@@ -95,7 +100,7 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
         return await original_render(checked, result, budget_seconds=budget_seconds)
     monkeypatch.setattr(queue, 'render', render)
     assert queue.renderer.budget_seconds == 8
-    assert queue.renderer.max_bytes == 524288
+    assert queue.renderer.max_bytes == 1048576
 
     requests, replies, uploads, sends, operations = [], [], [], [], []
     http = httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=('127.0.0.1', 1234)))
@@ -120,7 +125,7 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
                 assert set(body) == {'file_type', 'file_data', 'srv_send_msg'}
                 assert body['file_type'] == 1 and body['srv_send_msg'] is False
                 image = base64.b64decode(body['file_data'], validate=True)
-                assert valid_reply_image(image, max_bytes=524288)
+                assert valid_reply_image(image, max_bytes=1048576)
                 with Image.open(BytesIO(image)) as picture:
                     picture.load()
                     assert picture.width == 1080 and picture.width * picture.height <= 16_000_000
@@ -151,11 +156,11 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
         assert len(payload['snapshot_fingerprints']) == snapshots
         assert NOW in payload['snapshot_times'] or command in ('gacha', 'combat')
         if command == 'roles':
-            assert '已观测战术道具' in replies[0].text
+            assert render_calls[0][1]['render_snapshot']['display_data']['panels'][0]['snapshot']['payload']['operator_detail']['tactical_item']['name']=='已观测战术道具'
             assert '2026-10-14T00:00:00Z' in payload['snapshot_times']
         if command == 'combat':
             assert payload['snapshot_times'] == [value['fetched_at'] for value in synthetic_challenges().values()]
-            assert '显示旧观测' in replies[0].text
+            assert render_calls[0][1]['render_snapshot']['display_data']['panels'][0]['snapshot']['payload']['reports'][1]['stale'] is True
         assert sends[0] == {'msg_type': 7, 'media': {'file_info': uploads[0][1]},
                             'msg_id': 'first', 'msg_seq': 1}
 

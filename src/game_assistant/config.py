@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     qq_dashboard_url: str = Field(default='', max_length=2048)
     qq_dashboard_urls_approved: bool = False
     qq_images_enabled: bool = False
+    qq_browser_render_enabled: bool = True
+    qq_browser_render_dist_path: str = ''
+    qq_browser_render_executable_path: str = ''
     qq_image_font_path: str = ''
     # Conservative cap pending controlled platform acceptance; not a platform limit claim.
     qq_image_max_bytes: int = Field(default=524288, ge=16384, le=1048576)
@@ -58,6 +61,7 @@ class Settings(BaseSettings):
     # 提醒规则：体力满推送 / 满阈值 / 活动临期天数 / 轮询失败告警阈值
     notify_stamina_full: bool = True
     stamina_threshold_percent: int = 90
+    nte_city_stamina_threshold_percent: int = Field(default=0, ge=0, le=100)
     activity_remind_days: int = 3
     fail_notify_threshold: int = 3
     wuwa_enabled: bool = True

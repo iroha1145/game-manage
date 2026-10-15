@@ -272,7 +272,7 @@ def test_public_export_is_bound_to_existing_frontend_sources():
     from game_assistant.qq.public_asset_catalog import CATALOG, MANIFEST
     root = Path(__file__).resolve().parents[1]
     for source in MANIFEST['exports']:
-        assert hashlib.sha256((root/source['file']).read_bytes()).hexdigest() == source['sha256']
+        assert hashlib.sha256((root/source['file']).read_bytes().replace(b'\r\n',b'\n')).hexdigest() == source['sha256']
         assert source['sources']
     for game in CATALOG['games'].values():
         for entries in game.values():

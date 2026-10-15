@@ -7,6 +7,7 @@ import AppIcon from './AppIcon.vue'
 import NteIcon from './NteIcon.vue'
 import { nteRoleIcon } from '../nte-icons.js'
 import SummaryMetrics from './SummaryMetrics.vue'
+import { friendlyDataError } from '../cloud-display.js'
 const props=defineProps({capability:{type:String,required:true},snap:{default:null},accountId:{type:String,default:''}})
 const opened=ref(false),title=computed(()=>nteModuleTitles[props.capability]||props.capability)
 const metrics=computed(()=>nteModuleMetrics(props.capability,props.snap))
@@ -23,14 +24,14 @@ watch(()=>props.capability,()=>{opened.value=false})
     <header><span class="module-mark"><AppIcon :name="capability === 'roles' || capability === 'account' ? 'user' : capability === 'gacha' ? 'spark' : capability === 'guides' ? 'menu' : 'grid'" :size="22" /></span><h2>{{ title }}</h2><button v-if="!inline" type="button" @click="opened = true">查看{{ title }}</button></header>
     <div v-if="capability === 'record'" class="inline-content"><slot /></div>
     <SummaryMetrics v-else-if="metrics.length" :metrics="metrics" :compact="!inline" />
-    <p v-else class="module-state">{{ snap?.payload && snap.payload.schema_version !== 1 ? '数据格式已更新，请刷新' : '暂无数据，请登录后刷新' }}</p>
+    <p v-else class="module-state">{{ snap?.payload && snap.payload.schema_version !== 1 ? '数据格式已更新，请刷新' : '暂无数据，请刷新后查看' }}</p>
     <template v-if="capability === 'stamina'">
       <p class="module-state">周本剩余 · {{ snap?.payload?.schema_version === 1 ? snap.payload.weekly_remaining ?? '未提供' : '未提供' }}</p>
     </template>
     <slot name="preview" />
     <div v-if="previews.length" class="module-previews"><span v-for="(role,index) in previews" :key="index"><NteIcon :src="role.icon" :name="role.name || '角色'" /><small>{{ role.name }}</small></span></div>
-    <p v-if="error" class="module-error" role="status">{{ error }}</p>
-    <footer><span v-if="snap?.stale" class="old">旧数据</span><span v-if="readAt">更新于 {{ displayBeijing(readAt) }}（北京时间）</span><span v-else-if="capability === 'guides' || capability === 'teams'">公开资料</span></footer>
+    <p v-if="error || snap?.state === 'auth_expired'" class="module-error" role="status">{{ friendlyDataError(error,snap?.state) }}</p>
+    <footer><span v-if="snap?.stale" class="old">旧数据</span><span v-if="readAt">{{ displayBeijing(readAt) }}</span><span v-else-if="capability === 'guides' || capability === 'teams'">公开资料</span></footer>
     <NteDetailDialog v-if="!inline && opened" :title="title" @close="opened = false"><slot /></NteDetailDialog>
   </section>
 </template>

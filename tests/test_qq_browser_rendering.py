@@ -1,0 +1,379 @@
+import asyncio
+from datetime import datetime
+from io import BytesIO
+import os
+from pathlib import Path
+import time
+
+from PIL import Image
+import pytest
+
+from game_assistant.accounts.models import AccountScope, QueryResult
+from game_assistant.qq.browser_rendering import BrowserRenderer, validate_snapshot
+from game_assistant.qq.render_snapshot import calendar_snapshot, role_snapshot, gacha_snapshot, project, ROLE
+from game_assistant.qq.rendering import RenderQueue, RenderingUnavailable, RenderingPageUnavailable
+
+NOW=datetime.fromisoformat('2026-10-14T12:00:00+08:00')
+SCOPE=AccountScope('fixture-user','fixture-account','fixture-role')
+
+
+@pytest.mark.parametrize('platform,expected',[
+    ('linux',{'headless':True,'executable_path':'fixture-chromium','chromium_sandbox':True}),
+    ('win32',{'headless':True,'executable_path':'fixture-chromium'}),
+])
+async def test_launch_enables_linux_chromium_sandbox_and_preserves_windows_options(monkeypatch,platform,expected):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    import playwright.async_api
+    from game_assistant.qq import browser_rendering
+    browser=SimpleNamespace(is_connected=lambda:True,close=AsyncMock())
+    launch=AsyncMock(return_value=browser)
+    runtime=SimpleNamespace(chromium=SimpleNamespace(launch=launch),stop=AsyncMock())
+    monkeypatch.setattr(playwright.async_api,'async_playwright',lambda:SimpleNamespace(start=AsyncMock(return_value=runtime)))
+    monkeypatch.setattr(browser_rendering,'sys',SimpleNamespace(platform=platform),raising=False)
+    renderer=BrowserRenderer(executable_path='fixture-chromium')
+    try:
+        await renderer._start()
+        launch.assert_awaited_once_with(**expected)
+        await renderer._start()
+        assert launch.await_count==1
+    finally:await renderer.aclose()
+    assert renderer._browser is None and renderer._playwright is None
+    browser.close.assert_awaited_once();runtime.stop.assert_awaited_once()
+
+
+async def test_linux_sandbox_launch_failure_does_not_retry_without_sandbox(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    import playwright.async_api
+    from game_assistant.qq import browser_rendering
+    launch=AsyncMock(side_effect=RuntimeError('fixture_sandbox_unavailable'))
+    runtime=SimpleNamespace(chromium=SimpleNamespace(launch=launch),stop=AsyncMock())
+    monkeypatch.setattr(playwright.async_api,'async_playwright',lambda:SimpleNamespace(start=AsyncMock(return_value=runtime)))
+    monkeypatch.setattr(browser_rendering,'sys',SimpleNamespace(platform='linux'),raising=False)
+    renderer=BrowserRenderer()
+    try:
+        with pytest.raises(RenderingUnavailable,match='^qq_browser_runtime_unavailable$'):
+            await renderer._start()
+        launch.assert_awaited_once_with(headless=True,chromium_sandbox=True)
+        assert renderer._browser is None
+    finally:await renderer.aclose()
+    runtime.stop.assert_awaited_once()
+
+
+def calendar(count=3):
+    return calendar_snapshot({'nte':QueryResult([{'name':f'活动 {i:03}','category':'限时活动',
+        'start_at':'2026-10-01T10:00:00+08:00','end_at':'2026-11-20T12:00:00+08:00',
+        'source_title':'官方版本公告','source_name':'官方社区','version':'1.4'} for i in range(count)],NOW.isoformat(),'ok',False)},NOW)
+
+
+def envelope(snapshot):return QueryResult({'text':'只读截图测试','render_snapshot':snapshot,'snapshot_fingerprints':['a'*64],
+    'scopes':[{'account_id':SCOPE.account_id,'role_id':SCOPE.role_id,'grant_version':1}]},NOW.isoformat(),'ok',False)
+
+
+def browser():
+    executable=os.environ.get('QQ_RENDER_TEST_EXECUTABLE')
+    font=os.environ.get('QQ_RENDER_TEST_FONT')
+    if not executable or not font:pytest.skip('Set QQ_RENDER_TEST_EXECUTABLE and QQ_RENDER_TEST_FONT for isolated real Chromium acceptance')
+    return BrowserRenderer(executable_path=executable,font_path=font)
+
+
+def test_strict_snapshot_rejects_unknown_paths_credentials_and_unbounded_data():
+    value=calendar()
+    for key in ('url','html','path','token'):
+        with pytest.raises(RenderingUnavailable):validate_snapshot(dict(value,**{key:'private'}))
+    value['display_data']['token']='private'
+    with pytest.raises(RenderingUnavailable):validate_snapshot(value)
+    value=calendar();value['display_data']['games'][0]['unexpected_html']='<script>secret</script>'
+    with pytest.raises(RenderingUnavailable):validate_snapshot(value)
+    value=calendar();value['page']=True
+    with pytest.raises(RenderingUnavailable):validate_snapshot(value)
+    value=calendar();value['display_data']['games']=[{}]*2001
+    with pytest.raises(RenderingUnavailable):validate_snapshot(value)
+
+
+def test_projection_only_emits_component_fields_and_keeps_unknown_separate_from_zero():
+    value=project({'name':'测试角色','level':0,'awaken_level':None,'uid':'private','token':'private',
+        'icon_url':'https://example.com/private.png','weapon':{'name':'弧盘','password':'private'}},ROLE)
+    assert value=={'name':'测试角色','level':0,'awaken_level':None,'icon_url':None,'weapon':{'name':'弧盘'}}
+
+
+def test_wuwa_summary_projection_keeps_aggregate_pity_and_hides_private_provenance():
+    row=QueryResult({'total':600,'gold_total':10,'limit':500,'offset':0,
+        'role_id':'private-role','server_id':'private-server',
+        'coverage':{'segment_count':2,'segments':[{'draw_ids':['private-draw']}],'complete':False},
+        'pools':[{'pool':'1','pity':{'status':'exact','count':0,'rule_basis':'user_configured',
+            'rule_version':'personal','up_guarantee':'unknown','hard_pity_remaining':70}}],
+        'aggregates':{'total':1,'five_star_total':1,'items':[{'summary_id':'private-summary',
+            'name':'来源五星','kind':'five_star_summary','source':'mcgf','period_count':120,
+            'diagnostics':['CONTINUITY_UNVERIFIED']}]}},NOW.isoformat(),'ok',False)
+    value=gacha_snapshot('wuthering_waves',row,NOW)
+    import json
+    assert 'private-' not in json.dumps(value)
+    archive=value['display_data']['archive']
+    assert archive['total']==600 and archive['limit']==500
+    assert archive['pools'][0]['pity']['count']==0
+    assert archive['aggregates']['items'][0]['period_count']==120
+
+
+async def test_cancelled_caller_does_not_free_async_worker_before_close():
+    started=asyncio.Event();finish=asyncio.Event()
+    class Renderer:
+        async def render_summary_async(self,*args,**kwargs):
+            started.set();await finish.wait();return b'png'
+    queue=RenderQueue(Renderer(),queue_limit=1)
+    task=asyncio.create_task(queue.render(SCOPE,envelope(calendar()),budget_seconds=1))
+    await started.wait();task.cancel()
+    with pytest.raises(asyncio.CancelledError):await task
+    assert queue.pending==1
+    assert await queue.render(SCOPE,envelope(calendar()),budget_seconds=.01) is None
+    finish.set();await queue.aclose();assert queue.pending==0
+
+
+@pytest.mark.parametrize('code,exposed', [('qq_image_size_limit',True),('qq_image_pixel_limit',True),('private_runtime_error',False)])
+async def test_queue_exposes_only_known_output_limits_and_preserves_generic_fallback(code,exposed):
+    class Renderer:
+        async def render_summary_async(self,*args,**kwargs):raise RenderingUnavailable(code)
+    queue=RenderQueue(Renderer())
+    result=await queue.render(SCOPE,envelope(calendar()),budget_seconds=1)
+    if exposed:assert isinstance(result,RenderingUnavailable) and str(result)==code
+    else:assert result is None
+    assert queue.pending==0
+    await queue.aclose()
+
+
+async def test_real_complete_calendar_long_image_cache_isolation_and_clean_context(tmp_path):
+    renderer=browser()
+    try:
+        value=calendar(70)
+        first=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
+        assert first.total_pages==1 and first.page==1
+        assert renderer.last_state['state']=='ready' and not renderer._browser.contexts
+        assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+        assert Image.open(BytesIO(first)).size[0]==1080
+        assert Image.open(BytesIO(first)).size[1]>2300
+        assert len(first)<=renderer.max_bytes
+        assert renderer.cache_key(SCOPE,envelope(value))!=renderer.cache_key(AccountScope('other','fixture-account','fixture-role'),envelope(value))
+        (tmp_path/('calendar-long.jpg' if first.startswith(b'\xff\xd8') else 'calendar-long.png')).write_bytes(first)
+        value['page']=first.total_pages+1
+        with pytest.raises(RenderingPageUnavailable) as error:await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
+        assert error.value.total_pages==first.total_pages and not renderer._browser.contexts
+        renderer.invalidate_account(SCOPE.user_id,SCOPE.account_id)
+        assert not renderer.cache
+    finally:await renderer.aclose()
+
+
+async def test_real_font_transport_uses_validated_original_file_and_keeps_ready_complete_output(monkeypatch):
+    from playwright.async_api import Route
+    original=Route.fulfill
+    observed=[]
+    async def capture(route,*args,**kwargs):
+        if route.request.url.endswith('/render-font.ttf'):
+            observed.append({'path':kwargs.get('path'),'inline_body':'body' in kwargs})
+        return await original(route,*args,**kwargs)
+    monkeypatch.setattr(Route,'fulfill',capture)
+    renderer=browser()
+    try:
+        image=await renderer.render_summary_async(SCOPE,envelope(calendar(3)),budget_seconds=10)
+        assert observed==[{'path':renderer.font_path,'inline_body':False}]
+        assert renderer.last_state['state']=='ready'
+        assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+        assert image.total_pages==1 and Image.open(BytesIO(image)).width==1080
+        assert not renderer._browser.contexts
+    finally:await renderer.aclose()
+
+
+async def test_real_calendar_byte_limit_keeps_every_row_or_reports_whole_image_failure():
+    renderer=browser();renderer.max_bytes=512*1024
+    try:
+        image=await renderer.render_summary_async(SCOPE,envelope(calendar(30)),budget_seconds=10)
+        assert image.total_pages==1 and len(image)<=512*1024
+        assert Image.open(BytesIO(image)).height>1000
+        with pytest.raises(RenderingUnavailable,match='^qq_image_size_limit$'):
+            await renderer.render_summary_async(SCOPE,envelope(calendar(160)),budget_seconds=10)
+        assert renderer.last_state['pages'][0]['height']>6000
+        assert not renderer._browser.contexts
+    finally:await renderer.aclose()
+
+
+async def test_real_query_service_uses_complete_calendar_projection_not_truncated_card():
+    from types import SimpleNamespace
+    from game_assistant.qq.query_routes import QqQueryService
+    from game_assistant.qq.models import QqIdentity
+    renderer=browser();queue=RenderQueue(renderer)
+    row=QueryResult(calendar(70)['display_data']['snapshots']['nte']['events']['payload'],NOW.isoformat(),'ok',False)
+    service=QqQueryService(None,None,SimpleNamespace(read=lambda game,cap:row),render_queue=queue,clock=lambda:NOW)
+    try:
+        response=await service.query_reply(QqIdentity('app','group','g','s'),'calendar','nte',image_requested=True,budget_seconds=10)
+        assert 'image' in response
+        assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+        response=await service.query_reply(QqIdentity('app','group','g','s'),'calendar','nte',image_requested=True,budget_seconds=10,page=100)
+        assert 'image' not in response and '超出范围' in response['text']
+    finally:await queue.aclose()
+
+
+@pytest.mark.parametrize('kind',['wuwa_role','nte_role','wuwa_gacha','nte_gacha'])
+async def test_real_shared_component_pngs_optional_images_and_no_account_api(kind):
+    renderer=browser()
+    if kind=='wuwa_role':
+        row=QueryResult({'role':{'role_name':'今汐','level':80,'role_icon_url':'https://web-static.kurobbs.com/fixture-missing.png'},
+            'weapon_data':{'weapon':{'weapon_name':'时和岁稔','weapon_star_level':5},'level':90},
+            'skill_list':[{'skill':{'name':'共鸣技能','description':'完整技能说明'},'level':8}],
+            'chain_list':[{'name':'共鸣链一','unlocked':False,'description':'锁定状态不能按已解锁计算'}]},NOW.isoformat(),'ok',False)
+        value=role_snapshot('wuthering_waves',row,NOW,detail=row,resolved_id='1304')
+    elif kind=='nte_role':
+        row=QueryResult({'schema_version':1,'entries':[{'id':'9001','name':'测试角色','quality':'S','level':0,'awaken_level':None,
+            'weapon':{'name':'测试弧盘','level':50},'properties':[{'name':'攻击','value':'1234'}],
+            'skills':[{'name':'战技','level':4}],'city_skills':[{'name':'城区技能','level':None}]}]},NOW.isoformat(),'ok',False)
+        value=role_snapshot('nte',row,NOW)
+    elif kind=='wuwa_gacha':
+        row=QueryResult({'total':2,'gold_total':1,'coverage':{'message':'仅已导入窗口，完整历史未知','earliest':'2026-10-01T10:00','latest':'2026-10-14T10:00',
+            'segment_count':1,'imported_at':NOW.isoformat(),'source':'json_import'},
+            'pools':[{'pool':'1','name':'角色活动唤取','total':2,'rarity_distribution':{'5':1,'4':1},
+                'pity':{'status':'exact','count':1,'rule_basis':'user_configured','rule_version':'合成用户配置',
+                    'hard_pity_remaining':69,'up_guarantee':'unknown'}}],
+            'aggregates':{'total':1,'five_star_total':1,'message':'来源自报五星周期，连续性未证实；不计入逐抽或保底',
+                'items':[{'pool':'99','name':'来源五星（合成样本）','source':'mcgf','source_time':'2026-10-01',
+                    'kind':'five_star_summary','period_count':120,'diagnostics':['UNKNOWN_POOL','CONTINUITY_UNVERIFIED']}]},
+            'gold':[{'time':'2026-10-01T10:00','pool':'1','name':'今汐','rarity':5,'count':1}],
+            'items':[{'time':'2026-10-14T10:00','pool':'1','name':'测试武器','rarity':4,'count':1}]},NOW.isoformat(),'ok',False)
+        value=gacha_snapshot('wuthering_waves',row,NOW)
+    else:
+        row=QueryResult({'schema_version':1,'pools':[{'name':'角色池','total_draws':20,'s_count':1,'guarantee':80,'details':[{'name':'测试角色','item_id':'9001','pity':20,'obtained_at':'2026-10-14T10:00'}]},
+            {'name':'弧盘池','total_draws':10,'s_count':1,'guarantee':70,'details':[{'name':'测试弧盘','item_id':'fork_1','pity':10}]}]},NOW.isoformat(),'ok',False)
+        ledger=QueryResult({'total_records':1,'pools':[{'pool_id':'1','total_pulls':1,'pity':{'basis':'coverage_unknown','hard_pity_remaining':None}}]},NOW.isoformat(),'ok',False)
+        value=gacha_snapshot('nte',row,NOW,ledger=ledger)
+    try:
+        png=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
+        assert png.startswith(b'\x89PNG') and renderer.last_state['state']=='ready'
+        assert png.total_pages==1 and png.page==1
+        assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+        value['page']=2
+        with pytest.raises(RenderingPageUnavailable) as error:
+            await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
+        assert error.value.total_pages==1
+        assert not renderer._browser.contexts
+        evidence=Path('.superpowers/sdd/2026-10-14-game-modules-phase-one/render-evidence')
+        evidence.mkdir(parents=True,exist_ok=True)
+        (evidence/f'{kind}.png').write_bytes(png)
+    finally:await renderer.aclose()
+
+
+@pytest.mark.parametrize('kind',['nte_role','nte_gacha','wuwa_gacha','wuwa_role'])
+async def test_real_shared_long_records_retain_first_and_last_rows_in_one_image(kind,tmp_path):
+    renderer=browser()
+    texts=[]
+    original_close=renderer._bounded_close
+    async def inspect_close(operation):
+        if renderer._browser is not None and renderer._browser.contexts:
+            page=renderer._browser.contexts[0].pages[0]
+            if not page.is_closed() and renderer.last_state and renderer.last_state.get('state')=='ready':
+                texts.extend(await page.locator('.render-page').all_inner_texts())
+        return await original_close(operation)
+    renderer._bounded_close=inspect_close
+    if kind=='nte_role':
+        row=QueryResult({'schema_version':1,'entries':[{'id':str(9000+i),'name':f'完整角色 {i:03}','quality':'S','level':80} for i in range(20)]},NOW.isoformat(),'ok',False)
+        value=role_snapshot('nte',row,NOW)
+    elif kind=='nte_gacha':
+        row=QueryResult({'schema_version':1,'pools':[{'name':'角色池','total_draws':600,'s_count':40,'guarantee':80,'details':[{'name':f'完整抽卡 {i:03}','item_id':str(9000+i),'pity':15,'obtained_at':'2026-10-14T10:00'} for i in range(40)]}]},NOW.isoformat(),'ok',False)
+        value=gacha_snapshot('nte',row,NOW)
+    elif kind=='wuwa_gacha':
+        row=QueryResult({'total':60,'gold_total':30,'pools':[],
+            'gold':[{'time':'2026-10-01T10:00','pool':'1','name':f'完整五星 {i:03}','rarity':5,'count':1} for i in range(30)],
+            'items':[{'time':'2026-10-14T10:00','pool':'1','name':f'完整明细 {i:03}','rarity':4,'count':1} for i in range(60)]},NOW.isoformat(),'ok',False)
+        value=gacha_snapshot('wuthering_waves',row,NOW)
+    else:
+        row=QueryResult({'role':{'role_name':'完整角色','level':80},
+            'skill_list':[{'skill':{'name':f'完整技能 {i:03}','description':'完整技能说明。'*15},'level':8} for i in range(12)],
+            'chain_list':[{'name':f'完整共鸣链 {i:03}','unlocked':False,'description':'完整共鸣链说明。'*15} for i in range(8)]},NOW.isoformat(),'ok',False)
+        value=role_snapshot('wuthering_waves',row,NOW,detail=row,resolved_id='1304')
+    try:
+        image=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
+        assert image.total_pages==1 and image.page==1
+        with Image.open(BytesIO(image)) as picture:
+            assert picture.width==1080 and 2300<picture.height<16000
+        assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+        first,last={'nte_role':('完整角色 000','完整角色 019'),'nte_gacha':('完整抽卡 000','完整抽卡 039'),'wuwa_gacha':('完整五星 000','完整明细 059'),'wuwa_role':('完整技能 000','完整共鸣链 007')}[kind]
+        assert first in '\n'.join(texts) and last in '\n'.join(texts)
+        assert len(image)<=renderer.max_bytes and not renderer._browser.contexts
+        suffix='jpg' if image.startswith(b'\xff\xd8') else 'png'
+        (tmp_path/f'{kind}-long.{suffix}').write_bytes(image)
+    finally:await renderer.aclose()
+
+
+@pytest.mark.parametrize('kind',['nte_role','nte_gacha'])
+async def test_real_shared_height_limit_rejects_whole_image_instead_of_returning_first_page(kind):
+    renderer=browser()
+    if kind=='nte_role':
+        row=QueryResult({'schema_version':1,'entries':[{'id':str(9000+i),'name':f'角色 {i:03}','level':80} for i in range(160)]},NOW.isoformat(),'ok',False)
+        value=role_snapshot('nte',row,NOW)
+    else:
+        row=QueryResult({'schema_version':1,'pools':[{'name':'角色池','total_draws':6000,'s_count':400,'details':[{'name':f'抽卡 {i:03}','item_id':str(9000+i),'pity':15} for i in range(400)]}]},NOW.isoformat(),'ok',False)
+        value=gacha_snapshot('nte',row,NOW)
+    try:
+        with pytest.raises(RenderingUnavailable,match='^qq_image_pixel_limit$'):
+            await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
+        assert len(renderer.last_state['pages'])==1
+        assert renderer.last_state['pages'][0]['height']*1080>renderer.max_pixels
+        assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+        assert not renderer._browser.contexts
+    finally:await renderer.aclose()
+
+
+async def test_missing_font_and_timeout_never_report_success():
+    renderer=browser()
+    try:
+        renderer.font_path=str(Path('missing-font.ttf').resolve())
+        with pytest.raises(RenderingUnavailable,match='font'):await renderer.render_summary_async(SCOPE,envelope(calendar()),budget_seconds=10)
+        assert renderer.last_state is None
+    finally:await renderer.aclose()
+
+
+async def test_real_deadline_closes_context_before_releasing_queue():
+    renderer=browser();queue=RenderQueue(renderer)
+    try:
+        await renderer._start()
+        assert await queue.render(SCOPE,envelope(calendar()),budget_seconds=.01) is None
+        await queue.aclose()
+        assert queue.pending==0 and renderer._browser is None
+    finally:await renderer.aclose()
+
+
+def test_role_continuations_use_stable_selected_id_not_roster_or_ambiguous_name():
+    row=QueryResult({'schema_version':1,'entries':[{'id':'9001','name':'漂泊者'}]},NOW.isoformat(),'ok',False)
+    assert role_snapshot('nte',row,NOW,resolved_id='9001')['next_command']=='异环 角色 9001'
+    detail=QueryResult({'role':{'role_name':'漂泊者'}},NOW.isoformat(),'ok',False)
+    assert role_snapshot('wuthering_waves',row,NOW,detail=detail,resolved_id='1501')['next_command']=='鸣潮 角色 1501'
+    assert role_snapshot('wuthering_waves',row,NOW,detail=detail) is None
+
+
+async def test_migrated_kind_without_snapshot_never_uses_legacy_template():
+    renderer=BrowserRenderer()
+    renderer.render_summary=lambda *args:pytest.fail('legacy render called for migrated content')
+    with pytest.raises(RenderingUnavailable,match='shared_content_unavailable'):
+        await renderer.render_summary_async(SCOPE,QueryResult({'text':'角色','shared_required':True},None,'ok',False),budget_seconds=1)
+
+
+async def test_hung_context_cleanup_recycles_browser_with_bounded_wait():
+    renderer=BrowserRenderer();renderer.cleanup_seconds=.01
+    stopped=asyncio.Event()
+    class Context:
+        async def close(self):await stopped.wait()
+    class Browser:
+        async def close(self):stopped.set()
+    renderer._browser=Browser()
+    started=time.monotonic()
+    assert not await renderer._bounded_close(Context().close())
+    await renderer._recycle()
+    assert renderer._browser is None and stopped.is_set() and time.monotonic()-started<.2
+
+
+async def test_unconfirmed_cleanup_disables_followup_browser_jobs():
+    renderer=BrowserRenderer();renderer.cleanup_seconds=.01
+    class BrokenBrowser:
+        async def close(self):raise RuntimeError('fixture_close_failed')
+    renderer._browser=BrokenBrowser()
+    await renderer._recycle()
+    assert not renderer.enabled and renderer.disabled_reason=='qq_browser_cleanup_unconfirmed'
+    with pytest.raises(RenderingUnavailable,match='cleanup_unconfirmed'):
+        await renderer.render_summary_async(SCOPE,envelope(calendar()),budget_seconds=1)

@@ -1,12 +1,15 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, inject, unref } from 'vue'
 import { fieldLabels, value, sourceDateTime } from '../wuwa-display.js'
 const props = defineProps({
   data: { default: null },
   exclude: { type: Array, default: () => [] },
   // A handful of labelled scalars ({ count, total }) reads as one line of pairs.
   inline: { type: Boolean, default: false },
+  imageMode: { type: Boolean, default: false },
 })
+const inheritedImageMode = inject('wuwaImageMode', false)
+const image = computed(() => props.imageMode || unref(inheritedImageMode))
 const HIDDEN = /(?:icon|pic|image|_url|^sort$|^provenance$)/
 const isScalar = (v) => v == null || typeof v !== 'object'
 const visible = (obj) => Object.entries(obj).filter(([k]) => !HIDDEN.test(k))
@@ -46,6 +49,7 @@ const other = computed(() => entries.value.filter(([k]) => !fieldLabels[k]))
       :key="i"
       :data="entry"
       :inline="small(entry)"
+      :image-mode="image"
     />
   </div>
   <span v-else-if="typeof data !== 'object'">{{ shown(data) }}</span>
@@ -68,10 +72,10 @@ const other = computed(() => entries.value.filter(([k]) => !fieldLabels[k]))
       :class="{ 'is-inline': small(item) || smallList(item) }"
     >
       <span class="wuwa-field-label">{{ fieldLabels[key] }}</span
-      ><WuwaFields :data="item" :inline="small(item)" />
+      ><WuwaFields :data="item" :inline="small(item)" :image-mode="image" />
     </div>
-    <details v-if="other.length" class="wuwa-supplement">
-      <summary>更多资料（{{ other.length }}）</summary>
+    <details v-if="other.length && !image" class="wuwa-supplement" data-render-collapsed>
+      <summary>来源补充字段（{{ other.length }}）</summary>
       <div class="wuwa-other">
         <div
           v-for="[key, item] in other"

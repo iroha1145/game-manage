@@ -1,4 +1,4 @@
-name: Windows checks
+name: Application checks
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install uv==0.12.3
-          uv sync --locked --extra dev --python ${{ matrix.python }}
+          uv sync --locked --extra dev --extra qq --extra qq-render --python ${{ matrix.python }}
       - name: Backend tests
         run: .\.venv\Scripts\python.exe -m pytest -q
       - name: Isolated runtime checks (never autostart)
@@ -44,3 +44,61 @@ jobs:
       - name: Build dashboard
         working-directory: frontend
         run: npm run build
+  browser-render:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked browser render dependencies
+        run: |
+          python -m pip install uv==0.12.3
+          uv sync --locked --extra dev --extra qq --extra qq-render --python 3.12
+          .venv/bin/python -c "import importlib.metadata; assert importlib.metadata.version('playwright') == '1.58.0'"
+          .venv/bin/python -m playwright install --with-deps chromium
+          sudo apt-get install -y fonts-noto-cjk
+      - name: Allow only the installed Chromium executable to create its sandbox
+        run: |
+          .venv/bin/python - <<'PY'
+          import os
+          import subprocess
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+
+          with sync_playwright() as runtime:
+              executable = Path(runtime.chromium.executable_path).resolve(strict=True)
+          cache = (Path.home() / '.cache/ms-playwright').resolve(strict=True)
+          if not executable.is_relative_to(cache) or any(c in str(executable) for c in ('"', '\n', '\r')):
+              raise SystemExit('Unexpected Chromium executable path')
+          font = Path(subprocess.check_output(['fc-match', '-f', '%{file}', 'Noto Sans CJK SC:style=Regular'], text=True)).resolve(strict=True)
+          if not font.is_relative_to(Path('/usr/share/fonts')):
+              raise SystemExit('Expected an installed system CJK font')
+          profile = ('abi <abi/4.0>,\ninclude <tunables/global>\n'
+                     'profile game-manage-qq-browser "' + str(executable) + '" flags=(unconfined) {\n  userns,\n}\n')
+          (Path(os.environ['RUNNER_TEMP']) / 'game-manage-qq-browser').write_text(profile)
+          with Path(os.environ['GITHUB_ENV']).open('a') as environment:
+              environment.write('QQ_RENDER_TEST_EXECUTABLE=' + str(executable) + '\n')
+              environment.write('QQ_RENDER_TEST_FONT=' + str(font) + '\n')
+          PY
+          sudo install -m 0644 "$RUNNER_TEMP/game-manage-qq-browser" /etc/apparmor.d/game-manage-qq-browser
+          sudo apparmor_parser -r /etc/apparmor.d/game-manage-qq-browser
+      - name: Build shared cloud components
+        run: |
+          npm ci --prefix frontend --registry=https://registry.npmjs.org
+          .venv/bin/python scripts/cloud/build_frontend.py --frontend frontend
+      - name: Verify real offline browser rendering
+        env:
+          DEBUG: 'pw:browser'
+        run: >-
+          .venv/bin/python -m pytest
+          tests/test_qq_browser_rendering.py
+          tests/test_qq_complete_parity.py
+          tests/test_qq_nte_role_rendering.py
+          tests/test_qq_endfield_shared_rendering.py
+          -q

@@ -179,6 +179,7 @@ def test_cloud_disables_game_write_actions(tmp_path):
     prefix=f'/api/accounts/{A.account_id}/roles/{A.role_id}'
     assert client.post(prefix+'/endfield/skland/attendance',json={}).status_code in (404,405)
     assert client.post('/api/endfield/skland/attendance',json={}).status_code==404
+    assert client.post('/api/endfield/skland/passport',json={}).status_code==404
     assert client.post('/api/lol/collect',json={}).status_code==404
     assert all('sign_attendance' not in route.endpoint.__name__ for route in bundle_route_objects(app))
 
@@ -199,8 +200,7 @@ def test_complete_local_route_inventory_rejects_unknown(tmp_path):
     assert {item['category'] for item in inventory}<={'private_query','private_modify','public_read_only','admin_sources','internal_qq','disabled'}
     assert next(item for item in inventory if item['path']=='/api/endfield/skland/attendance' and item['method']=='POST')['cloud_policy']=='disabled'
     passport = next(item for item in inventory if item['path']=='/api/endfield/skland/passport' and item['method']=='POST')
-    assert passport['category'] == 'private_modify'
-    assert passport['cloud_policy'] == 'disabled_legacy'
+    assert passport['category']=='private_modify' and passport['cloud_policy']=='disabled_legacy'
     assert next(item for item in inventory if item['path']=='/api/sources/bilibili/{game}/refresh')['category']=='admin_sources'
     assert next(item for item in inventory if item['path']=='/api/auth/bilibili-source/login/status')['category']=='admin_sources'
     @app.get('/api/unclassified-route')
@@ -364,6 +364,27 @@ def test_cloud_import_rechecks_grant_after_network_await(tmp_path,monkeypatch):
         connection.execute("UPDATE grants SET version=version+1 WHERE grant_id=?",('grant-'+A.account_id,));connection.commit()
         return dict(records={'role_id':'77','server_id':'cn','list':[]},failed_pools=[],source='official_query')
     monkeypatch.setattr(private_routes,'fetch_official',official)
-    path=f'/api/accounts/{A.account_id}/roles/{A.role_id}/wuwa/gacha/import'
+    path=f'/api/accounts/{A.account_id}/roles/{A.role_id}/wuwa/gacha/preview'
     assert client.post(path,json={'url':'https://example.invalid'}).status_code==409
     assert bundle.ledger(A,'wuwa_gacha').read(A)['total']==0
+
+
+def test_cloud_wuwa_preview_owner_replay_and_grant_version(tmp_path):
+    client,app,bundle,connection=cloud_fixture(tmp_path,'wuthering_waves','kuro')
+    base=f'/api/accounts/{A.account_id}/roles/{A.role_id}/wuwa/gacha'
+    document={'info':{'uid':'77','server_id':'cn'},'list':[
+        dict(id='one',pool='1',resource_id='unknown',rarity=5,time='2026-01-01')]}
+    response=client.post(base+'/preview',json={'records':document})
+    assert response.status_code==200
+    assert client.post(base+'/import',json={'records':document}).status_code==422
+    assert client.post(base+'/import',json={'url':'https://example.invalid'}).status_code==422
+    assert bundle.ledger(A,'wuwa_gacha').read(A)['total']==0
+    token=response.json()['preview_id']
+    assert client.post(base+'/import',json={'preview_id':token}).json()['inserted']==1
+    assert client.post(base+'/import',json={'preview_id':token}).status_code==409
+    assert client.get(base+'/export').status_code==200
+    token=client.post(base+'/preview',json={'records':document}).json()['preview_id']
+    connection.execute('UPDATE grants SET version=version+1 WHERE grant_id=?',('grant-'+A.account_id,));connection.commit()
+    assert client.post(base+'/import',json={'preview_id':token}).status_code==409
+    other=f'/api/accounts/{B.account_id}/roles/{B.role_id}/wuwa/gacha'
+    assert client.post(other+'/import',json={'preview_id':token}).status_code==404

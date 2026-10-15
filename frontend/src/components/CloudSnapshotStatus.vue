@@ -13,7 +13,7 @@ const age = value => {
 const rows = computed(() => props.capabilities.map(cap => ({cap,snap:props.snapshots[cap]})))
 </script>
 <template>
-  <details class="cloud-snapshot-states"><summary>快照时间与来源状态（北京时间）</summary>
+  <details class="cloud-snapshot-states"><summary>更多信息</summary>
     <div v-for="{cap,snap} in rows" :key="cap"><p>{{ capabilityLabel(cap) }}：{{ hasFreshPublicFallback(snap) ? '部分来源不可用，显示可用来源数据' : snap ? cloudStateLabel(snap.state) : '未读取' }}<span v-if="snap?.stale"> · 数据可能过期</span> · {{ snap?.fetched_at ? displayBeijing(snap.fetched_at) : '时间未提供' }}<span v-if="age(snap?.fetched_at)">（{{ age(snap.fetched_at) }}）</span><span v-if="snap?.complete === false"> · 数据尚不完整</span></p>
       <p v-if="snap?.error || snap?.poll_status?.error" role="status">{{ snap.error || snap.poll_status.error }}</p><p v-if="snap?.primary_source">主要来源：{{ sourceName(snap.primary_source) }}<span v-if="snap.version"> · 版本 {{ snap.version }}</span></p>
       <p v-for="(source,index) in sourceRows(snap)" :key="source.source || index">{{ source.source_name || sourceName(source.source) || '来源' }}：{{ cloudStateLabel(source.state) }}<span v-if="source.stale"> · 数据可能过期</span><span v-if="source.fetched_at || source.last_success_at"> · {{ displayBeijing(source.fetched_at || source.last_success_at) }}</span><span v-if="source.error"> · {{ source.error }}</span></p>

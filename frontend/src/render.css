@@ -1,0 +1,21 @@
+body { margin:0; }
+.render-image { width:1080px; color:var(--text); font-family:var(--font-sans); }
+.render-image *, .render-image *::before, .render-image *::after { animation:none !important; transition:none !important; }
+#render-content { position:absolute; left:-20000px; }
+.render-page { width:1080px; box-sizing:border-box; padding:32px; background:var(--bg); overflow-wrap:anywhere; }
+.render-page-header { margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+.render-page-header h1 { font-size:26px; line-height:1.4; }
+.render-page-header p,.render-page-footer { font-size:14px; color:var(--text-muted); line-height:1.7; }
+.render-page-footer { margin-top:20px; border-top:1px solid var(--border); padding-top:14px; }
+.render-image .info-hint { display:none; }
+.render-image .version-calendars { padding:0; overflow:visible; }
+.render-image .version-axis { font-size:16px; }
+.render-image .role-card { break-inside:avoid; }
+.render-image .role-heading strong,.render-image .pull-name { white-space:normal; overflow:visible; text-overflow:clip; }
+.render-image .nte-roles-panel .toolbar,.render-image .compare-tray,.render-image .role-actions { display:none; }
+.render-image .wuwa-pager,.render-image .pagination,.render-image .records-toolbar .menu-select { display:none; }
+.render-image .wuwa-description,.render-image .wuwa-effect { white-space:normal; }
+.render-image details > summary { pointer-events:none; }
+.render-image .wuwa-table-wrap,.render-image .table-scroll { overflow:visible; max-height:none; }
+.render-image .asset-name,.render-image .wuwa-role strong { white-space:normal; overflow:visible; text-overflow:clip; }
+.render-missing-image { font-size:12px; color:var(--text-muted); }

@@ -10,7 +10,7 @@ import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
 import SummaryMetrics from './SummaryMetrics.vue'
 
-const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: String, default: '' } })
+const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: String, default: '' }, imageMode:Boolean })
 const summary = computed(() => props.snap?.payload?.schema_version === 1 ? props.snap.payload : null)
 const report = computed(() => summary.value?.report?.schema_version === 1 ? summary.value.report : null)
 const reportMetrics = computed(() => [
@@ -38,6 +38,7 @@ function split(pool) {
 const sixPulls = item => item.pulls == null ? '未知' : item.status === 'exact' ? `${item.pulls} 抽` : item.status === 'lower_bound' ? `≥${item.pulls} 抽` : '未知'
 
 async function load(start = 0) {
+  if (props.imageMode) return
   if (!props.accountId) return
   const request = ++generation
   busy.value = true; message.value = ''
@@ -52,7 +53,7 @@ async function load(start = 0) {
   }
 }
 // 逐条记录只在展开时读取本机账本。
-watch(() => [props.accountId, recordPool.value, opened.value], () => { ++generation; records.value = []; total.value = 0; offset.value = 0; busy.value = false; message.value = ''; if (opened.value) load(0) })
+watch(() => [props.accountId, recordPool.value, opened.value], () => { ++generation; records.value = []; total.value = 0; offset.value = 0; busy.value = false; message.value = ''; if (!props.imageMode && opened.value) load(0) })
 onBeforeUnmount(() => { ++generation })
 const range = computed(() => total.value ? `${offset.value + 1}–${Math.min(offset.value + PAGE, total.value)} / ${total.value}` : '0 条')
 
@@ -77,11 +78,11 @@ async function download() {
 <template>
   <section class="cap-card endfield-gacha" aria-labelledby="endfield-gacha-title">
     <header class="cap-title">
-      <div class="gacha-heading"><p>05 / HEADHUNTING ARCHIVE</p><h2 id="endfield-gacha-title">寻访记录</h2></div><span v-if="snap?.stale" class="badge badge-stale">待更新</span>
-      <InfoHint :text="cloudMode ? '官方记录有查询时限，云端档案保留已同步数据；撤销授权会禁止读取。' : '官方可查询约 90 天记录；同步后保存在本机，退出登录不会删除本机记录。'" />
-      <span class="cap-meta"><template v-if="summary">共 <b>{{ summary.total }}</b> 抽<template v-if="fetchedAt"> · 同步于 {{ fetchedAt }}</template></template><button type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button></span>
+      <div class="gacha-heading"><p>05 / HEADHUNTING ARCHIVE</p><h2 id="endfield-gacha-title">寻访记录</h2></div><span v-if="snap?.stale && !imageMode" class="badge badge-stale">待更新</span>
+      <InfoHint v-if="!imageMode" :text="cloudMode ? '官方记录有查询时限，云端档案保留已同步数据；撤销授权会禁止读取。' : '官方可查询约 90 天记录；同步后保存在本机，退出登录不会删除本机记录。'" />
+      <span class="cap-meta"><template v-if="summary">共 <b>{{ summary.total }}</b> 抽<template v-if="fetchedAt"> · 同步于 {{ fetchedAt }}</template></template><button v-if="!imageMode" type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button></span>
     </header>
-    <p v-if="!accountId" class="notice">登录终末地后，点「刷新数据」开始同步寻访记录。</p>
+    <p v-if="!accountId && !imageMode" class="notice">登录终末地后，点「刷新数据」开始同步寻访记录。</p>
     <p v-else-if="!summary" class="notice">尚未同步寻访记录，点「刷新数据」开始同步。</p>
     <template v-else>
       <SummaryMetrics compact :metrics="reportMetrics" />
@@ -95,10 +96,10 @@ async function download() {
         <article v-for="(pool,index) in pools" :key="pool.key" class="pool-card"><p class="pool-index">POOL {{ String(index+1).padStart(2,'0') }}</p>
           <header class="pool-head">
             <h3>{{ pool.label }}</h3>
-            <span v-if="pool.gaps" class="chip warn">{{ pool.pending ? '部分待同步' : '记录有缺口' }}<InfoHint align="end" text="记录不连续时，跨缺口的抽数以 ≥ 表示已知最少值。" /></span>
+            <span v-if="pool.gaps" class="chip warn">{{ pool.pending ? '部分待同步' : '记录有缺口' }}<InfoHint v-if="!imageMode" align="end" text="记录不连续时，跨缺口的抽数以 ≥ 表示已知最少值。" /></span>
           </header>
           <div class="pity">
-            <span class="k">距上次 6★<InfoHint v-if="pool.since_last_six?.status === 'lower_bound'" text="≥ 表示已知最少抽数。记录缺口、更早记录缺失或免费寻访会影响统计；免费寻访是否计入保底尚不确定。" /></span>
+            <span class="k">距上次 6★<InfoHint v-if="!imageMode && pool.since_last_six?.status === 'lower_bound'" text="≥ 表示已知最少抽数。记录缺口、更早记录缺失或免费寻访会影响统计；免费寻访是否计入保底尚不确定。" /></span>
             <strong>{{ pityText(pool.since_last_six) }}</strong>
           </div>
           <div class="stack-bar" role="img" :aria-label="split(pool).map(part => `${part.label} ${part.count ?? '未知'}`).join('，')">
@@ -116,7 +117,7 @@ async function download() {
           </ul>
         </article>
       </div>
-      <details class="panel record-list" @toggle="opened = $event.target.open">
+      <details v-if="!imageMode" class="panel record-list" @toggle="opened = $event.target.open">
         <summary>逐条记录（北京时间）<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
         <div class="panel-body">
           <div class="toolbar">

@@ -3,12 +3,14 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRenderer, nextTick } from 'vue'
 import { compileScript, parse } from 'vue/compiler-sfc'
+import { configureHttpClient } from '../http-client.js'
 
 // Run the real Vue setup/lifecycle without introducing a browser test dependency.
 const { descriptor } = parse(readFileSync(new URL('./LoginPanel.vue', import.meta.url), 'utf8'))
 const compiled = compileScript(descriptor, { id: 'login-panel-tests' }).content
   .replaceAll("from 'vue'", `from '${import.meta.resolve('vue')}'`)
   .replaceAll("from '../auth-api.js'", `from '${new URL('../auth-api.js', import.meta.url).href}'`)
+  .replaceAll("from '../http-client.js'", `from '${new URL('../http-client.js', import.meta.url).href}'`)
 const { default: LoginPanel } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
 LoginPanel.render = () => null
 
@@ -52,6 +54,20 @@ function widget(t, initialize) {
   globalThis.window = { initGeetest4: initialize }
   t.after(() => { if (original === undefined) delete globalThis.window; else globalThis.window = original })
 }
+
+test('Endfield connection hint offers an explicit cloud button after login and preserves local one-click', t => {
+  network(t, () => ({ accounts: [] }))
+  configureHttpClient({ mode: 'cloud' })
+  t.after(() => configureHttpClient({ mode: 'local' }))
+  const cloud = mount(t).vm
+  cloud.selectGame('endfield')
+  assert.match(cloud.endfieldConnectionHint, /下方.*选择.*鹰角.*角色.*一键连接森空岛/)
+  assert.doesNotMatch(cloud.endfieldConnectionHint, /自动连接/)
+  configureHttpClient({ mode: 'local' })
+  const local = mount(t).vm
+  local.selectGame('endfield')
+  assert.match(local.endfieldConnectionHint, /一键连接森空岛/)
+})
 
 test('NTE sends SMS only on explicit action and reuses the session until the phone changes', async (t) => {
   const requests = network(t)

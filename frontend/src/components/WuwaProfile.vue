@@ -3,7 +3,8 @@ import { computed } from 'vue'
 import { fieldLabels, stamp, value, list } from '../wuwa-display.js'
 import WuwaStatus from './WuwaStatus.vue'
 import WuwaFields from './WuwaFields.vue'
-const props = defineProps({ snap: { default: null } })
+import InfoHint from './InfoHint.vue'
+const props = defineProps({ snap: { default: null }, imageMode:Boolean })
 const profile = computed(() => props.snap?.payload?.extra?.profile || {})
 const server = computed(() => props.snap?.payload?.extra?.server_id)
 const metrics = Object.fromEntries(['world_level', 'active_days', 'achievement_count', 'achievement_star', 'big_count', 'small_count'].map((key) => [key, fieldLabels[key]]))
@@ -45,11 +46,11 @@ const hasRest = computed(() =>
       <WuwaStatus :snap="snap" />
     </header>
     <dl class="kv-grid wuwa-idgrid">
-      <div>
+      <div v-if="!imageMode">
         <dt>UID</dt>
         <dd class="mono">{{ value(snap?.payload?.extra?.role_id) }}</dd>
       </div>
-      <div>
+      <div v-if="!imageMode">
         <dt>区服</dt>
         <dd class="mono" :title="server == null ? undefined : String(server)">
           {{ value(server) }}

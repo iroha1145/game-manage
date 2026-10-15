@@ -1,0 +1,81 @@
+<script setup>
+import { ref } from 'vue'
+import { useWuwaRequest } from '../wuwa-api.js'
+import { gachaReason } from '../wuwa-gacha.js'
+const props = defineProps({ accountKey:{type:String,default:''} })
+const emit = defineEmits(['imported'])
+const source=ref('json_import'),file=ref(null),fileInput=ref(null),preview=ref(null),error=ref(''),busy=ref(false)
+const latest=ref(false),continuous=ref(false),pool=ref('1'),hard=ref(''),version=ref(''),ruleOpen=ref(false)
+let generation=0
+const request=useWuwaRequest(()=>props.accountKey,()=>{generation++;file.value=null;preview.value=null;if(fileInput.value)fileInput.value.value='';error.value='';busy.value=false})
+function invalidate(){generation++;preview.value=null}
+async function readFile(){
+  if(!file.value || busy.value)return
+  const f=file.value,gen=++generation
+  error.value='';busy.value=true;preview.value=null
+  try{
+    if(f.size>2*1024*1024)throw Error('文件最大 2 MiB')
+    const parsed=JSON.parse(await f.text())
+    if(gen!==generation)return
+    preview.value=await request.run('gacha/preview',{records:parsed,source:source.value,
+      latest_confirmed:latest.value,continuity_confirmed:continuous.value})
+  }catch(e){if(gen===generation)error.value=e.message || '文件格式无效'}
+  finally{if(gen===generation)busy.value=false}
+}
+async function commit(){
+  if(!preview.value || busy.value)return
+  busy.value=true;error.value=''
+  try{const result=await request.run('gacha/import',{preview_id:preview.value.preview_id});if(result){invalidate();emit('imported',result)}}
+  catch(e){error.value=e.message;preview.value=null}finally{busy.value=false}
+}
+async function saveRule(){
+  busy.value=true;error.value=''
+  try{const result=await request.run('gacha/rules',{pool:pool.value,hard_pity:Number(hard.value),reset_rarity:'5',
+    version:version.value,sharing:'independent',basis:'user_configured'});if(result)emit('imported',null)}
+  catch(e){error.value=e.message}finally{busy.value=false}
+}
+async function backup(){
+  busy.value=true;error.value=''
+  try{
+    let offset=0,next
+    do{
+      const archive=await request.run(`gacha/export?limit=2000&offset=${offset}`);if(!archive)return
+      const url=URL.createObjectURL(new Blob([JSON.stringify(archive,null,2)],{type:'application/json'}))
+      const a=globalThis.document.createElement('a');a.href=url;a.download=`wuwa-gacha-${offset}.json`;a.click();URL.revokeObjectURL(url)
+      next=archive.export_page?.next_offset;offset=next
+    }while(next!=null)
+  }catch(e){error.value=e.message}finally{busy.value=false}
+}
+</script>
+<template>
+  <div class="wuwa-import-body">
+    <p v-if="busy" class="wuwa-meta" role="status">正在读取 / 预览 / 提交，请稍候…</p>
+    <div class="toolbar wuwa-import-row">
+      <label>文件来源 <select v-model="source" :disabled="busy" @change="invalidate"><option value="json_import">真实逐抽 / 本项目归档</option><option value="mcgf">mcgf 五星汇总</option><option value="xhh">xhh 五星汇总（result 本体）</option></select></label>
+      <input ref="fileInput" type="file" accept=".json,application/json" aria-label="预览抽卡文件" :disabled="busy" @change="file=$event.target.files?.[0];invalidate()" />
+      <button class="ui-button small-button" :disabled="busy || !file" @click="readFile">预览文件</button>
+    </div>
+    <p class="wuwa-meta">文件最大 2 MiB。mcgf/xhh 仅保留来源自报汇总，不生成逐抽记录。文件缺少区服时按当前账号区服绑定并标注；两种真实导出仍需实测核验。</p>
+    <div v-if="source==='json_import'" class="toolbar">
+      <label><input v-model="latest" type="checkbox" :disabled="busy" @change="invalidate" />我确认本段覆盖导入时最新记录</label>
+      <label><input v-model="continuous" type="checkbox" :disabled="busy" @change="invalidate" />我确认本段真实逐抽连续无缺口</label>
+    </div>
+    <div v-if="preview" class="wuwa-notice">
+      <p>{{ preview.import_kind==='aggregate'?'五星汇总':preview.import_kind==='archive'?'逐抽与汇总归档':'真实逐抽' }} · 收到 {{ preview.received }} 条 · 新增 {{ preview.new_records }} 条 · 重复 {{ preview.duplicates }} 条</p>
+      <p>{{ preview.message }}</p><p>{{ preview.diagnostics?.map(gachaReason).join('、') }}</p>
+      <button class="ui-button small-button primary" :disabled="busy" @click="commit">确认导入本次预览</button>
+    </div>
+    <button class="ui-button small-button" :disabled="busy" @click="backup">导出归档（超过上限分段）</button>
+    <details :open="ruleOpen" @toggle="ruleOpen=$event.target.open">
+      <summary>用户规则配置</summary>
+      <p class="wuwa-meta">仅支持你明确配置的独立卡池五星重置规则，不声明官方规则，不推断 UP。未确认独立计数/重置规则时请保持未配置。</p>
+      <form class="toolbar" @submit.prevent="saveRule">
+        <input v-model="pool" aria-label="规则卡池 ID" required placeholder="卡池 ID" />
+        <input v-model="hard" aria-label="用户设置保底上限" type="number" min="1" max="10000" required placeholder="保底上限" />
+        <input v-model="version" aria-label="用户规则版本或依据" maxlength="512" required placeholder="规则版本 / 依据说明" />
+        <button class="ui-button small-button" :disabled="busy">保存独立卡池规则</button>
+      </form>
+    </details>
+    <p v-if="error" class="wuwa-error" role="alert">{{ error }}</p>
+  </div>
+</template>

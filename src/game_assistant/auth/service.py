@@ -368,6 +368,7 @@ class ScopedLoginService:
         self.providers = providers if providers is not None else {
             'kuro': WuwaLoginProvider(include_roles=True, public_ip_url=public_ip_url), 'tajiduo': NteLoginProvider(include_roles=True), 'hypergryph': EndfieldLoginProvider()}
         self._contexts, self._sessions, self._grant_locks = {}, {}, {}
+        self._skland_attempts = {}
         accounts._listeners.append(self._invalidate)
 
     def provider(self, value):
@@ -461,6 +462,12 @@ class ScopedLoginService:
                         raise LoginError('该角色不在授权绑定列表中',404,'auth_expired')
                     credentials.update(role_id=role_id,server_id=server_id)
                 updated = await self.providers[provider].renew(deepcopy(credentials))
+                if provider == 'hypergryph':
+                    if str(updated.get('uid')) != str(credentials.get('uid')):
+                        raise LoginError('来源账号已改变，请重新登录',409,'auth_expired')
+                    updated['_verified_roles'] = credentials['_verified_roles']
+                    if credentials.get('_authorization_id'):
+                        updated['_authorization_id'] = credentials['_authorization_id']
                 updated['_updated_at'] = self.clock()
                 sealed = self.accounts.credentials.seal_grant(principal.user_id,grant_id,updated,version+1)
                 with transaction(self.accounts.connection):
@@ -504,3 +511,112 @@ class ScopedLoginService:
             raise
         except (SklandError,CredentialStoreError,ValueError,TypeError,KeyError):
             raise LoginError('森空岛授权验证失败，原授权已保留',502) from None
+
+    async def _exchange_skland(self, credentials, role_id, server_id):
+        from game_assistant.adapters.endfield.hypergryph import HypergryphClient, EndfieldError
+        from game_assistant.adapters.endfield.skland_client import SklandClient, SklandError
+        from game_assistant.adapters.endfield.skland_parse import parse_roles, parse_user_id
+        try:
+            async with HypergryphClient() as passport:
+                code = await passport.skland_code(credentials['hg_token'])
+            client = SklandClient()
+            cred = await client.cred_by_code(code)
+            token = await client.refresh(cred)
+            roles = parse_roles(await client.binding(cred,token,''))
+            user_id = parse_user_id(await client.user(cred,token,''))
+            selected = next((role for role in roles if (role['role_id'],role['server_id']) == (role_id,server_id)),None)
+            if selected is None:
+                raise LoginError('森空岛绑定角色与所选鹰角角色不匹配，请使用手动授权并确认角色',409,'skland_role_mismatch')
+            if not user_id:
+                raise ValueError('missing verified user')
+            # A derived authorization covers only the verified parent role and server.
+            return {'cred':cred,'user_id':user_id,'role_id':role_id,'server_id':server_id,
+                    'device_id':'','roles':[selected],'_verified_roles':[selected],
+                    'nickname':selected.get('nickname',''),'_updated_at':self.clock()}
+        except LoginError:
+            raise
+        except EndfieldError as error:
+            raise LoginError('鹰角授权已失效，请重新登录' if error.expired else '森空岛连接失败，原授权已保留',
+                             401 if error.expired else 502,'auth_expired' if error.expired else 'source_error') from None
+        except Exception:
+            raise LoginError('森空岛连接失败，原授权已保留，请稍后重试或使用手动授权',502,'source_error') from None
+
+    async def connect_skland_passport(self, principal, account_id, role_id):
+        from game_assistant.accounts.store import AccountNotFoundError
+        scope = self.accounts.require_scope(principal,account_id,role_id)
+        info = self.accounts.describe(scope)
+        if info['provider'] != 'hypergryph':
+            raise AccountNotFoundError()
+        key = (principal.user_id,'skland-passport:'+info['grant_id'])
+        lock = self._grant_locks.setdefault(key,asyncio.Lock())
+        if lock.locked():
+            raise LoginError('正在连接森空岛，请稍后重试',429)
+        try:
+            async with lock:
+                return await self._connect_skland_passport(principal,account_id,role_id)
+        finally:
+            self._grant_locks.pop(key,None)
+
+    async def _connect_skland_passport(self, principal, account_id, role_id):
+        from game_assistant.accounts.store import AccountNotFoundError
+        scope = self.accounts.require_scope(principal,account_id,role_id)
+        info = self.accounts.describe(scope)
+        if info['provider'] != 'hypergryph':
+            raise AccountNotFoundError()
+        credentials = self.accounts.credentials.load_grant(principal.user_id,info['grant_id'])
+        subject = str(credentials.get('uid') or '')
+        if not subject or not credentials.get('hg_token') or not any(
+                str(role.get('role_id')) == info['game_uid'] and str(role.get('server_id')) == info['server']
+                for role in credentials.get('_verified_roles', [])):
+            raise AccountNotFoundError()
+        # Website-user budget is bounded and shared across source grants.
+        now = self.clock()
+        self._skland_attempts = {user:times for user,times in self._skland_attempts.items()
+                                if times and now-times[-1] < 60}
+        attempts = [t for t in self._skland_attempts.get(principal.user_id,[]) if now-t < 60]
+        if len(attempts) >= 10:
+            raise LoginError('操作过于频繁，请一分钟后重试',429)
+        self._skland_attempts[principal.user_id] = [*attempts,now]
+        parent = dict(grant_id=info['grant_id'],account_id=account_id,role_id=role_id,
+                      subject=subject,game_uid=info['game_uid'],server=info['server'],
+                      authorization_id=credentials.get('_authorization_id') or 'legacy:'+info['grant_id'])
+        versions = self.accounts.grant_versions(principal,'skland')
+        updated = await self._exchange_skland(credentials,info['game_uid'],info['server'])
+        try:
+            # Synchronous validation and save occur in one SQLite transaction; no await between them.
+            self.accounts.credentials.validate_parent(principal.user_id,parent)
+            return self.accounts.save_verified(principal,'skland',{**updated,'_parent':parent},expected_versions=versions)
+        except CredentialStoreError:
+            raise LoginError('来源授权已改变或不可用，请重新连接森空岛',409,'authorization_changed') from None
+
+    async def renew_skland(self, principal, grant_id, *, expected_version, role_id, server_id):
+        from game_assistant.accounts.service import transaction
+        self.accounts._user(principal)
+        lock = self._grant_locks.setdefault((principal.user_id,grant_id),asyncio.Lock())
+        async with lock:
+            row = self.accounts.connection.execute("SELECT provider,version FROM grants WHERE user_id=? AND grant_id=? AND state='active'",
+                                                    (principal.user_id,grant_id)).fetchone()
+            if row != ('skland',expected_version):
+                raise LoginError('授权已改变，请重新连接森空岛',409,'auth_expired')
+            try:
+                saved = self.accounts.credentials.load_grant(principal.user_id,grant_id)
+                parent = saved.get('_parent')
+                if not parent or (parent['game_uid'],parent['server']) != (role_id,server_id):
+                    raise LoginError('请使用手动凭据重新授权森空岛',401,'auth_expired')
+                source = self.accounts.credentials.validate_parent(principal.user_id,parent)
+                updated = await self._exchange_skland(source,role_id,server_id)
+                if updated['user_id'] != saved['user_id']:
+                    raise LoginError('森空岛账号已改变，请重新连接或使用手动授权',409,'auth_expired')
+                updated['_parent'] = parent
+                sealed = self.accounts.credentials.seal_grant(principal.user_id,grant_id,updated,expected_version+1)
+                with transaction(self.accounts.connection):
+                    self.accounts.credentials.validate_parent(principal.user_id,parent)
+                    cursor = self.accounts.connection.execute(
+                        "UPDATE grants SET version=version+1,encrypted_payload=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+                        "WHERE user_id=? AND grant_id=? AND provider='skland' AND version=? AND state='active'",
+                        (sealed,principal.user_id,grant_id,expected_version))
+                    if cursor.rowcount != 1:
+                        raise LoginError('授权已改变，旧续期已丢弃',409,'auth_expired')
+                return updated,expected_version+1
+            except CredentialStoreError:
+                raise LoginError('来源授权已失效，请重新连接森空岛',409,'auth_expired') from None

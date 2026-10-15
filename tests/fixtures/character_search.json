@@ -1,0 +1,18 @@
+[
+  {"game":"nte","query":" H A N I Y A ","ids":["1020"],"match":"exact"},
+  {"game":"nte","query":"哈妮娅","ids":["1020"],"match":"exact"},
+  {"game":"nte","query":"fatiya","ids":["1039"],"match":"exact"},
+  {"game":"nte","query":"BH","ids":["1019"],"match":"exact"},
+  {"game":"nte","query":"bohe","ids":["1019"],"match":"exact"},
+  {"game":"nte","query":"零","ids":["1046","1051"],"match":"exact"},
+  {"game":"nte","query":"异能者・零(男)","ids":["1046"],"match":"exact"},
+  {"game":"nte","query":"娜娜利","ids":["1010"],"match":"suggestion"},
+  {"game":"wuthering_waves","query":"CHANG LI","ids":["1205"],"match":"exact"},
+  {"game":"wuthering_waves","query":"千咲","ids":["1508"],"match":"exact"},
+  {"game":"wuthering_waves","query":"qianxiao","ids":["1508"],"match":"exact"},
+  {"game":"wuthering_waves","query":"风主","ids":["1408"],"match":"exact"},
+  {"game":"wuthering_waves","query":"秧秧・玄翎","ids":["1610"],"match":"exact"},
+  {"game":"nte","query":"风主","ids":[]},
+  {"game":"wuthering_waves","query":"哈妮娅","ids":[]},
+  {"game":"nte","query":"不存在角色abcdef","ids":[]}
+]

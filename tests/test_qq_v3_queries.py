@@ -34,7 +34,7 @@ def test_recent_168_hour_endpoints_and_uncertain_precision():
     assert '2小时' in str(sections['即将结束'])
     assert '00:00' not in str(sections['时间待确认'])
 
-def test_current_events_and_month_axis_preserve_phase_gaps():
+def test_current_events_and_version_summary_preserve_phase_gaps():
     from game_assistant.qq.event_views import event_document
     data=[event('跨月','2026-09-29T12:00:00+08:00','2026-11-02T12:00:00+08:00',category='战斗'),
           event('未开始','2026-10-20T12:00:00+08:00','2026-10-23T12:00:00+08:00'),
@@ -43,12 +43,12 @@ def test_current_events_and_month_axis_preserve_phase_gaps():
     current=event_document('events',snapshots,now=NOW)
     assert [r['title'] for s in current['sections'] if s.get('game') for r in s.get('rows',[])]==['跨月']
     calendar=event_document('calendar',snapshots,now=NOW)
-    assert calendar['timeline']=={'start':'2026-10-01','end':'2026-11-01','today':'2026-10-14','timezone':'Asia/Shanghai'}
+    assert 'timeline' not in calendar and '版本未确认' in str(calendar)
     rows=[r for s in calendar['sections'] for r in s.get('rows',[])]
     phases=[r for r in rows if r['title'].startswith('阶段')]
-    assert len(phases)==2 and phases[0]['timeline']['end'] < phases[1]['timeline']['start']
-    cross=next(r for r in rows if r['title']=='跨月')['timeline']
-    assert cross['continues_before'] and cross['continues_after']
+    assert len(phases)==2 and '2026-10-03' in str(phases[0]) and '2026-10-20' in str(phases[1])
+    cross=next(r for r in rows if r['title']=='跨月')
+    assert '2026-09-29' in str(cross) and '2026-11-02' in str(cross)
 
 def test_aggregate_only_authorized_games_deduplicates_and_distinguishes_missing_empty():
     query=CachedQuery();query.add('nte','tajiduo','n1',{});query.add('nte','tajiduo','n2',{});query.add('endfield','skland','sk',{})
@@ -157,7 +157,7 @@ def test_current_unknown_start_does_not_include_confirmed_ended_events():
 def test_reversed_day_range_is_uncertain_without_invalid_timeline():
     from game_assistant.qq.event_views import event_document
     card=event_document('calendar',{'nte':QueryResult([event('错误日期','2026-10-20','2026-10-10',start_precision='day',end_precision='day')],NOW.isoformat(),'ok',None)},now=NOW)
-    pending=next(s for s in card['sections'] if s['title']=='时间待确认')
+    pending=next(s for s in card['sections'] if s.get('game')=='nte')
     assert 'timeline' not in pending['rows'][0]
 
 def test_recent_window_excludes_now_and_includes_exact_168h_for_both_endpoints():
@@ -189,7 +189,7 @@ def test_partial_source_failure_does_not_mark_fresh_activity_source_stale():
 def test_calendar_date_only_start_at_exact_midnight_end_is_uncertain():
     from game_assistant.qq.event_views import event_document
     card=event_document('calendar',{'nte':QueryResult([event('边界待确认',None,'2026-10-10T00:00:00+08:00',start_date='2026-10-10',start_precision='day')],NOW.isoformat(),'ok',None)},now=NOW)
-    pending=next(s for s in card['sections'] if s['title']=='时间待确认')
+    pending=next(s for s in card['sections'] if s.get('game')=='nte')
     assert 'timeline' not in pending['rows'][0]
     assert view.long_document(card)['version']==3
 

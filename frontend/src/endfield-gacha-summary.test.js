@@ -27,6 +27,17 @@ test('legacy pool coverage is bounded and absent rarity counts stay unknown',()=
  assert.equal(gachaPools({pools:[pool],report:{schema_version:1,pools:[]}}).length,0)
 })
 
+test('cloud envelope UUIDs and upstream game UID remain separate identity namespaces',()=>{
+ const cloudRole='aaaaaaaaaaaa4123a12345678bbbbbbbb', accountId='internal-account'
+ const cloudAccount={account_id:accountId,provider:'hypergryph',state:'active',roles:[{role_id:cloudRole}]}
+ const account={account_id:accountId,role_id:cloudRole,payload:{role_id:'100123456',nickname:'本人'}}
+ const gacha={account_id:accountId,role_id:cloudRole,payload:{schema_version:1,role_id:'100123456',report:{schema_version:1,role_id:'100123456'}}}
+ assert.equal(gachaView({snaps:{account,gacha},cloudAccount,cloudRole}).snapshot,gacha)
+ for(const wrong of [{...gacha,role_id:'other-internal-role'},{...gacha,payload:{...gacha.payload,role_id:'100654321'}},{...gacha,payload:{...gacha.payload,report:{role_id:'100654321'}}}]) {
+  assert.equal(gachaView({snaps:{account,gacha:wrong},cloudAccount,cloudRole}).snapshot,null)
+ }
+})
+
 test('pool coverage prefers explicit valid history total and marks contradictory counts unknown',()=>{
  const pool={six_star:55,history_total:60,history:[{name:'a'}]}
  assert.equal(gachaPools({pools:[pool]})[0].history_total,60)

@@ -15,6 +15,18 @@ const pools = [
     { item_id: 'c', name: '未匹配弧盘', pity: null, obtained_at: null },
   ] },
 ]
+
+test('image groups every current pool using the shared history rows, including unknown and zero', t => {
+  const root=mount(t,Panel,{snap:snapshot(pools),imageMode:true})
+  const histories=nodes(root,'section').filter(n=>String(n.props.class).includes('history-panel'))
+  assert.equal(histories.length,3)
+  assert.match(content(histories[0]),/限定卡池.*角色甲.*80 抽.*角色乙.*20 抽/)
+  assert.match(content(histories[1]),/常驻卡池.*暂无已出 S 明细/)
+  assert.match(content(histories[2]),/弧盘池.*未匹配弧盘.*本次抽数未提供/)
+  assert.match(content(root),/0 抽/)
+  assert.equal(nodes(root,'li').length,3)
+  assert.equal(nodes(root,'nav').length,0)
+})
 test('community view switches pool history without inventing pity, coverage or luck', async t => {
   const root = mount(t, Panel, { snap: snapshot(pools) })
   assert.match(content(root), /100 抽/)
@@ -52,7 +64,7 @@ test('snapshot changes reset unavailable selection and legacy or missing data st
   assert.match(content(root), /刷新/)
   assert.doesNotMatch(content(root), /100 抽/)
   props.snap = null; await nextTick()
-  assert.match(content(root), /暂无社区抽卡数据/)
+  assert.match(content(root), /暂无抽卡数据.*刷新/)
 })
 
 test('official rating codes drive labels and colors independently of pull counts', t => {

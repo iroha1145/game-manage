@@ -16,7 +16,7 @@ test('Wuwa stamina and periodic progress are visible without opening a dialog', 
   assert.ok(!nodes(root, 'button').some(n => /查看体力|查看周期/.test(content(n))))
 })
 
-test('NTE stamina stays inline with its update time and unknown city activity', async t => {
+test('NTE stamina stays inline with unknown city activity and no direct source quality warning', async t => {
   const Module = await loadVue(new URL('./NteModuleCard.vue', import.meta.url))
   const root = mount(t, Module, { capability: 'stamina', snap: { fetched_at: '2026-10-12T02:00:00Z', payload: {
     schema_version: 1, current: 0, maximum: 320, city_current: null, city_maximum: 100, daily_activity: 50,
@@ -24,7 +24,7 @@ test('NTE stamina stays inline with its update time and unknown city activity', 
   assert.ok(nodes(root, 'progress').some(n => n.props.value === 0 && n.props.max === 320))
   assert.ok(!nodes(root, 'progress').some(n => n.props['aria-label'] === '都市活力'))
   assert.match(content(root), /未知 \/ 100/)
-  assert.match(content(root), /更新于 2026-10-12 10:00（北京时间）/)
+  assert.doesNotMatch(content(root), /塔吉多|同步延迟|不准确/)
   assert.equal(nodes(root, 'button').length, 0)
 })
 

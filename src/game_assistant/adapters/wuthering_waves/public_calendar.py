@@ -6,7 +6,7 @@ from pydantic import ConfigDict
 
 from game_assistant.event_calendar import BEIJING_TZ, parse_ms_or_iso, strip_html
 from game_assistant.models import GameEvent
-from game_assistant.sources.public_content import VERSION, _same_event, parse_post_events
+from game_assistant.sources.public_content import VERSION, _same_event, parse_post_events, resolve_relative_starts
 
 
 class PublicCalendarEvent(GameEvent):
@@ -45,7 +45,7 @@ async def read_calendar(client, rows, title_keys):
         heading = re.sub(r'^.*?(?=「[^」]+」.*?(?:角色|武器)活动唤取)', '', title)
         post = dict(id=ident, title=title, body=heading+'\n'+body, decision='accepted',
                     published_at=stamp.isoformat() if stamp else None,
-                    source='community', source_name='库街区官方公告',
+                    source='community', source_name='库街区官方公告', fetched_at=now.isoformat(),
                     url=f'https://www.kurobbs.com/forum/post/{ident}')
         events = parse_post_events(post, 'wuthering_waves', version)
         if not events:
@@ -55,6 +55,7 @@ async def read_calendar(client, rows, title_keys):
     # Check at most three version announcements, reserving the same total budget
     # for pools. Known future starts never replace the active calendar.
     requests = 0
+    notices = []
     for base in bases[:3]:
         declared = VERSION.search(str(base.get('postTitle') or ''))
         if not declared or (published(base) and published(base) > now):
@@ -62,6 +63,7 @@ async def read_calendar(client, rows, title_keys):
         version = declared[1]
         requests += 1
         post, baseline = await read(base, version)
+        notices.append(post)
         starts = [e.get('start_at') or e.get('start_date') for e in baseline
                   if e.get('start_at') or e.get('start_date')]
         # Maintenance supplies an actual release boundary when present; it does
@@ -109,12 +111,18 @@ async def read_calendar(client, rows, title_keys):
                                           require_version=bool(stamp and base_stamp and stamp < base_stamp))
             if candidate and not (VERSION.search(candidate['title']) or VERSION.search(candidate['body'][:4000])):
                 start_day = min((e.get('start_at') or e.get('start_date') or post.get('published_at') or '')[:10] for e in baseline)
-                end_day = max(e['end_at'][:10] for e in baseline)
-                events = [e for e in events if start_day <= e['end_at'][:10] <= end_day]
+                end_day = max((e.get('end_at') or e.get('end_date') or '')[:10] for e in baseline)
+                events = [e for e in events if e.get('end_at') or e.get('end_date')
+                          if start_day <= (e.get('end_at') or e.get('end_date'))[:10] <= end_day]
+            if candidate:
+                notices.append(candidate)
             relevant.extend(events)
         result = []
-        for event in sorted(relevant + baseline, key=lambda e: e.get('published_at') or '', reverse=True):
+        resolved = resolve_relative_starts(relevant + baseline, notices, 'wuthering_waves', version)
+        for event in sorted(resolved, key=lambda e: e.get('published_at') or '', reverse=True):
             if not any(_same_event(e, event) for e in result):
                 result.append(event)
-        return [PublicCalendarEvent(**event) for event in result]
+        from game_assistant.version_calendar import version_metadata
+        meta = version_metadata('wuthering_waves', post, notices, now=now)
+        return [PublicCalendarEvent(**{**event, 'version_metadata':meta}) for event in result]
     return []

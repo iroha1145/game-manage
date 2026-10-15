@@ -30,7 +30,7 @@ const day=value=>Number.isInteger(value) && value > 0 ? `第 ${value} 日` : '�
       <p v-if="data?.today_award" class="note">今日奖励：{{ name(data.today_award) }}<template v-if="data.today_award.count != null"> × {{ display(data.today_award.count) }}</template></p>
       <div v-else-if="rows(data?.awards).length" class="award-results"><h3>已返回签到奖励</h3><p v-for="(award,index) in rows(data.awards)" :key="award.id ?? index">{{ name(award) }}<template v-if="award.count != null"> × {{ display(award.count) }}</template></p></div>
       <p v-if="data?.signed_at" class="note">签到于 {{ time(data.signed_at) }}（北京时间）</p>
-      <p class="note">状态观测于 {{ time(data?.updated_at) }}<template v-if="data?.fetched_at"> · 抓取于 {{ time(data.fetched_at) }}</template>（北京时间）</p>
+      <details class="note"><summary>来源与更新时间</summary><p>状态观测于 {{ time(data?.updated_at) }}<template v-if="data?.fetched_at"> · 抓取于 {{ time(data.fetched_at) }}</template>（北京时间）</p></details>
       <p v-if="stale && observed" class="note">正在显示已有签到资料；当前状态请以重新读取结果为准。</p>
       <details v-if="calendar.length || rows(data?.records).length" class="attendance-records"><summary>查看签到日历与记录</summary>
         <ul v-if="calendar.length"><li v-for="(row,index) in calendar" :key="row.day ?? index"><strong>{{ day(row.day) }}</strong><span>{{ row.done === true ? '已签到' : row.done === false ? '未签到' : '状态未知' }}</span><span>{{ name(row) }}<template v-if="row.count != null"> × {{ display(row.count) }}</template></span><span v-if="row.signed_at">签到于 {{ time(row.signed_at) }}</span></li></ul>

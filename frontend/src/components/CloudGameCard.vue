@@ -15,5 +15,5 @@ const scope = computed(()=>({user_id:props.userId,account_id:props.account.accou
 </script>
 <template>
   <p v-if="!caps.length" class="cap-card">此授权尚未提供云端数据能力，请在账号设置检查授权状态。</p>
-  <template v-else><GameCard :game="game" :collection-status="collection" :external-snapshots="combined" :external-refreshing="refreshing" :cloud-account="account" :cloud-role="role" :cloud-scope="scope" :is-admin="isAdmin" initial-section="overview" @calendar="emit('calendar')" @refresh="emit('refresh')" /><CloudSnapshotStatus :snapshots="combined" :capabilities="[...caps,'news','events']" /></template>
+  <template v-else><GameCard :game="game" :show-source-status="false" :collection-status="collection" :external-snapshots="combined" :external-refreshing="refreshing" :cloud-account="account" :cloud-role="role" :cloud-scope="scope" :is-admin="isAdmin" initial-section="overview" @calendar="emit('calendar')" @refresh="emit('refresh')" /><CloudSnapshotStatus :snapshots="combined" :capabilities="[...caps,'news','events']" /></template>
 </template>

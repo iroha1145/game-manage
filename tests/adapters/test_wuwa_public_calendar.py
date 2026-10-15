@@ -58,7 +58,8 @@ async def test_other_version_pool_and_undated_short_date_do_not_enter_calendar()
     undated = {**BASE, 'publishTime': None}
     mock_notices([undated], {'9001': BASE_BODY.replace('2026年9月29日', '9月29日')})
     result = await WutheringWavesAdapter(Settings()).fetch(Capability.EVENTS)
-    assert not result.ok and result.error_kind == 'invalid_data'
+    assert result.ok and result.payload[0].end_at is None
+    assert result.payload[0].end_precision == 'unknown'
 
 
 @respx.mock
@@ -132,3 +133,26 @@ async def test_known_future_release_cannot_replace_current_version():
     result = await WutheringWavesAdapter(Settings()).fetch(Capability.EVENTS)
     assert result.ok and [e.name for e in result.payload] == ['签到']
     assert result.payload[0].version == '3.6'
+
+
+@pytest.mark.parametrize('with_dated_supplement', [False, True])
+@respx.mock
+async def test_announced_future_pool_is_retained_and_exact_supplement_replaces_unknown(with_dated_supplement):
+    # Pool identities are factual 3.7 excerpts; these date values are synthetic.
+    base = {**BASE, 'postTitle':'3.7版本内容说明'}
+    body = BASE_BODY.replace('3.6','3.7') + '<p>※可通过[余心所向九死未悔]角色活动唤取获得。</p><p>※可通过「沉冥」武器活动唤取获得。</p>'
+    future = {**CARD, 'postTitle':'3.7版本「沉冥」武器活动唤取'}
+    rows = [base, future] if with_dated_supplement else [base]
+    bodies = {'9001':body, '9002':'<p>活动时间：2026年10月22日10:00 ~ 2026年11月11日09:59</p>'}
+    mock_notices(rows,bodies)
+    result = await WutheringWavesAdapter(Settings()).fetch(Capability.EVENTS)
+    assert result.ok and {e.name for e in result.payload} == {'签到','余心所向九死未悔','沉冥'}
+    assert len(result.payload) == 3
+    unknown = next(e for e in result.payload if e.name == '余心所向九死未悔')
+    assert unknown.start_at is None and unknown.end_at is None
+    weapon = next(e for e in result.payload if e.name == '沉冥')
+    if with_dated_supplement:
+        assert weapon.start_at.isoformat() == '2026-10-22T10:00:00+08:00'
+        assert weapon.source_post_id == '9002'
+    else:
+        assert weapon.start_at is None and weapon.end_at is None

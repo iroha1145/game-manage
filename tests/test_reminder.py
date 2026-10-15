@@ -155,3 +155,35 @@ async def test_deliver_dedup(tmp_path):
     from game_assistant.reminder import Reminder
     assert await eng.deliver(Reminder("t", "b", "k1")) is True
     assert await eng.deliver(Reminder("t", "b", "k1")) is False
+
+
+async def test_delivery_parallel_engines_claim_once_and_failure_retries(tmp_path):
+    import asyncio
+    from game_assistant.reminder import Reminder
+    class SlowNotify(FakeNotify):
+        async def send(self, title, body):
+            await asyncio.sleep(.02)
+            return await super().send(title, body)
+    notifier = SlowNotify()
+    first, _ = _engine(tmp_path, notifier=notifier)
+    second, _ = _engine(tmp_path, notifier=notifier)
+    assert sum(await asyncio.gather(first.deliver(Reminder('t','b','parallel')), second.deliver(Reminder('t','b','parallel')))) == 1
+    assert len(notifier.sent) == 1
+    failed, _ = _engine(tmp_path, notifier=OffNotify())
+    assert not await failed.deliver(Reminder('t','b','failed'))
+    assert await first.deliver(Reminder('t','b','failed'))
+
+
+async def test_local_stale_read_is_suppressed_and_nte_city_is_opt_in(tmp_path):
+    from game_assistant.adapters.neverness.data_models import NteStamina
+    eng, settings = _engine(tmp_path)
+    stale = StaminaInfo(current=240, maximum=240, updated_at=datetime.now(timezone.utc)-timedelta(hours=1))
+    await eng.handle_poll('wuwa', '鸣潮', Capability.STAMINA, FetchResult(ok=True,payload=stale))
+    assert eng.notifier.sent == []
+    value = NteStamina(current=0, maximum=100, city_current=90,city_maximum=100,updated_at=datetime.now(timezone.utc))
+    await eng.handle_poll('nte','异环',Capability.STAMINA,FetchResult(ok=True,payload=value))
+    assert eng.notifier.sent == []
+    settings.nte_city_stamina_threshold_percent = 90
+    await eng.handle_poll('nte','异环',Capability.STAMINA,FetchResult(ok=True,payload=value))
+    assert len(eng.notifier.sent) == 1 and '都市活力' in eng.notifier.sent[0][0]
+    assert '读取时间' in eng.notifier.sent[0][1]

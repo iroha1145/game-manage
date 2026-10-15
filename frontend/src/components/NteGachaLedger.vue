@@ -7,7 +7,7 @@ import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
 
-const props = defineProps({ accountId: { type: String, default: '' } })
+const props = defineProps({ accountId: { type: String, default: '' }, snapshot:{type:Object,default:null}, imageMode:{type:Boolean,default:false} })
 const summary = ref(null), records = ref([]), recordTotal = ref(0), rules = ref([])
 const pool = ref(''), offset = ref(0), busy = ref(false), error = ref(''), message = ref('')
 const documentData = ref(null), fileName = ref(''), preview = ref(null)
@@ -26,7 +26,7 @@ async function loadRecords() {
 }
 async function load() {
   const id = generation
-  if (!props.accountId) return
+  if (!props.accountId || props.imageMode) return
   busy.value = true; error.value = ''
   try {
     const [data, ruleData] = await Promise.all([getLedgerSummary(), getLedgerRules()])
@@ -41,9 +41,10 @@ watch(() => props.accountId, () => {
   documentData.value = null; fileName.value = ''; preview.value = null; latest.value = continuous.value = identity.value = false
   rulePool.value = ''; ruleLimit.value = ''; ruleNote.value = ''; ruleConfirmed.value = false; error.value = ''; message.value = ''; busy.value = false
   segmented.value = false; exportStart.value = 1; exportNext.value = null
-  load()
+  if (props.imageMode) { summary.value = props.snapshot; records.value = props.snapshot?.records || []; recordTotal.value = props.snapshot?.total_records || 0 }
+  else load()
 }, { immediate: true })
-watch([pool, offset], () => { if (props.accountId) loadRecords() })
+watch([pool, offset], () => { if (props.accountId && !props.imageMode) loadRecords() })
 watch(pool, () => { exportStart.value = 1; exportNext.value = null })
 watch([latest, continuous, identity], () => { preview.value = null })
 async function chooseFile(event) {
@@ -116,14 +117,15 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
   <section class="cap-card ledger" :aria-label="cloudMode ? '本人逐抽账本' : '本地逐抽账本'">
     <header class="cap-title ledger-head">
       <h2>逐抽账本</h2>
-      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已导入记录</span>
-      <span class="head-actions">
+      <InfoHint text="逐条保存真实记录。导入覆盖范围与社区统计分别计算。" />
+      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已保存记录 · 截至导入文件时间<InfoHint text="只包含已导入文件里的记录，不代表已经覆盖账号全部历史。" /></span>
+      <span v-if="!imageMode" class="head-actions">
         <label v-if="accountId" class="check"><input type="checkbox" v-model="segmented" :disabled="busy" />分段导出大账本</label>
         <button v-if="accountId" type="button" class="ui-button small-button" :disabled="busy" @click="load">刷新账本</button>
         <button type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button>
       </span>
     </header>
-    <p v-if="!accountId" class="notice">请先登录异环并刷新账号资料。账本按角色分别保存。</p>
+    <p v-if="!accountId && !imageMode" class="notice">请先在社区账号登录异环并刷新账号资料，账本按游戏角色独立保存。</p>
     <template v-else>
       <div v-if="segmented" class="toolbar export-controls">
         <label>从第 <input type="number" v-model="exportStart" min="1" :disabled="busy" /> 条开始</label>
@@ -132,7 +134,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
         <p class="export-warning">请按提示下载全部分段，期间不要导入新记录。</p>
       </div>
       <p v-if="error" role="alert" class="notice error">{{ error }}</p><p v-if="message" role="status" class="notice">{{ message }}</p>
-      <details class="panel import-panel"><summary>导入逐抽记录<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
+      <details v-if="!imageMode" class="panel import-panel"><summary>导入逐抽记录<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
         <div class="panel-body">
           <div class="file-row">
             <label class="file-picker">选择 JSON 文件<input type="file" accept=".json,application/json" :disabled="busy" @change="chooseFile" /></label>
@@ -154,14 +156,13 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
       </details>
       <div v-if="summary?.pools?.length" class="pool-grid">
         <article v-for="item in summary.pools" :key="item.pool_id" class="pool-card">
-          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">自定义规则</span><button type="button" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
+          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">按用户规则<InfoHint align="end" text="按用户设置的规则计算，不表示已核实官方规则或必出 UP。" /></span><button type="button" v-if="!imageMode" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
           <dl class="kv-grid pity-kv"><div><dt>当前垫抽</dt><dd>{{ pityLabel(item.pity) }}</dd></div><div><dt>距所设 S 保底</dt><dd>{{ item.pity?.hard_pity_remaining == null ? '未知' : `${item.pity.hard_pity_remaining} 抽` }}</dd></div></dl>
-          <p class="muted">已导入 {{ item.total_pulls }} 次计数抽取<template v-if="item.pity?.as_of"><span class="sep" aria-hidden="true" />最新记录：{{ ledgerDate(item.pity.latest_record_at || item.pity.as_of) }}</template></p>
-          <p v-if="item.pity?.basis" class="muted">{{ requirementLabel(item.pity.basis) }}</p>
-          <ul v-if="item.pity?.missing_requirements?.length" class="requirements"><li v-for="(note, index) in item.pity.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul>
+          <p class="muted">已导入 {{ item.total_pulls }} 次计数抽取<template v-if="item.pity?.as_of"><span class="sep" aria-hidden="true" />记录范围：{{ ledgerDate(item.pity.latest_record_at || item.pity.as_of) }}</template></p>
+          <details v-if="!imageMode && (item.pity?.basis || item.pity?.missing_requirements?.length)" data-render-collapsed><summary>计算详情</summary><p v-if="item.pity?.basis" class="muted">{{ requirementLabel(item.pity.basis) }}</p><ul v-if="item.pity?.missing_requirements?.length" class="requirements"><li v-for="(note, index) in item.pity.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul></details>
         </article>
       </div>
-      <details class="panel rule-editor" :open="!!rulePool"><summary>卡池规则<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
+      <details v-if="!imageMode" class="panel rule-editor" :open="!!rulePool"><summary>卡池规则<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
         <form class="panel-body rule-form" @submit.prevent="saveRule">
           <div class="field">卡池<MenuSelect :model-value="rulePool" label="卡池" :options="[{ value: '', label: '选择卡池' }, ...(summary?.pools || []).map(item => ({ value: item.pool_id, label: poolLabel(item.pool_id) }))]" @change="selectRule" /></div>
           <label>S 硬保底抽数<input v-model="ruleLimit" type="number" min="1" max="1000" required /></label>
@@ -173,12 +174,13 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
       </details>
       <div class="toolbar records-toolbar">
         <h3>逐抽记录</h3>
-        <MenuSelect v-model="pool" label="卡池" :options="[{ value: '', label: '全部卡池' }, ...(summary?.pools || []).map(item => ({ value: item.pool_id, label: poolLabel(item.pool_id) }))]" @change="offset = 0" />
+        <MenuSelect v-if="!imageMode" v-model="pool" label="卡池" :options="[{ value: '', label: '全部卡池' }, ...(summary?.pools || []).map(item => ({ value: item.pool_id, label: poolLabel(item.pool_id) }))]" @change="offset = 0" />
         <span class="count">{{ recordTotal }} 条</span>
       </div>
-      <p v-if="!records.length" class="empty">暂无逐抽记录，请导入 JSON 文件。</p>
+      <p v-if="imageMode && !records.length && summary?.total_records > 0" class="empty">逐条记录未加载；已导入 {{ summary.total_records }} 条，可在网页查看。</p>
+      <p v-else-if="!records.length" class="empty">暂无逐抽记录<InfoHint align="end" text="导入后即可查看；这里不会用社区出 S 明细补造历史。" /></p>
       <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间（源文件）</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td>{{ row.reward_name || row.reward_id }}</td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
-      <nav v-if="recordTotal > 100" class="pagination" aria-label="抽卡记录分页"><button type="button" class="ui-button small-button" :disabled="offset === 0 || busy" @click="offset = Math.max(0, offset - 100)">上一页</button><span>{{ Math.floor(offset / 100) + 1 }} / {{ Math.ceil(recordTotal / 100) }}</span><button type="button" class="ui-button small-button" :disabled="offset + 100 >= recordTotal || busy" @click="offset += 100">下一页</button></nav>
+      <nav v-if="!imageMode && recordTotal > 100" class="pagination" aria-label="抽卡记录分页"><button type="button" class="ui-button small-button" :disabled="offset === 0 || busy" @click="offset = Math.max(0, offset - 100)">上一页</button><span>{{ Math.floor(offset / 100) + 1 }} / {{ Math.ceil(recordTotal / 100) }}</span><button type="button" class="ui-button small-button" :disabled="offset + 100 >= recordTotal || busy" @click="offset += 100">下一页</button></nav>
     </template>
   </section>
 </template>

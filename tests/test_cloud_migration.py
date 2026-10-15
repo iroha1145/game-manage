@@ -240,6 +240,73 @@ def test_exact_scoped_legacy_layout(case, kind, account):
     assert report['checks']['reconciled']
 
 
+def test_current_wuwa_archive_tables_preserve_scoped_source_coverage_and_rules(case):
+    source,identity,mapping,destination=case
+    path=source/'current-wuwa.sqlite3'
+    connection=sqlite3.connect(path)
+    store=WuwaGacha(connection,threading.Lock())
+    store.import_records({'info':{'uid':'uid','server_id':'s'},'list':[
+        dict(id='real',pool='1',resource_id='r',rarity=5,time='2026-01-01T12:00:00',history_gap_before=True)]},'uid','s')
+    p=store.preview({'data':{'uid':'uid','card_analysis_json':{'pool':{'five_cards':[
+        dict(cardPoolType=99,name='未知五星',time='2025-12-01',draw_total=120)]}}}},'uid','s',source='mcgf')
+    store.commit_preview(p['preview_id'],'uid','s')
+    store.set_rule('uid','s',dict(pool='1',hard_pity=70,reset_rarity='5',version='synthetic-user',sharing='independent',basis='user_configured'))
+    tables=('wuwa_gacha','wuwa_gacha_imports','wuwa_gacha_batches','wuwa_gacha_aggregates','wuwa_gacha_rules')
+    expected={name:connection.execute('SELECT * FROM '+name).fetchall() for name in tables}
+    connection.close()
+    mapping['datasets'].append(dict(database=path.name,kind='wuwa_gacha',user_id='u',account_id='w',role_id='w'))
+    before,before_identity=hashes(source),identity.read_bytes()
+    report=cli.apply(source,mapping,destination)
+    item=next(i for i in list_scope_files(destination/'private') if i['kind']=='wuwa_gacha')
+    with sqlite3.connect(item['path']) as db:
+        for name in tables:
+            assert db.execute('SELECT * FROM '+name).fetchall()==expected[name]
+    assert report['checks']['reconciled'] and hashes(source)==before and identity.read_bytes()==before_identity
+    restored=WuwaGacha.for_scope(AccountScope('u','w','w'),destination/'private',role_uid='uid',server_id='s')
+    try:
+        data=restored.read(AccountScope('u','w','w'))
+        assert data['total']==1 and data['aggregates']['total']==1
+        assert data['aggregates']['items'][0]['period_count']==120
+        assert data['coverage']['segments'][0]['warnings']==['SOURCE_GAP']
+        assert data['rules'][0]['basis']=='user_configured'
+    finally:restored.close()
+    assert cli.apply(source,mapping,destination)['already_applied']
+
+
+@pytest.mark.parametrize('table',['wuwa_gacha_batches','wuwa_gacha_aggregates','wuwa_gacha_rules'])
+def test_new_wuwa_table_foreign_owner_and_schema_drift_still_block(case,table):
+    source,_,mapping,destination=case
+    path=source/'current-wuwa.sqlite3'
+    connection=sqlite3.connect(path)
+    WuwaGacha(connection,threading.Lock())
+    connection.execute('INSERT INTO '+table+' VALUES(?,?,?,?)',('foreign','s','k','{}'));connection.commit()
+    mapping['datasets'].append(dict(database=path.name,kind='wuwa_gacha',user_id='u',account_id='w',role_id='w'))
+    report=cli.preview(source,mapping)
+    assert not report['ready'] and report['unassigned']==1
+    assert any(i['code']=='unmapped_owner' for i in report['issues'])
+    connection.execute('DELETE FROM '+table)
+    connection.execute('ALTER TABLE '+table+' ADD COLUMN unsupported TEXT');connection.commit();connection.close()
+    report=cli.preview(source,mapping)
+    assert not report['ready'] and any(i['code']=='legacy_schema_mismatch' for i in report['issues'])
+    with pytest.raises(cli.MigrationError):cli.apply(source,mapping,destination)
+    assert not destination.exists()
+
+
+def test_pre_archive_wuwa_two_table_layout_remains_migratable(case):
+    source,_,mapping,destination=case
+    path=source/'old-wuwa.sqlite3'
+    with sqlite3.connect(path) as db:
+        db.execute('CREATE TABLE wuwa_gacha (account TEXT,server TEXT,pool TEXT,draw_id TEXT,payload TEXT,time TEXT,rarity TEXT,PRIMARY KEY(account,server,pool,draw_id))')
+        db.execute('CREATE TABLE wuwa_gacha_imports (account TEXT,server TEXT,imported_at TEXT,source TEXT,failed_pools TEXT,PRIMARY KEY(account,server))')
+        db.execute('INSERT INTO wuwa_gacha_imports VALUES(?,?,?,?,?)',('uid','s','2026-01-01','json_import','["2"]'))
+    mapping['datasets'].append(dict(database=path.name,kind='wuwa_gacha',user_id='u',account_id='w',role_id='w'))
+    assert cli.apply(source,mapping,destination)['checks']['reconciled']
+    item=next(i for i in list_scope_files(destination/'private') if i['kind']=='wuwa_gacha')
+    with sqlite3.connect(item['path']) as db:
+        assert db.execute('SELECT source,failed_pools FROM wuwa_gacha_imports').fetchone()==('json_import','["2"]')
+        assert db.execute('SELECT COUNT(*) FROM wuwa_gacha_aggregates').fetchone()==(0,)
+
+
 @pytest.mark.parametrize('current,last_sync,scan_pending,expected', [
     (False, None, None, None), (False, '2026-10-15T00:00:00Z', None, 0),
     (True, None, None, None), (True, '2026-10-15T00:00:00Z', 1, 1),

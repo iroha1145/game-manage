@@ -195,8 +195,8 @@ class EndfieldGachaStore:
             for key, kind, label, last_sync_at, scan_pending in meta:
                 breaks = dict(db.execute("SELECT seq_id, permanent FROM breaks WHERE role=? AND pool_key=?",
                                          (role, key)).fetchall())
-                pending = scan_pending == 1 or any(not permanent for permanent in breaks.values())
-                has_pending = has_pending or pending
+                pending = True if scan_pending == 1 or any(not permanent for permanent in breaks.values()) else False if scan_pending == 0 else None
+                has_pending = has_pending or pending is True
                 rows = [json.loads(p) for (p,) in db.execute(
                     "SELECT payload FROM records WHERE role=? AND pool_key=? ORDER BY seq_id", (role, key))]
                 if not rows:

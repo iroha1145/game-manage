@@ -80,7 +80,7 @@ onUnmounted(()=>{stopped=true;unsubscribe();clear()})
 <template>
   <section class="cap-card cloud-bili-source" aria-label="管理员 B 站公共源授权">
     <h2>管理员 · B 站公共源授权</h2>
-    <p>用于补充官方公共动态，采集结果供网站成员读取。输入本人 B 站登录后的 SESSDATA 值即可，不需要整段 Cookie；授权凭据仅在云端加密保存。登录不能保证解除 HTTP 412 限制。</p>
+    <p>授权后可读取更多官方公开动态，供网站成员查看。输入本人 B 站登录后的 SESSDATA 值即可，不需要整段 Cookie；授权凭据仅在云端加密保存。</p>
     <p v-if="account?.configured">当前来源账号：{{ account.nickname || account.uid || '已配置' }} · {{ account.state==='validated'?'本次运行已验证':'已配置' }}</p>
     <p v-else-if="account">尚未配置 B 站公共源授权。</p>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="message || labels[state]" role="status">{{ message || labels[state] }}</p>

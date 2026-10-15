@@ -18,6 +18,11 @@ from .sources.endfield_notice import calendar_from_posts
 from .sources.article_content import article_content, retain_article_bodies
 
 NEWS_URL = 'https://endfield.hypergryph.com/news'
+# Official website client: cms.host + /api/bulletin, code=endfield_web.
+# The Flight homepage contains only its first ten rows, not the full archive.
+NEWS_API = 'https://web-news.hypergryph.com/api/bulletin'
+NEWS_PAGE_SIZE = 10
+NEWS_MAX_PAGES = 5
 MAP_URL = 'https://game.skland.com/map/endfield'
 WIKI_URL = 'https://wiki.skland.com/endfield'
 MAP_API = 'https://zonai.skland.com/web/v1/game/endfield/map/'
@@ -80,7 +85,10 @@ def _flight_value(html, key):
 
 
 def _news_list(html):
-    values = _flight_value(html, 'bulletins')
+    return _news_rows(_flight_value(html, 'bulletins'))
+
+
+def _news_rows(values):
     if not isinstance(values, list) or not values:
         raise PublicSourceError('官网资讯列表为空或格式发生变化')
     posts = []
@@ -191,6 +199,12 @@ class EndfieldPublicService:
     async def _refresh_news(self):
         page = await self._request(NEWS_URL)
         items = _news_list(page.text)
+        try:
+            total = _flight_value(page.text, 'total')
+        except PublicSourceError:
+            total = len(items)
+        if type(total) is not int or total < len(items):
+            raise PublicSourceError('官网资讯分页格式发生变化')
         slots = asyncio.Semaphore(3)
 
         async def enrich(item):
@@ -202,19 +216,39 @@ class EndfieldPublicService:
             except PublicSourceError:
                 return {**item, 'content_status': 'error', 'content_error': '终末地官网正文暂时无法读取'}
 
-        items = await asyncio.gather(*(enrich(item) for item in items))
         previous, _ = self._get('news')
-        items = retain_article_bodies(items, previous or [])
-        self._put('news', items)
-        if any(item.get('content_status') != 'full' for item in items if item['category'] == 'notices'):
-            return '部分官网公告正文读取失败，保留上次成功日历'
-        posts = [{**item, 'body': item['title'] + '\n' + item['body'], 'decision': 'accepted'}
-                 for item in items if item['category'] == 'notices' and item.get('body')]
-        if not posts:
-            return '官网没有可解析的公告，保留上次成功日历'
-        calendar = calendar_from_posts(posts)
-        if not calendar.get('version'):
-            return '官网列表中没有可确认的当前版本，保留上次成功日历'
+        items = retain_article_bodies(await asyncio.gather(*(enrich(item) for item in items)), previous or [])
+        # News remains independently usable even if archive pagination fails.
+        for page_number in range(1, NEWS_MAX_PAGES + 1):
+            self._put('news', items)
+            if any(item.get('content_status') != 'full' for item in items if item['category'] == 'notices'):
+                return '部分官网公告正文读取失败，保留上次成功日历'
+            posts = [{**item, 'body': item['title'] + '\n' + item['body'], 'decision': 'accepted'}
+                     for item in items if item['category'] == 'notices' and item.get('body')]
+            # Future version announcements cannot replace the current version;
+            # the shared parser checks the actual maintenance window first.
+            calendar = calendar_from_posts(posts)
+            if calendar.get('version'):
+                break
+            if page_number == NEWS_MAX_PAGES or page_number * NEWS_PAGE_SIZE >= total:
+                return '官网列表中没有可确认的当前版本，保留上次成功日历'
+            try:
+                response = await self._request(NEWS_API, {'lang': 'zh-cn', 'code': 'endfield_web',
+                    'page': page_number + 1, 'pageSize': NEWS_PAGE_SIZE})
+                data = response.json()
+                payload = data.get('data') if isinstance(data, dict) else None
+                if (not isinstance(payload, dict) or data.get('code') != 0 or
+                        payload.get('current') != page_number + 1 or payload.get('pageSize') != NEWS_PAGE_SIZE or
+                        type(payload.get('total')) is not int or payload['total'] < len(items)):
+                    raise PublicSourceError('官网资讯分页格式发生变化')
+                additional = _news_rows(payload.get('list'))
+                ids = {item['id'] for item in items}
+                if len(additional) > NEWS_PAGE_SIZE or any(item['id'] in ids for item in additional):
+                    raise PublicSourceError('官网资讯分页重复或格式发生变化')
+                total = payload['total']
+                items += retain_article_bodies(await asyncio.gather(*(enrich(item) for item in additional)), previous or [])
+            except (PublicSourceError, ValueError):
+                return '官网资讯分页暂时无法读取，保留上次成功日历'
         # A list of ordinary announcements may legitimately have no events,
         # but an identified version announcement must produce some.
         if any('版本更新说明' in p['title'] for p in posts) and not calendar.get('events'):

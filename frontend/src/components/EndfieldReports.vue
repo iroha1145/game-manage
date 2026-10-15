@@ -7,7 +7,7 @@ import SummaryMetrics from './SummaryMetrics.vue'
 import EndfieldArtwork from './EndfieldArtwork.vue'
 import EndfieldShipResident from './EndfieldShipResident.vue'
 import EndfieldLoadout from './EndfieldLoadout.vue'
-const props = defineProps({ payload: Object, view: { type: String, default: 'overview' }, fetchedAt: String, stale: Boolean,
+const props = defineProps({ payload: Object, imageMode:Boolean, view: { type: String, default: 'overview' }, fetchedAt: String, stale: Boolean,
   operatorDetail: Object, operatorDetailId: String, operatorBusy: Boolean, operatorError: String, operatorStale: Boolean, operatorFetchedAt: String })
 const emit = defineEmits(['inspect', 'navigate', 'close-detail'])
 const report = computed(() => profileReport(props.payload))
@@ -64,8 +64,8 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 <template>
   <div class="endfield-reports">
     <template v-if="view === 'overview'">
-      <section class="ef-report ef-hero"><header><div><p class="ef-kicker">01 / FIELD RECORD</p><h2>今日档案</h2></div><span v-if="stale" class="badge badge-stale">待更新</span><span v-else class="ef-state">森空岛档案</span></header>
-        <div class="ef-identity"><EndfieldArtwork :src="overview.base?.avatar_url" :name="overview.base?.name || '管理员'" /><div><h3>{{ overview.base?.name || '未知昵称' }}</h3><p>UID {{ display(overview.base?.role_id) }}</p></div><dl><div><dt>账号等级</dt><dd>{{ display(overview.base?.level) }}</dd></div><div><dt>探索等级</dt><dd>{{ display(overview.base?.world_level) }}</dd></div></dl></div>
+      <section class="ef-report ef-hero"><header><div><p class="ef-kicker">01 / FIELD RECORD</p><h2>今日档案</h2></div><span v-if="stale && !imageMode" class="badge badge-stale">待更新</span><span v-else class="ef-state">森空岛档案</span></header>
+        <div class="ef-identity"><EndfieldArtwork :src="overview.base?.avatar_url" :name="overview.base?.name || '管理员'" /><div><h3>{{ overview.base?.name || '未知昵称' }}</h3><p v-if="!imageMode">UID {{ display(overview.base?.role_id) }}</p></div><dl><div><dt>账号等级</dt><dd>{{ display(overview.base?.level) }}</dd></div><div><dt>探索等级</dt><dd>{{ display(overview.base?.world_level) }}</dd></div></dl></div>
         <p v-if="mainMission" class="ef-main-mission"><span>主线进度</span><strong>{{ mainMission }}</strong></p>
         <SummaryMetrics :metrics="overviewMetrics" />
       </section>
@@ -77,24 +77,25 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
           <p class="ef-note">待办仅依据这次档案中的明确进度；未提供的任务状态仍未知。</p>
         </section>
       </div>
-      <div class="ef-shortcuts"><button v-for="[key,label] in [['operators','查看全员练度'],['regions','查看地区建设'],['ship','查看帝江号']]" :key="key" type="button" class="ui-button" @click="emit('navigate',key)">{{ label }} →</button></div>
+      <div v-if="!imageMode" class="ef-shortcuts"><button v-for="[key,label] in [['operators','查看全员练度'],['regions','查看地区建设'],['ship','查看帝江号']]" :key="key" type="button" class="ui-button" @click="emit('navigate',key)">{{ label }} →</button></div>
     </template>
 
     <template v-else-if="view === 'operators' || view === 'detail'">
       <section v-if="view === 'operators'" v-show="!operatorDetailId" class="ef-report"><header><div><p class="ef-kicker">01 / OPERATORS</p><h2>全员练度</h2></div><span class="ef-note">显示 {{ selected.length }} / {{ operators.length }} 名</span></header>
         <SummaryMetrics compact :metrics="trainingMetrics" />
         <div class="ef-distribution"><span v-for="(count,key) in training.summary?.rarity_counts" :key="`r${key}`">{{ key }}★ <b>{{ count }}</b></span><span v-for="(count,key) in training.summary?.phase_counts" :key="`p${key}`">精英阶段 {{ key }} <b>{{ count }}</b></span></div>
-        <div class="ef-filters"><label>查找干员<input :value="search" @input="search = $event.target.value" type="search" placeholder="姓名或编号" /></label><label>稀有度<select v-model="rarity"><option value="">全部稀有度</option><option v-for="value in rarities" :key="value" :value="String(value)">{{ value }}★</option></select></label><label>职业<select v-model="profession"><option value="">全部职业</option><option v-for="value in professions" :key="value" :value="value">{{ value }}</option></select></label><label>排序<select v-model="sort"><option value="level">等级从高到低</option><option value="rarity">稀有度从高到低</option><option value="potential">潜能从高到低</option><option value="name">姓名</option></select></label></div>
+        <div v-if="!imageMode" class="ef-filters"><label>查找干员<input :value="search" @input="search = $event.target.value" type="search" placeholder="姓名或编号" /></label><label>稀有度<select v-model="rarity"><option value="">全部稀有度</option><option v-for="value in rarities" :key="value" :value="String(value)">{{ value }}★</option></select></label><label>职业<select v-model="profession"><option value="">全部职业</option><option v-for="value in professions" :key="value" :value="value">{{ value }}</option></select></label><label>排序<select v-model="sort"><option value="level">等级从高到低</option><option value="rarity">稀有度从高到低</option><option value="potential">潜能从高到低</option><option value="name">姓名</option></select></label></div>
         <p v-if="!selected.length" class="ef-empty">{{ operators.length ? '没有匹配的干员，可调整筛选。' : '尚无干员资料。' }}</p>
         <div v-else class="ef-roster"><article v-for="(operator,index) in selected" :key="operator.id || index" class="ef-operator">
           <div class="ef-portrait"><EndfieldArtwork role :operator-id="operator.char_id || operator.id" :src="operator.avatar_url" :name="operator.name || '干员'" /><small>{{ display(operator.rarity) }}★</small></div>
           <div class="ef-operator-copy"><h3>{{ display(operator.name) }}</h3><p class="ef-operator-level">Lv. {{ display(operator.level) }} <span>潜能 {{ display(operator.potential) }}</span></p><p>精英阶段 {{ display(operator.evolve_phase ?? operator.phase) }}</p><p class="ef-note">{{ named(operator.profession) }} · {{ named(operator.property) }}</p></div>
-          <button type="button" class="ui-button" :disabled="operatorBusy && operatorDetailId === String(operator.id) || !operator.id" :aria-expanded="operatorDetailId === String(operator.id)" @click="inspect(operator.id,$event)">查看配装</button>
+          <EndfieldLoadout v-if="imageMode && (operator.weapon || rows(operator.equipment).length || rows(operator.skills).length)" :operator="operator" />
+          <button v-if="!imageMode" type="button" class="ui-button" :disabled="operatorBusy && operatorDetailId === String(operator.id) || !operator.id" :aria-expanded="operatorDetailId === String(operator.id)" @click="inspect(operator.id,$event)">查看配装</button>
         </article></div>
       </section>
-      <section v-if="operatorDetailId" ref="detailPanel" class="ef-report ef-detail" tabindex="-1" aria-label="干员配装详情" aria-live="polite"><div class="ef-detail-toolbar"><button type="button" class="text-link" @click="emit('close-detail')">← 返回全员练度</button><span v-if="operatorStale" class="badge badge-stale">配装待更新</span></div><header><div><p class="ef-kicker">OPERATOR FILE / LOADOUT</p><h2>干员配装<span v-if="!detail"> · {{ detailName }}</span></h2></div><button type="button" class="ui-button" :disabled="operatorBusy" @click="emit('inspect',operatorDetailId)">重新读取配装</button></header>
+      <section v-if="operatorDetailId" ref="detailPanel" class="ef-report ef-detail" tabindex="-1" aria-label="干员配装详情" aria-live="polite"><div v-if="!imageMode" class="ef-detail-toolbar"><button type="button" class="text-link" @click="emit('close-detail')">← 返回全员练度</button><span v-if="operatorStale" class="badge badge-stale">配装待更新</span></div><header><div><p class="ef-kicker">OPERATOR FILE / LOADOUT</p><h2>干员配装<span v-if="!detail"> · {{ detailName }}</span></h2></div><button v-if="!imageMode" type="button" class="ui-button" :disabled="operatorBusy" @click="emit('inspect',operatorDetailId)">重新读取配装</button></header>
         <p v-if="operatorBusy" class="ef-empty" role="status">正在读取干员配装…</p><p v-if="operatorError" class="ef-error" role="alert">{{ operatorError }}</p>
-        <p class="ef-detail-time">配装同步于 {{ time(operatorFetchedAt) }}<span v-if="operatorStale"> · 正在显示上次成功读取的配装</span><span v-else-if="!operatorFetchedAt"> · 来源未提供独立更新时间</span></p>
+        <p v-if="!imageMode" class="ef-detail-time">配装同步于 {{ time(operatorFetchedAt) }}<span v-if="operatorStale"> · 正在显示上次成功读取的配装</span><span v-else-if="!operatorFetchedAt"> · 来源未提供独立更新时间</span></p>
         <EndfieldLoadout v-if="detail" :operator="detail" />
       </section>
     </template>
@@ -109,17 +110,17 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
     </template>
 
     <template v-else-if="view === 'ship'">
-      <section class="ef-report ef-ship-intro"><header><div><p class="ef-kicker">01 / DIJIANG</p><h2>帝江号</h2></div><span class="ef-state">快照换算</span></header><dl class="ef-ship-counts"><div><dt>房间数</dt><dd>{{ display(report.ship?.summary?.room_count) }}</dd></div><div><dt>有驻守记录的房间</dt><dd>{{ display(report.ship?.summary?.staffed_rooms) }}</dd></div><div><dt>驻守席位记录</dt><dd>{{ display(report.ship?.summary?.operator_slots) }}</dd></div></dl><p class="ef-note ef-ship-time">游戏观测于 {{ time(report.observed_at) }} · 抓取于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p><details class="ef-model-note"><summary>查看换算依据</summary><p>心情与信赖采用原站 API v3.5.0 参考模型换算该次快照，不外推当前状态。心情以 100% 为上限，信赖最高 200%。</p><p>模型声明心情原始值为 0–10000；超出范围时保留原值，百分比显示未知。信赖按来源阈值分为友好、亲近、信任。换算结果不是官方实时状态，也未计入时间或房间加成。</p><a :href="SHIP_CONVERSION_MODEL.source_url" target="_blank" rel="noopener noreferrer">公开模型说明 ↗</a></details></section>
+      <section class="ef-report ef-ship-intro"><header><div><p class="ef-kicker">01 / DIJIANG</p><h2>帝江号</h2></div><span class="ef-state">快照换算</span></header><dl class="ef-ship-counts"><div><dt>房间数</dt><dd>{{ display(report.ship?.summary?.room_count) }}</dd></div><div><dt>有驻守记录的房间</dt><dd>{{ display(report.ship?.summary?.staffed_rooms) }}</dd></div><div><dt>驻守席位记录</dt><dd>{{ display(report.ship?.summary?.operator_slots) }}</dd></div></dl><p v-if="!imageMode" class="ef-note ef-ship-time">游戏观测于 {{ time(report.observed_at) }} · 抓取于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p><details v-if="!imageMode" class="ef-model-note"><summary>查看换算依据</summary><p>心情与信赖采用原站 API v3.5.0 参考模型换算该次快照，不外推当前状态。心情以 100% 为上限，信赖最高 200%。</p><p>模型声明心情原始值为 0–10000；超出范围时保留原值，百分比显示未知。信赖按来源阈值分为友好、亲近、信任。换算结果不是官方实时状态，也未计入时间或房间加成。</p><a :href="SHIP_CONVERSION_MODEL.source_url" target="_blank" rel="noopener noreferrer">公开模型说明 ↗</a></details></section>
       <p v-if="!rooms.length" class="ef-empty ef-report">尚无帝江号资料。</p>
-      <div class="ef-columns ef-ship-rooms"><section v-for="(room,index) in rooms" :key="room.id || index" class="ef-report ef-ship-room"><header><div><p class="ef-kicker">ROOM {{ String(index+1).padStart(2,'0') }}</p><h2>{{ room.name || '舱室' }}</h2></div><span class="ef-room-level"><span>等级</span> LV. {{ display(room.level) }}</span></header><p v-if="!rows(room.operators).length" class="ef-empty">{{ room.operators_available === true ? '当前没有驻守干员记录。' : '尚未采集驻守干员资料。' }}</p><EndfieldShipResident v-for="(operator,number) in rows(room.operators)" :key="operator.id || operator.charId || number" :operator="operator" /></section></div>
+      <div class="ef-columns ef-ship-rooms"><section v-for="(room,index) in rooms" :key="room.id || index" class="ef-report ef-ship-room"><header><div><p class="ef-kicker">ROOM {{ String(index+1).padStart(2,'0') }}</p><h2>{{ room.name || '舱室' }}</h2></div><span class="ef-room-level"><span>等级</span> LV. {{ display(room.level) }}</span></header><p v-if="!rows(room.operators).length" class="ef-empty">{{ room.operators_available === true ? '当前没有驻守干员记录。' : '尚未采集驻守干员资料。' }}</p><EndfieldShipResident v-for="(operator,number) in rows(room.operators)" :key="operator.id || operator.charId || number" :operator="operator" :image-mode="imageMode" /></section></div>
     </template>
     <template v-else-if="view === 'honor'">
-      <section class="ef-report"><header><div><p class="ef-kicker">01 / HONOR ROAD</p><h2>光荣之路</h2></div><span v-if="medals.length" class="ef-note" role="status">显示 {{ filteredMedals.length }} / {{ medals.length }} 条已记录奖章</span></header><SummaryMetrics compact :metrics="[{label:'来源成就总数',value:honor.summary?.declared_count},{label:'已记录奖章',value:honor.summary?.listed_count}]" /><p class="ef-note">展示档案提供的奖章，不推断未获得的奖章或全收集进度。</p><div v-if="medals.length" class="ef-filters ef-medal-filters"><label>查找奖章<input :value="medalSearch" @input="medalSearch=$event.target.value" type="search" placeholder="输入奖章名称" /></label><label>奖章分类<select v-model="medalCategory"><option value="">全部分类</option><option v-for="category in categories" :key="JSON.stringify(category)" :value="JSON.stringify(category)">{{ category || '未提供分类' }}</option></select></label><label>获得时间排序<select v-model="medalSort"><option value="recent">最近获得优先</option><option value="oldest">最早获得优先</option><option value="source">来源顺序</option></select></label></div></section>
+      <section class="ef-report"><header><div><p class="ef-kicker">01 / HONOR ROAD</p><h2>光荣之路</h2></div><span v-if="medals.length" class="ef-note" role="status">显示 {{ filteredMedals.length }} / {{ medals.length }} 条已记录奖章</span></header><SummaryMetrics compact :metrics="[{label:'来源成就总数',value:honor.summary?.declared_count},{label:'已记录奖章',value:honor.summary?.listed_count}]" /><p class="ef-note">展示档案提供的奖章，不推断未获得的奖章或全收集进度。</p><div v-if="medals.length && !imageMode" class="ef-filters ef-medal-filters"><label>查找奖章<input :value="medalSearch" @input="medalSearch=$event.target.value" type="search" placeholder="输入奖章名称" /></label><label>奖章分类<select v-model="medalCategory"><option value="">全部分类</option><option v-for="category in categories" :key="JSON.stringify(category)" :value="JSON.stringify(category)">{{ category || '未提供分类' }}</option></select></label><label>获得时间排序<select v-model="medalSort"><option value="recent">最近获得优先</option><option value="oldest">最早获得优先</option><option value="source">来源顺序</option></select></label></div></section>
       <p v-if="!medals.length" class="ef-report ef-empty">{{ honor.available === true ? '当前档案没有奖章记录。' : '尚未采集奖章详情，请刷新档案。' }}</p>
       <section v-else-if="!filteredMedals.length" class="ef-report ef-empty"><p>没有匹配的奖章；可调整名称或分类筛选。</p><button type="button" class="ui-button" @click="clearMedalFilters">清除奖章筛选</button></section>
       <div v-else class="ef-medals"><article v-for="(medal,index) in filteredMedals" :key="medal.id ?? index" class="ef-report ef-medal"><EndfieldArtwork :src="medal.icon_url" :name="medal.name || '奖章'" /><div><p class="ef-kicker">MEDAL {{ String(index+1).padStart(2,'0') }}</p><h3>{{ medal.name || '未命名奖章' }}</h3><span class="ef-medal-category">{{ medal.category || '未提供分类' }}</span><p>等级 {{ display(medal.level) }} <span class="ef-medal-plated">{{ medal.is_plated === true ? '已镀层' : medal.is_plated === false ? '未镀层' : '镀层未知' }}</span></p><p class="ef-note">获得于 {{ time(medal.obtained_at) }}</p></div></article></div>
     </template>
-    <footer class="ef-source"><details v-if="view==='ship' || operatorDetailId"><summary>{{ stale ? '档案来源 · 待更新' : '档案来源' }}</summary><p>森空岛档案 · {{ stale ? '正在显示已有资料，等待更新' : '已采集资料' }} · 观测于 {{ time(report.observed_at) }} · 同步于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p></details><template v-else>森空岛档案 · {{ stale ? '正在显示已有资料，等待更新' : '已采集资料' }}<span>观测于 {{ time(report.observed_at) }}</span><span>同步于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</span></template></footer>
+    <footer v-if="!imageMode" class="ef-source"><details><summary>{{ stale ? '档案来源 · 待更新' : '档案来源' }}</summary><p>森空岛档案 · {{ stale ? '正在显示已有资料，等待更新' : '已采集资料' }} · 观测于 {{ time(report.observed_at) }} · 同步于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p></details></footer>
   </div>
 </template>
 
@@ -161,6 +162,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 .ef-portrait { height:134px; position:relative; display:grid; place-items:center; background:linear-gradient(150deg,var(--accent-soft),transparent); border-bottom:1px solid var(--border); overflow:hidden; }
 .ef-portrait>.endfield-artwork { width:100%; height:100%; border:0; background:transparent; font-size:46px; }
 .ef-portrait small { position:absolute; right:8px; top:8px; padding:3px 6px; color:var(--game-endfield); background:var(--card-bg); font-family:var(--font-mono); font-size:11px; }
+.ef-operator:has(> .ef-loadout) { grid-column:1/-1; }
 .ef-operator-copy { padding:14px 14px 0; flex:1; }
 .ef-operator h3 { font-size:16px; line-height:1.4; overflow-wrap:anywhere; }
 .ef-operator p { font-size:12px; margin-top:7px; }
@@ -242,7 +244,8 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
   .ef-identity dl { width:100%; margin-left:0; border-top:1px solid var(--border); padding-top:14px; gap:30px; }
   .ef-identity dd { font-size:22px; }
   .ef-portrait { height:110px; }
-  .ef-operator-copy { padding:12px 10px 0; }
+  .ef-operator:has(> .ef-loadout) { grid-column:1/-1; }
+.ef-operator-copy { padding:12px 10px 0; }
   .ef-operator h3 { font-size:14px; }
   .ef-operator p { font-size:11px; }
   .ef-operator button { margin:12px 10px; min-height:40px; font-size:11px; }

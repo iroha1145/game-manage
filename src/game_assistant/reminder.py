@@ -10,6 +10,7 @@ from game_assistant.config import Settings
 from game_assistant.event_calendar import BEIJING_TZ
 from game_assistant.models import Capability, FetchResult, GameEvent, StaminaInfo
 from game_assistant.reminder_store import ReminderDedup
+from game_assistant.reminder_policy import ReminderRule, stamina_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -32,18 +33,22 @@ class ReminderEngine:
         self._fail_counts: dict[tuple[str, str], int] = {}
 
     async def deliver(self, r: Reminder) -> bool:
-        if self.dedup.already_sent(r.dedup_key):
+        lease = self.dedup.claim(r.dedup_key)
+        if not lease:
             return False
-        if not await self.notifier.send(r.title, r.body):
-            return False  # 未配置 SendKey 等；不 mark_sent，配置后可再发
-        self.dedup.mark_sent(r.dedup_key)
-        return True
+        success = False
+        try:
+            success = await self.notifier.send(r.title, r.body)
+        finally:
+            completed = self.dedup.finish(r.dedup_key, lease, success)
+        return completed
 
     async def handle_poll(self, game_id: str, display_name: str,
                           capability: Capability, result: FetchResult,
                           failure_count: int | None = None) -> None:
         settings = self._settings
-        today = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d")
+        now = datetime.now(timezone.utc)
+        today = now.astimezone(BEIJING_TZ).strftime("%Y-%m-%d")
         # 规则 1：连续拉取失败（达到阈值后每次失败都会尝试推送，由当日去重限流；成功清零）
         key = (game_id, capability.value)
         if result.error_kind == 'account_changed':
@@ -65,40 +70,32 @@ class ReminderEngine:
         # 规则 2/3：体力满 / 体力阈值
         if isinstance(result.payload, StaminaInfo):
             await self._stamina_rules(game_id, display_name, result.payload,
-                                      today, settings)
+                                      today, settings, now)
         # 规则 4：活动日历临期（版本公告解析/手填的 list[GameEvent]，逐活动评估）
         if isinstance(result.payload, list) and result.payload and \
                 all(isinstance(e, GameEvent) for e in result.payload):
             await self._events_rule(game_id, display_name, result.payload,
-                                    settings)
+                                    settings, now)
 
     async def _stamina_rules(self, game_id: str, display_name: str,
                              s: StaminaInfo, today: str,
-                             settings: Settings) -> None:
-        # 规则 2：体力满
-        if settings.notify_stamina_full and s.maximum > 0 and s.current >= s.maximum:
-            await self.deliver(Reminder(
-                f"{display_name}体力已满",
-                f"当前体力 {s.current}/{s.maximum}，快去消耗吧。",
-                f"stamina_full:{game_id}:{today}"))
-            return
-        # 规则 3：体力阈值（current < maximum 避免与体力满重复）
+                             settings: Settings, now: datetime) -> None:
         p = settings.stamina_threshold_percent
-        if 1 <= p <= 99 and s.maximum > 0 and s.current >= s.maximum * p / 100 \
-                and s.current < s.maximum:
-            await self.deliver(Reminder(
-                f"{display_name}体力即将回满",
-                f"当前体力 {s.current}/{s.maximum}（≥{p}%）。",
-                f"stamina_thres:{game_id}:{today}"))
+        policy = ReminderRule(enabled=True, notify_full=settings.notify_stamina_full,
+            threshold_percent=p if 1 <= p <= 99 else None,
+            city_threshold_percent=settings.nte_city_stamina_threshold_percent or None)
+        prefix = {'full':'stamina_full','threshold':'stamina_thres','city_threshold':'city_stamina_thres'}
+        for item in stamina_candidates(s, policy, now):
+            title = '体力即将回满' if item['rule'] == 'threshold' else item['title']
+            await self.deliver(Reminder(display_name+title,item['body'],f"{prefix[item['rule']]}:{game_id}:{today}"))
 
     async def _events_rule(self, game_id: str, display_name: str,
                            events: list[GameEvent],
-                           settings: Settings) -> None:
+                           settings: Settings, now: datetime) -> None:
         # 规则 4：活动日历临期（结束前严格 0 < 秒数 <= N 天；逐活动评估，key 含 name+end_at
         # 的 md5 前 12 位，跨日不重复推）
         if settings.activity_remind_days <= 0:
             return
-        now = datetime.now(timezone.utc)
         for ev in events:
             if ev.end_at is None:
                 continue

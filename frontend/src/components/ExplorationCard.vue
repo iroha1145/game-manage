@@ -4,6 +4,7 @@ import { computed } from 'vue'
 
 const props = defineProps({
   snap: { type: Object, default: null },
+  imageMode: Boolean,
 })
 
 const payload = computed(() => props.snap?.payload ?? null)
@@ -49,7 +50,7 @@ const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
   <div class="cap-card wuwa-cq">
     <div class="cap-title">
       探索度
-      <span v-if="snap?.stale" class="badge badge-stale">
+      <span v-if="snap?.stale && !imageMode" class="badge badge-stale">
         数据可能过期
       </span>
       <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}</span>

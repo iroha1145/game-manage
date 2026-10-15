@@ -1,8 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseBeijingTime, formatBeijingDateTime, beijingDayStart, calendarRange, shiftCalendarAnchor, eventStatus, eventGeometry, collectCalendarEvents, groupCalendarEvents, safeUrl } from './calendar.js'
+import { parseBeijingTime, formatBeijingDateTime, beijingDayStart, calendarRange, shiftCalendarAnchor, eventStatus, eventGeometry, collectCalendarEvents, groupCalendarEvents, safeUrl, calendarBoundary } from './calendar.js'
 
 const at = parseBeijingTime
+test('compact calendar boundaries retain estimated and unknown dates while full details retain source wording', () => {
+  const event={start_date:'2026-10-15',start_precision:'relative',start_estimated:true,start_text:'维护完成后',end_precision:'unknown',end_text:'分项公告时间待确认'}
+  assert.equal(calendarBoundary(event,'start',true),'2026-10-15 · 预计')
+  assert.equal(calendarBoundary(event,'end',true),'截止未知')
+  assert.match(calendarBoundary(event,'start'),/维护完成后.*预计日期/)
+  assert.equal(calendarBoundary(event,'end'),'分项公告时间待确认')
+  assert.equal(calendarBoundary({end_precision:'version_end',end_text:'版本更新维护前'},'end',true),'版本更新维护前')
+})
 test('relative starts use date geometry without claiming midnight is the opening time', () => {
   const e = { start_at: null, start_date: '2026-08-20', start_text: '3.6版本更新后', end_at: '2026-09-29T03:59:00+08:00' }
   const geometry = eventGeometry(e, calendarRange(at('2026-09-16'), 'rolling'))

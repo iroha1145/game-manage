@@ -117,12 +117,18 @@ test('public partial-source failures distinguish fresh contributing fallback fro
     const snap={state:'error',stale,primary_source:'community',fetched_at:'2026-10-14T00:00:00Z',payload:[{name:'可用来源活动',title:'可用来源资讯',source:'community',source_stale:stale,start_at:null,end_at:null}],poll_status:{source_statuses:{community:{state:'ok',stale:false},bilibili:{state:'error',error:'B站412'}}}}
     const calendar=mount(t,Calendar,{games:[{game_id:'wuthering_waves',display_name:'鸣潮',capabilities:['events']}],snapshots:{wuthering_waves:{events:snap}}})
     const articles=mount(t,Articles,{snap}), status=mount(t,Status,{capabilities:['events'],snapshots:{events:snap}})
+    assert.match(content(calendar),/可用来源活动/)
+    assert.match(content(articles),/可用来源资讯/)
     if(!stale) {
-      for(const view of [calendar,articles,status])assert.match(content(view),/部分来源不可用，显示可用来源数据/)
-      assert.doesNotMatch(content(calendar),/活动采集失败|保留上次成功快照|数据可能过期/)
+      for(const view of [articles,status])assert.match(content(view),/部分来源不可用，显示可用来源数据/)
+      assert.doesNotMatch(content(calendar),/活动更新暂不可用|活动采集失败|保留上次成功快照|数据可能过期/)
       assert.doesNotMatch(content(articles),/采集失败，保留上次成功数据|旧记录|数据可能过期/)
     } else {
-      assert.match(content(calendar),/活动采集失败.*保留上次成功快照/)
+      assert.match(content(calendar),/活动更新暂不可用.*正在显示已有活动/)
+      const staleDetails=nodes(calendar,'details').find(node=>node.props.class==='calendar-source-states')
+      assert.ok(staleDetails)
+      assert.ok(!staleDetails.props.open)
+      assert.match(content(staleDetails),/数据可能过期/)
       assert.match(content(articles),/采集失败，保留上次成功数据/)
       for(const view of [calendar,articles,status])assert.doesNotMatch(content(view),/部分来源不可用，显示可用来源数据/)
     }

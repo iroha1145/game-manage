@@ -26,7 +26,12 @@ TABLES = {
     'wuwa_history': {'wuwa_history': (('id','account','server','kind','subject','season','content_hash','payload','source','source_at','observed_at','archived_at'), ('id',))},
     'wuwa_gacha': {
         'wuwa_gacha': (('account','server','pool','draw_id','payload','time','rarity'), ('account','server','pool','draw_id')),
-        'wuwa_gacha_imports': (('account','server','imported_at','source','failed_pools'), ('account','server'))},
+        'wuwa_gacha_imports': (('account','server','imported_at','source','failed_pools'), ('account','server')),
+        # Archive additions retain the same explicit account/server ownership;
+        # exact columns and primary keys still reject unknown schema changes.
+        'wuwa_gacha_batches': (('account','server','key','payload'), ('account','server','key')),
+        'wuwa_gacha_aggregates': (('account','server','key','payload'), ('account','server','key')),
+        'wuwa_gacha_rules': (('account','server','key','payload'), ('account','server','key'))},
     'nte': {
         'records': (('role','pool','uid','payload'), ('role','pool','uid')),
         'batches': (('role','digest','payload'), ('role','digest')),

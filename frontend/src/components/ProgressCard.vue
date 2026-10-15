@@ -5,6 +5,7 @@ import SummaryMetrics from './SummaryMetrics.vue'
 
 const props = defineProps({
   snap: { type: Object, default: null },
+  imageMode: Boolean,
 })
 
 function toLocal(value) {
@@ -33,7 +34,7 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
   <div class="cap-card">
     <div class="cap-title">
       周期进度
-      <span v-if="snap?.stale" class="badge badge-stale">
+      <span v-if="snap?.stale && !imageMode" class="badge badge-stale">
         数据可能过期
       </span>
     </div>

@@ -82,12 +82,12 @@ class CredentialStore:
     def load_grant(self, user_id: str, grant_id: str) -> dict:
         try:
             row = self.connection.execute(
-                'SELECT g.version,g.encrypted_payload FROM grants g JOIN users u ON u.user_id=g.user_id '
+                'SELECT g.version,g.encrypted_payload,g.provider FROM grants g JOIN users u ON u.user_id=g.user_id '
                 "WHERE g.user_id=? AND g.grant_id=? AND g.state='active' AND u.disabled_at IS NULL",
                 (user_id, grant_id)).fetchone()
             if row is None:
                 raise ValueError('grant unavailable')
-            version, raw = row
+            version, raw, provider = row
             if not isinstance(raw, bytes) or not raw.startswith(b'GRANT1\n'):
                 raise ValueError('envelope')
             from Crypto.Cipher import AES
@@ -96,9 +96,36 @@ class CredentialStore:
             data = json.loads(cipher.decrypt_and_verify(raw[39:], raw[23:39]))
             if not isinstance(data, dict):
                 raise ValueError('payload')
+            if data.get('_parent') is not None:
+                if provider != 'skland':
+                    raise ValueError('invalid parent provider')
+                self.validate_parent(user_id, data['_parent'])
             return data
         except Exception:
             raise CredentialStoreError('授权凭据不可用，请重新授权') from None
+
+    def validate_parent(self, user_id, parent):
+        """A derived grant is usable only while its exact owned authorization exists."""
+        if not isinstance(parent, dict):
+            raise CredentialStoreError('来源授权不可用')
+        row = self.connection.execute(
+            "SELECT g.grant_id,g.provider_subject,r.game_uid,a.server FROM accounts a "
+            "JOIN roles r ON r.account_id=a.account_id AND r.user_id=a.user_id "
+            "AND r.provider=a.provider AND r.game=a.game AND r.channel=a.channel AND r.server=a.server "
+            "JOIN grants g ON g.grant_id=a.grant_id AND g.user_id=a.user_id "
+            "WHERE a.user_id=? AND a.account_id=? AND r.role_id=? AND a.provider='hypergryph' "
+            "AND g.provider='hypergryph' AND g.state='active'",
+            (user_id, parent.get('account_id'), parent.get('role_id'))).fetchone()
+        if row is None or tuple(row) != tuple(parent.get(k) for k in ('grant_id','subject','game_uid','server')):
+            raise CredentialStoreError('来源授权已改变')
+        credentials = self.load_grant(user_id, row[0])
+        # Legacy cloud grants need no re-login or mutation. Reauthorization replaces this marker.
+        identity = credentials.get('_authorization_id') or 'legacy:' + row[0]
+        if str(credentials.get('uid') or '') != row[1] or credentials.get('_parent') or identity != parent.get('authorization_id') or not any(
+                str(role.get('role_id')) == row[2] and str(role.get('server_id')) == row[3]
+                for role in credentials.get('_verified_roles', [])):
+            raise CredentialStoreError('来源授权已改变')
+        return credentials
 
     def save_grant(self, user_id: str, grant_id: str, credentials: dict, version: int) -> None:
         sealed = self.seal_grant(user_id, grant_id, credentials, version)

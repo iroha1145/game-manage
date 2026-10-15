@@ -56,11 +56,8 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
 </script>
 
 <template>
-  <section v-if="visible.length" class="bili-panel" aria-label="B站官方动态来源">
-    <header class="bili-head">
-      <h2>B站官方动态来源</h2>
-      <span>近 60 天 · 图文动态</span>
-    </header>
+  <details v-if="visible.length" class="bili-panel" aria-label="B站官方动态来源">
+    <summary class="bili-head"><h2>更多信息 · B站官方动态</h2></summary>
     <div class="bili-body">
       <div class="bili-intro">
         <span class="eyebrow">收录范围</span>
@@ -112,7 +109,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
         </article>
       </div>
     </div>
-  </section>
+  </details>
 </template>
 
 <style scoped>

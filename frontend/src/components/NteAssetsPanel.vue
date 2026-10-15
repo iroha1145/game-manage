@@ -12,6 +12,7 @@ const props = defineProps({
   capability: { type: String, required: true },
   snap: { type: Object, default: null },
   roles: { type: Array, default: () => [] },
+  imageMode: Boolean,
 })
 const search = ref('')
 const ownership = ref('all')
@@ -70,18 +71,18 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
     <header class="cap-title">
       <h3>{{ titles[capability] }}</h3>
       <InfoHint :text="capability === 'teams' ? '来源：塔吉多官方配队推荐 · 公共内容' : '来源：塔吉多已登录角色资产'" />
-      <span v-if="snap?.stale" class="badge badge-stale">待更新</span>
+      <span v-if="snap?.stale && !imageMode" class="badge badge-stale">缓存已过期</span>
       <span v-if="payload && !legacy && capability !== 'teams'" class="owned-count">
         <span class="owned-label">拥有</span><b>{{ display(data.owned_count) }}</b><small>/ {{ display(data.total) }}</small>
         <span v-if="ownedShare !== null" class="meter"><i :style="{ '--pct': `${ownedShare}%` }" /></span>
       </span>
       <span v-if="payload && !legacy && capability === 'vehicles' && (data.show_name || data.show_id)" class="chip">展示载具：{{ data.show_name || data.show_id }}</span>
-      <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}（北京时间）</span>
+      <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}</span>
     </header>
     <p v-if="!payload" class="empty">暂无数据，请刷新数据</p>
     <p v-else-if="legacy" class="empty">数据版本已更新，请刷新获取资产详情</p>
     <template v-else>
-      <div v-if="entries.length" class="toolbar">
+      <div v-if="entries.length && !imageMode" class="toolbar">
         <input class="grow" type="search" :aria-label="searchLabels[capability]" :placeholder="placeholders[capability]" :value="search" @input="search = $event.target.value" />
         <MenuSelect v-if="capability !== 'teams'" v-model="ownership" label="拥有状态" align="end" :options="ownershipOptions" />
         <span class="count" role="status">显示 {{ filtered.length }} / {{ entries.length }} 条</span>

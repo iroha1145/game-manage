@@ -23,6 +23,12 @@ class SklandRequest(BaseModel):
     device_id: str = Field(default='',max_length=512)
 
 
+class SklandPassportRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    account_id: str = Field(min_length=1,max_length=128)
+    role_id: str = Field(min_length=1,max_length=128)
+
+
 def install_account_routes(app, service, login=None, *, query=None):
     """Return routes so the cloud entrypoint can explicitly allowlist each one."""
     login = login or service.login
@@ -95,6 +101,10 @@ def install_account_routes(app, service, login=None, *, query=None):
     @router.post('/auth/skland/connect')
     async def skland(body: SklandRequest,principal=Depends(require_user)):
         return await login.connect_skland(principal,body.cred,body.device_id)
+
+    @router.post('/auth/skland/passport')
+    async def skland_passport(body: SklandPassportRequest,principal=Depends(require_user)):
+        return await login.connect_skland_passport(principal,body.account_id,body.role_id)
 
     app.include_router(router)
     return router

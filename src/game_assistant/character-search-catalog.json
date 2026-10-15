@@ -1,0 +1,997 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "sources": [
+      {
+        "path": "frontend/src/nte-icon-catalog.js",
+        "sha256": "932157e8903a4e0fa0f6c23b69c14005bd7f036755055dac9da2845185a60b4a"
+      },
+      {
+        "path": "frontend/src/wuwa-icon-catalog.js",
+        "sha256": "c8a896c72829fafd16fdd053e430d1c92b584fa40881ca8278dd896c284d58f7"
+      },
+      {
+        "path": "frontend/src/wuwa-guides-catalog.js",
+        "sha256": "3b6355b46f282cc7305e407cf89e7e431dbb73e40637bacb18d48050bfb2729a"
+      },
+      {
+        "path": "src/game_assistant/nte_guides_catalog.py",
+        "sha256": "432c7244f58c359b515aebe0f6be02cbcb78f92ed756a9960fb6c07427502985"
+      },
+      {
+        "path": "src/game_assistant/wuwa_guide_updates.py",
+        "sha256": "1fa329539789f39a53d639105272adcca6c069f4a4581f2722a9edd0b83dae01"
+      }
+    ],
+    "alias_policy": "Existing icon aliases; NTE guide zero aliases; Wuwa guide-title confirmed wind protagonist aliases only.",
+    "pronunciation_overrides": {
+      "薄荷": "bo he",
+      "白藏": "bai zang",
+      "长离": "chang li",
+      "相里要": "xiang li yao",
+      "卜灵": "bu ling",
+      "千咲": "qian xiao"
+    },
+    "unknown_ids": "Excluded; observed roles retain their own ID/name, without borrowed aliases."
+  },
+  "characters": [
+    {
+      "game": "nte",
+      "character_id": "1003",
+      "canonical_name": "早雾",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "zaowu"
+      ],
+      "initials": [
+        "zw"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1008",
+      "canonical_name": "翳",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "yi"
+      ],
+      "initials": [
+        "y"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1010",
+      "canonical_name": "娜娜莉",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "nanali"
+      ],
+      "initials": [
+        "nnl"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1019",
+      "canonical_name": "薄荷",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "bohe"
+      ],
+      "initials": [
+        "bh"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1020",
+      "canonical_name": "哈尼娅",
+      "form": "",
+      "aliases": [
+        "哈妮娅"
+      ],
+      "pinyin": [
+        "haniya",
+        "haniya"
+      ],
+      "initials": [
+        "hny",
+        "hny"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1021",
+      "canonical_name": "埃德嘉",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "aidejia"
+      ],
+      "initials": [
+        "adj"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1023",
+      "canonical_name": "白藏",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "baizang"
+      ],
+      "initials": [
+        "bz"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1025",
+      "canonical_name": "哈索尔",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "hasuoer"
+      ],
+      "initials": [
+        "hse"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1033",
+      "canonical_name": "阿德勒",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "adele"
+      ],
+      "initials": [
+        "adl"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1039",
+      "canonical_name": "法帝娅",
+      "form": "",
+      "aliases": [
+        "法蒂娅"
+      ],
+      "pinyin": [
+        "fadiya",
+        "fatiya"
+      ],
+      "initials": [
+        "fdy",
+        "fty"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1046",
+      "canonical_name": "异能者·零(男)",
+      "form": "男",
+      "aliases": [
+        "零",
+        "主角",
+        "主角·零",
+        "异能者零男",
+        "男主"
+      ],
+      "pinyin": [
+        "yinengzhelingnan",
+        "ling",
+        "zhujue",
+        "zhujueling",
+        "yinengzhelingnan",
+        "nanzhu"
+      ],
+      "initials": [
+        "ynzln",
+        "zj",
+        "zjl",
+        "ynzln",
+        "nz"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1051",
+      "canonical_name": "异能者·零(女)",
+      "form": "女",
+      "aliases": [
+        "零",
+        "主角",
+        "主角·零",
+        "异能者零女",
+        "女主"
+      ],
+      "pinyin": [
+        "yinengzhelingnv",
+        "ling",
+        "zhujue",
+        "zhujueling",
+        "yinengzhelingnv",
+        "nvzhu"
+      ],
+      "initials": [
+        "ynzln",
+        "zj",
+        "zjl",
+        "ynzln",
+        "nz"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1054",
+      "canonical_name": "达芙蒂尔",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "dafudier"
+      ],
+      "initials": [
+        "dfde"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1055",
+      "canonical_name": "九原",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "jiuyuan"
+      ],
+      "initials": [
+        "jy"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1070",
+      "canonical_name": "海月",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "haiyue"
+      ],
+      "initials": [
+        "hy"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1073",
+      "canonical_name": "小吱",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "xiaozhi"
+      ],
+      "initials": [
+        "xz"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1004",
+      "canonical_name": "安魂曲",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "anhunqu"
+      ],
+      "initials": [
+        "ahq"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1052",
+      "canonical_name": "浔",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "xun"
+      ],
+      "initials": [
+        "x"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1071",
+      "canonical_name": "卡厄斯",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "kaesi"
+      ],
+      "initials": [
+        "kes"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1075",
+      "canonical_name": "伊洛伊",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "yiluoyi"
+      ],
+      "initials": [
+        "yly"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1076",
+      "canonical_name": "真红",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "zhenhong"
+      ],
+      "initials": [
+        "zh"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1036",
+      "canonical_name": "残虹",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "canhong"
+      ],
+      "initials": [
+        "ch"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1072",
+      "canonical_name": "灵可",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "lingke"
+      ],
+      "initials": [
+        "lk"
+      ]
+    },
+    {
+      "game": "nte",
+      "character_id": "1042",
+      "canonical_name": "黑羽",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "heiyu"
+      ],
+      "initials": [
+        "hy"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1108",
+      "canonical_name": "绯雪",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "feixue"
+      ],
+      "initials": [
+        "fx"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1209",
+      "canonical_name": "莫宁",
+      "form": "热熔",
+      "aliases": [],
+      "pinyin": [
+        "moning"
+      ],
+      "initials": [
+        "mn"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1413",
+      "canonical_name": "清宵",
+      "form": "气动",
+      "aliases": [],
+      "pinyin": [
+        "qingxiao"
+      ],
+      "initials": [
+        "qx"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1110",
+      "canonical_name": "穗穗",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "suisui"
+      ],
+      "initials": [
+        "ss"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1610",
+      "canonical_name": "秧秧·玄翎",
+      "form": "湮灭",
+      "aliases": [],
+      "pinyin": [
+        "yangyangxuanling"
+      ],
+      "initials": [
+        "yyxl"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1109",
+      "canonical_name": "洛瑟菈",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "luosela"
+      ],
+      "initials": [
+        "lsl"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1511",
+      "canonical_name": "露西",
+      "form": "衍射",
+      "aliases": [],
+      "pinyin": [
+        "luxi"
+      ],
+      "initials": [
+        "lx"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1308",
+      "canonical_name": "丽贝卡",
+      "form": "导电",
+      "aliases": [],
+      "pinyin": [
+        "libeika"
+      ],
+      "initials": [
+        "lbk"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1211",
+      "canonical_name": "达妮娅",
+      "form": "热熔",
+      "aliases": [],
+      "pinyin": [
+        "daniya"
+      ],
+      "initials": [
+        "dny"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1210",
+      "canonical_name": "爱弥斯",
+      "form": "热熔",
+      "aliases": [],
+      "pinyin": [
+        "aimisi"
+      ],
+      "initials": [
+        "ams"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1509",
+      "canonical_name": "琳奈",
+      "form": "衍射",
+      "aliases": [],
+      "pinyin": [
+        "linnai"
+      ],
+      "initials": [
+        "ln"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1508",
+      "canonical_name": "千咲",
+      "form": "湮灭",
+      "aliases": [],
+      "pinyin": [
+        "qianxiao"
+      ],
+      "initials": [
+        "qx"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1410",
+      "canonical_name": "尤诺",
+      "form": "气动",
+      "aliases": [],
+      "pinyin": [
+        "younuo"
+      ],
+      "initials": [
+        "yn"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1608",
+      "canonical_name": "弗洛洛",
+      "form": "湮灭",
+      "aliases": [],
+      "pinyin": [
+        "fuluoluo"
+      ],
+      "initials": [
+        "fll"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1207",
+      "canonical_name": "露帕",
+      "form": "热熔",
+      "aliases": [],
+      "pinyin": [
+        "lupa"
+      ],
+      "initials": [
+        "lp"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1407",
+      "canonical_name": "夏空",
+      "form": "气动",
+      "aliases": [],
+      "pinyin": [
+        "xiakong"
+      ],
+      "initials": [
+        "xk"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1409",
+      "canonical_name": "卡提希娅",
+      "form": "气动",
+      "aliases": [],
+      "pinyin": [
+        "katixiya"
+      ],
+      "initials": [
+        "ktxy"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1507",
+      "canonical_name": "赞妮",
+      "form": "衍射",
+      "aliases": [],
+      "pinyin": [
+        "zanni"
+      ],
+      "initials": [
+        "zn"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1607",
+      "canonical_name": "坎特蕾拉",
+      "form": "湮灭",
+      "aliases": [],
+      "pinyin": [
+        "kanteleila"
+      ],
+      "initials": [
+        "ktll"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1506",
+      "canonical_name": "菲比",
+      "form": "衍射",
+      "aliases": [],
+      "pinyin": [
+        "feibi"
+      ],
+      "initials": [
+        "fb"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1606",
+      "canonical_name": "洛可可",
+      "form": "湮灭",
+      "aliases": [],
+      "pinyin": [
+        "luokeke"
+      ],
+      "initials": [
+        "lkk"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1107",
+      "canonical_name": "珂莱塔",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "kelaita"
+      ],
+      "initials": [
+        "klt"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1603",
+      "canonical_name": "椿",
+      "form": "湮灭",
+      "aliases": [],
+      "pinyin": [
+        "chun"
+      ],
+      "initials": [
+        "c"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1505",
+      "canonical_name": "守岸人",
+      "form": "衍射",
+      "aliases": [],
+      "pinyin": [
+        "shouanren"
+      ],
+      "initials": [
+        "sar"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1305",
+      "canonical_name": "相里要",
+      "form": "导电",
+      "aliases": [],
+      "pinyin": [
+        "xiangliyao"
+      ],
+      "initials": [
+        "xly"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1105",
+      "canonical_name": "折枝",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "zhezhi"
+      ],
+      "initials": [
+        "zz"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1205",
+      "canonical_name": "长离",
+      "form": "热熔",
+      "aliases": [],
+      "pinyin": [
+        "changli"
+      ],
+      "initials": [
+        "cl"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1304",
+      "canonical_name": "今汐",
+      "form": "衍射",
+      "aliases": [],
+      "pinyin": [
+        "jinxi"
+      ],
+      "initials": [
+        "jx"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1405",
+      "canonical_name": "鉴心",
+      "form": "气动",
+      "aliases": [],
+      "pinyin": [
+        "jianxin"
+      ],
+      "initials": [
+        "jx"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1301",
+      "canonical_name": "卡卡罗",
+      "form": "导电",
+      "aliases": [],
+      "pinyin": [
+        "kakaluo"
+      ],
+      "initials": [
+        "kkl"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1203",
+      "canonical_name": "安可",
+      "form": "热熔",
+      "aliases": [],
+      "pinyin": [
+        "anke"
+      ],
+      "initials": [
+        "ak"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1503",
+      "canonical_name": "维里奈",
+      "form": "衍射",
+      "aliases": [],
+      "pinyin": [
+        "weilinai"
+      ],
+      "initials": [
+        "wln"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1104",
+      "canonical_name": "凌阳",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "lingyang"
+      ],
+      "initials": [
+        "ly"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1307",
+      "canonical_name": "卜灵",
+      "form": "导电",
+      "aliases": [],
+      "pinyin": [
+        "buling"
+      ],
+      "initials": [
+        "bl"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1504",
+      "canonical_name": "灯灯",
+      "form": "导电",
+      "aliases": [],
+      "pinyin": [
+        "dengdeng"
+      ],
+      "initials": [
+        "dd"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1402",
+      "canonical_name": "秧秧",
+      "form": "气动",
+      "aliases": [],
+      "pinyin": [
+        "yangyang"
+      ],
+      "initials": [
+        "yy"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1106",
+      "canonical_name": "釉瑚",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "youhu"
+      ],
+      "initials": [
+        "yh"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1103",
+      "canonical_name": "白芷",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "baizhi"
+      ],
+      "initials": [
+        "bz"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1202",
+      "canonical_name": "炽霞",
+      "form": "热熔",
+      "aliases": [],
+      "pinyin": [
+        "chixia"
+      ],
+      "initials": [
+        "cx"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1102",
+      "canonical_name": "散华",
+      "form": "冷凝",
+      "aliases": [],
+      "pinyin": [
+        "sanhua"
+      ],
+      "initials": [
+        "sh"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1403",
+      "canonical_name": "秋水",
+      "form": "气动",
+      "aliases": [],
+      "pinyin": [
+        "qiushui"
+      ],
+      "initials": [
+        "qs"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1602",
+      "canonical_name": "丹瑾",
+      "form": "湮灭",
+      "aliases": [],
+      "pinyin": [
+        "danjin"
+      ],
+      "initials": [
+        "dj"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1204",
+      "canonical_name": "莫特斐",
+      "form": "热熔",
+      "aliases": [],
+      "pinyin": [
+        "motefei"
+      ],
+      "initials": [
+        "mtf"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1303",
+      "canonical_name": "渊武",
+      "form": "导电",
+      "aliases": [],
+      "pinyin": [
+        "yuanwu"
+      ],
+      "initials": [
+        "yw"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1601",
+      "canonical_name": "桃祈",
+      "form": "湮灭",
+      "aliases": [],
+      "pinyin": [
+        "taoqi"
+      ],
+      "initials": [
+        "tq"
+      ]
+    },
+    {
+      "game": "wuthering_waves",
+      "character_id": "1408",
+      "canonical_name": "漂泊者·气动",
+      "form": "气动",
+      "aliases": [
+        "漂泊者",
+        "气动主",
+        "风主"
+      ],
+      "pinyin": [
+        "piaobozheqidong",
+        "piaobozhe",
+        "qidongzhu",
+        "fengzhu"
+      ],
+      "initials": [
+        "pbzqd",
+        "pbz",
+        "qdz",
+        "fz"
+      ]
+    }
+  ]
+}

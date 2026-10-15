@@ -27,9 +27,11 @@ import NteModuleCard from './NteModuleCard.vue'
 const props = defineProps({
   cloudAccount: Object,
   authAccount: Object,
+  authAccount: Object,
   cloudRole: String,
   cloudScope: Object,
   isAdmin: Boolean,
+  showSourceStatus: { type: Boolean, default: false },
   esportsBrowse: Object,
   game: { type: Object, required: true },
   externalSnapshots: { type: Object, required: true },
@@ -39,7 +41,12 @@ const props = defineProps({
   collectionStatus: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['refresh', 'calendar', 'esports-snapshot', 'esports-browse'])
+const reauthorizationRequired = computed(() => props.cloudAccount?.state === 'expired' || props.collectionStatus.some(row => row.game_id === props.game.game_id && row.state === 'auth_expired'))
+const errorNotice = computed(() => reauthorizationRequired.value ? '社区授权已失效，请到社区账号重新登录。' : props.externalError ? '暂时无法更新数据，请稍后重试。' : '')
 const activeSection = ref(props.initialSection)
+const nteGuideId=ref(''), nteFocusId=ref('')
+function openNteGuide(id){nteGuideId.value=id;activeSection.value='guides'}
+function openNteRole(id){nteFocusId.value=id;nteGuideId.value='';activeSection.value='characters'}
 const style = computed(() => gameStyle(props.game.game_id))
 const groups = computed(() => [
   { id: 'all', label: '全部', caps: props.game.capabilities },
@@ -103,8 +110,8 @@ function capProps(cap) {
 
 <template>
   <section class="game-card game-theme" :class="`game-${game.game_id}`" :style="{ '--game-accent': style.color }">
-    <div v-if="externalError" class="error-bar" role="alert">
-      {{ externalError }}
+    <div v-if="errorNotice" class="error-bar" role="alert">
+      {{ errorNotice }}
     </div>
 
     <header class="card-head">
@@ -115,7 +122,7 @@ function capProps(cap) {
       >
         未配置凭据
       </span>
-      <SourceStatusPanel :game="game" :collection="collectionStatus" />
+      <SourceStatusPanel v-if="showSourceStatus" :game="game" :collection="collectionStatus" />
       <button
         type="button"
         class="ui-button refresh-btn"
@@ -129,11 +136,11 @@ function capProps(cap) {
     <WuwaDashboard v-if="game.game_id === 'wuthering_waves'" :snaps="externalSnapshots" :configured="game.credentials_configured" :initial-section="initialSection" @calendar="emit('calendar')" />
     <LolDashboard v-else-if="game.game_id === 'league_of_legends'" :snaps="externalSnapshots" :esports-browse="esportsBrowse" @esports-snapshot="emit('esports-snapshot', $event)" @esports-browse="emit('esports-browse', $event)" @refresh="emit('refresh')" />
     <EndfieldDashboard v-else-if="game.game_id === 'endfield'" :snaps="externalSnapshots" :configured="game.credentials_configured" :auth-account="authAccount" :refreshing="externalRefreshing" :initial-section="initialSection" :cloud-account="cloudAccount" :cloud-role="cloudRole" :is-admin="isAdmin" @calendar="emit('calendar')" @refresh="emit('refresh')" />
-    <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" :can-maintain="!cloudAccount || isAdmin" /></NteModuleCard>
+    <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" :can-maintain="!cloudAccount || isAdmin" :character-id="nteGuideId" @role="openNteRole" /></NteModuleCard>
     <div v-else class="cap-list">
       <template v-for="(cap, index) in visibleCaps" :key="cap">
         <NteModuleCard v-if="game.game_id === 'nte' && capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
-          <component :is="capComponent(cap)" v-bind="capProps(cap)" />
+          <component :is="capComponent(cap)" v-bind="{...capProps(cap),...(cap==='roles' ? {focusCharacterId:nteFocusId,detailMode:!!nteFocusId,onGuide:openNteGuide} : {})}" />
         </NteModuleCard>
         <component
           :is="capComponent(cap)"

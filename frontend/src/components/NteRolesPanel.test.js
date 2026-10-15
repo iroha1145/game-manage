@@ -8,6 +8,36 @@ const snap = (items = entries) => ({ payload: { schema_version: 1, entries: item
 const button = (root, label) => nodes(root, 'button').find(n => n.props['aria-label'] === label)
 const cards = root => nodes(root, 'li').filter(n => n.props.class?.includes('role-card'))
 
+test('wide single-role detail requires explicit mode and never follows a one-result search', async t => {
+  const root=mount(t,Panel,{snap:snap(),accountId:'a'})
+  nodes(root,'input').find(n=>n.props['aria-label']==='搜索角色').props.onInput({target:{value:'角色1'}})
+  await nextTick()
+  assert.equal(cards(root).length,1)
+  assert.doesNotMatch(nodes(root,'section')[0].props.class,/role-detail-view/)
+  for (const imageMode of [false,true]) {
+    const selected=mount(t,Panel,{snap:snap([entries[0]]),detailMode:true,imageMode})
+    assert.match(nodes(selected,'section')[0].props.class,/role-detail-view/)
+    assert.equal(nodes(selected,'details')[0].props.open,true)
+    assert.match(content(selected),/攻击.*320.*战技一.*Lv5/)
+  }
+})
+
+test('image overview keeps the complete roster without mounting every detailed skill and equipment section', t => {
+  const root = mount(t, Panel, { snap: snap(), imageMode: true, detailMode: false })
+  assert.equal(cards(root).length, entries.length)
+  assert.equal(nodes(root, 'details').length, 0)
+  assert.match(content(root), /异环 角色/)
+  assert.doesNotMatch(content(root), /战技一|城区一/)
+})
+
+test('selected image role mounts all details and preserves unknown versus zero', t => {
+  const root = mount(t, Panel, { snap: snap([{ ...entries[0], awaken_level: null }]), imageMode: true, detailMode: true })
+  assert.equal(nodes(root, 'details').length, 1)
+  assert.match(content(root), /战技一.*Lv5/)
+  assert.match(content(root), /觉醒 未提供/)
+  assert.match(content(root), /Lv0/)
+})
+
 test('catalog icons accompany remote role filters and full collapsible equipment details', async t => {
   const root = mount(t, Panel, { accountId: 'a', snap: snap([
     { ...entries[0], id: '1010', name: '娜娜莉', level: 70, weapon: { name: '预备备', level: 60 }, skills: [{ name: '普通攻击', level: 5 }] },

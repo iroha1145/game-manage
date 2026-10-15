@@ -98,8 +98,8 @@ def test_roles_map_distinct_levels_and_official_icon():
     assert (entry.level, entry.awaken_level, entry.mix_level, entry.affinity_exp) == (55, 3, 2, 3300)
     assert (entry.quality, entry.element) == ("S", "魂")
     assert entry.icon_url == "https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/detail/1019.png"
-    assert entry.weapon.model_dump() == {"name": "弧盘", "level": 40, "quality": "A", "mix_level": 1}
-    assert [p.model_dump() for p in entry.properties] == [{"name": "攻击", "value": "1000"}]
+    assert {key:entry.weapon.model_dump()[key] for key in ('name','level','quality','mix_level')} == {"name": "弧盘", "level": 40, "quality": "A", "mix_level": 1}
+    assert [p.model_dump() for p in entry.properties] == [{"id":"atk", "name": "攻击", "value": "1000"}, {"id":"unknown", "name":None, "value":None}]
     assert entry.skills[0].level == 5
     assert entry.city_skills[0].name == "城区技能"
 

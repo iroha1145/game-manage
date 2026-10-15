@@ -318,3 +318,37 @@ async def test_routes_require_a_logged_in_role_and_serve_the_ledger(tmp_path):
         exported = await client.get("/api/endfield/gacha/export")
         assert "attachment" in exported.headers["content-disposition"]
         assert (await client.get("/api/endfield/gacha/summary", headers={"Origin": "https://evil.invalid"})).status_code == 403
+
+
+def test_legacy_unscanned_pool_does_not_claim_known_pending_false(tmp_path):
+    path=tmp_path/'legacy-coverage.sqlite3'
+    with sqlite3.connect(path) as db:
+        db.execute('CREATE TABLE pools(role TEXT NOT NULL,pool_key TEXT NOT NULL,kind TEXT NOT NULL,label TEXT NOT NULL,last_sync_at TEXT,PRIMARY KEY(role,pool_key))')
+        db.execute('INSERT INTO pools VALUES(?,?,?,?,NULL)',('r1',SPECIAL,'character','legacy'))
+    store=EndfieldGachaStore(path)
+    store._add('r1',SPECIAL,[dict(seq_id=1,rarity=4,is_free=False,gacha_ts=1780000000000)])
+    summary=store.summary('r1')
+    assert summary.complete is None and summary.pools[0].pending is None
+
+
+def test_scan_pending_addition_preserves_old_named_sql_and_sqlite_backup(tmp_path):
+    from contextlib import closing
+    original=tmp_path/'legacy.sqlite3';working=tmp_path/'upgrade.sqlite3';backup=tmp_path/'backup.sqlite3'
+    with closing(sqlite3.connect(original)) as db:
+        db.execute('CREATE TABLE pools(role TEXT NOT NULL,pool_key TEXT NOT NULL,kind TEXT NOT NULL,label TEXT NOT NULL,last_sync_at TEXT,PRIMARY KEY(role,pool_key))')
+        db.executemany('INSERT INTO pools VALUES(?,?,?,?,?)',[('r1',SPECIAL,'character','legacy','2026-10-14T00:00:00Z'),('r1','unscanned','character','unknown',None)])
+        db.commit()
+        with closing(sqlite3.connect(working)) as target:db.backup(target)
+    before=original.read_bytes();store=EndfieldGachaStore(working)
+    with closing(sqlite3.connect(working)) as db:
+        assert db.execute('SELECT pool_key,scan_pending FROM pools ORDER BY pool_key').fetchall()==[(SPECIAL,0),('unscanned',None)]
+        # These are the deployed a2ed77c constructor/sync/export named-column statements.
+        db.execute('INSERT INTO pools(role,pool_key,kind,label) VALUES(?,?,?,?) ON CONFLICT(role,pool_key) DO UPDATE SET label=excluded.label',('r1',SPECIAL,'character','old-code-updated'))
+        db.execute('UPDATE pools SET last_sync_at=? WHERE role=? AND pool_key=?',('2026-10-15T00:00:00Z','r1',SPECIAL))
+        assert len(db.execute('SELECT pool_key,kind,label,last_sync_at FROM pools WHERE role=?',('r1',)).fetchall())==2
+        db.commit()
+        with closing(sqlite3.connect(backup)) as target:db.backup(target)
+        rows=db.execute('SELECT * FROM pools ORDER BY pool_key').fetchall()
+    reopened=EndfieldGachaStore(working)
+    with closing(sqlite3.connect(backup)) as db:assert db.execute('SELECT * FROM pools ORDER BY pool_key').fetchall()==rows
+    assert original.read_bytes()==before and reopened.path==working

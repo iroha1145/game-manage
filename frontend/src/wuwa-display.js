@@ -23,6 +23,7 @@ export function starCount(v) {
   return Number.isInteger(n) && n > 0 && n <= 6 ? n : 0
 }
 export const fieldLabels = {
+  role_attribute_list: '角色属性',
   weapon_type_name: '武器类型',
   is_main_role: '当前主角',
   skin_name: '外观名称',

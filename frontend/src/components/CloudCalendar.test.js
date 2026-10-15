@@ -28,6 +28,16 @@ async function fixture(t, publicRead, identity = () => 'A') {
 }
 async function openCalendar(root) { button(root, '活动日历').props.onClick(); await tick(); await tick() }
 
+test('restoring a calendar bookmark loads public events after authentication without another navigation', async t => {
+  const previous = globalThis.window
+  globalThis.window = { location: { hash: '#/calendar?game=nte' }, addEventListener() {}, removeEventListener() {}, scrollTo() {} }
+  t.after(() => { globalThis.window = previous })
+  const { root, calls } = await fixture(t, path => response(events(`${path.split('/')[4]}书签活动`)))
+  assert.match(content(root), /nte书签活动/)
+  assert.doesNotMatch(content(root), /wuthering_waves书签活动|endfield书签活动/)
+  assert.deepEqual(calls.filter(call => call.path.startsWith('/api/public/')).map(call => call.path), games.map(game => `/api/public/games/${game}/events`))
+})
+
 test('cloud calendar defaults to all three games with one local filter and retains source/date precision', async t => {
   const { root, calls } = await fixture(t, path => response(events(`${path.split('/')[4]}合成活动`)))
   await openCalendar(root)
@@ -72,23 +82,23 @@ test('partial calendar read failure retains that game while successful games upd
   assert.match(content(root), /wuthering_waves第2轮活动/)
   assert.match(content(root), /endfield第2轮活动/)
   assert.match(content(root), /nte第1轮活动/)
-  assert.match(content(root), /异环 · 游戏数据读取或刷新异常.*保留上次成功快照/)
+  assert.match(content(root), /异环 · 活动读取失败.*正在显示已有活动/)
   choose(root, '筛选游戏', 'endfield'); await tick()
-  assert.doesNotMatch(content(root), /游戏数据读取或刷新异常/)
+  assert.doesNotMatch(content(root), /活动读取失败/)
   choose(root, '筛选游戏', 'nte'); await tick()
   round = 3; await button(root, '读取公共活动').props.onClick(); await tick()
   assert.match(content(root), /nte第3轮活动/)
-  assert.doesNotMatch(content(root), /游戏数据读取或刷新异常|wuthering_waves第3轮活动/)
+  assert.doesNotMatch(content(root), /活动读取失败|wuthering_waves第3轮活动/)
 })
 
 test('aggregate calendar distinguishes uncollected, collected empty, and first read failure by game', async t => {
   const { root } = await fixture(t, path => path.includes('/nte/') ? response({ state: 'never', payload: null }) : path.includes('/endfield/') ? new Response('{}', { status: 503 }) : response({ state: 'ok', payload: [] }))
   await openCalendar(root)
-  assert.match(content(root), /异环 · 尚未采集活动/)
-  assert.match(content(root), /终末地 · 游戏数据读取或刷新异常.*尚无可显示的成功快照/)
+  assert.match(content(root), /异环 · 等待活动更新/)
+  assert.match(content(root), /终末地 · 活动读取失败.*暂无可显示活动/)
   choose(root, '筛选游戏', 'wuthering_waves'); await tick()
-  assert.match(content(root), /已采集，暂无活动数据/)
-  assert.doesNotMatch(content(root), /尚未采集|读取或刷新异常/)
+  assert.match(content(root), /暂无活动数据/)
+  assert.doesNotMatch(content(root), /等待活动更新|活动读取失败/)
 })
 
 test('logout clears calendar cache and ignores late public results in the next authenticated session', async t => {

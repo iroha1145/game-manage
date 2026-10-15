@@ -27,6 +27,19 @@ class RenderingUnavailable(Exception):
     """Known pre-send failure: the caller may safely use its text reply."""
 
 
+class RenderingPageUnavailable(RenderingUnavailable):
+    def __init__(self, page, total_pages):
+        self.page, self.total_pages = page, total_pages
+        super().__init__('qq_browser_page_out_of_range')
+
+
+class RenderedImage(bytes):
+    def __new__(cls, value, *, page=1, total_pages=1):
+        result=super().__new__(cls,value)
+        result.page,result.total_pages=page,total_pages
+        return result
+
+
 class ImagePreparationFailed(Exception):
     """No message send was attempted; a text reply with the same sequence is safe."""
 
@@ -47,7 +60,7 @@ class SummaryRenderer:
 
     def _payload(self, result):
         payload = result.payload
-        if not isinstance(payload, dict) or set(payload) - {'text', 'card', 'grant_version', 'snapshot_times', 'scopes', 'snapshot_fingerprints'}:
+        if not isinstance(payload, dict) or set(payload) - {'text', 'card', 'render_snapshot', 'shared_required', 'grant_version', 'snapshot_times', 'scopes', 'snapshot_fingerprints'}:
             raise RenderingUnavailable('qq_image_safe_summary_required')
         payload = dict(payload)
         if 'card' in payload:
@@ -204,7 +217,13 @@ the HTTP request never causes a second thread to render concurrently.
                     if time.monotonic() >= expires:
                         return None
                     try:
+                        if hasattr(self.renderer, 'render_summary_async'):
+                            return await self.renderer.render_summary_async(scope, result, budget_seconds=max(0, expires-time.monotonic()))
                         return await asyncio.to_thread(self.renderer.render_summary, scope, result)
+                    except RenderingPageUnavailable as error:
+                        return error
+                    except RenderingUnavailable as error:
+                        return error if str(error) in ('qq_image_size_limit','qq_image_pixel_limit') else None
                     except Exception:
                         return None
             finally:
@@ -220,6 +239,8 @@ the HTTP request never causes a second thread to render concurrently.
     async def aclose(self):
         if self.tasks:
             await asyncio.gather(*tuple(self.tasks), return_exceptions=True)
+        if hasattr(self.renderer, 'aclose'):
+            await self.renderer.aclose()
 
 
 def render_summary(scope: AccountScope, result: QueryResult) -> bytes:

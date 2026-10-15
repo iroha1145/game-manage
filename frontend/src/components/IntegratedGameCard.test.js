@@ -15,6 +15,13 @@ test('integrated NTE keeps inline resources and the independent guide entry', as
   assert.ok(nodes(root,'button').some(n=>content(n)==='查看角色攻略'))
 })
 
+test('ordinary local shell hides collection diagnostics and keeps a useful reauthorization notice', t => {
+  const root=mount(t,Card,{game:{...game('nte',['stamina']),credentials_configured:true},externalSnapshots:{stamina:{payload:{schema_version:1,current:20,maximum:320}}},externalError:'private_collector_error',collectionStatus:[{game_id:'nte',capability:'stamina',state:'auth_expired',error:'private_collector_error',consecutive_failures:3}]})
+  assert.match(content(root),/社区授权已失效.*重新登录/)
+  assert.doesNotMatch(content(root),/采集状态|private_collector_error|连续失败/)
+  assert.ok(nodes(root,'progress').some(node=>node.props.value===20 && node.props.max===320))
+})
+
 test('integrated shell retains the upstream Endfield gacha panel', async t => {
   t.mock.method(globalThis,'fetch',async()=>({ok:true,json:async()=>({connected:false,roles:[]})}))
   const props=reactive({game:game('endfield',['gacha']),externalSnapshots:{}})

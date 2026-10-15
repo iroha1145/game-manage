@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from game_assistant.adapters.base import BaseGameAdapter
 from game_assistant.config import Settings
@@ -22,7 +23,7 @@ class WuwaLike(BaseGameAdapter):
     async def fetch_stamina(self) -> FetchResult:
         return FetchResult(ok=True, payload=StaminaInfo(
             current=240, maximum=240, expected_full_at=None,
-            updated_at="2026-09-12T12:00:00"))
+            updated_at=datetime.now(timezone.utc)))
 
     async def fetch_progress(self) -> FetchResult:
         return FetchResult(ok=False, error="接口挂了")

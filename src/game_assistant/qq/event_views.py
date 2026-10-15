@@ -86,8 +86,8 @@ def event_row(game,item,now,*,side=None,stale=False,cache=None):
 
 def event_document(command,snapshots,*,now=None,asset_cache=None):
     now=(now or datetime.now(view.BEIJING)).astimezone(view.BEIJING)
-    start=now.replace(day=1,hour=0,minute=0,second=0,microsecond=0)
-    end=(start.replace(year=start.year+1,month=1) if start.month==12 else start.replace(month=start.month+1))
+    if command == 'calendar':
+        return version_document(snapshots, now=now, asset_cache=asset_cache)
     window=now+timedelta(hours=168);sections=[];uncertain=[];states=[]
     ending=[];starting=[]
     for game,snapshot in snapshots.items():
@@ -116,31 +116,62 @@ def event_document(command,snapshots,*,now=None,asset_cache=None):
                 if not invalid and first is not None and last is not None and first<=now<last:
                     groups.setdefault(item.get('category') or '其他活动',[]).append(row)
                 elif uncertain_time and not (last and last<=now or first and first>now):uncertain.append(row)
-            else:
-                a=first.date() if first else day(item.get('start_at') or item.get('start_date'))
-                b=last.date() if last else day(item.get('end_at') or item.get('end_date'))
-                relative=any(item.get(k) in ('relative','dependent','unknown') for k in ('start_precision','end_precision'))
-                if invalid or a is None or b is None or relative or b<a:
-                    uncertain.append(row);continue
-                # A date-only end is inclusive. A midnight exact end is exclusive.
-                b_exclusive=b if last and last.hour==0 and last.minute==0 else b+timedelta(days=1)
-                if b_exclusive<=a:
-                    uncertain.append(row);continue
-                if b_exclusive<=start.date() or a>=end.date():continue
-                row['timeline']={'start':max(a,start.date()).isoformat(),'end':min(b_exclusive,end.date()).isoformat(),
-                    'precision':'minute' if first and last else 'day','continues_before':a<start.date(),'continues_after':b_exclusive>end.date()}
-                groups.setdefault(item.get('category') or '其他活动',[]).append(row)
         for category,items in groups.items():
-            sections.append({'title':GAME_NAMES[game]+' · '+category,'game':game,'category':view.text(category),'layout':'timeline' if command=='calendar' else 'rows','rows':items})
+            sections.append({'title':GAME_NAMES[game]+' · '+category,'game':game,'category':view.text(category),'layout':'rows','rows':items})
         if command=='events' and not groups:states[-1]['fields'].append(view.field('当前活动','无已确认正在进行的活动'))
     if command=='recent_events':
         sections=[{'title':title,'layout':'rows','rows':[r for _,_,r in sorted(items,key=lambda x:(list(GAME_NAMES).index(x[0]),x[1]))],
                    'fields':[] if items else [view.field('结果','未来168小时内无已确认'+title+'活动')]} for title,items in (('即将结束',ending),('即将开始',starting))]
     if uncertain:sections.append({'title':'时间待确认','layout':'rows','rows':uncertain})
     sections.append({'title':'公共快照状态','layout':'rows','rows':states})
-    title={'recent_events':'近期活动','events':'进行中的活动','calendar':'活动日历'}[command]
-    card=view.document('calendar' if command=='calendar' else 'list',next(iter(snapshots)) if len(snapshots)==1 else 'all',title,sections=sections,
+    title={'recent_events':'近期活动','events':'进行中的活动'}[command]
+    card=view.document('list',next(iter(snapshots)) if len(snapshots)==1 else 'all',title,sections=sections,
         subtitle='公共活动缓存 · 北京时间',notices=['时间待确认项保留来源精度，不推算精确倒计时。'],footer='计算时间：'+now.strftime('%Y-%m-%d %H:%M'))
     card['version']=3
-    if command=='calendar':card['timeline']={'start':start.date().isoformat(),'end':end.date().isoformat(),'today':now.date().isoformat(),'timezone':'Asia/Shanghai'}
+    return card
+
+
+def version_document(snapshots, *, now, asset_cache=None):
+    """Each game's version is independent; unknown boundaries never form an axis."""
+    from game_assistant.version_calendar import snapshot_version, select_version_events
+    sections = []
+    states = []
+    for game, snapshot in snapshots.items():
+        entries = normalized(snapshot.payload)
+        stale = getattr(snapshot, 'stale', snapshot.state not in ('ok', 'success'))
+        meta = snapshot_version(game, entries, metadata=getattr(snapshot, 'version_metadata', None),
+                                version=getattr(snapshot, 'version', None), stale=stale, now=now)
+        entries = select_version_events(entries, meta)
+        ident = meta.get('id')
+        scope = ('当前版本 '+str(ident) if meta.get('status') == 'current' else
+                 '来源版本 '+str(ident)+' · 当前性待核验' if ident else '版本未确认 · 已知活动汇总')
+        if meta.get('status') == 'historical':
+            scope = '历史/陈旧来源版本 '+str(ident)
+        fields = [view.field('范围', scope), view.field('覆盖', '已公布活动汇总 · 覆盖待核验'),
+                  view.field('版本开放', meta.get('start_date') or '未知'),
+                  view.field('版本结束', meta.get('end_at') or meta.get('end_date') or '未知；不按活动截止推算')]
+        fields += [view.field('来源诊断', detail) for detail in meta.get('diagnostics', [])]
+        output = []
+        for item in entries:
+            row = event_row(game, item, now, stale=stale, cache=asset_cache)
+            first, last = endpoint(item, 'start'), endpoint(item, 'end')
+            state = ('日期异常' if first and last and last < first else
+                     '已结束' if last and last <= now else '未开始' if first and first > now else
+                     '进行中' if first and last else '时间待确认')
+            row['fields'].append(view.field('状态', state))
+            if item.get('version'):
+                row['fields'].append(view.field('归属版本', str(item['version'])+(' · 跨版本持续，与当前版本相交' if item.get('cross_version') else '')))
+            if item.get('phase'):
+                row['fields'].append(view.field('活动阶段', item['phase']))
+            output.append(row)
+        if not output:
+            fields.append(view.field('活动列表', '当前无可用条目；请查看快照与来源诊断'))
+        sections.append(dict(title=GAME_NAMES[game]+' · '+scope, game=game, layout='rows', fields=fields, rows=output))
+        states.append(dict(title=GAME_NAMES[game], fields=view.metadata(snapshot)))
+    sections.append(dict(title='公共快照状态', layout='rows', rows=states))
+    card = view.document('list', next(iter(snapshots)) if len(snapshots)==1 else 'all', '版本活动日历',
+        sections=sections, subtitle='各游戏独立版本 · 已结束、进行中与未来活动 · 北京时间',
+        notices=['未知版本或陈旧来源只展示已知活动；完整清单覆盖待核验。'],
+        footer='计算时间：'+now.strftime('%Y-%m-%d %H:%M'))
+    card['version'] = 3
     return card

@@ -13,6 +13,78 @@ def flight(value):
     return '<script>self.__next_f.push([1,' + json.dumps(value, ensure_ascii=False) + '])</script>'
 
 
+@pytest.mark.parametrize('failure', [False, True])
+@pytest.mark.parametrize('future_version', [False, True])
+async def test_calendar_reads_official_second_page_and_retains_cache_on_page_failure(tmp_path, failure, future_version):
+    from types import SimpleNamespace
+    from game_assistant.endfield_public import NEWS_URL
+    service = EndfieldPublicService(tmp_path / 'a.db')
+    previous_at = service._put('calendar', {'version': '缓存版本', 'events': [{'name': '缓存活动'}]})
+    first = [{'cid': str(i), 'title': '普通公告', 'displayTime': 1788307200, 'tab': 'news'} for i in range(1, 11)]
+    if future_version:
+        first[0].update(title='「未来版本」版本更新说明', tab='notices')
+    second = [{'cid': '11', 'title': '「雪凇幽梦」版本更新说明', 'displayTime': 1788307200, 'tab': 'notices'}]
+    requests = []
+
+    async def request(url, params=None):
+        requests.append((url, params))
+        if url == NEWS_URL:
+            return SimpleNamespace(text=flight('6:' + json.dumps({'bulletins': first, 'total': 11}, separators=(',', ':'))))
+        if params is not None:
+            assert params == {'lang': 'zh-cn', 'code': 'endfield_web', 'page': 2, 'pageSize': 10}
+            if failure:
+                raise PublicSourceError('官网分页暂时无法读取')
+            return SimpleNamespace(json=lambda: {'code': 0, 'data': {'list': second, 'current': 2, 'pageSize': 10, 'total': 11}})
+        cid = url.rsplit('/', 1)[-1]
+        body = '<p>■ 更新维护时间</p><p>2026/09/02 06:00 - 2026/09/02 12:00</p><p>1.「冬猎」特许寻访</p><p>· 开放时间：2026/09/02 12:00 - 版本更新维护前</p>' if cid == '11' else '<p>完整普通资讯正文内容</p>'
+        if cid == '1' and future_version:
+            body = '<p>■ 更新维护时间</p><p>2099/09/02 06:00 - 2099/09/02 12:00</p>'
+        return SimpleNamespace(text=flight('6:' + json.dumps({'bulletin': {'cid': cid, 'data': body}}, separators=(',', ':'))))
+
+    service._request = request
+    try:
+        result = await service.public(force=True)
+        assert result['news']['error'] is None
+        if failure:
+            assert result['calendar']['stale'] and result['calendar']['fetched_at'] == previous_at
+            assert result['calendar']['events'] == [{'name': '缓存活动'}]
+        else:
+            assert result['calendar']['error'] is None
+            assert result['calendar']['version'] == '雪凇幽梦'
+            assert result['calendar']['events'][0]['name'] == '冬猎'
+            assert result['calendar']['events'][0]['end_at'] == ('2099-09-02T06:00:00+08:00' if future_version else None)
+        await service.public()
+        assert len([params for _, params in requests if params is not None]) == 1
+    finally:
+        service.close()
+
+
+async def test_calendar_archive_search_is_bounded_without_inventing_a_version(tmp_path):
+    from types import SimpleNamespace
+    from game_assistant.endfield_public import NEWS_URL, NEWS_MAX_PAGES
+    service = EndfieldPublicService(tmp_path / 'a.db')
+    previous_at = service._put('calendar', {'version': '旧版本', 'events': [{'name': '成功记录'}]})
+    pages = []
+    def rows(page):
+        return [{'cid': str(page * 10 + i), 'title': '普通资讯', 'displayTime': 1788307200, 'tab': 'news'} for i in range(10)]
+    async def request(url, params=None):
+        if url == NEWS_URL:
+            return SimpleNamespace(text=flight('6:' + json.dumps({'bulletins': rows(1), 'total': 1000}, separators=(',', ':'))))
+        if params is not None:
+            pages.append(params['page'])
+            return SimpleNamespace(json=lambda: {'code': 0, 'data': {'list': rows(params['page']), 'current': params['page'], 'pageSize': 10, 'total': 1000}})
+        return SimpleNamespace(text=flight('6:' + json.dumps({'bulletin': {'cid': url.rsplit('/', 1)[-1], 'data': '<p>公开完整资讯正文</p>'}}, separators=(',', ':'))))
+    service._request = request
+    try:
+        result = await service.public(force=True)
+        assert pages == list(range(2, NEWS_MAX_PAGES + 1))
+        assert result['calendar']['stale'] and result['calendar']['fetched_at'] == previous_at
+        assert result['calendar']['events'] == [{'name': '成功记录'}]
+        assert result['news']['error'] is None
+    finally:
+        service.close()
+
+
 def test_official_next_flight_parsing():
     now = int(datetime.now(timezone.utc).timestamp())
     page = flight('6:{"value":{"bulletins":[{"cid":"2653","title":"「雪凇幽梦」版本更新说明","displayTime":' +

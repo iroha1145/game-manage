@@ -1,0 +1,3940 @@
+{
+  "schema_version": 1,
+  "score_version": "nte-custom-weighting-v1",
+  "synthetic_only": true,
+  "production_defaults": {
+    "default_weight_profiles": [],
+    "quality_observation_mapping": {},
+    "eligible_substats": [],
+    "mainstat_reference_values": {},
+    "stat_aliases": {}
+  },
+  "fixture_spec": {
+    "version": "nte-custom-weighting-v1",
+    "quality_factors": {
+      "gold": "1",
+      "purple": "0.8",
+      "blue": "0.6"
+    },
+    "eligible_substats": [
+      "fixture_a",
+      "fixture_b",
+      "fixture_c",
+      "fixture_d",
+      "fixture_e",
+      "fixture_atk_flat",
+      "fixture_atk_percent"
+    ],
+    "mainstat_reference_values": {
+      "fixture_main": {
+        "value": "0.60",
+        "unit": "ratio",
+        "context": "synthetic-level"
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "drive-gold",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "30.00",
+        "reason": null,
+        "M": "4",
+        "sub_total": "30.00"
+      }
+    },
+    {
+      "id": "drive-purple",
+      "item": {
+        "kind": "drive",
+        "quality": "purple",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "24.00",
+        "reason": null,
+        "M": "4",
+        "sub_total": "24.00"
+      }
+    },
+    {
+      "id": "drive-blue",
+      "item": {
+        "kind": "drive",
+        "quality": "blue",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "18.00",
+        "reason": null,
+        "M": "4",
+        "sub_total": "18.00"
+      }
+    },
+    {
+      "id": "cartridge-purple",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "85.00",
+        "reason": null,
+        "M": "4",
+        "main_total": "25",
+        "sub_total": "60"
+      }
+    },
+    {
+      "id": "percent-explicit-conversion",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "30",
+          "unit": "percent_points",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "85.00",
+        "reason": null,
+        "main_total": "25",
+        "sub_total": "60"
+      }
+    },
+    {
+      "id": "confirmed-main-zero",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "60.00",
+        "reason": null,
+        "main_total": "0",
+        "sub_total": "60"
+      }
+    },
+    {
+      "id": "confirmed-empty-substats",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "0.00",
+        "reason": null
+      }
+    },
+    {
+      "id": "known-unweighted-id",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_e",
+            "observation_id": "e",
+            "value": "1",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "0.00",
+        "reason": null
+      }
+    },
+    {
+      "id": "confirmed-zero-substat-values",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "30.00",
+        "reason": null,
+        "note": "Substat magnitude does not multiply presence weights."
+      }
+    },
+    {
+      "id": "empty-profile",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {},
+        "mainstat_weights": {}
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unconfigured",
+        "value": null,
+        "reason": "NO_POSITIVE_ELIGIBLE_WEIGHTS",
+        "contributions": []
+      }
+    },
+    {
+      "id": "all-zero-profile",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "0",
+          "fixture_b": "0",
+          "fixture_c": "0",
+          "fixture_d": "0"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unconfigured",
+        "value": null,
+        "reason": "NO_POSITIVE_ELIGIBLE_WEIGHTS",
+        "contributions": []
+      }
+    },
+    {
+      "id": "main-only-profile",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {},
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unconfigured",
+        "value": null,
+        "reason": "NO_POSITIVE_ELIGIBLE_WEIGHTS",
+        "contributions": []
+      }
+    },
+    {
+      "id": "unconfigured-precedes-item-unknown",
+      "item": {
+        "kind": "drive",
+        "quality": null,
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {},
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unconfigured",
+        "value": null,
+        "reason": "NO_POSITIVE_ELIGIBLE_WEIGHTS",
+        "contributions": []
+      }
+    },
+    {
+      "id": "unknown-quality",
+      "item": {
+        "kind": "drive",
+        "quality": null,
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNKNOWN_QUALITY",
+        "contributions": []
+      }
+    },
+    {
+      "id": "unmapped-quality",
+      "item": {
+        "kind": "drive",
+        "quality": "unverified-color",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNKNOWN_QUALITY",
+        "contributions": []
+      }
+    },
+    {
+      "id": "unknown-area",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": null,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNKNOWN_AREA",
+        "contributions": []
+      }
+    },
+    {
+      "id": "unknown-substats",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": null,
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNKNOWN_SUBSTATS",
+        "contributions": []
+      }
+    },
+    {
+      "id": "unknown-canonical-id",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": null,
+            "observation_id": "x",
+            "value": null,
+            "unit": null
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNKNOWN_STAT",
+        "contributions": []
+      }
+    },
+    {
+      "id": "ineligible-substat",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_main",
+            "observation_id": "x",
+            "value": "1",
+            "unit": "ratio"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "INELIGIBLE_SUBSTAT",
+        "contributions": []
+      }
+    },
+    {
+      "id": "same-observation-duplicate-count-once",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "30.00",
+        "reason": null
+      }
+    },
+    {
+      "id": "different-row-duplicate-review",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "different-row",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "AMBIGUOUS_DUPLICATE_SUBSTAT",
+        "contributions": []
+      }
+    },
+    {
+      "id": "conflicting-same-row-review",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "2",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "AMBIGUOUS_DUPLICATE_SUBSTAT",
+        "contributions": []
+      }
+    },
+    {
+      "id": "missing-main-value",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": null,
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNKNOWN_MAIN_VALUE",
+        "contributions": []
+      }
+    },
+    {
+      "id": "unknown-main-id",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": null,
+          "value": "0.30",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNKNOWN_MAINSTAT",
+        "contributions": []
+      }
+    },
+    {
+      "id": "main-unit-mismatch",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "flat",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNIT_MISMATCH",
+        "contributions": []
+      }
+    },
+    {
+      "id": "reference-context-mismatch",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "ratio",
+          "context": "unverified-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "REFERENCE_CONTEXT_MISMATCH",
+        "contributions": []
+      }
+    },
+    {
+      "id": "missing-main-reference",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {}
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "reason": "UNKNOWN_MAIN_REFERENCE",
+        "contributions": []
+      }
+    },
+    {
+      "id": "repeating-division",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 1,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "2",
+          "fixture_c": "3"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "1.67",
+        "reason": null,
+        "M": "6",
+        "exact_total": {
+          "numerator": "5",
+          "denominator": "3"
+        },
+        "exact_rounding_adjustment": {
+          "numerator": "1",
+          "denominator": "300"
+        }
+      }
+    },
+    {
+      "id": "half-up-tie",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.00006",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "0.01",
+        "reason": null,
+        "main_total": "0.005",
+        "sub_total": "0",
+        "rounding_adjustment": "0.005"
+      }
+    },
+    {
+      "id": "top-four-from-whole-profile",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1",
+          "fixture_e": "2"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "24.00",
+        "reason": null,
+        "M": "5"
+      }
+    },
+    {
+      "id": "flat-percent-independent",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_atk_percent",
+            "observation_id": "p",
+            "value": "30",
+            "unit": "percent_points"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_atk_flat": "1",
+          "fixture_atk_percent": "0"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "0.00",
+        "reason": null,
+        "M": "1"
+      }
+    },
+    {
+      "id": "no-ratio-clamp",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "1.20",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "scored",
+        "value": "160.00",
+        "reason": null,
+        "main_total": "100",
+        "sub_total": "60"
+      }
+    },
+    {
+      "id": "drive-partial-nonempty",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": false
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_SUBSTATS"
+      }
+    },
+    {
+      "id": "drive-partial-empty",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [],
+        "substats_complete": false
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_SUBSTATS"
+      }
+    },
+    {
+      "id": "drive-missing-completeness",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ]
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_SUBSTATS"
+      }
+    },
+    {
+      "id": "drive-unknown-completeness",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": null
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_SUBSTATS"
+      }
+    },
+    {
+      "id": "cartridge-partial-nonempty",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": false,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_SUBSTATS"
+      }
+    },
+    {
+      "id": "cartridge-partial-empty",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [],
+        "substats_complete": false,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_SUBSTATS"
+      }
+    },
+    {
+      "id": "cartridge-missing-completeness",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_SUBSTATS"
+      }
+    },
+    {
+      "id": "cartridge-unknown-completeness",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": null,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_SUBSTATS"
+      }
+    },
+    {
+      "id": "incomplete-list-unconfigured-precedence",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": false
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {},
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unconfigured",
+        "value": null,
+        "contributions": [],
+        "reason": "NO_POSITIVE_ELIGIBLE_WEIGHTS"
+      }
+    },
+    {
+      "id": "main-missing-unit",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_UNIT"
+      }
+    },
+    {
+      "id": "main-unknown-unit",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": null,
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_UNIT"
+      }
+    },
+    {
+      "id": "main-unsupported-unit",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.30",
+          "unit": "unverified_unit",
+          "context": "synthetic-level"
+        }
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_UNIT"
+      }
+    },
+    {
+      "id": "substat-missing-unit",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_UNIT"
+      }
+    },
+    {
+      "id": "substat-unknown-unit",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": null
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_UNIT"
+      }
+    },
+    {
+      "id": "substat-unsupported-unit",
+      "item": {
+        "kind": "drive",
+        "quality": "gold",
+        "area": 4,
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "unverified_unit"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true
+      },
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "expected": {
+        "status": "unscorable",
+        "value": null,
+        "contributions": [],
+        "reason": "UNKNOWN_UNIT"
+      }
+    }
+  ],
+  "rejected_inputs": [
+    {
+      "id": "invalid-weight--1",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "-1",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "error_code": "INVALID_WEIGHT"
+    },
+    {
+      "id": "invalid-weight-100.0001",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "100.0001",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "error_code": "INVALID_WEIGHT"
+    },
+    {
+      "id": "invalid-weight-NaN",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "NaN",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "error_code": "INVALID_WEIGHT"
+    },
+    {
+      "id": "invalid-weight-Infinity",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "Infinity",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "error_code": "INVALID_WEIGHT"
+    },
+    {
+      "id": "invalid-weight--Infinity",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "-Infinity",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "error_code": "INVALID_WEIGHT"
+    },
+    {
+      "id": "invalid-weight-invalid",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "invalid",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "error_code": "INVALID_WEIGHT"
+    },
+    {
+      "id": "binary-float-weight",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": 1.0,
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "error_code": "INVALID_WEIGHT"
+    },
+    {
+      "id": "negative-main",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "-0.30",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      },
+      "error_code": "INVALID_VALUE"
+    },
+    {
+      "id": "zero-reference",
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "error_code": "INVALID_SPEC"
+    },
+    {
+      "id": "unknown-configured-id",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "unknown_id": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      },
+      "error_code": "INVALID_WEIGHT"
+    },
+    {
+      "id": "invalid-reference-unit-None",
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": null,
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "error_code": "INVALID_SPEC"
+    },
+    {
+      "id": "invalid-reference-unit-unverified_unit",
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "unverified_unit",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "error_code": "INVALID_SPEC"
+    },
+    {
+      "id": "invalid-reference-unit-percent_points",
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.60",
+            "unit": "percent_points",
+            "context": "synthetic-level"
+          }
+        }
+      },
+      "error_code": "INVALID_SPEC"
+    },
+    {
+      "id": "numeric-budget-weight-exponent",
+      "error_code": "INVALID_WEIGHT",
+      "numeric_budget_input": "1e1000000000",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "1e1000000000",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      }
+    },
+    {
+      "id": "numeric-budget-weight-over-64-chars",
+      "error_code": "INVALID_WEIGHT",
+      "numeric_budget_input": "00000000000000000000000000000000000000000000000000000000000000000",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "00000000000000000000000000000000000000000000000000000000000000000",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      }
+    },
+    {
+      "id": "numeric-budget-weight-over-32-fractional-digits",
+      "error_code": "INVALID_WEIGHT",
+      "numeric_budget_input": "0.000000000000000000000000000000001",
+      "profile": {
+        "character_id": "fixture-character",
+        "version": "fixture-weight-v1",
+        "source": "synthetic-manual",
+        "substat_weights": {
+          "fixture_a": "0.000000000000000000000000000000001",
+          "fixture_b": "1",
+          "fixture_c": "1",
+          "fixture_d": "1"
+        },
+        "mainstat_weights": {
+          "fixture_main": "1"
+        }
+      }
+    },
+    {
+      "id": "numeric-budget-reference-exponent",
+      "error_code": "INVALID_SPEC",
+      "numeric_budget_input": "1e1000000000",
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "1e1000000000",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      }
+    },
+    {
+      "id": "numeric-budget-reference-over-64-chars",
+      "error_code": "INVALID_SPEC",
+      "numeric_budget_input": "00000000000000000000000000000000000000000000000000000000000000000",
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "00000000000000000000000000000000000000000000000000000000000000000",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      }
+    },
+    {
+      "id": "numeric-budget-reference-over-32-fractional-digits",
+      "error_code": "INVALID_SPEC",
+      "numeric_budget_input": "0.000000000000000000000000000000001",
+      "spec": {
+        "version": "nte-custom-weighting-v1",
+        "quality_factors": {
+          "gold": "1",
+          "purple": "0.8",
+          "blue": "0.6"
+        },
+        "eligible_substats": [
+          "fixture_a",
+          "fixture_b",
+          "fixture_c",
+          "fixture_d",
+          "fixture_e",
+          "fixture_atk_flat",
+          "fixture_atk_percent"
+        ],
+        "mainstat_reference_values": {
+          "fixture_main": {
+            "value": "0.000000000000000000000000000000001",
+            "unit": "ratio",
+            "context": "synthetic-level"
+          }
+        }
+      }
+    },
+    {
+      "id": "numeric-budget-correction-exponent",
+      "error_code": "INVALID_VALUE",
+      "numeric_budget_input": "1e1000000000",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "1e1000000000",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      }
+    },
+    {
+      "id": "numeric-budget-correction-over-64-chars",
+      "error_code": "INVALID_VALUE",
+      "numeric_budget_input": "00000000000000000000000000000000000000000000000000000000000000000",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "00000000000000000000000000000000000000000000000000000000000000000",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      }
+    },
+    {
+      "id": "numeric-budget-correction-over-32-fractional-digits",
+      "error_code": "INVALID_VALUE",
+      "numeric_budget_input": "0.000000000000000000000000000000001",
+      "item": {
+        "kind": "cartridge",
+        "quality": "purple",
+        "substats": [
+          {
+            "canonical_id": "fixture_a",
+            "observation_id": "0",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_b",
+            "observation_id": "1",
+            "value": "0",
+            "unit": "flat"
+          },
+          {
+            "canonical_id": "fixture_c",
+            "observation_id": "2",
+            "value": "0",
+            "unit": "flat"
+          }
+        ],
+        "substats_complete": true,
+        "mainstat": {
+          "canonical_id": "fixture_main",
+          "value": "0.000000000000000000000000000000001",
+          "unit": "ratio",
+          "context": "synthetic-level"
+        }
+      }
+    }
+  ]
+}

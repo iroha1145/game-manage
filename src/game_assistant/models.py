@@ -49,6 +49,11 @@ class GameEvent(BaseModel):
     end_at: datetime | None = None
     source_post_id: str | None = None
     source_title: str | None = None
+    version: str | None = None
+    version_metadata: dict | None = None
+    end_date: str | None = None
+    end_text: str | None = None
+    phase: str | None = None
 
 
 class ProgressItem(BaseModel):

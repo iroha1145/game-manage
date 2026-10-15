@@ -28,14 +28,24 @@ def test_numbered_version_notice_can_contain_web_event_sections(title):
     assert row['decision'] == 'accepted'
 
 
-def test_version_notice_does_not_add_web_events_or_borrow_their_dates():
+def test_version_notice_retains_official_web_and_unknown_events_without_borrowing_dates():
     row = classify_dynamic(post(BODY), UID, NOW)
     result = calendar_from_posts([row], 'wuthering_waves', NOW)
     assert result['version'] == '3.7'
-    assert {e['name'] for e in result['events']} == {'梦构匣中', '天工寻物'}
+    assert {e['name'] for e in result['events']} == {'梦构匣中', '没有日期的活动', '朝月鱼涌', '天工寻物'}
     event = next(e for e in result['events'] if e['name'] == '梦构匣中')
     assert event['start_date'] == '2026-09-30'
     assert event['end_at'] == '2026-11-11T03:59:00+08:00'
+    unknown=next(e for e in result['events'] if e['name']=='没有日期的活动')
+    assert all(unknown.get(key) is None for key in ('start_at','end_at','start_date','end_date'))
+    assert unknown['start_precision']==unknown['end_precision']=='unknown'
+    web=next(e for e in result['events'] if e['name']=='朝月鱼涌')
+    assert web['category']=='网页活动'
+    assert web['start_at']=='2026-10-15T10:00:00+08:00'
+    assert web['end_at']=='2026-11-01T09:59:00+08:00'
+    following=next(e for e in result['events'] if e['name']=='天工寻物')
+    assert following['start_at']=='2026-10-08T04:00:00+08:00'
+    assert following['end_at']=='2026-10-26T03:59:00+08:00'
 
 
 @pytest.mark.parametrize('body,kind,reason', [

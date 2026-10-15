@@ -5,10 +5,12 @@ import { safeUrl } from '../calendar.js'
 import { displayRoleValue } from '../nte-roles.js'
 import { computed } from 'vue'
 import { vPop } from '../motion.js'
+import InfoHint from './InfoHint.vue'
 
 const props = defineProps({
   snap: { type: Object, default: null },
   capability: { type: String, required: true },
+  imageMode: Boolean,
 })
 
 const titles = { account: '账号概览', stamina: '体力与日常', progress: '成就进度', exploration: '探索进度', record: '社区名片' }
@@ -53,18 +55,19 @@ const medals = computed(() => [
   <section class="cap-card nte-card">
     <div class="cap-title">
       {{ titles[capability] || '异环数据' }}
-      <span v-if="snap?.stale" class="badge badge-stale">待更新</span>
-      <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}（北京时间）</span>
+      <InfoHint v-if="capability === 'stamina' && payload !== null && !legacy" text="体力可能有更新延迟，可在游戏内确认。" />
+      <span v-if="snap?.stale && !imageMode" class="badge badge-stale">数据可能过期</span>
+      <span v-if="fetchedAt" class="cap-meta">{{ capability === 'stamina' ? '读取于' : '更新于' }} {{ fetchedAt }}</span>
     </div>
 
-    <p v-if="payload === null" class="empty">暂无数据，请登录后刷新</p>
+    <p v-if="payload === null" class="empty">暂无数据，请刷新后查看</p>
     <p v-else-if="legacy" class="empty">数据格式已更新，请刷新</p>
 
     <template v-else-if="capability === 'account'">
       <div class="identity">
         <strong>{{ display(data.nickname) }}</strong>
         <span class="chip">{{ display(data.server_name) }}</span>
-        <span class="chip mono">UID {{ display(data.role_id) }}</span>
+        <span v-if="!imageMode" class="chip mono">UID {{ display(data.role_id) }}</span>
       </div>
       <dl class="kv-grid tiles account-grid">
         <div v-for="stat in accountStats" :key="stat.name">
@@ -136,7 +139,7 @@ const medals = computed(() => [
             </p>
             <p class="chip-list">
               <span class="chip">{{ display(entry.server_name) }}</span>
-              <span class="chip mono">UID {{ display(entry.role_id) }}</span>
+              <span v-if="!imageMode" class="chip mono">UID {{ display(entry.role_id) }}</span>
             </p>
           </div>
           <a v-if="safeUrl(entry.url)" class="text-link" :href="safeUrl(entry.url)" target="_blank" rel="noopener noreferrer">查看社区名片 ↗</a>

@@ -1,14 +1,12 @@
 """Explicit gacha imports. Authorization links are transient and never persisted."""
-from collections import Counter
 from datetime import datetime
-import hashlib
 import json
 import re
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from game_assistant.wuwa_history import now_iso
+from game_assistant.wuwa_gacha_archive import ArchiveMixin
 
 POOL_NAMES = dict(zip(map(str, range(1, 10)), (
     '角色精准调谐', '武器精准调谐', '角色调谐（常驻池）', '武器调谐（常驻池）',
@@ -148,7 +146,7 @@ async def fetch_official(url, account, server, *, transport=None):
             'failed_pools': failed, 'source': 'official_query'}
 
 
-class GachaStore:
+class GachaStore(ArchiveMixin):
     @classmethod
     def for_scope(cls, scope, private_root, *, role_uid, server_id):
         """Cloud factory: scope is mandatory and no local data is adopted."""
@@ -166,24 +164,11 @@ class GachaStore:
                 'account TEXT,server TEXT,imported_at TEXT,source TEXT,failed_pools TEXT,'
                 'PRIMARY KEY(account,server))')
             conn.commit()
+        self._init_archive()
 
     def import_records(self, value, account, server, *, source='json_import', failed_pools=None):
-        rows = normalize_records(value, account, server)
-        occurrences, inserted = Counter(), 0
-        with self.lock:
-            with self.conn:
-                for row in rows:
-                    raw = json.dumps(row, sort_keys=True, ensure_ascii=False)
-                    digest = hashlib.sha256(raw.encode()).hexdigest()
-                    occurrences[digest] += 1
-                    draw_id = f'explicit:{row["draw_id"]}' if row.get('draw_id') else f'{digest}:{occurrences[digest]}'
-                    cursor = self.conn.execute('INSERT OR IGNORE INTO wuwa_gacha VALUES (?,?,?,?,?,?,?)',
-                        (account, server, row['pool'], draw_id, raw, row['time'], row['rarity']))
-                    inserted += cursor.rowcount
-                self.conn.execute('INSERT OR REPLACE INTO wuwa_gacha_imports VALUES (?,?,?,?,?)',
-                    (account, server, now_iso(), source, json.dumps(failed_pools or [])))
-        return {'inserted': inserted, 'received': len(rows), 'failed_pools': failed_pools or [],
-                'complete': False, 'state': 'partial' if failed_pools else 'imported' if rows else 'need_import'}
+        preview = self.preview(value, account, server, source=source, failed_pools=failed_pools)
+        return self.commit_preview(preview['preview_id'], account, server)
 
     def read(self, account, server, limit=100, offset=0):
         limit, offset = min(max(int(limit), 1), 500), max(int(offset), 0)
@@ -199,6 +184,9 @@ class GachaStore:
                 'ORDER BY time DESC,draw_id LIMIT ? OFFSET ?', (*scope, limit, offset)).fetchall()
             imported = self.conn.execute('SELECT imported_at,source,failed_pools FROM wuwa_gacha_imports '
                 'WHERE account=? AND server=?', scope).fetchone()
+            archive_data = self._archive_data(account, server)
+            all_rows = [(p,k,json.loads(raw)) for p,k,raw in self.conn.execute(
+                'SELECT pool,draw_id,payload FROM wuwa_gacha WHERE account=? AND server=? ORDER BY time DESC,draw_id DESC', scope)]
         pools = {}
         for pool, rarity, count in groups:
             p = pools.setdefault(pool, {'pool': pool, 'name': POOL_NAMES.get(pool, f'未知卡池 {pool}'),
@@ -207,7 +195,7 @@ class GachaStore:
             rarity_key = rarity if rarity is not None else 'unknown'
             p['rarity_distribution'][rarity_key] = p['rarity_distribution'].get(rarity_key, 0) + count
         unpack = lambda values: [{'draw_id': key, **json.loads(payload)} for key, payload in values]
-        return {'schema_version': 1, 'role_id': account, 'server_id': server,
+        result = {'schema_version': 1, 'role_id': account, 'server_id': server,
                 'state': 'available' if total else 'need_import', 'total': total,
                 'items': unpack(rows), 'gold': unpack(gold), 'gold_total': sum(p['rarity_distribution'].get('5', 0) for p in pools.values()),
                 'pools': list(pools.values()), 'limit': limit, 'offset': offset,
@@ -215,3 +203,4 @@ class GachaStore:
                     'imported_at': imported[0] if imported else None, 'source': imported[1] if imported else None,
                     'failed_pools': json.loads(imported[2]) if imported else [],
                     'message': '仅代表已导入记录；官方保留期及导出范围可能不完整，无保底推断'}}
+        return self.enhance_read(result, account, server, archive_data=archive_data, all_rows=all_rows)

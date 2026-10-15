@@ -1,10 +1,15 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, provide } from 'vue'
 import { safeUrl } from '../calendar.js'
 import { fieldLabels, list, starCount, value } from '../wuwa-display.js'
 import WuwaFields from './WuwaFields.vue'
 import WuwaIcon from './WuwaIcon.vue'
-const props = defineProps({ data: { type: Object, default: () => ({}) } })
+import InfoHint from './InfoHint.vue'
+import RoleAssessment from './RoleAssessment.vue'
+const props = defineProps({ data: { type: Object, default: () => ({}) }, imageMode:{type:Boolean,default:false} })
+provide('wuwaImageMode', computed(() => props.imageMode))
+const attributes = computed(() => Array.isArray(props.data.role_attribute_list)
+  ? list(props.data.role_attribute_list) : list(props.data.role?.role_attribute_list))
 const chains = computed(() => list(props.data.chain_list))
 const unlockedChains = computed(
   () => chains.value.filter((c) => c.unlocked === true).length,
@@ -40,6 +45,7 @@ const isAttributeList = (v) =>
 </script>
 <template>
   <div class="wuwa-role-detail">
+    <RoleAssessment game="wuthering_waves" :character-id="String(data.role?.role_id || '')" :role-data="data" :image-mode="imageMode" :initial-assessment="data.assessment" />
     <section class="wuwa-detail-section">
       <h3 class="wuwa-subhead role-profile-heading"><WuwaIcon :src="data.role?.role_icon_url" :name="data.role?.role_name || '角色'" size="large" /><span>{{ data.role?.role_name }} · 角色基本信息</span></h3>
       <div class="wuwa-basics">
@@ -48,14 +54,26 @@ const isAttributeList = (v) =>
           class="wuwa-skin"
           :src="safeUrl(data.role_skin.skin_icon)"
           alt="当前外观"
-          loading="lazy"
+           :loading="imageMode ? 'eager' : 'lazy'"
         />
         <div class="wuwa-basics-body">
-          <WuwaFields :data="data.role" />
+          <WuwaFields :data="data.role" :exclude="['role_attribute_list']" />
           <div class="wuwa-field-group">
             <span class="wuwa-field-label" role="heading" aria-level="4">角色外观</span
             ><WuwaFields :data="data.role_skin" />
           </div>
+          <details v-if="!imageMode" data-render-collapsed class="wuwa-supplement"><summary>分支编号</summary><dl class="wuwa-kv">
+            <div>
+              <dt>当前分支（来源编号）</dt>
+              <dd>
+                {{ value(data.active_branch_id) }}
+                <InfoHint
+                  text="分支编号仅为来源标识，不代表已解锁数量或练度。"
+                  align="end"
+                />
+              </dd>
+            </div>
+          </dl></details>
         </div>
       </div>
     </section>
@@ -63,10 +81,10 @@ const isAttributeList = (v) =>
     <section class="wuwa-detail-section">
       <h3 class="wuwa-subhead">完整属性</h3>
       <dl
-        v-if="list(data.role_attribute_list).length"
+        v-if="attributes.length"
         class="kv-grid wuwa-attrs"
       >
-        <div v-for="(p, i) in list(data.role_attribute_list)" :key="i">
+        <div v-for="(p, i) in attributes" :key="i">
           <dt class="role-profile-heading"><WuwaIcon :src="p.icon_url" :name="p.attribute_name || '属性'" size="small" />{{ p.attribute_name || '未知属性' }}</dt>
           <dd>{{ value(p.attribute_value) }}</dd>
         </div>
@@ -117,8 +135,8 @@ const isAttributeList = (v) =>
             <strong>{{ data.weapon_data.weapon?.weapon_effect_name }}</strong>
             {{ data.weapon_data.weapon?.effect_description }}
           </p>
-          <details class="wuwa-supplement">
-            <summary>武器详情</summary>
+          <details class="wuwa-supplement" :open="imageMode">
+            <summary>武器补充资料</summary>
             <WuwaFields
               :data="data.weapon_data.weapon"
               :exclude="[
@@ -179,8 +197,8 @@ const isAttributeList = (v) =>
           <p v-if="entry.skill?.description" class="wuwa-description">
             {{ entry.skill.description }}
           </p>
-          <details class="wuwa-supplement">
-            <summary>分支详情</summary>
+          <details class="wuwa-supplement" :open="imageMode">
+            <summary>分支说明</summary>
             <WuwaFields
               :data="entry.skill"
               :exclude="['name', 'type', 'description']"
@@ -280,8 +298,8 @@ const isAttributeList = (v) =>
               >套装已装备 {{ value(echo.fetter_detail?.num) }} 件</span
             >
           </p>
-          <details class="wuwa-supplement">
-            <summary>声骸详情</summary>
+          <details class="wuwa-supplement" :open="imageMode">
+            <summary>声骸技能与补充资料</summary>
             <template v-if="echo.phantom_prop?.skill_description">
               <p class="wuwa-field-label">声骸技能</p>
               <p class="wuwa-description">
@@ -337,7 +355,7 @@ const isAttributeList = (v) =>
       />
     </section>
 
-    <details class="wuwa-supplement">
+    <details class="wuwa-supplement" :open="imageMode">
       <summary>声骸汇总属性</summary>
       <p class="wuwa-field-label">声骸属性汇总</p>
       <dl

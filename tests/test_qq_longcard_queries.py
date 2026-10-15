@@ -3,9 +3,23 @@ from io import BytesIO
 from types import SimpleNamespace
 
 import pytest
+
+
+@pytest.mark.parametrize('identifier',['absent-field',None,'',True,{},' '*3,' c1 ','x'*257])
+def test_legacy_or_malformed_role_identity_is_unknown_and_never_matches_a_model(identifier):
+    from game_assistant.assessment_projection import with_assessment
+    role={'name':'角色','level':0,'id':identifier,'assessment':{'status':'scored','value':'999'}}
+    if identifier=='absent-field':role.pop('id')
+    snapshot=QueryResult({'entries':[role]},None,'ok',False)
+    store=SimpleNamespace(read=lambda *args:pytest.fail('unknown identity must not read any model'))
+    result=with_assessment(snapshot,store,AccountScope('u','a','r'),'nte')
+    score=result.payload['entries'][0]['assessment']
+    assert score['status']=='unscorable' and score['value'] is None and score['contributions']==[]
+    assert score['reason']=='角色标识未提供或无效'
+    assert snapshot.payload['entries'][0]['assessment']['value']=='999'
 from PIL import Image
 
-from game_assistant.accounts.models import QueryResult
+from game_assistant.accounts.models import AccountScope, QueryResult
 from game_assistant.qq import presentation
 from game_assistant.qq.query_routes import QqQueryService
 from tests.test_qq_unified_queries import CachedQuery, IDENTITY, service, no_external_network

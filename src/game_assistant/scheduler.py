@@ -169,9 +169,10 @@ class _SchedulerLease:
 
 class AccountPollingScheduler:
     """One event-loop scheduler; queueing never waits for upstream requests."""
-    def __init__(self, accounts, query, settings, root, *, public=None):
+    def __init__(self, accounts, query, settings, root, *, public=None, reminders=None):
         import time
         self.accounts, self.query, self.settings, self.public = accounts, query, settings, public
+        self.reminders = reminders
         self.lease = _SchedulerLease(root)
         self._global = asyncio.Semaphore(settings.cloud_poll_concurrency)
         self._providers = {}
@@ -313,6 +314,11 @@ class AccountPollingScheduler:
                 if not result.ok:
                     result.error = '授权已失效，请重新授权' if result.error_kind == 'auth_expired' else '数据源暂时不可用，保留上次数据'
                 status = self.query.snapshots.record_poll_scoped(scope, capability, result, version)
+                if self.reminders:
+                    try:
+                        self.reminders.handle_poll(scope, capability, result, version)
+                    except Exception:
+                        logger.warning('Scoped reminder evaluation failed')
                 delay = self.settings.cloud_private_poll_seconds if result.ok else min(
                     3600, 60 * 2 ** min(status['consecutive_failures'] - 1, 6))
                 self._due[key] = self.clock() + max(30, delay)

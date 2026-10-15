@@ -33,7 +33,10 @@ def test_next_version_is_not_selected_and_independent_current_gacha_is_added():
 
 def test_malformed_ranges_and_unrelated_sections_do_not_borrow_dates():
     p=notice('3.6版本内容说明\n[无日期]活动\n[有效]活动\n活动时间：2026年9月1日10:00 ~ 2026年9月2日10:00\n[错误]活动\n活动时间：2026年9月30日10:00 ~ 2026年9月1日10:00')
-    assert [e['name'] for e in parse_post_events(p,'wuthering_waves','3.6')]==['有效']
+    events = parse_post_events(p,'wuthering_waves','3.6')
+    assert [e['name'] for e in events]==['无日期','有效','错误']
+    assert events[0]['start_at'] is None and events[2]['end_at'] is None
+    assert events[1]['end_at']=='2026-09-02T10:00:00+08:00'
 
 def test_bilibili_wins_conflict_and_manual_midnight_does_not_fill_unknown():
     primary=[dict(name='环期赠礼',version='1.3',start_at=None,start_text='版本更新后',end_at='2026-09-24T05:59:00+08:00',source='bilibili')]

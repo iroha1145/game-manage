@@ -21,7 +21,7 @@ onBeforeUnmount(()=>{disposed=true;clear();unsubscribe()})
     <div class="qq-controls"><button class="ui-button" :disabled="busy" @click="generate">生成或更换绑定码</button><button class="ui-button" :disabled="busy" @click="run(load)">刷新已关联身份</button></div>
     <div v-if="code" class="qq-command"><code>绑定 {{ code }}</code><button class="ui-button" :disabled="busy" @click="copy">复制绑定指令</button><span v-if="copied" role="status">已复制</span><p>到期 {{ expires }}</p></div>
     <p v-if="error" role="alert">{{ error }}</p>
-    <article v-for="link in links" :key="link.link_id"><h3>已关联 · {{ link.identity.scene === 'group' ? '群聊' : '私聊' }}</h3><p>群标识：{{ link.identity.group_openid || '无' }} · 发送者：{{ link.identity.sender_openid }}</p><button class="ui-button" :disabled="busy" @click="unlink(link)">解除关联</button></article>
+    <article v-for="(link, index) in links" :key="link.link_id"><h3>已关联 · {{ link.identity.scene === 'group' ? '群聊' : '私聊' }} {{ index + 1 }}</h3><details><summary>查看绑定标识</summary><p>群标识：{{ link.identity.group_openid || '无' }} · 发送者：{{ link.identity.sender_openid }}</p></details><button class="ui-button" :disabled="busy" @click="unlink(link)">解除关联</button></article>
     <p v-if="!links.length">尚无已关联的 QQ 身份。解除关联后立即禁止该身份查询私人数据。</p>
   </section>
 </template>

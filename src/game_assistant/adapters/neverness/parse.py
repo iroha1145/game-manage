@@ -6,6 +6,7 @@ import math
 import re
 from typing import Any
 from urllib.parse import urlsplit
+from html.parser import HTMLParser
 
 from game_assistant.event_calendar import BEIJING_TZ as _BEIJING
 
@@ -13,6 +14,7 @@ from .data_models import (
     NteAccount, NteArea, NteCountEntry, NteExploration, NteGacha,
     NteGachaDetail, NteGachaPool, NteProgress, NteProperty, NteRecord,
     NteRecordCard, NteRole, NteRoles, NteSkill, NteStamina, NteWeapon,
+    NteSkillItem, NteSuit, NteEquippedItem,
 )
 from .endpoints import GAME_ID
 
@@ -143,8 +145,45 @@ def _label(value: Any, labels: dict[str, str]) -> str | None:
     return labels.get(value, value)
 
 
+class _PlainText(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts, self.hidden = [], 0
+    def handle_starttag(self, tag, attrs):
+        if tag in ('script', 'style'): self.hidden += 1
+        elif tag in ('br', 'p', 'div', 'li') and not self.hidden: self.parts.append('\n')
+    def handle_endtag(self, tag):
+        if tag in ('script', 'style') and self.hidden: self.hidden -= 1
+    def handle_data(self, data):
+        if not self.hidden: self.parts.append(data)
+
+
+def _plain(value):
+    if _text(value) is None: return None
+    parser = _PlainText(); parser.feed(value)
+    return ''.join(parser.parts).strip() or None
+
+
+def _optional_id(value):
+    return None if value in (None, '') else _id(value)
+
+
+def _properties(value):
+    return [NteProperty(id=_optional_id(p.get('id')), name=_plain(p.get('name')),
+                        value=_text(p.get('value'))) for p in _rows(value)]
+
+
 def _skills(value: Any) -> list[NteSkill]:
-    return [NteSkill(name=_text(row.get("name")), level=_count(row.get("level"))) for row in _rows(value)]
+    return [NteSkill(id=_optional_id(row.get('id')), type=_text(row.get('type')),
+        name=_plain(row.get('name')), level=_count(row.get('level')),
+        items=[NteSkillItem(title=_plain(p.get('title')), desc=_plain(p.get('desc')))
+               for p in _rows(row.get('items', []))]) for row in _rows(value)]
+
+
+def _equipped(value):
+    return [NteEquippedItem(id=_optional_id(p.get('id')), name=_plain(p.get('name')),
+        level=_count(p.get('lev')), main_properties=_properties(p.get('mainProperties', [])),
+        properties=_properties(p.get('properties', []))) for p in _rows(value)]
 
 
 def parse_roles(raw: Any) -> NteRoles:
@@ -153,14 +192,22 @@ def parse_roles(raw: Any) -> NteRoles:
         role_id = _id(row.get("id"))
         fork = _optional_object(row, "fork")
         weapon = NteWeapon(
+            id=_optional_id(fork.get('id')),
             name=_text(fork.get("name")), level=_count(fork.get("alev")),
             quality=_label(fork.get("quality"), _QUALITY), mix_level=_count(fork.get("slev")),
-        ) if fork.get("id") else None
-        properties = []
-        for prop in _rows(row.get("properties", [])):
-            name, value = _text(prop.get("name")), _text(prop.get("value"))
-            if name is not None and value is not None:
-                properties.append(NteProperty(name=name, value=value))
+            breakthrough_level=_count(fork.get('blev')), group_type=_text(fork.get('groupType')),
+            description=_plain(fork.get('des')), buff_name=_plain(fork.get('buffName')),
+            buff_description=_plain(fork.get('buffDes')), lbd=fork.get('lbd'),
+            properties=_properties(fork.get('properties', [])),
+        ) if fork else None
+        properties = _properties(row.get('properties', []))
+        suit = _optional_object(row, 'suit')
+        normalized_suit = NteSuit(id=_optional_id(suit.get('id')), name=_plain(suit.get('name')),
+            description_two=_plain(suit.get('des2')), description_four=_plain(suit.get('des4')),
+            conditions=suit.get('suitCondition'), activation_count=_count(suit.get('suitActivateNum')),
+            core=_equipped(suit.get('core', [])), pie=_equipped(suit.get('pie', []))) if suit else None
+        effects = row.get('awakenEffect', [])
+        if not isinstance(effects, list) or any(not isinstance(p, str) for p in effects): raise ValueError(_ERROR)
         icon = ("https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/detail/"
                 f"{role_id}.png") if re.fullmatch(r"[A-Za-z0-9_-]+", role_id) else None
         entries.append(NteRole(
@@ -169,6 +216,7 @@ def parse_roles(raw: Any) -> NteRoles:
             awaken_level=_count(row.get("awakenLev")), mix_level=_count(row.get("slev")),
             affinity_exp=_count(row.get("likeabilitylev")), icon_url=icon, weapon=weapon,
             properties=properties, skills=_skills(row.get("skills", [])), city_skills=_skills(row.get("citySkills", [])),
+            group_type=_text(row.get('groupType')), awaken_effects=[_plain(p) or '' for p in effects], suit=normalized_suit,
         ))
     return NteRoles(entries=entries)
 

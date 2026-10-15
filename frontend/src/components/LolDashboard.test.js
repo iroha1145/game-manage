@@ -41,7 +41,7 @@ test('announcements and news share one list and subject filters without an archi
   button(root, '公告与资讯').props.onClick(); await flush()
   assert.match(content(root), /停服维护公告/)
   assert.match(content(root), /世界赛事日程/)
-  assert.match(content(root), /待更新/)
+  assert.ok(nodes(root, 'span').some(node => String(node.props.class).includes('badge-stale') && content(node) === '数据可能过期'))
   button(root, '维护通知').props.onClick(); await flush()
   assert.match(content(root), /停服维护公告/)
   assert.doesNotMatch(content(root), /世界赛事日程/)

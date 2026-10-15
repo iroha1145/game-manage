@@ -6,30 +6,28 @@ import { useWuwaRequest } from '../wuwa-api.js'
 import { value, list, stamp } from '../wuwa-display.js'
 import WuwaDrawTable from './WuwaDrawTable.vue'
 import InfoHint from './InfoHint.vue'
-const props = defineProps({ accountKey: { type: String, default: '' } })
-const archive = ref(null),
+import WuwaGachaImport from './WuwaGachaImport.vue'
+import WuwaGachaSummary from './WuwaGachaSummary.vue'
+import { gachaSource } from '../wuwa-gacha.js'
+const props = defineProps({ accountKey: { type: String, default: '' }, snapshot: {type:Object,default:null}, imageMode:{type:Boolean,default:false} })
+const archive = ref(props.imageMode ? props.snapshot : null),
   url = ref(''),
-  file = ref(null),
-  fileInput = ref(null),
+  linkPreview = ref(null),
   outcome = ref(null),
   error = ref(''),
   busy = ref(false),
   offset = ref(0)
-let fileGeneration = 0
 onBeforeUnmount(() => {
-  fileGeneration++
   clearInput()
 })
 function clearInput() {
   url.value = ''
-  file.value = null
-  if (fileInput.value) fileInput.value.value = ''
 }
 function reset() {
-  fileGeneration++
   clearInput()
   archive.value = null
   outcome.value = null
+  linkPreview.value = null
   error.value = ''
   busy.value = false
   offset.value = 0
@@ -62,41 +60,31 @@ async function perform(body) {
     clearInput()
   }
 }
-function importUrl() {
+async function importUrl() {
   if (busy.value || !url.value.trim()) return
   const submitted = url.value.trim()
   clearInput()
   outcome.value = null
+  linkPreview.value = null
   error.value = ''
   busy.value = true
-  return perform({ url: submitted })
+  try { linkPreview.value = await request.run('gacha/preview', { url: submitted }) }
+  catch (e) { error.value = e.message }
+  finally { busy.value = false }
 }
-async function importFile() {
-  if (busy.value || !file.value) return
-  const chosen = file.value,
-    version = ++fileGeneration
-  clearInput()
-  outcome.value = null
-  error.value = ''
+function confirmUrl() {
+  if (busy.value || !linkPreview.value) return
+  const preview_id = linkPreview.value.preview_id
+  linkPreview.value = null
   busy.value = true
-  try {
-    if (chosen.size > 2 * 1024 * 1024) throw new Error()
-    const records = JSON.parse(await chosen.text())
-    if (version !== fileGeneration) return
-    await perform({ records })
-  } catch {
-    if (version !== fileGeneration) return
-    error.value =
-      '文件无法导入：请选择不超过 2 MiB、含当前账号标识的有效 JSON 文件'
-    busy.value = false
-  }
+  return perform({ preview_id })
 }
-onMounted(() => load())
+onMounted(() => { if (!props.imageMode) load() })
 watch(
   () => props.accountKey,
   () => {
     importDecided = false
-    load()
+    if (!props.imageMode) load()
   },
 )
 // The import form opens by itself only when the first archive read for an
@@ -116,6 +104,17 @@ const poolNames = computed(() =>
       .map((p) => [p.pool, p.name]),
   ),
 )
+function byPool(rows) {
+  const groups = new Map()
+  for (const row of list(rows)) {
+    const key = row.pool == null ? '' : String(row.pool)
+    if (!groups.has(key)) groups.set(key, {key, name: poolNames.value[key] || (key ? `卡池 ${key}` : '未知卡池'), rows: []})
+    groups.get(key).rows.push(row)
+  }
+  return [...groups.values()]
+}
+const goldGroups = computed(() => byPool(archive.value?.gold))
+const recordGroups = computed(() => byPool(archive.value?.items))
 // Coverage bounds are record times in the source time zone: reformat, never convert.
 const SOURCE_TIME = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/
 function sourceTime(v) {
@@ -148,7 +147,7 @@ function rarities(pool) {
     <header class="cap-title">
       <h2>抽卡历史</h2>
     </header>
-    <details class="wuwa-import" :open="importOpen" @toggle="importOpen = $event.target.open">
+    <details v-if="!imageMode" class="wuwa-import" :open="importOpen" @toggle="importOpen = $event.target.open">
       <summary>导入记录</summary>
       <div class="wuwa-import-body">
         <p class="wuwa-meta">授权链接仅用于本次导入，用后清空；记录保存在本机。</p>
@@ -160,38 +159,23 @@ function rarities(pool) {
             spellcheck="false"
             aria-label="官方记录授权链接"
             :value="url"
-            @input="url = $event.target.value"
-            placeholder="粘贴抽卡记录授权链接"
+            @input="url = $event.target.value;linkPreview = null"
+            placeholder="粘贴官方记录授权链接，不保存到浏览器"
           /><button
             type="submit"
             class="ui-button small-button primary"
             :disabled="busy || !url.trim()"
             @click.prevent="importUrl"
           >
-            导入链接
+            预览链接
           </button>
         </form>
-        <div class="toolbar wuwa-import-row">
-          <input
-            ref="fileInput"
-            class="wuwa-file"
-            type="file"
-            accept=".json,application/json"
-            aria-label="本地导出 JSON"
-            :disabled="busy"
-            @change="file = $event.target.files?.[0] || null"
-          /><button
-            type="button"
-            class="ui-button small-button"
-            :disabled="busy || !file"
-            @click="importFile"
-          >
-            导入文件</button
-          ><InfoHint
-            label="文件说明"
-            text="支持含账号 UID 的 WWUID 或标准格式导出文件；最大 2 MiB。"
-          />
+        <div v-if="linkPreview" class="wuwa-notice">
+          <p>官方记录预览 · 收到 {{ linkPreview.received }} 条 · 新增 {{ linkPreview.new_records }} 条 · 重复 {{ linkPreview.duplicates }} 条；尚未写入。</p>
+          <p v-if="linkPreview.failed_pools?.length" class="wuwa-warning">部分卡池读取失败 {{ linkPreview.failed_pools.join('、') }}，本次仅确认成功部分。</p>
+          <button class="ui-button small-button primary" :disabled="busy" @click="confirmUrl">确认导入链接预览</button>
         </div>
+        <WuwaGachaImport :account-key="accountKey" @imported="outcome=$event;load(0)" />
       </div>
     </details>
     <p v-if="busy" role="status" class="wuwa-meta">正在处理记录…</p>
@@ -210,13 +194,14 @@ function rarities(pool) {
         }}。仅保存成功部分。
       </p>
     </div>
+    <p v-if="imageMode" class="wuwa-meta">已导入记录 {{ archive?.total ?? '未知' }} 抽 · 本次明细 {{ list(archive?.items).length }} 条；更多明细可在看板查看。</p>
     <template v-if="archive"
       ><p v-if="archive.state === 'need_import'" class="wuwa-notice">
         暂无抽卡记录，请通过上方链接或文件导入。
       </p>
-      <p class="wuwa-coverage">
-        <span class="wuwa-meta" role="heading" aria-level="3">记录范围</span>
-        <span class="badge badge-stale">部分历史</span>
+      <details v-if="!imageMode" data-render-collapsed><summary>导入详情</summary><p class="wuwa-coverage">
+        <span class="wuwa-meta" role="heading" aria-level="3">覆盖范围</span>
+        <span class="badge badge-stale">不完整历史</span>
         <span class="wuwa-range"
           >{{ sourceTime(archive.coverage?.earliest) }} —
           {{ sourceTime(archive.coverage?.latest) }}</span
@@ -226,24 +211,19 @@ function rarities(pool) {
         />
         <span class="wuwa-meta wuwa-coverage-end"
           >最近导入 {{ stamp(archive.coverage?.imported_at) }} · 来源
-          {{
-            archive.coverage?.source === 'official_query'
-              ? '官方记录查询'
-              : archive.coverage?.source === 'json_import'
-                ? '本地 JSON'
-                : '未导入'
-          }}</span
+          {{ gachaSource(archive.coverage?.source) }}</span
         >
         <span
           v-if="list(archive.coverage?.failed_pools).length"
           class="badge badge-danger"
           >未完整获取卡池 {{ archive.coverage.failed_pools.join('、') }}</span
         >
-      </p>
+      </p></details>
+      <WuwaGachaSummary :archive="archive" :image-mode="imageMode" />
       <section class="wuwa-section">
         <h3 class="wuwa-subhead">
           各池统计<span class="wuwa-meta"
-            >已导入 {{ value(archive.total) }} 抽</span
+            >已导入记录 {{ value(archive.total) }} 抽</span
           >
         </h3>
         <div v-if="list(archive.pools).length" class="wuwa-tiles wuwa-pools">
@@ -286,13 +266,15 @@ function rarities(pool) {
             >共 {{ value(archive.gold_total) }} 条</span
           >
         </h3>
-        <WuwaDrawTable :rows="list(archive.gold)" :pool-names="poolNames" />
+        <template v-if="imageMode"><section v-for="group in goldGroups" :key="group.key" class="wuwa-section wuwa-pool-records"><h4 class="wuwa-subhead">{{ group.name }}</h4><WuwaDrawTable :rows="group.rows" :pool-names="poolNames" /></section><p v-if="!goldGroups.length" class="empty">暂无五星记录</p></template>
+        <WuwaDrawTable v-else :rows="list(archive.gold)" :pool-names="poolNames" />
       </section>
       <details open class="wuwa-section wuwa-records-all">
-        <summary>全部记录（当前页）</summary>
-        <WuwaDrawTable :rows="list(archive.items)" :pool-names="poolNames" />
+        <summary>{{ imageMode ? '已导入记录（本次读取）' : '全部记录（当前页）' }}</summary>
+        <template v-if="imageMode"><section v-for="group in recordGroups" :key="group.key" class="wuwa-section wuwa-pool-records"><h4 class="wuwa-subhead">{{ group.name }}</h4><WuwaDrawTable :rows="group.rows" :pool-names="poolNames" /></section><p v-if="!recordGroups.length" class="empty">暂无记录</p></template>
+        <WuwaDrawTable v-else :rows="list(archive.items)" :pool-names="poolNames" />
       </details>
-      <nav class="wuwa-pager" aria-label="抽卡档案分页">
+      <nav v-if="!imageMode" class="wuwa-pager" aria-label="抽卡档案分页">
         <button
           type="button"
           class="ui-button small-button"
@@ -309,7 +291,7 @@ function rarities(pool) {
           class="ui-button small-button"
           :disabled="
             busy ||
-            offset + 50 >= Math.max(archive.total || 0, archive.gold_total || 0)
+            offset + 50 >= Math.max(archive.total || 0, archive.gold_total || 0, archive.aggregates?.total || 0)
           "
           @click="load(offset + 50)"
         >
@@ -317,7 +299,7 @@ function rarities(pool) {
         </button>
       </nav></template
     ><button
-      v-else-if="!busy"
+      v-else-if="!busy && !imageMode"
       type="button"
       class="ui-button small-button"
       @click="load()"

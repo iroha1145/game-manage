@@ -16,7 +16,7 @@ export function gachaView({ snaps = {}, cloudAccount, cloudRole, configured, aut
   if (expired(account) || expired(snapshot)) return unavailable('鹰角身份已失效，请重新登录并刷新。')
   const role = id(account?.payload?.role_id)
   if (!role) return unavailable('尚未读取鹰角通行证角色，请刷新数据。')
-  if (cloudAccount && (id(account.account_id) !== id(cloudAccount.account_id) || id(account.role_id) !== id(cloudRole) || role !== id(cloudRole))) return unavailable('当前授权与账号快照不一致，请重新读取。')
+  if (cloudAccount && (id(account.account_id) !== id(cloudAccount.account_id) || id(account.role_id) !== id(cloudRole))) return unavailable('当前授权与账号快照不一致，请重新读取。')
   const identity = { account: account.payload, accountId: cloudAccount ? `${cloudAccount.account_id}:${cloudRole}` : role }
   if (!snapshot) return { ...identity, snapshot: null, message: '尚未同步该鹰角角色的寻访记录。' }
   if (id(snapshot.payload?.role_id) !== role || (snapshot.payload?.report?.role_id != null && id(snapshot.payload.report.role_id) !== role) || cloudAccount && (id(snapshot.account_id) !== id(cloudAccount.account_id) || id(snapshot.role_id) !== id(cloudRole))) {

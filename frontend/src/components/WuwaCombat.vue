@@ -7,7 +7,7 @@ import WuwaCombatRecord from './WuwaCombatRecord.vue'
 import WuwaChallengeGuides from './WuwaChallengeGuides.vue'
 import SummaryMetrics from './SummaryMetrics.vue'
 import { vGlide } from '../motion.js'
-const props = defineProps({ roleNames: { type: Object, default: () => ({}) }, snap: { default: null } })
+const props = defineProps({ roleNames: { type: Object, default: () => ({}) }, snap: { default: null }, imageMode:Boolean })
 const payload = computed(() => props.snap?.payload || {})
 const selected = ref(''), view = ref('records')
 const titles = { tower:'逆境深塔', hologram:'战术全息', slash:'冥歌海墟' }
@@ -19,7 +19,7 @@ function open(mode) { selected.value=mode; view.value='records' }
   <div class="wuwa-stack">
     <WuwaStatus v-if="snap?.stale || snap?.error" :snap="snap" />
     <section v-for="(title, mode) in titles" :key="mode" class="wuwa-panel">
-      <header class="cap-title wuwa-module-heading"><h2>{{ title }}</h2><button type="button" class="ui-button small-button" @click="open(mode)">查看{{ title }}</button></header>
+      <header class="cap-title wuwa-module-heading"><h2>{{ title }}</h2><button v-if="!imageMode" type="button" class="ui-button small-button" @click="open(mode)">查看{{ title }}</button></header>
       <template v-if="mode === 'tower'">
         <p class="wuwa-meta">深境区 · 周期结束 {{ stamp(payload.tower?.data?.season_end_at) }}（北京时间）</p>
         <SummaryMetrics :metrics="list(deepZone?.tower_area_list).map((area,i)=>({label:area.area_name || `区域 ${i+1}`,current:area.star,total:area.max_star,icon:'spark',note:'深境区星数'}))" />
@@ -34,6 +34,7 @@ function open(mode) { selected.value=mode; view.value='records' }
       </template>
       <p v-if="payload[mode]?.data?.is_unlock === false" class="wuwa-muted">尚未解锁</p>
       <WuwaStatus :snap="payload[mode] || snap" />
+      <WuwaCombatRecord v-if="imageMode" :mode="mode" :snap="snap" :role-names="roleNames" />
     </section>
     <WuwaRoleDialog v-if="selected" :title="`${titles[selected]} · 详情`" @close="selected = ''">
       <div v-glide class="segmented wuwa-dialog-tabs" role="group" aria-label="挑战详情视图">

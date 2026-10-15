@@ -63,8 +63,9 @@ test('activity details retain source errors and stale status inside the dialog',
   const root=mount(t,await component('WuwaActivities'),{snap:{stale:true,error:'玩法采集失败',payload:{sections:{one:{title:'测试玩法',progress:0}}}}})
   await click(root,'查看详情')
   const dialog=nodes(root,'dialog')[0]
-  assert.match(content(dialog),/玩法采集失败/)
-  assert.match(content(dialog),/待更新/)
+  assert.match(content(dialog),/暂时无法读取.*重试/)
+  assert.doesNotMatch(content(dialog),/玩法采集失败/)
+  assert.match(content(dialog),/旧数据/)
 })
 
 test('empty news keeps source failure visible without requiring a private account',async t=>{
@@ -72,7 +73,7 @@ test('empty news keeps source failure visible without requiring a private accoun
   assert.match(content(root),/采集失败.*保留上次成功数据/)
   assert.doesNotMatch(content(root),/暂无公告与资讯/)
   assert.match(content(root),/公告采集失败/)
-  assert.match(content(root),/待更新/)
+  assert.ok(nodes(root,'span').some(node=>String(node.props.class).includes('badge-stale') && content(node)==='数据可能过期'))
 })
 
 test('tower lineup pictures are inline, switch per source, and recover after an image failure',async t=>{

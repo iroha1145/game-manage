@@ -54,8 +54,29 @@ class PrivateRoutes:
         if previous:
             previous[2].close()
         session=self.accounts.credentials.load_grant(scope.user_id,info['grant_id'])
+        version = [info['version']]
+        def guard():
+            current = self.accounts.describe(scope)
+            if current['grant_id'] != info['grant_id'] or current['version'] != version[0]:
+                raise AccountNotFoundError()
+            return version[0]
+        async def renew():
+            from .identity.models import Principal
+            from .auth.service import LoginError
+            guard()
+            try:
+                updated,new_version = await self.runtime.login.renew_skland(Principal(scope.user_id,False),info['grant_id'],
+                    expected_version=version[0],role_id=info['game_uid'],server_id=info['server'])
+            except LoginError:
+                # Drop cached data if the authorization changed during exchange.
+                guard()
+                raise SklandError('森空岛授权续期失败，请重新连接',expired=True) from None
+            version[0] = new_version
+            guard()
+            return {**updated,'role_id':info['game_uid'],'server_id':info['server']}
         service=EndfieldSklandService.for_scope(scope,
-            {**session,'role_id':info['game_uid'],'server_id':info['server']})
+            {**session,'role_id':info['game_uid'],'server_id':info['server']},grant_guard=guard,
+            grant_renew=renew if getattr(self.runtime,'login',None) else None)
         self._skland[scope]=(info['version'],info['grant_id'],service)
         return service
 
@@ -277,6 +298,47 @@ def _install_wuwa_archive(bundle,app):
     async def gacha(limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0,le=1000000),scope=Depends(owner)):
         return bundle.ledger(scope,'wuwa_gacha').read(scope,limit,offset)
 
+    @router.get('/gacha/export')
+    async def export_gacha(limit:int=Query(2000,ge=1,le=20000),offset:int=Query(0,ge=0),scope=Depends(owner)):
+        try:
+            return _attachment(bundle.ledger(scope,'wuwa_gacha').export(scope,limit=limit,offset=offset),'wuwa-gacha.json')
+        except ValueError:
+            raise HTTPException(422,'invalid_gacha_input') from None
+
+    @router.post('/gacha/preview')
+    async def preview_gacha(request:Request,scope=Depends(owner)):
+        info=bundle.accounts.describe(scope)
+        value=await _body(request,2*1024*1024)
+        if bundle.accounts.describe(scope)['version']!=info['version']:
+            raise HTTPException(409,'authorization_changed')
+        if set(value)=={'url'}:
+            try:
+                result=await fetch_official(value['url'],info['game_uid'],info['server'])
+                if bundle.accounts.describe(scope)['version']!=info['version']:
+                    raise HTTPException(409,'authorization_changed')
+                return bundle.ledger(scope,'wuwa_gacha').preview(scope,result['records'],session=info['version'],
+                    source='official_query',failed_pools=result['failed_pools'])
+            except ValueError:
+                raise HTTPException(422,'invalid_gacha_input') from None
+        if not {'records'}<=set(value) or set(value)-{'records','source','latest_confirmed','continuity_confirmed'}:
+            raise HTTPException(422,'invalid_input')
+        try:
+            return bundle.ledger(scope,'wuwa_gacha').preview(scope,value['records'],session=info['version'],
+                **{k:v for k,v in value.items() if k!='records'})
+        except ValueError:
+            raise HTTPException(422,'invalid_gacha_input') from None
+
+    @router.post('/gacha/rules')
+    async def gacha_rules(request:Request,scope=Depends(owner)):
+        version=bundle.accounts.describe(scope)['version']
+        value=await _body(request,2048)
+        if bundle.accounts.describe(scope)['version']!=version:
+            raise HTTPException(409,'authorization_changed')
+        try:
+            return bundle.ledger(scope,'wuwa_gacha').set_rule(scope,value)
+        except ValueError:
+            raise HTTPException(422,'invalid_gacha_input') from None
+
     @router.post('/history/backfill')
     async def backfill(request:Request,scope=Depends(owner)):
         version=bundle.accounts.describe(scope)['version']
@@ -305,20 +367,12 @@ def _install_wuwa_archive(bundle,app):
         value=await _body(request,2*1024*1024)
         if bundle.accounts.describe(scope)['version']!=info['version']:
             raise HTTPException(409,'authorization_changed')
-        if set(value) not in ({'url'},{'records'}):
-            raise HTTPException(422,'invalid_input')
-        failed=[];source='json_import'
-        try:
-            if 'url' in value:
-                result=await fetch_official(value['url'],info['game_uid'],info['server'])
-                if bundle.accounts.describe(scope)['version']!=info['version']:
-                    raise HTTPException(409,'authorization_changed')
-                records,failed,source=result['records'],result['failed_pools'],'official_query'
-            else:
-                records=value['records']
-            return bundle.ledger(scope,'wuwa_gacha').import_records(scope,records,source=source,failed_pools=failed)
-        except ValueError:
-            raise HTTPException(422,'invalid_gacha_input') from None
+        if set(value)=={'preview_id'}:
+            try:
+                return bundle.ledger(scope,'wuwa_gacha').commit_preview(scope,value['preview_id'],session=info['version'])
+            except (ValueError,TypeError):
+                raise HTTPException(409,'invalid_or_expired_preview') from None
+        raise HTTPException(422,'preview_required')
 
     bundle.include(app,router)
 
@@ -363,12 +417,12 @@ def _install_skland(bundle,app):
     owner=bundle.scope_for('endfield','skland')
 
     async def read(scope,method,*args,**kwargs):
-        version=bundle.accounts.describe(scope)['version']
+        service=bundle.skland(scope)
         try:
-            result=await getattr(bundle.skland(scope),method)(scope,*args,**kwargs)
+            result=await getattr(service,method)(scope,*args,**kwargs)
         except SklandError:
             raise HTTPException(502,'skland_query_failed') from None
-        if bundle.accounts.describe(scope)['version']!=version:
+        if bundle.accounts.describe(scope)['version']!=service.grant_version:
             raise HTTPException(409,'authorization_changed')
         return result
 
@@ -433,19 +487,24 @@ def _declare(category, method, *paths, policy='disabled_legacy'):
 
 _declare('disabled','GET','/openapi.json','/docs','/docs/oauth2-redirect','/redoc',policy='disabled')
 _declare('disabled','HEAD','/openapi.json','/docs','/docs/oauth2-redirect','/redoc',policy='disabled')
+_declare('private_query','GET','/api/assessment/{game}/{character}','/api/assessment/{game}/{character}/equipped')
+_declare('private_modify','PUT','/api/assessment/{game}/{character}/model')
+_declare('private_modify','POST','/api/assessment/{game}/{character}/configurations',
+    '/api/assessment/{game}/{character}/score','/api/assessment/{game}/{character}/compare')
+_declare('private_modify','DELETE','/api/assessment/{game}/{character}/configurations/{identity}')
 _declare('private_query','GET',
     '/api/auth/status','/api/nte/gacha/summary','/api/nte/gacha/records','/api/nte/gacha/export','/api/nte/gacha/rules',
     '/api/endfield/gacha/summary','/api/endfield/gacha/records','/api/endfield/gacha/export',
     '/api/endfield/blueprints','/api/endfield/blueprints/export','/api/endfield/skland/status',
     '/api/endfield/skland/card','/api/endfield/skland/attendance','/api/endfield/skland/operators/{char_id}',
     '/api/endfield/skland/challenges','/api/endfield/skland/tools','/api/wuwa/roles/{role_id}',
-    '/api/wuwa/resources/{kind}/{period}','/api/wuwa/history','/api/wuwa/gacha',
+    '/api/wuwa/resources/{kind}/{period}','/api/wuwa/history','/api/wuwa/gacha','/api/wuwa/gacha/export',
     '/api/games/{game_id}/snapshot/{capability}','/api/status','/api/games/{game_id}/match/{match_id}/detail')
 _declare('private_modify','POST',
     '/api/auth/{game}/sessions','/api/auth/{game}/sms','/api/auth/{game}/login',
     '/api/nte/gacha/preview','/api/nte/gacha/import','/api/nte/gacha/rules','/api/endfield/blueprints',
     '/api/endfield/skland/connect','/api/endfield/skland/passport','/api/endfield/skland/role','/api/endfield/skland/refresh',
-    '/api/wuwa/history/backfill','/api/wuwa/gacha/import','/api/games/{game_id}/refresh')
+    '/api/wuwa/history/backfill','/api/wuwa/gacha/import','/api/wuwa/gacha/preview','/api/wuwa/gacha/rules','/api/games/{game_id}/refresh')
 _declare('private_modify','PUT','/api/endfield/blueprints/{identity}')
 _declare('private_modify','DELETE','/api/auth/{game}','/api/endfield/blueprints/{identity}','/api/endfield/skland/connection')
 _declare('public_read_only','GET','/api/endfield/public','/api/endfield/map','/api/endfield/map/marks/{mark_id}',

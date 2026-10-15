@@ -170,7 +170,8 @@ def test_cache_capability_projection_and_unsupported_are_explicit():
 
 
 @pytest.mark.parametrize('change', ['secondary_revoke', 'secondary_rotate', 'unlink', 'rebind'])
-async def test_multi_scope_overview_rechecks_every_authorization_after_async_render(change):
+@pytest.mark.parametrize('render_exception', [False, True])
+async def test_multi_scope_overview_rechecks_every_authorization_after_async_render(change, render_exception):
     from game_assistant.qq.bindings import QqBindingError
     query = CachedQuery()
     query.add('nte', 'tajiduo', 'nte', {'account': {'nickname': 'PRIVATE N'}})
@@ -184,12 +185,14 @@ async def test_multi_scope_overview_rechecks_every_authorization_after_async_ren
     class Queue:
         renderer = SimpleNamespace(invalidate_account=lambda *args: None)
         async def render(self, scope, result, **kwargs):
-            assert set(result.payload) <= {'card', 'grant_version', 'snapshot_times', 'scopes', 'snapshot_fingerprints'}
+            assert set(result.payload) <= {'card', 'grant_version', 'snapshot_times', 'scopes', 'snapshot_fingerprints','shared_required','render_snapshot'}
+            assert result.payload['shared_required'] is True and result.payload['render_snapshot']['kind']=='game_snapshot'
             assert len(result.payload['scopes']) == 2
             if change == 'secondary_revoke': query.versions['sk'] = None
             elif change == 'secondary_rotate': query.versions['sk'] += 1
             elif change == 'unlink': linked[0] = False
             else: principal[0] = Principal('other', False)
+            if render_exception:raise RuntimeError('fixture_render_failed_after_authorization_change')
             return b'png'
     api = QqQueryService(SimpleNamespace(resolve_qq_identity=resolve), query, None, render_queue=Queue())
     reply = await api.query_reply(IDENTITY, 'overview', image_requested=True, budget_seconds=5)

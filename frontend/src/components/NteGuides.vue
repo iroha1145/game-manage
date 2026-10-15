@@ -2,22 +2,28 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getGuideCatalog, getGuideSource, safeGuideUrl } from '../nte-guides-api.js'
 import { displayBeijing } from '../time.js'
+import { friendlyDataError } from '../cloud-display.js'
 import NteIcon from './NteIcon.vue'
 import NteGuideVisual from './NteGuideVisual.vue'
 import { nteRoleIcon } from '../nte-icons.js'
+import { filterGuides,guideForCharacter,ownedGuideRoles } from '../guide-search.js'
+import { characterId as entryCharacterId, characterLabel, normalizeSearch } from '../character-search.js'
 
-const props = defineProps({ canMaintain: {type:Boolean,default:true}, roles: { type: Array, default: () => [] } })
+const props = defineProps({ canMaintain: {type:Boolean,default:true}, roles: { type: Array, default: () => [] }, characterId: {type:String,default:''} })
+const emit=defineEmits(['role'])
+const targetId=ref(props.characterId)
+watch(()=>props.characterId,id=>{targetId.value=id})
+function selectGuide(id){targetId.value='';selected.value=id}
 const catalog = ref(null), selected = ref('黑羽'), search = ref(''), ownedOnly = ref(false)
 const catalogLoading = ref(true), catalogError = ref(''), source = ref(null), sourceLoading = ref(false), sourceError = ref('')
 const page = ref(1), imageFailed = ref(false)
 const sourcePanel = ref(null)
 let requestId = 0, disposed = false, sourceController = null
 const catalogController = new AbortController()
-const names = computed(() => new Set(props.roles.map(role => role.name)))
-const isOwned = guide => [guide.name, ...(guide.aliases || [])].some(name => names.value.has(name))
-const guides = computed(() => (catalog.value?.guides || []).filter(guide => (!ownedOnly.value || isOwned(guide))
-  && [guide.name, guide.element, guide.role, ...(guide.aliases || [])].some(value => String(value || '').toLowerCase().includes(search.value.trim().toLowerCase()))))
-const guide = computed(() => guides.value.find(item => item.id === selected.value) || guides.value[0])
+const isOwned = guide => ownedGuideRoles('nte',guide,props.roles).length>0
+const guides = computed(() => filterGuides('nte',(catalog.value?.guides || []).filter(guide => !ownedOnly.value || isOwned(guide)),search.value))
+const guide = computed(() => targetId.value ? guideForCharacter('nte',guides.value,targetId.value) : guides.value.find(item => item.id === selected.value) || (!normalizeSearch(search.value) ? guides.value[0] : null))
+const owned = computed(() => guide.value ? ownedGuideRoles('nte',guide.value,props.roles) : [])
 const sourceMeta = computed(() => catalog.value?.sources?.find(item => item.id === guide.value?.source_id))
 const currentImage = computed(() => safeGuideUrl(source.value?.images?.[page.value - 1], true))
 const totalImages = computed(() => source.value?.images?.length || 0)
@@ -60,18 +66,22 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
     <p v-if="catalogLoading" class="notice" role="status">正在加载攻略目录…</p>
     <div v-else-if="catalogError" class="notice error" role="alert">{{ catalogError }} <button @click="loadCatalog">重试</button></div>
     <template v-else-if="catalog">
-      <div class="guides-filters"><label class="search-label">查找角色<input v-model="search" type="search" placeholder="角色名、属性或定位" /></label><label><input v-model="ownedOnly" type="checkbox" />只看已拥有</label><span class="muted">{{ guides.length }} 名角色</span></div>
+      <div class="guides-filters"><label class="search-label">查找角色<input v-model="search" type="search" placeholder="名称、别名、拼音、首字母、属性或定位" /></label><label><input v-model="ownedOnly" type="checkbox" />只看已拥有</label><span class="muted">{{ guides.length }} 名角色</span></div>
+      <p v-if="targetId && !guide" class="notice">未找到该角色形态的已确认攻略，不套用同名或其他形态资料。<button type="button" @click="targetId=''">浏览公开攻略</button></p>
       <p v-if="ownedOnly && !roles.length" class="notice">尚无角色资料，可关闭“只看已拥有”浏览公开攻略，或登录并刷新角色数据。</p>
       <p v-else-if="!guides.length" class="notice">没有匹配的角色，试试其他关键词。</p>
+      <nav v-if="!guide && guides.length && !targetId" class="role-list" aria-label="攻略角色候选"><button v-for="item in guides" :key="item.id" :aria-label="`查看${item.name}攻略`" @click="selectGuide(item.id)">{{ item.name }}</button></nav>
       <div v-if="guide" class="guides-layout">
-        <nav class="role-list" aria-label="攻略角色列表"><button v-for="item in guides" :key="item.id" :aria-pressed="guide.id === item.id" :aria-label="`查看${item.name}攻略`" @click="selected = item.id"><NteIcon :src="nteRoleIcon(item.name)" :name="item.name" /><span><strong>{{ item.name }}</strong><small>{{ item.element }} · {{ item.role }}</small></span><span class="guide-dot" :class="{ reviewed:item.status === 'reviewed' }" :title="item.status === 'reviewed' ? '已整理摘要' : '原图索引'" /></button></nav>
+        <nav class="role-list" aria-label="攻略角色列表"><button v-for="item in guides" :key="item.id" :aria-pressed="guide.id === item.id" :aria-label="`查看${item.name}攻略`" @click="selectGuide(item.id)"><NteIcon :src="nteRoleIcon(item.name)" :name="item.name" /><span><strong>{{ item.name }}</strong><small>{{ item.element }} · {{ item.role }}</small></span><span class="guide-dot" :class="{ reviewed:item.status === 'reviewed' }" :title="item.status === 'reviewed' ? '已整理摘要' : '原图索引'" /></button></nav>
         <div class="guide-main">
+          <button v-for="role in owned" :key="entryCharacterId(role)" type="button" :aria-label="`查看本人${characterLabel('nte',role)}`" @click="emit('role',entryCharacterId(role))">查看本人 {{ characterLabel('nte',role) }} 面板</button>
           <header class="role-heading"><div><p class="kicker">{{ guide.element }} · {{ guide.role }}</p><h3>{{ guide.name }} <span>培养攻略</span></h3></div><span class="version">V{{ sourceMeta?.version || '未知' }} 资料</span></header>
-          <p class="provenance">{{ sourceMeta?.author }} · 社区作者建议<span v-if="guide.reviewed_at"> · 摘要核对于 {{ guide.reviewed_at }}</span></p>
+          <p class="provenance">{{ sourceMeta?.author }}</p>
+          <details data-render-collapsed><summary>资料详情</summary><p v-if="guide.reviewed_at">摘要核对于 {{ guide.reviewed_at }}</p><p class="version-note">按来源标注的版本与定位使用，不代表当前版本唯一最优解。</p>
           <p v-if="source?.summary_changed" class="notice warning" role="status">原帖有更新，文字摘要待复核；以下为此前核对内容，请优先查看最新原图。</p>
-          <p v-if="sourceError || source?.error" class="notice warning" role="alert">{{ sourceError || source.error }}</p>
+          <p v-if="sourceError || source?.error" class="notice warning" role="alert">{{ friendlyDataError(sourceError || source.error) }}</p>
           <p v-else-if="sourceLoading" class="source-status" role="status">正在核对原帖与图片…</p>
-          <p v-else-if="source?.stale" class="source-status">正在显示已保存的旧版攻略资料。</p>
+          <p v-else-if="source?.stale" class="source-status">当前展示缓存保存的旧版来源资料。</p></details>
           <p v-if="guide.status === 'original_only'" class="notice">文字推荐待整理。已定位到原图第 {{ guide.pages.join('、') }} 页，可查看该角色的五类配装信息。</p>
           <div v-if="guide.status === 'reviewed'" class="advice-grid"><article v-for="(section, index) in guide.sections" :key="section.key" class="advice-card"><header><span class="number">0{{ index + 1 }}</span><h4>{{ section.title }}</h4></header><ul v-if="section.items.length"><li v-for="(item, i) in section.items" :key="i"><NteGuideVisual :text="item" :section-key="section.key" :role-name="guide.name" /></li></ul><p v-else class="muted">暂无已整理的文字推荐</p><details v-if="section.note" class="section-note"><summary>适用条件与说明</summary><p>{{ section.note }}</p></details><button :disabled="sourceLoading || !source || !section.pages.some(n => n <= totalImages)" @click="showPage(section.pages[0])">查看对应原图 · 第 {{ section.pages.join('、') }} 页 ↗</button></article></div>
           <section ref="sourcePanel" class="source-card" aria-label="攻略原图与来源"><header><div><h4>原图与来源</h4><a v-if="originalLink" :href="originalLink" target="_blank" rel="noopener noreferrer">{{ sourceMeta.title }} ↗</a></div><button v-if="canMaintain" :disabled="sourceLoading" @click="loadSource(true)">{{ sourceLoading ? '读取中…' : '刷新原帖' }}</button></header>

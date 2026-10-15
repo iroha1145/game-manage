@@ -5,31 +5,32 @@ import { displayValue as display, rows } from '../endfield-reports.js'
 import { displayBeijing } from '../time.js'
 import SummaryMetrics from './SummaryMetrics.vue'
 import EndfieldChallengeGroups from './EndfieldChallengeGroups.vue'
-const props = defineProps({ value: Object, kind: { type: String, default: 'war' }, busy: Boolean, error: String })
+const props = defineProps({ value: Object, imageMode:Boolean, kind: { type: String, default: 'war' }, busy: Boolean, error: String })
 const emit = defineEmits(['select-kind', 'reload'])
 const report = computed(() => challengeReport(props.value, props.kind))
 const label = computed(() => CHALLENGE_KINDS.find(([id]) => id === props.kind)?.[1] || '挑战')
 const errorText = computed(() => props.error || (typeof props.value?.error === 'string' ? props.value.error : ''))
 const time = value => typeof value !== 'string' || !value ? '未知' : displayBeijing(value)
 const pass = value => value === true ? '已通关' : value === false ? '未通关' : '状态未知'
-const metrics = computed(() => [{label:'本次返回记录',value:report.value.summary?.listed_count}, ...(props.kind === 'crisis' ? [{label:'来源历史最高值',value:report.value.summary?.highest},{label:'来源挑战次数',value:report.value.summary?.challenge_count}] : [])])
+const metrics = computed(() => [{label:'已记录',value:report.value.summary?.listed_count}, ...(props.kind === 'crisis' ? [{label:'历史最高值',value:report.value.summary?.highest},{label:'挑战次数',value:report.value.summary?.challenge_count}] : [])])
 </script>
 <template>
   <div class="endfield-challenges">
-    <section class="challenge-report"><header class="report-heading"><div><p class="kicker">FIELD OPERATIONS / CHALLENGE REPORT</p><h2>挑战记录</h2></div><button type="button" class="ui-button" :disabled="busy" @click="emit('reload')">{{ busy ? '读取中…' : `重新读取${label}` }}</button></header>
-      <nav class="challenge-tabs" aria-label="挑战类型"><button v-for="[id,name] in CHALLENGE_KINDS" :key="id" type="button" :aria-pressed="kind===id" @click="emit('select-kind',id)">{{ name }}</button></nav>
-      <div class="challenge-status"><span>{{ label }}抓取于 {{ time(report.fetched_at) }}（北京时间）</span><span v-if="report.stale && report.available" class="badge badge-stale">已有资料待更新</span></div>
+    <section class="challenge-report"><header class="report-heading"><div><p class="kicker">FIELD OPERATIONS / CHALLENGE REPORT</p><h2>{{ imageMode ? label + ' · 挑战记录' : '挑战记录' }}</h2></div><button v-if="!imageMode" type="button" class="ui-button" :disabled="busy" @click="emit('reload')">{{ busy ? '读取中…' : `重新读取${label}` }}</button></header>
+      <nav v-if="!imageMode" class="challenge-tabs" aria-label="挑战类型"><button v-for="[id,name] in CHALLENGE_KINDS" :key="id" type="button" :aria-pressed="kind===id" @click="emit('select-kind',id)">{{ name }}</button></nav>
+      <details v-if="!imageMode" class="challenge-status"><summary>来源与更新时间</summary><span>{{ label }}抓取于 {{ time(report.fetched_at) }}（北京时间）</span><span v-if="report.stale && report.available" class="badge badge-stale">已有资料待更新</span><p v-if="report.available" class="challenge-note coverage">仅展示本次接口返回的赛季与记录，不代表完整历史；没有来源上限时不计算完成率。</p></details>
+      <p v-else class="challenge-status" role="status"><span>{{ label }}观测时间 {{ time(report.fetched_at) }}（北京时间）</span><span v-if="report.available && (report.stale || errorText)" class="badge badge-stale">已有资料待更新</span></p>
       <p v-if="report.supported === false" class="challenge-empty">当前账号暂不支持{{ label }}挑战。</p>
       <template v-else>
         <p v-if="busy" class="challenge-note" role="status">正在读取{{ label }}记录<template v-if="report.available">，保留当前资料</template>…</p>
-        <p v-if="errorText" class="challenge-error" role="alert">{{ errorText }}<span>{{ report.available ? '正在显示上次成功资料，抓取时间保持不变。' : '尚无可显示的已采集资料。' }}</span></p>
-        <template v-if="report.available"><SummaryMetrics compact :metrics="metrics" /><p class="challenge-note coverage">仅展示本次接口返回的赛季与记录，不代表完整历史；没有来源上限时不计算完成率。</p></template>
-        <p v-else-if="!busy && !errorText" class="challenge-empty">尚未采集{{ label }}记录，请重新读取。</p>
+        <p v-if="errorText && !imageMode" class="challenge-error" role="alert">{{ errorText }}<span>{{ report.available ? '正在显示上次成功资料，抓取时间保持不变。' : '尚无可显示的已采集资料。' }}</span></p>
+        <SummaryMetrics v-if="report.available" compact :metrics="metrics" />
+        <p v-else-if="!busy && (!errorText || imageMode)" class="challenge-empty">尚未采集{{ label }}记录<template v-if="!imageMode">，请重新读取</template>。</p>
       </template>
     </section>
     <template v-if="report.available && report.supported !== false">
-      <p v-if="!report.records.length" class="challenge-report challenge-empty">本次返回没有{{ label }}记录；不能据此判断所有挑战均已完成或尚未参与。</p>
-      <details v-for="(record,index) in report.records" :key="record.id ?? index" class="challenge-report challenge-record" :open="index===0"><summary><div><p class="kicker">{{ kind==='war'?'SEASON':kind==='monument'?'OPERATION':'RECORD' }} {{ String(index+1).padStart(2,'0') }}</p><h3>{{ record.name || (record.id != null ? `记录 ${record.id}` : `挑战记录 ${index+1}`) }}</h3></div><span v-if="kind==='war'" class="record-result">{{ display(record.stars) }} 星</span><span v-else-if="kind==='crisis'" class="record-result">{{ display(record.result) }}</span><span class="record-toggle" aria-hidden="true">⌄</span></summary><div class="record-body">
+      <p v-if="!report.records.length" class="challenge-report challenge-empty"><template v-if="imageMode">尚无已记录的{{ label }}挑战。</template><template v-else>本次返回没有{{ label }}记录；不能据此判断所有挑战均已完成或尚未参与。</template></p>
+      <details v-for="(record,index) in report.records" :key="record.id ?? index" class="challenge-report challenge-record" :open="imageMode || index===0"><summary><div><p class="kicker">{{ kind==='war'?'SEASON':kind==='monument'?'OPERATION':'RECORD' }} {{ String(index+1).padStart(2,'0') }}</p><h3>{{ record.name || (record.id != null ? `记录 ${record.id}` : `挑战记录 ${index+1}`) }}</h3></div><span v-if="kind==='war'" class="record-result">{{ display(record.stars) }} 星</span><span v-else-if="kind==='crisis'" class="record-result">{{ display(record.result) }}</span><span class="record-toggle" aria-hidden="true">⌄</span></summary><div class="record-body">
         <p v-if="record.start_at || record.end_at" class="challenge-note period">{{ time(record.start_at) }} — {{ time(record.end_at) }}</p>
         <template v-if="kind==='war'"><p v-if="!rows(record.weeks).length" class="challenge-note">尚无轮换明细。</p><article v-for="(week,weekIndex) in rows(record.weeks)" :key="week.id ?? weekIndex" class="challenge-week"><header><div><p class="kicker">ROTATION {{ String(weekIndex+1).padStart(2,'0') }}</p><h4>{{ week.name || `轮换 ${weekIndex+1}` }}</h4></div><span>{{ display(week.stars) }} 星</span></header><EndfieldChallengeGroups :groups="week.groups" /></article></template>
         <EndfieldChallengeGroups v-else-if="kind==='monument'" :groups="record.groups" />

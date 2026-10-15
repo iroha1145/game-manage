@@ -1,5 +1,6 @@
 import { isCloudMode } from './http-client.js'
 import { finiteValue } from './dashboard.js'
+import { normalizeSearch, searchCharacters } from './character-search.js'
 
 export const roleId = role => role?.id === null || role?.id === undefined ? '' : String(role.id).trim()
 export const displayRoleValue = (value, missing = '未提供') => {
@@ -8,11 +9,14 @@ export const displayRoleValue = (value, missing = '未提供') => {
 }
 
 export function filterRoles(entries, { search = '', quality = '', element = '', favoritesOnly = false, favorites = [], sort = 'level', direction = 'desc' } = {}) {
-  const favoriteIds = new Set(favorites), query = search.trim().toLocaleLowerCase()
+  const favoriteIds = new Set(favorites), query = normalizeSearch(search)
+  const eligible = (Array.isArray(entries) ? entries : []).filter(role => role && typeof role === 'object')
+    .filter(role => (!quality || role.quality === quality) && (!element || role.element === element) && (!favoritesOnly || favoriteIds.has(roleId(role))))
+  const matches = new Map(searchCharacters('nte', search, eligible).map(item => [item.entry, item.score]))
   const field = ['level', 'awaken_level', 'mix_level', 'name'].includes(sort) ? sort : 'level'
-  return (Array.isArray(entries) ? entries : []).filter(role => role && typeof role === 'object')
-    .filter(role => (!query || String(role.name ?? '').toLocaleLowerCase().includes(query)) && (!quality || role.quality === quality) && (!element || role.element === element) && (!favoritesOnly || favoriteIds.has(roleId(role))))
+  return eligible.filter(role => !query || matches.has(role))
     .sort((a, b) => {
+      if (query && matches.get(a) !== matches.get(b)) return matches.get(a) - matches.get(b)
       const x = field === 'name' ? (a.name || null) : finiteValue(a[field])
       const y = field === 'name' ? (b.name || null) : finiteValue(b[field])
       if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1

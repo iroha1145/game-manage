@@ -10,6 +10,7 @@ import sqlite3
 import sys
 import time
 import uuid
+from functools import lru_cache
 
 
 class OperationError(ValueError):
@@ -85,6 +86,50 @@ def identity_version(path):
     return version
 
 
+def schema_signature(db):
+    """Inspect structural data only; never execute schema text from a database."""
+    objects = [tuple(row) for row in db.execute("SELECT type,name,tbl_name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name")]
+    tables = tuple((name, tuple(tuple(row) for row in db.execute('SELECT name,type,"notnull",dflt_value,pk FROM pragma_table_info(?)', (name,))),
+                    tuple(tuple(row) for row in db.execute('SELECT * FROM pragma_foreign_key_list(?)', (name,))))
+                   for kind,name,_ in objects if kind == 'table')
+    return tuple(objects), tables, db.execute('PRAGMA user_version').fetchone()[0]
+
+
+@lru_cache(maxsize=2)
+def auxiliary_schema(kind):
+    # Derive the accepted schema from actual runtime constructors in memory,
+    # rather than allowing a filename or duplicating an obsolete SQL layout.
+    if kind == 'reminders':
+        from game_assistant.scoped_reminders import ReminderStore
+        store = ReminderStore(':memory:')
+    elif kind == 'assessments':
+        from game_assistant.assessment_store import AssessmentStore
+        store = AssessmentStore(':memory:')
+    else:
+        raise OperationError('unsupported_auxiliary_schema')
+    try:
+        return schema_signature(store.db)
+    finally:
+        store.close()
+
+
+def auxiliary_check(path, identity, kind):
+    with closing(connect_readonly(path)) as data, closing(connect_readonly(identity)) as owners:
+        if schema_signature(data) != auxiliary_schema(kind):
+            raise OperationError('unsupported_auxiliary_schema')
+        # Central auxiliary files are physically shared but every personal row
+        # must retain an existing exact user/account/role owner on restoration.
+        tables = ('reminder_rules','reminder_delivery','reminder_inbox') if kind == 'reminders' else ('personal_assessment',)
+        for table in tables:
+            # Fixed table names only. No SQL/payload supplied by a manifest runs.
+            suffix = ',game' if kind == 'assessments' else ''
+            for row in data.execute('SELECT DISTINCT user_id,account_id,role_id'+suffix+' FROM '+table):
+                scope = owners.execute('SELECT a.game FROM accounts a JOIN roles r ON r.account_id=a.account_id '
+                    'AND r.user_id=a.user_id WHERE a.user_id=? AND a.account_id=? AND r.role_id=?', row[:3]).fetchone()
+                if not scope or (kind == 'assessments' and scope[0] != row[3]):
+                    raise OperationError('auxiliary_scope_not_found')
+
+
 def inventory(root, identity):
     """Known runtime files only; private manifest validates ownership/path."""
     from game_assistant.private_data import list_scope_files
@@ -98,6 +143,12 @@ def inventory(root, identity):
     for name in ('migration-manifest.json','report.json'):
         candidate = root / name
         if candidate.exists():
+            known[candidate] = 'data/' + name
+    for name,kind in (('reminders.db','reminders'), ('private/personal-assessments.db','assessments')):
+        candidate = root / name
+        if candidate.exists():
+            candidate = safe_path(candidate)
+            auxiliary_check(candidate,identity,kind)
             known[candidate] = 'data/' + name
     for item in list_scope_files(root / 'private'):
         path = safe_path(item['path'])
@@ -156,6 +207,12 @@ def backup(source, identity, destination, key):
                         'kind':'sidefile' if version is None else 'sqlite','sqlite_user_version':version})
     if files != inventory(root, identity):
         raise OperationError('inventory_changed_retry_after_quiescence')
+    # Recheck copied scopes against copied identity, since online backups are
+    # consistent per file and cannot promise a whole-system transaction.
+    for name,kind in (('reminders.db','reminders'), ('private/personal-assessments.db','assessments')):
+        copied = stage / 'data' / name
+        if copied.exists():
+            auxiliary_check(copied,stage / 'identity.db',kind)
     schema = identity_version(stage / 'identity.db')
     readability = credential_check(stage / 'identity.db', key)
     manifest = {'format_version':1, 'identity_schema_version':schema,

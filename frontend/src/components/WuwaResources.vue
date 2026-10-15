@@ -1,12 +1,14 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
+import { friendlyDataError } from '../cloud-display.js'
 import { list, value, sourceDateTime } from '../wuwa-display.js'
 import WuwaStatus from './WuwaStatus.vue'
 import WuwaFields from './WuwaFields.vue'
 const props = defineProps({
   snap: { default: null },
   accountKey: { type: String, default: '' },
+  imageMode: Boolean,
 })
 const report = ref(null),
   pending = ref(''),
@@ -42,6 +44,7 @@ watch(
   },
 )
 async function select(period) {
+  if (props.imageMode) return
   pending.value = `${period.kind}:${period.period}`
   error.value = ''
   try {
@@ -120,7 +123,7 @@ const totals = computed(() => {
       <h2>资源简报</h2>
       <WuwaStatus v-if="snap?.stale || snap?.error" :snap="snap" />
     </header>
-    <div class="wuwa-periods">
+    <div v-if="!imageMode" class="wuwa-periods">
       <div
         v-for="(name, kind) in kinds"
         :key="kind"
@@ -148,7 +151,7 @@ const totals = computed(() => {
     </div>
     <p v-if="pending" role="status" class="wuwa-meta">正在读取所选周期…</p>
     <p v-if="error || snap?.payload?.error" role="alert" class="wuwa-error">
-      {{ error || snap?.payload?.error }}
+      {{ imageMode ? friendlyDataError(error || snap?.payload?.error,snap?.state) : error || snap?.payload?.error }}
     </p>
     <template v-if="current?.data">
       <header class="wuwa-report-head">

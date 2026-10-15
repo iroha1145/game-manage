@@ -1,10 +1,12 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createAuthSession, getAuthStatus, loginAuth, logoutAuth, sendAuthSms } from '../auth-api.js'
+import { isCloudMode } from '../http-client.js'
 
 const emit = defineEmits(['account-changed'])
 const GAMES = [{ id: 'wuthering_waves', name: '鸣潮' }, { id: 'nte', name: '异环' }, { id: 'endfield', name: '终末地' }]
-const LOGIN_HINTS = { endfield: '使用官服鹰角通行证绑定的中国大陆手机号登录。登录后可在终末地页面一键连接森空岛。' }
+const LOGIN_HINTS = { endfield: '终末地使用鹰角通行证绑定的中国大陆手机号登录，目前只支持官服。' }
+const endfieldConnectionHint = computed(() => isCloudMode() ? '登录后可在下方选择鹰角授权与角色，一键连接森空岛；也可手动授权。' : '登录后可在终末地页面一键连接森空岛。')
 const STATE_LABELS = { connected: '已连接', configured: '已配置', expired: '登录已失效', unconfigured: '未登录' }
 const accounts = ref({})
 const statusError = ref('')
@@ -346,7 +348,7 @@ onBeforeUnmount(() => {
     <p v-if="statusError" class="error" role="alert">{{ statusError }}</p>
     <form v-if="expanded" class="login-form" @submit.prevent="submitLogin">
       <div class="form-header"><h3>登录{{ selectedName }}</h3><button type="button" class="text-button" :disabled="!!busy" @click="closeForm">收起</button></div>
-      <p class="muted">{{ LOGIN_HINTS[selectedGame] || '使用游戏社区绑定的中国大陆手机号登录。' }}</p>
+      <p class="muted">{{ LOGIN_HINTS[selectedGame] || '请使用游戏社区绑定的中国大陆手机号。' }}{{ selectedGame === 'endfield' ? endfieldConnectionHint : '' }}退出仅清除本工具授权。</p>
       <label for="community-mobile">手机号</label>
       <input id="community-mobile" v-model.trim="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="11" placeholder="11 位中国大陆手机号" :readonly="!!busy" />
       <p v-if="mobile && !validMobile" class="field-hint">请输入有效的 11 位中国大陆手机号。</p>

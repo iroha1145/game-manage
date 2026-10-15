@@ -35,24 +35,21 @@ function receiveGuide(value) {
     <WuwaGuideUpdates v-if="!cloudMode" :character-id="characterId" :name="original?.name || characterName" :attribute="original?.attribute || attribute" :sources="guide?.sources || []" @guide="receiveGuide" />
     <template v-if="guide">
       <p class="guide-intro">培养建议</p>
-      <p class="wuwa-meta">{{ guide.reviewedAt ? `资料核查于 ${guide.reviewedAt}` : guide.fetchedAt ? '原帖自动提炼，尚未人工核查' : `资料核查于 ${guideUpdatedAt}` }} · {{ reviewedCount }}/5 项已核对原帖<span v-if="reviewedCount < 5"> · 其余条目标明状态</span></p>
-      <p v-if="guide.extractionNote" class="guide-note">{{ guide.extractionNote }}</p>
+      <details class="guide-sources" data-render-collapsed><summary>资料详情</summary><p class="wuwa-meta">{{ guide.reviewedAt ? `资料核查于 ${guide.reviewedAt}` : guide.fetchedAt ? '原帖自动提炼，尚未人工核查' : `资料核查于 ${guideUpdatedAt}` }} · {{ reviewedCount }}/5 项已核对原帖<span v-if="reviewedCount < 5"> · 其余条目标明状态</span></p><p v-if="guide.extractionNote" class="guide-note">{{ guide.extractionNote }}</p></details>
       <div class="guide-grid">
         <article v-for="(section, index) in guide.sections" :key="section.key" class="guide-card" :class="{ 'guide-incomplete': section.status !== 'reviewed' }">
           <header>
             <span class="guide-number">0{{ index + 1 }}</span>
             <h4>{{ guideSections[section.key] }}</h4>
-            <span class="guide-state">{{ stateLabel(section.status) }}</span>
           </header>
           <WuwaGuideVisual v-if="section.text" :text="section.text" :section-key="section.key" :character-id="characterId" />
-          <p v-else class="guide-advice">暂无推荐方案</p>
-          <p v-if="section.note" class="guide-note">{{ section.note }}</p>
+          <p v-else class="guide-advice">暂无培养建议。</p>
+          <details data-render-collapsed><summary>资料详情</summary><p>{{ stateLabel(section.status) }}</p><p v-if="section.note" class="guide-note">{{ section.note }}</p><p v-if="section.locator" class="wuwa-meta guide-locator">出处：{{ section.locator }}</p></details>
           <footer v-if="sourceFor(section)">
             <span class="guide-version">{{ guideVersion(sourceFor(section)) }}</span>
             <span>{{ sourceFor(section).author }}</span>
             <a v-if="guideSourceUrl(sourceFor(section).url)" :href="guideSourceUrl(sourceFor(section).url)" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">查看原帖 ↗</a>
           </footer>
-          <p v-if="section.locator" class="wuwa-meta guide-locator">出处：{{ section.locator }}</p>
         </article>
       </div>
       <details :key="guide.id" class="guide-sources">

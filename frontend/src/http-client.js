@@ -38,6 +38,7 @@ export async function obtainCsrf(force = false) {
   return csrfPending
 }
 function cloudPath(path, method) {
+  if (['GET','PUT'].includes(method) && /^\/api\/admin\/qq\/groups\/[^/?]+\/settings$/.test(path)) return path
   if (/^\/api\/(identity(?:\/|$)|accounts(?:\/|$)|qq(?:\/|$)|public\/games\/)/.test(path)) return path
   if (/^\/api\/admin\/bilibili-source\/login\/(?:status|sessions(?:\/[^/?]+(?:\/(?:qr\/poll|commit|cookie))?)?)$/.test(path)) return path
   if (/^\/api\/admin\/bilibili-source\/(?:status|(?:wuthering_waves|nte|endfield|league_of_legends)\/refresh)$/.test(path)) return path

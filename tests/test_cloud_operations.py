@@ -217,6 +217,43 @@ def test_static_ui_cannot_shadow_lifespan_account_routes(tmp_path):
         assert client.get('/api/accounts').status_code==200
 
 
+def test_static_ui_font_manifest_allows_startup_without_public_route(tmp_path):
+    from dataclasses import replace
+    from game_assistant.cloud_web_ui import validate_dist
+    _, _, _, config = fixture(tmp_path)
+    dist = tmp_path / 'dist'
+    dist.mkdir()
+    (dist / 'index.html').write_text('<html data-service-mode="cloud">cloud</html>')
+    font = b'wOF2-test-font'
+    (dist / 'render-font.woff2').write_bytes(font)
+    (dist / 'render-font.json').write_text('{"schema_version":1}')
+    assert validate_dist(dist) == dist.resolve()
+    app = build_app(replace(load_runtime(config), frontend_dist=dist), start_scheduler=False)
+    assert '/render-font.json' not in {getattr(route, 'path', None) for route in app.routes}
+    with TestClient(app, base_url='https://localhost:8443') as client:
+        assert client.get('/api/health').json() == {'status': 'ok'}
+        assert client.get('/').status_code == 200
+        assert client.get('/render-font.woff2').content == font
+        for method in (client.get, client.head):
+            assert method('/render-font.json').status_code == 404
+        assert client.get('/api/unknown').status_code == 404
+        assert client.get('/private/render-font.json').status_code == 404
+
+
+@pytest.mark.parametrize('relative', ['other.json', 'assets/render-font.json',
+                                       'private/secret.json', 'render-font.JSON'])
+def test_static_ui_font_manifest_exception_is_exact(tmp_path, relative):
+    from game_assistant.cloud_web_ui import validate_dist
+    dist = tmp_path / 'dist'
+    dist.mkdir()
+    (dist / 'index.html').write_text('<html data-service-mode="cloud">cloud</html>')
+    path = dist / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{}')
+    with pytest.raises(ValueError, match='Unexpected static artifact'):
+        validate_dist(dist)
+
+
 def test_restore_rejects_sidefile_escape_and_changed_payload(tmp_path):
     root,identity,key,_ = fixture(tmp_path)
     backup(root,identity,tmp_path/'backup',key)
@@ -283,3 +320,52 @@ def test_backup_rejects_symbolic_escape(tmp_path):
         pytest.skip('Windows account cannot create synthetic symlink')
     with pytest.raises(OperationError,match='symlink_path_rejected'):
         backup(root,identity,tmp_path/'backup',key)
+
+async def test_real_backup_restore_preserves_passport_grant_and_parent_revocation(tmp_path,monkeypatch):
+    from game_assistant.accounts.service import AccountService
+    from game_assistant.auth.service import ScopedLoginService
+    from game_assistant.auth.store import CredentialStore, CredentialStoreError
+    from game_assistant.adapters.endfield import hypergryph, skland_client
+    from game_assistant.identity.models import Principal
+    from scripts.cloud.backup import credential_check
+    from tests.test_cloud_skland_passport import Client, Passport
+
+    root,identity,key,_ = fixture(tmp_path)
+    Client.roles = [('role','1')]
+    Client.expired = Client.fail = False
+    Client.entered = Client.release = None
+    Client.calls = 0
+    monkeypatch.setattr(hypergryph,'HypergryphClient',Passport)
+    monkeypatch.setattr(skland_client,'SklandClient',Client)
+    owner = Principal('a',False)
+    with sqlite3.connect(identity) as db:
+        credentials = CredentialStore(root/'unused',connection=db,key_path=key)
+        accounts = AccountService(db,credentials)
+        login = ScopedLoginService(accounts,providers={})
+        parent = accounts.save_verified(owner,'hypergryph',{
+            'uid':'hg-user','role_id':'role','server_id':'1','hg_token':'passport-secret'})
+        derived = await login.connect_skland_passport(owner,parent['account_id'],parent['role_id'])
+        before = credentials.load_grant('a',derived['grant_id'])
+        manifest = backup(root,identity,tmp_path/'backup',key)
+        assert manifest['credential_readability'] == 'verified'
+        assert manifest['key_included'] is False
+        assert 'secret' not in json.dumps(manifest)
+        result = restore(tmp_path/'backup',tmp_path/'restored',key,live_root=root)
+        assert result['credential_readability'] == 'verified'
+        with sqlite3.connect(tmp_path/'restored/identity.db') as restored:
+            restored_credentials = CredentialStore('unused',connection=restored,key_path=key)
+            restored_accounts = AccountService(restored,restored_credentials)
+            assert restored_credentials.load_grant('a',derived['grant_id']) == before
+            scope = restored_accounts.require_scope(owner,derived['account_id'],derived['role_id'])
+            assert restored_accounts.describe(scope)['provider'] == 'skland'
+            assert credential_check(tmp_path/'restored/identity.db',key) == 'verified'
+            restored_accounts.revoke(owner,parent['account_id'])
+            with pytest.raises(CredentialStoreError):
+                restored_credentials.load_grant('a',derived['grant_id'])
+            with pytest.raises(LookupError):
+                restored_accounts.describe(scope)
+            assert restored.execute('SELECT state FROM grants WHERE grant_id=?',
+                (derived['grant_id'],)).fetchone() == ('revoked',)
+        # Revoking the restored copy must not alter the original or backup source.
+        assert credentials.load_grant('a',derived['grant_id']) == before
+        assert credential_check(tmp_path/'backup/identity.db',key) == 'verified'

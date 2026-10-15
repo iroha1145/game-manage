@@ -92,7 +92,8 @@ test('holograms group every difficulty inside their dialog without losing source
   assert.match(content(groups[0]), /难度 2/)
   assert.match(content(groups[0]), /通关时间 123/)
   assert.match(content(groups[0]), /今汐/)
-  assert.match(content(root), /保留旧记录/)
+  assert.match(content(root), /暂时无法读取.*重试/)
+  assert.match(content(root), /旧数据/)
   assert.match(content(root), /冥歌海墟/)
 })
 test('tower floors omit unknown denominators and explain omitted caps once', async (t) => {
@@ -205,7 +206,7 @@ test('whole snapshot staleness remains visible when nested source states were on
       stale: true,
     },
   })
-  assert.match(content(root), /待更新/)
+  assert.ok(nodes(root, 'span').some(node => String(node.props.class).includes('badge-stale') && content(node) === '旧数据')); assert.match(content(root), /更新于 2026-09-16 12:00/)
 })
 
 test('profile preserves zero, unknown world level and independent collection counts', async (t) => {
@@ -299,8 +300,14 @@ test('combat defaults deep realm and preserves independent error and stale sibli
   assert.doesNotMatch(content(root), /不要默认显示/)
   assert.match(content(root), /0 \/ 3/)
   assert.match(content(root), /今汐/)
-  assert.match(content(root), /来源请求失败/)
-  assert.match(content(root), /待更新/)
+  const panel=title=>nodes(root,'section').find(node=>node.props.class?.includes('wuwa-panel') && nodes(node,'h2').some(heading=>content(heading)===title))
+  const hologram=panel('战术全息')
+  assert.ok(hologram)
+  assert.match(content(hologram), /暂时无法读取.*重试/)
+  assert.doesNotMatch(content(hologram), /来源请求失败/)
+  assert.doesNotMatch(content(panel('逆境深塔')), /暂时无法读取|旧数据/)
+  assert.match(content(panel('冥歌海墟')), /旧数据.*2026-09-15/)
+  assert.match(content(root), /旧数据/)
 })
 test('role requests are lazy and stale responses cannot replace newer selection or switched account', async (t) => {
   const pending = []
@@ -390,7 +397,9 @@ test('gacha loads only local archive; explicit import clears secret and displays
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     calls.push({ url, options })
     return reply(
-      options?.method === 'POST'
+      String(url).endsWith('/preview')
+        ? { ...identity, preview_id:'url-ticket', received:result.received, new_records:0, duplicates:result.received, failed_pools:result.failed_pools }
+        : options?.method === 'POST'
         ? result
         : {
             ...identity,
@@ -415,8 +424,10 @@ test('gacha loads only local archive; explicit import clears secret and displays
     target: { value: 'https://example.invalid/?record_id=SECRET' },
   })
   await tick()
-  await click(root, '导入链接')
+  await click(root, '预览链接')
   assert.equal(calls[1].options.headers['X-Game-Assistant'], '1')
+  assert.equal(calls.filter(r=>String(r.url).endsWith('/import')).length,0)
+  await click(root, '确认导入链接预览')
   assert.match(content(root), /新增 0/)
   assert.match(content(root), /收到 2/)
   assert.match(content(root), /9/)
@@ -424,7 +435,8 @@ test('gacha loads only local archive; explicit import clears secret and displays
   assert.doesNotMatch(content(root), /SECRET/)
   result = { inserted: 0, received: 0, failed_pools: [], state: 'need_import' }
   input.props.onInput({ target: { value: 'another' } })
-  await click(root, '导入链接')
+  await click(root, '预览链接')
+  await click(root, '确认导入链接预览')
   assert.match(content(root), /未获得记录/)
 })
 test('history exposes archive origin, first observation, paged seasons and no invented backfill', async (t) => {
@@ -594,7 +606,7 @@ test('account switch discards pending role and archive responses', async (t) => 
     }),
   )
   await tick()
-  assert.match(content(root), /已导入 0 抽/)
+  assert.match(content(root), /已导入记录 0 抽/)
 })
 test('file import reads local JSON only after explicit click and masks error response', async (t) => {
   const requests = []
@@ -632,15 +644,16 @@ test('file import reads local JSON only after explicit click and masks error res
   })
   await tick()
   assert.equal(reads, 0)
-  await click(root, '导入文件')
+  await click(root, '预览文件')
   assert.equal(reads, 1)
   assert.deepEqual(JSON.parse(requests[1].options.body), {
     records: { uid: 'account', list: [] },
+    source: 'json_import', latest_confirmed: false, continuity_confirmed: false,
   })
   assert.match(content(root), /参数无效/)
   assert.doesNotMatch(content(root), /SECRET/)
 })
-test('file import stays busy from the file read until the archive reloads', async (t) => {
+test('file preview stays busy during the file read and requires a separate import confirmation', async (t) => {
   t.mock.method(globalThis, 'fetch', async () =>
     reply({
       ...identity,
@@ -665,13 +678,13 @@ test('file import stays busy from the file read until the archive reloads', asyn
     },
   })
   await tick()
-  await click(root, '导入文件')
-  assert.match(content(root), /正在处理记录/)
+  await click(root, '预览文件')
+  assert.match(content(root), /正在读取 \/ 预览/)
   assert.equal(fileInput().props.disabled, true)
   finish('{"uid":"account","list":[]}')
   await tick()
   await tick()
-  assert.doesNotMatch(content(root), /正在处理记录/)
+  assert.doesNotMatch(content(root), /正在读取 \/ 预览/)
   assert.equal(fileInput().props.disabled, false)
 })
 test('leaving gacha during file read cancels deferred import before it sends a POST', async (t) => {
@@ -703,12 +716,32 @@ test('leaving gacha during file read cancels deferred import before it sends a P
     },
   })
   await tick()
-  await click(root, '导入文件')
+  await click(root, '预览文件')
   await click(root, '关闭详情')
   await click(root, '成长记录')
   finish('{"uid":"account","list":[]}')
   await tick()
   assert.equal(requests.filter((r) => r.options?.method === 'POST').length, 0)
+})
+test('file preview cannot commit before explicit confirmation and account switch clears its ticket', async (t) => {
+  const requests=[]
+  t.mock.method(globalThis,'fetch',async (url,options)=>{
+    requests.push({url,options})
+    if(String(url).endsWith('/preview'))return reply({...identity,preview_id:'bound-ticket',received:1,new_records:1,duplicates:0,import_kind:'per_draw'})
+    if(String(url).endsWith('/import'))return reply({...identity,received:1,inserted:1,state:'imported'})
+    return reply({...identity,total:0,items:[],gold:[],pools:[],coverage:{}})
+  })
+  const props=reactive({accountKey:'account:server'})
+  const root=mount(t,await component('WuwaGacha'),props)
+  await tick()
+  const selectFile=()=>nodes(root,'input').find(n=>n.props.type==='file').props.onChange({target:{files:[{size:50,text:async()=>JSON.stringify({info:{uid:'account'},list:[]})}]}})
+  selectFile();await click(root,'预览文件')
+  assert.equal(requests.filter(r=>String(r.url).endsWith('/import')).length,0)
+  await click(root,'确认导入本次预览')
+  assert.deepEqual(JSON.parse(requests.find(r=>String(r.url).endsWith('/import')).options.body),{preview_id:'bound-ticket'})
+  selectFile();await click(root,'预览文件')
+  props.accountKey='other:server';await tick()
+  assert.equal(nodes(root,'button').some(n=>content(n).includes('确认导入本次预览')),false)
 })
 test('resource responses cannot roll back a newer period selection', async (t) => {
   const pending = []

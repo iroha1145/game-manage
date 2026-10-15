@@ -88,6 +88,7 @@ class PublicQueryResult(QueryResult):
     primary_source: str
     version: str | None
     bilibili_status: dict | None
+    version_metadata: dict | None = None
 
 
 class CloudPublicQuery:

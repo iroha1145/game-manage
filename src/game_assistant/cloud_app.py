@@ -172,7 +172,7 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
         # This connection is created, used, and closed on the event-loop thread.
         connection = sqlite3.connect(settings.cloud_db_path, timeout=10)
         connection.execute('PRAGMA foreign_keys=ON')
-        runtime = private = scheduler = snapshots = public = bili_login = public_tools = None
+        runtime = private = scheduler = snapshots = public = bili_login = public_tools = reminder_store = reminders = assessment_store = None
         original_routes = list(app.router.routes)
         original_policy = list(app.state.cloud_route_policy)
         try:
@@ -180,6 +180,15 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
                 key_path=settings.cloud_credentials_key_path or None)
             credentials._grant_key()  # fail startup clearly; never provision/replace a key
             accounts = AccountService(connection, credentials)
+            from .scoped_reminders import ReminderStore, ScopedReminderService
+            from .group_settings import GroupSettingsService
+            from .reminder_routes import install_reminder_routes
+            reminder_store = ReminderStore(root / 'reminders.db')
+            reminders = ScopedReminderService(reminder_store, accounts)
+            groups = GroupSettingsService(reminder_store)
+            app.state.reminders = reminders
+            app.state.qq_group_settings = groups
+            install_reminder_routes(app, reminders, groups)
             login = ScopedLoginService(accounts, public_ip_url=settings.wuwa_login_public_ip_url)
             private_root = root / 'private'
             runtime = AccountRuntime(accounts, settings, private_root, login=login)
@@ -187,7 +196,10 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
             private = install_cloud_private_routes(app, accounts, runtime, private_root, snapshots=snapshots)
             accounts.clear_private = private.clear_private
             private.allowlist(app)
+            from .assessment_routes import install_assessment_routes
+            assessment_store = install_assessment_routes(app, accounts, private_root, snapshots)
             query = AccountQuery(accounts, runtime, snapshots, private=private)
+            query.assessments = assessment_store
 
             # Public sources never inherit local/community game credentials.
             public_settings = settings.model_copy(deep=True)
@@ -212,7 +224,7 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
             app.state.bilibili_login = bili_login
             install_cloud_bilibili_routes(app, bili_login)
             public = CloudPublicQuery(registry, snapshots, bilibili=bili, settings=public_settings)
-            scheduler = AccountPollingScheduler(accounts, query, settings, root, public=public)
+            scheduler = AccountPollingScheduler(accounts, query, settings, root, public=public, reminders=reminders)
             from .sources.cloud_bilibili_routes import install_cloud_bilibili_collection_routes
             install_cloud_bilibili_collection_routes(app, bili, scheduler)
             query.scheduler = scheduler
@@ -244,12 +256,13 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
             # One failed closer must not skip the remaining account/private resources.
             cleanup_errors = []
             qq_query = getattr(app.state, 'qq_query', None)
-            closers = [scheduler.shutdown if scheduler else None, bili_login.aclose if bili_login else None,
+            closers = [scheduler.shutdown if scheduler else None, assessment_store.close if assessment_store else None, bili_login.aclose if bili_login else None,
                        public.aclose if public else None,
                        qq_query.aclose if qq_query else None,
                        public_tools.close if public_tools else None,
                        runtime.aclose if runtime else None, private.close if private else None,
-                       snapshots._conn.close if snapshots else None, connection.close]
+                       snapshots._conn.close if snapshots else None,
+                       reminders.close if reminders else reminder_store.close if reminder_store else None, connection.close]
             for close in filter(None, closers):
                 try:
                     result = close()

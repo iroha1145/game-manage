@@ -10,11 +10,11 @@ const articles=computed(()=>prepareArticles(snapshots.value).slice(0,5))
 const failures=computed(()=>snapshots.value.filter(snap=>collectionState(snap)==='failed'))
 const partial=computed(()=>failures.value.length>0 && failures.value.every(hasFreshPublicFallback))
 const stale=computed(()=>snapshots.value.some(snap=>snap.stale))
-const errors=computed(()=>[...new Set(snapshots.value.map(snap=>snap.error || snap.poll_status?.error).filter(error=>typeof error==='string' && error))])
+const hasFailure=computed(()=>failures.value.length>0 || snapshots.value.some(snap=>snap.error || snap.poll_status?.error))
 const fetchedAt=computed(()=>snapshots.value.map(snap=>snap.fetched_at).filter(Boolean).sort().at(-1))
 const empty=computed(()=>!snapshots.value.length || snapshots.value.some(snap=>collectionState(snap)==='never')
-  ? '尚未采集公告快照，可前往公告与资讯查看来源状态。'
-  : snapshots.value.some(snap=>collectionState(snap)==='collected') ? '已采集，暂无公告与资讯。' : '尚无可显示的公告快照。')
+  ? '暂无公告，可前往公告与资讯查看。'
+  : snapshots.value.some(snap=>collectionState(snap)==='collected') ? '暂无公告与资讯。' : '暂时无法显示公告，请稍后重试。')
 function published(value) {
   if (!value) return '发布时间未提供'
   const formatted=displayBeijing(value)
@@ -24,14 +24,13 @@ function published(value) {
 <template>
   <section class="ef-news-summary" aria-label="最新公告">
     <header><div><p class="kicker">06 / PUBLIC BULLETIN</p><h2>最新公告</h2></div><span v-if="stale" class="badge badge-stale">已有公告待更新</span></header>
-    <p v-if="fetchedAt" class="note">快照更新于 {{ displayBeijing(fetchedAt) }}（北京时间）</p>
-    <p v-for="error in errors" :key="error" class="error" role="status">{{ error }}</p>
-    <p v-if="failures.length" class="error" role="status">{{ partial ? '部分来源不可用，显示可用来源数据。' : articles.length ? '采集失败，保留上次成功公告，请留意更新时间。' : '采集失败，尚无可显示的公告快照。' }}</p>
-    <ol v-if="articles.length"><li v-for="(article,index) in articles" :key="article.key"><span class="article-number">{{ String(index+1).padStart(2,'0') }}</span><div><h3><a v-if="article.url" :href="article.url" target="_blank" rel="noopener noreferrer">{{ article.title }} ↗</a><span v-else>{{ article.title }}</span></h3><p class="article-meta"><span>{{ article.source_name || '来源未提供' }}</span><span>{{ article.categoryLabel }}</span><span v-if="article.source_stale" class="badge badge-stale">待更新</span><span>{{ published(article.published_at) }}</span></p></div></li></ol>
-    <p v-else-if="!failures.length" class="note">{{ empty }}</p>
-    <footer><span class="note">仅展示已有快照中的最新 5 条</span><button type="button" class="ui-button" @click="emit('all')">查看全部公告 →</button></footer>
+    <p v-if="fetchedAt" class="note">更新于 {{ displayBeijing(fetchedAt) }}（北京时间）</p>
+    <p v-if="hasFailure" class="error" role="status">{{ partial ? '部分公告暂未更新，先显示已有内容。' : articles.length ? '公告暂时无法更新，显示上次内容；稍后可前往公告与资讯重试。' : '公告暂时无法更新，稍后可前往公告与资讯重试。' }}</p>
+    <ol v-if="articles.length"><li v-for="(article,index) in articles" :key="article.key"><span class="article-number">{{ String(index+1).padStart(2,'0') }}</span><div><h3><a v-if="article.url" :href="article.url" target="_blank" rel="noopener noreferrer">{{ article.title }} ↗</a><span v-else>{{ article.title }}</span></h3><p class="article-meta"><span>{{ article.categoryLabel }}</span><span v-if="article.source_stale" class="badge badge-stale">待更新</span><span>{{ published(article.published_at) }}</span></p><details v-if="article.source_name" class="article-source"><summary>公告来源</summary><span>{{ article.source_name }}</span></details></div></li></ol>
+    <p v-else-if="!hasFailure" class="note">{{ empty }}</p>
+    <footer><span class="note">最新 5 条</span><button type="button" class="ui-button" @click="emit('all')">查看全部公告 →</button></footer>
   </section>
 </template>
 <style scoped>
-.ef-news-summary{min-width:0;display:grid;gap:14px;padding:22px;border:1px solid var(--border);border-top:2px solid var(--game-endfield);background:var(--card-bg)}header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.kicker{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--text-muted);margin-bottom:7px}h2{font-size:21px}.note,.error{font-size:12px;line-height:1.8;overflow-wrap:anywhere}.note{color:var(--text-muted)}.error{color:var(--danger)}ol{list-style:none;padding:0;margin:0}li{display:flex;gap:16px;padding:15px 0;border-top:1px solid var(--border);min-width:0}li>div{min-width:0;flex:1}.article-number{font-family:var(--font-mono);font-size:12px;color:var(--game-endfield);line-height:1.8}h3{font-size:13px;font-weight:500;line-height:1.8;overflow-wrap:anywhere}h3 a{color:var(--text);text-decoration:none}h3 a:hover{color:var(--game-endfield)}.article-meta{display:flex;gap:5px 12px;flex-wrap:wrap;margin-top:7px;font-size:11px;line-height:1.7;color:var(--text-muted)}footer{border-top:1px solid var(--border);padding-top:14px}.ui-button{border-radius:0;min-height:40px}@media(max-width:600px){.ef-news-summary{padding:16px}h2{font-size:19px}li{gap:12px}footer .ui-button{width:100%;justify-content:space-between}}
+.ef-news-summary{min-width:0;display:grid;gap:14px;padding:22px;border:1px solid var(--border);border-top:2px solid var(--game-endfield);background:var(--card-bg)}header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.kicker{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--text-muted);margin-bottom:7px}h2{font-size:21px}.note,.error{font-size:12px;line-height:1.8;overflow-wrap:anywhere}.note{color:var(--text-muted)}.error{color:var(--danger)}ol{list-style:none;padding:0;margin:0}li{display:flex;gap:16px;padding:15px 0;border-top:1px solid var(--border);min-width:0}li>div{min-width:0;flex:1}.article-number{font-family:var(--font-mono);font-size:12px;color:var(--game-endfield);line-height:1.8}h3{font-size:13px;font-weight:500;line-height:1.8;overflow-wrap:anywhere}h3 a{color:var(--text);text-decoration:none}h3 a:hover{color:var(--game-endfield)}.article-source{font-size:11px;line-height:1.7;color:var(--text-muted);margin-top:7px}.article-source summary{cursor:pointer}.article-meta{display:flex;gap:5px 12px;flex-wrap:wrap;margin-top:7px;font-size:11px;line-height:1.7;color:var(--text-muted)}footer{border-top:1px solid var(--border);padding-top:14px}.ui-button{border-radius:0;min-height:40px}@media(max-width:600px){.ef-news-summary{padding:16px}h2{font-size:19px}li{gap:12px}footer .ui-button{width:100%;justify-content:space-between}}
 </style>

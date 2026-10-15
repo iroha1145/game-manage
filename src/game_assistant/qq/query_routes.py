@@ -15,9 +15,10 @@ from game_assistant.accounts.models import AccountScope, QueryResult
 from .bindings import QqBindingError
 from .commands import GAME_NAMES, PAGED_COMMANDS, MAX_PAGE, safe_text
 from .internal_routes import IdentityBody
-from .rendering import RenderQueue, SummaryRenderer
+from .rendering import RenderQueue, SummaryRenderer, RenderingPageUnavailable, RenderingUnavailable
 from .cards import card_to_text
 from . import presentation as view
+from . import render_snapshot as shared_view
 
 
 class QueryBody(BaseModel):
@@ -109,9 +110,22 @@ class QqQueryService:
         context['fingerprints'].append(hashlib.sha256(encoded).hexdigest())
 
     def _reply(self, card, page, context, *, paged=False):
+        presentation_card=card
         card=view.long_document(card,page,asset_cache=self.asset_cache)
-        if context is not None:context['card']=card
+        if context is not None:
+            context['card']=card
+            if context.get('render_snapshot') is None:
+                if context.get('panels'):
+                    context['render_snapshot']=shared_view.game_snapshot(context['panels'],self.clock(),page,title=presentation_card['title'],
+                        command=presentation_card.get('next_command') or '总览',notices=context.get('panel_notices',[])+context.get('shared_notices',presentation_card.get('notices',[])))
+                else:context['render_snapshot']=shared_view.notice_snapshot(presentation_card,self.clock(),page)
         return {'text':card_to_text(card)}
+
+    def _panel(self,context,row,cap,snapshot,*,summary=False,resolved=None):
+        if context is None or cap not in shared_view.PANEL_CAPS.get(row['game'],{}):return
+        context['panels'].append(shared_view.game_panel(row['game'],row['provider'],cap,snapshot,summary=summary,resolved=resolved))
+        if summary and cap=='roles':context['panel_notices'].append(GAME_NAMES[row['game']]+'总览最多展示 6 名角色；完整角色请使用角色指令。')
+        if summary and cap=='gacha':context['panel_notices'].append(GAME_NAMES[row['game']]+'总览显示抽卡摘要；明细请使用抽卡指令。')
 
     def _ledger_snapshot(self, scope, game):
         """Read only an existing scoped shard; missing files never get initialized."""
@@ -196,12 +210,13 @@ class QqQueryService:
         return snapshot
 
     def _endfield_challenge_document(self,selected,context):
+        if context is not None:context['shared_notices']=[]
         from game_assistant.endfield_challenges import CHALLENGE_KINDS, build_challenge_report
         from .endfield_presentation import challenge_document
         selected=[item for item in selected if item[0]['provider']=='skland']
         if not selected:
             return view.message('endfield','终末地 · 挑战','挑战需要本人森空岛档案授权；请先在网站授权并查看挑战分类。')
-        _,scope=selected[0]
+        row,scope=selected[0]
         self._capture_scope(context,scope)
         reader=getattr(getattr(self.query_service,'private',None),'cached_skland_challenge',None)
         reports=[]
@@ -212,9 +227,12 @@ class QqQueryService:
             snapshot=QueryResult(report,report['fetched_at'],
                 'error' if report['stale'] else 'ok' if report['available'] else 'never',None)
             self._capture_snapshot(context,scope,'challenge:'+kind,snapshot)
+        observation=QueryResult({'reports':reports},max((r['fetched_at'] for r in reports if r['fetched_at']),default=None),
+            'error' if any(r['stale'] for r in reports) else 'ok',None)
+        self._panel(context,row,'combat',observation)
         return challenge_document(reports)
 
-    def _public_events(self,games,command,context):
+    def _public_events(self,games,command,context,page=1):
         from .event_views import event_document
         snapshots={}
         for current in games:
@@ -223,11 +241,16 @@ class QqQueryService:
             except (AccountNotFoundError,HTTPException,ValueError,RuntimeError,OSError):snapshot=QueryResult(None,None,'error',None)
             snapshots[current]=snapshot
             self._capture_snapshot(context,None,current+':events',snapshot)
+        if context is not None:
+            context['render_snapshot']=shared_view.calendar_snapshot(snapshots,self.clock(),page) if command=='calendar' else shared_view.filtered_events_snapshot(snapshots,command,self.clock(),page)
         return event_document(command,snapshots,now=self.clock(),asset_cache=self.asset_cache)
 
     def _endfield_document(self, selected, command, context, cache, role_name=None):
         """Project each default provider independently; never join game identities."""
         from . import endfield_presentation as endfield
+        # Shared website components carry their own coverage/state text. Legacy
+        # text-card image budgets must never describe this complete Vue image.
+        if context is not None:context['shared_notices']=[]
         account_commands = ('roles','training','stamina','exploration','regions','ship','progress','honor')
         if command in account_commands:
             selected = [item for item in selected if item[0]['provider']=='skland']
@@ -247,13 +270,29 @@ class QqQueryService:
                 snapshot=self._snapshot(row,scope,'account',context,cache)
                 if snapshot is None:
                     notices.append('森空岛档案尚无可用账号缓存；请在网站采集。');continue
+                from game_assistant.endfield_reports import build_endfield_report
+                raw=view.obj(snapshot.payload)
+                projected=QueryResult({**raw,'report':build_endfield_report(raw,fetched_at=snapshot.fetched_at)},
+                    snapshot.fetched_at,snapshot.state,snapshot.complete)
                 if command=='roles' and role_name is not None:
                     matches=[entry for entry in view.role_entries('endfield',snapshot.payload,'skland') if entry.get('name')==role_name]
                     detail=None
                     if len(matches)==1:
                         detail=self._endfield_operator_snapshot(scope,matches[0].get('id'))
                         if detail is not None:self._capture_snapshot(context,scope,'operator_detail',detail)
+                    if len(matches)==1:
+                        basic=matches[0]
+                        operator={**view.obj(detail.payload if detail is not None else basic)}
+                        for key in ('id','name','char_id','level','rarity','potential','evolve_phase','profession','property','avatar_url','obtained_at'):
+                            if key in basic:operator[key]=basic[key]
+                        selected_profile={**raw,'operators':[basic]}
+                        data={**selected_profile,'report':build_endfield_report(selected_profile,fetched_at=snapshot.fetched_at),
+                              'operator_detail':operator,'operator_detail_id':str(basic.get('id') or ''),
+                              'operator_fetched_at':detail.fetched_at if detail is not None else None,
+                              'operator_stale':detail.state not in ('ok','success') if detail is not None else False}
+                        self._panel(context,row,'operator_detail',QueryResult(data,snapshot.fetched_at,snapshot.state,snapshot.complete))
                     return endfield.operator_document(snapshot,role_name,self.asset_cache,detail=detail)
+                self._panel(context,row,'account' if command=='summary' else command,projected)
                 builder={'roles':endfield.training_document,'training':endfield.training_document,
                          'regions':endfield.regions_document,'exploration':endfield.regions_document,
                          'ship':endfield.ship_document,'honor':endfield.honor_document}.get(command)
@@ -265,6 +304,9 @@ class QqQueryService:
             else:
                 snapshot=self._snapshot(row,scope,'gacha',context,cache)
                 if snapshot is not None:
+                    from game_assistant.endfield_reports import build_gacha_report
+                    projected=QueryResult({**view.obj(snapshot.payload),'report':build_gacha_report(snapshot.payload)},snapshot.fetched_at,snapshot.state,snapshot.complete)
+                    self._panel(context,row,'gacha',projected)
                     card=endfield.gacha_document(snapshot,self.asset_cache,compact=command=='summary')
                     if command=='gacha':return card
                     sections+=card['sections'][:1]
@@ -275,13 +317,14 @@ class QqQueryService:
                 if snapshot is None:notices.append('鹰角寻访尚无已采集账本；请在网站同步本人记录。')
         if command=='summary':
             notices=['森空岛与鹰角寻访按独立授权分区；未核实同一角色时不拼接账号身份。']+list(dict.fromkeys(notices))[:3]
+            if context is not None:context['shared_notices']=notices
         return view.document('summary','endfield','终末地 · 今日总览' if command=='summary' else '终末地 · 查询状态',
             sections=sections,notices=notices,subtitle='本人默认授权 · 快照查询',footer='时间均为北京时间；缺失字段保留未知。')
 
     def query(self,identity,command,game=None,*,image_context=None,role_name=None,page=1):
         context=image_context
         read_cache={}
-        if context is not None:context.update(grants=[],grant_ids={},snapshots=[],fingerprints=[],user_id=None)
+        if context is not None:context.update(grants=[],grant_ids={},snapshots=[],fingerprints=[],user_id=None,panels=[],panel_notices=[],shared_required=True)
         reply=lambda card, paged=False:self._reply(card,page,context,paged=paged)
         if command=='help':
             card=view.help_document(game)
@@ -290,13 +333,14 @@ class QqQueryService:
             value=self.dashboard_url if self.urls_approved and self.dashboard_url else '看板网址尚未启用；请通过已保存的网站入口查看。'
             return {'text':safe_text(value,urls_approved=self.urls_approved)}
         if command in ('calendar','events','recent_events') and game is not None:
-            return reply(self._public_events([game],command,context),True)
+            return reply(self._public_events([game],command,context,page),True)
         if command=='news':
             if self.public is None or game is None:return reply(view.message(game,'公共资讯','公共资讯暂不可用；请稍后再试。'))
             try:
                 cap='news'
                 snapshot=self.public.read(game,cap)
                 self._capture_snapshot(context,None,game+':'+cap,snapshot)
+                if context is not None:self._panel(context,{'game':game,'provider':'public'},cap,snapshot)
                 return reply(view.snapshot_card(game,'',cap,snapshot,self.asset_cache),True)
             except AccountNotFoundError:return reply(view.message(game,'公共资讯','该游戏公共资讯暂不可用。'))
         try:
@@ -324,7 +368,7 @@ class QqQueryService:
                         games.append(current)
                         for _,scope in accounts:self._capture_scope(context,scope)
                 if not games:return reply(view.message(None,'活动查询','暂无有效游戏授权；请在网站授权，或使用「游戏 活动」公共查询。'))
-                return reply(self._public_events(games,command,context),True)
+                return reply(self._public_events(games,command,context,page),True)
             if command=='status':
                 account_rows=self.query_service.list_accounts(principal)
                 items=[]
@@ -348,10 +392,12 @@ class QqQueryService:
                     snapshot=self._snapshot(row,scope,'account',context,read_cache)
                     if snapshot is None:
                         notices.append(view.label(row['game'],row['provider'])+'：当前缓存不支持账号总览。');continue
+                    self._panel(context,row,'account',snapshot)
                     fields=view.account_fields(row['game'],row['provider'],snapshot.payload)
                     if row['provider']!='skland':
                         stamina=self._snapshot(row,scope,'stamina',context,read_cache)
                         if stamina is not None:
+                            self._panel(context,row,'stamina',stamina)
                             data=view.obj(stamina.payload)
                             fields+=view.capability_section(row['game'],row['provider'],'stamina',stamina,self.asset_cache)['fields']
                             fields.append(view.time_field('体力更新时间',stamina.fetched_at))
@@ -361,6 +407,7 @@ class QqQueryService:
                     sections.append(section)
                     roles=self._snapshot(row,scope,'roles',context,read_cache)
                     if roles is not None:
+                        self._panel(context,row,'roles',roles,summary=True)
                         details={}
                         if row['game']=='wuthering_waves':
                             for entry in view.role_entries(row['game'],roles.payload,row['provider'])[:6]:
@@ -372,6 +419,7 @@ class QqQueryService:
                     if row['game']=='wuthering_waves':
                         calabash=self._snapshot(row,scope,'calabash',context,read_cache)
                         if calabash is not None:
+                            self._panel(context,row,'calabash',calabash)
                             sections.append(view.capability_section(row['game'],row['provider'],'calabash',calabash,self.asset_cache))
                 card=view.document('overview','all','我的 · 三游戏总览',sections=sections,notices=notices)
                 card['version']=3
@@ -411,13 +459,17 @@ class QqQueryService:
                         ledger=nte_ledger
                         if ledger is not None:self._capture_snapshot(context,scope,'gacha_ledger',ledger)
                         card=view.gacha_document(game,row['provider'],snapshot,self.asset_cache,ledger=ledger)
-                        if command!='summary':return reply(card,True)
+                        if command!='summary':
+                            if context is not None:context['render_snapshot']=shared_view.gacha_snapshot(game,snapshot,self.clock(),page,ledger=ledger)
+                            return reply(card,True)
+                        self._panel(context,row,cap,snapshot,summary=True)
                         sections+=card['sections'];notices+=card['notices'];continue
                     if cap=='roles' and command=='roles':
-                        card=view.role_card(game,row['provider'],snapshot,role_name,self.asset_cache)
+                        resolution=view.resolve_role(game,row['provider'],snapshot,role_name) if role_name is not None else None
+                        card=view.role_card(game,row['provider'],snapshot,role_name,self.asset_cache,resolution=resolution)
+                        detail=None
                         if game=='wuthering_waves' and role_name is not None and card['kind']=='detail':
-                            entries=view.role_entries(game,snapshot.payload,row['provider'])
-                            entry=next(item for item in entries if item.get('name')==role_name)
+                            entry=resolution['entry']
                             detail=self._role_detail_snapshot(scope,entry.get('role_id'))
                             if detail is not None:
                                 self._capture_snapshot(context,scope,'role_detail',detail)
@@ -428,7 +480,25 @@ class QqQueryService:
                                 card['notices'].append('详情来自网站成功观测缓存；该次观测之后的变化未知。')
                             else:
                                 card['notices'].append('详情未采集或不在近期缓存；请在网站查看该角色后重试。')
+                        if context is not None:
+                            projected=snapshot
+                            if game=='nte' and resolution is not None and resolution['status']=='resolved':
+                                projected=QueryResult({'schema_version':1,'entries':[resolution['entry']]},snapshot.fetched_at,snapshot.state,snapshot.complete)
+                            if resolution is None or resolution['status']=='resolved':
+                                from ..assessment_projection import with_assessment
+                                assessment_store=getattr(self.query_service,'assessments',None)
+                                projected=with_assessment(projected,assessment_store,scope,game) if game=='nte' and resolution is not None else projected
+                                detail=with_assessment(detail,assessment_store,scope,game) if game=='wuthering_waves' else detail
+                                self._capture_snapshot(context,scope,'assessment',detail if detail is not None else projected)
+                                from ..character_search import character_id
+                                context['render_snapshot']=shared_view.role_snapshot(game,projected,self.clock(),page,detail=detail,
+                                    resolved_id=character_id(resolution['entry']) if resolution is not None else None)
+                                if context['render_snapshot'] is None:
+                                    self._panel(context,row,cap,projected,resolved=resolution['entry'] if resolution is not None else None)
                         return reply(card,True)
+                    if command=='gacha' and context is not None:
+                        context['render_snapshot']=shared_view.gacha_snapshot(game,snapshot,self.clock(),page)
+                    self._panel(context,row,cap,snapshot,summary=command=='summary')
                     if command!='summary':return reply(view.snapshot_card(game,row['provider'],cap,snapshot,self.asset_cache),command in PAGED_COMMANDS)
                     if cap=='roles':
                         card=view.role_card(game,row['provider'],snapshot,asset_cache=self.asset_cache)
@@ -447,14 +517,19 @@ class QqQueryService:
             return reply(card,command=='summary')
         except (AccountNotFoundError,CredentialStoreError):
             return reply(view.message(game,'授权状态','授权已失效或凭据不可用；请在网站重新授权。'))
-        except (HTTPException,PermissionError,ValueError):
+        except (HTTPException,PermissionError,ValueError,shared_view.RenderingUnavailable):
             return reply(view.message(game,'查询状态','查询或刷新暂不可用；请在网站检查授权和服务状态。'))
 
     async def query_reply(self,identity,command,game=None,*,image_requested=False,budget_seconds=0,role_name=None,page=1):
         deadline=time.monotonic()+max(0,min(10,budget_seconds))
         context={}
-        response=self.query(identity,command,game,image_context=context if image_requested else None,
-                            role_name=role_name,page=page)
+        try:
+            response=self.query(identity,command,game,image_context=context if image_requested else None,
+                                role_name=role_name,page=page)
+        except RenderingUnavailable:
+            # Public projections run before private-account lookup. A rejected
+            # full input must not become an HTTP 500 or a truncated image.
+            return {'text':'完整内容超出 QQ 图片处理限制或暂时无法生成图片，未截断；请到看板查看。'}
         if not context.get('card'):return response
         if self.render_queue is None or budget_seconds<=0:
             return self._text_fallback(context['card'])
@@ -463,6 +538,8 @@ class QqQueryService:
         snapshots=context['snapshots']
         payload={'card':context['card'],'scopes':[{'account_id':s.account_id,'role_id':s.role_id,'grant_version':version} for s,version in grants],
                  'snapshot_times':[s.fetched_at for s in snapshots], 'snapshot_fingerprints':context['fingerprints']}
+        if context.get('shared_required'):payload['shared_required']=True
+        if context.get('render_snapshot') is not None:payload['render_snapshot']=context['render_snapshot']
         if grants:payload['grant_version']=grants[0][1]
         rendered=QueryResult(payload,max((s.fetched_at for s in snapshots if s.fetched_at),default=None),
             'ok' if all(s.state in ('ok','success') for s in snapshots) else 'stale',
@@ -470,7 +547,9 @@ class QqQueryService:
         if self.asset_cache is not None:
             remaining=max(0,deadline-time.monotonic())
             try:
-                await self.asset_cache.prefetch(view.asset_refs(context['card']),budget_seconds=min(5,remaining*0.5))
+                refs=[self.asset_cache.register_url(url) for url in shared_view.asset_urls(context['render_snapshot'])] if context.get('render_snapshot') is not None else list(view.asset_refs(context['card']))
+                refs=list(dict.fromkeys(ref for ref in refs if ref))
+                await self.asset_cache.prefetch(refs,budget_seconds=min(5,remaining*0.5))
             except Exception:
                 # Assets may fail independently; resolved in-memory images remain usable.
                 pass
@@ -490,7 +569,19 @@ class QqQueryService:
             except (QqBindingError,AccountNotFoundError,CredentialStoreError):
                 self.render_queue.renderer.invalidate_account(user_id)
                 return {'text':'绑定或授权已变更；请在网站确认后重新查询。'}
-        if png is not None:response['image']=base64.b64encode(png).decode('ascii')
+        if isinstance(png,RenderingPageUnavailable):
+            return {'text':f'请求第 {png.page} 页超出范围；当前共 {png.total_pages} 页。请查询 1–{png.total_pages} 页。'}
+        if isinstance(png,RenderingUnavailable):
+            if str(png) in ('qq_image_pixel_limit','qq_image_size_limit'):
+                content='完整日历长图' if command=='calendar' else '完整图片'
+                return {'text':content+'超出 QQ 图片尺寸或大小限制，未截断；请到看板查看。'}
+            return self._text_fallback(context['card'])
+        if png is not None:
+            if hasattr(png,'total_pages'):
+                if png.total_pages==1:response['text']=safe_text(context['render_snapshot']['title'])
+                else:response['text']=safe_text(f"{context['render_snapshot']['title']} · 第 {png.page} / {png.total_pages} 页\n"+
+                    (f"下一页：{context['render_snapshot']['next_command']} {png.page+1}" if png.page<png.total_pages else '已到末页。'))
+            response['image']=base64.b64encode(png).decode('ascii')
         else:return self._text_fallback(context['card'])
         return response
 
@@ -506,15 +597,20 @@ def install_qq_query_routes(app, *, app_id, dashboard_url='', urls_approved=Fals
     settings=app.state.settings
     from .assets import PublicAssetCache
     asset_cache=PublicAssetCache(dns_resolver=settings.qq_asset_dns_resolver) if settings.qq_images_enabled else None
-    render_queue=RenderQueue(SummaryRenderer(font_path=settings.qq_image_font_path,max_bytes=settings.qq_image_max_bytes,asset_cache=asset_cache)) if settings.qq_images_enabled else None
+    from .browser_rendering import BrowserRenderer
+    render_queue=RenderQueue(BrowserRenderer(font_path=settings.qq_image_font_path,max_bytes=settings.qq_image_max_bytes,asset_cache=asset_cache,
+        enabled=settings.qq_browser_render_enabled,dist_path=settings.qq_browser_render_dist_path,
+        executable_path=settings.qq_browser_render_executable_path)) if settings.qq_images_enabled else None
     service=QqQueryService(app.state.qq_bindings,getattr(app.state,'account_query',None),
                            getattr(app.state,'public_query',None),dashboard_url=dashboard_url,urls_approved=urls_approved,render_queue=render_queue,asset_cache=asset_cache)
     app.state.qq_query=service
     async def query(body:QueryBody,request:Request):
         if not getattr(request.state,'service_principal',False):raise HTTPException(401,'service_auth_required')
         if body.identity.app_id!=app_id:raise HTTPException(400,'qq_app_mismatch')
+        groups=getattr(app.state,'qq_group_settings',None)
+        image_requested=groups.consume(body.identity.identity(),body.game,body.command,body.image_requested) if groups else body.image_requested
         return await service.query_reply(body.identity.identity(),body.command,body.game,
-            image_requested=body.image_requested,budget_seconds=body.render_budget_seconds,role_name=body.role_name,page=body.page)
+            image_requested=image_requested,budget_seconds=body.render_budget_seconds,role_name=body.role_name,page=body.page)
     app.add_api_route('/internal/qq/query',query,methods=['POST'])
     allow_cloud_route(app,'/internal/qq/query',{'POST'},access='service')
     return service
