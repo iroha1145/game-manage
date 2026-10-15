@@ -33,13 +33,20 @@ test('notice uses webpage primitives and keeps actionable authorization text',t=
 })
 
 test('endfield native content adapts independent stamina and preserves selected cached loadout',t=>{
+ const operator={id:'selected-operator',name:'精确选中干员',level:0,weapon:{name:'实际缓存武器',level:0,refine_level:null},equipment:[{name:'实际装备末条',level:null}],skills:[{name:'实际技能末条',level:0}]}
  const root=mount(t,Render,{snapshot:input([
   panel('endfield','stamina',{current:0,maximum:null}),
-  panel('endfield','roles',{operators:[{name:'精确选中干员',level:0,weapon:{name:'实际缓存武器',level:0,refine_level:null},equipment:[{name:'实际装备末条',level:null}],skills:[{name:'实际技能末条',level:0}]}]})
+  panel('endfield','roles',{operators:[operator]})
  ])})
  assert.match(content(root),/森空岛档案.*理智 0 \/ 未知/)
- assert.match(content(root),/精确选中干员.*实际缓存武器.*等级 LV\. 0.*精炼 未知.*实际装备末条.*等级 LV\. 未知/)
- const skills=nodes(root,'section').find(node=>node.props['aria-label']==='干员技能')
+ assert.match(content(root),/精确选中干员.*Lv\. 0/)
+ assert.match(content(root),/终末地 角色 干员名.*按精确名称查看单干员配装/)
+ assert.doesNotMatch(content(root),/实际缓存武器|实际装备末条|实际技能末条/)
+ const detail=mount(t,Render,{snapshot:input([
+  panel('endfield','operator_detail',{operators:[operator],operator_detail_id:operator.id,operator_detail:operator})
+ ])})
+ assert.match(content(detail),/精确选中干员.*实际缓存武器.*等级 LV\. 0.*精炼 未知.*实际装备末条.*等级 LV\. 未知/)
+ const skills=nodes(detail,'section').find(node=>node.props['aria-label']==='干员技能')
  assert.ok(skills);assert.match(content(skills),/LV\. 0.*实际技能末条/)
 })
 
