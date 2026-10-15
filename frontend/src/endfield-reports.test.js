@@ -12,7 +12,7 @@ test('operator filters combine name rarity and profession; stable numeric sortin
 
 test('source reports remain authoritative and old profiles do not invent todos or aggregate values', () => {
   const report={schema_version:1,overview:{todos:[]}}
-  assert.equal(profileReport({report}),report)
+  assert.equal(profileReport({report}).overview,report.overview)
   const legacy=profileReport({stamina:{current:0},operators:[],progress:[{name:'每日',cur:0,total:100}]})
   assert.equal(legacy.overview.stamina.current,0)
   assert.equal(legacy.overview.todos,null)
@@ -37,4 +37,41 @@ test('official artwork fallback uses exact website keys or unique names, not inf
   assert.equal(operatorArtwork({name:'管理员'}),null)
   assert.ok(operatorArtwork({id:'endministrator1',name:'管理员'}))
   assert.equal(operatorArtwork({name:'秋栗',avatar_url:'https://bbs.hycdn.cn/known.png'}),'https://bbs.hycdn.cn/known.png')
+})
+
+test('detail portraits use reviewed exact identities, preserving ambiguous and unknown fallbacks', () => {
+  const portrait=operatorArtwork({name:'佩丽卡'},{portrait:true})
+  assert.match(portrait,/prelica\./)
+  assert.notEqual(portrait,operatorArtwork({name:'佩丽卡'}))
+  assert.equal(operatorArtwork({name:'管理员'},{portrait:true}),null)
+  assert.equal(operatorArtwork({id:'char_123_perlica'},{portrait:true}),null)
+  assert.equal(operatorArtwork({name:'未收录',avatar_url:'https://bbs.hycdn.cn/known.png'},{portrait:true}),'https://bbs.hycdn.cn/known.png')
+})
+
+test('legacy honors preserve all listed medals, confirmed zeros, unknowns and observed icon variants', () => {
+  const medals=Array.from({length:12},(_,id)=>({achievementData:{id,name:'奖章'+id,initIcon:'init',reforge2Icon:'two',reforge3Icon:'three',platedIcon:'plated'},level:3,isPlated:id===0,obtainTs:1792029600}))
+  const honor=profileReport({achievements:{count:0,medals}}).honor
+  assert.equal(honor.items.length,12)
+  assert.equal(honor.summary.declared_count,0)
+  assert.equal(honor.items[0].icon_url,'plated')
+  assert.equal(honor.items[1].icon_url,'three')
+  assert.match(honor.items[0].obtained_at,/^2026-/)
+  assert.equal(profileReport({achievements:{medals:[]}}).honor.summary.listed_count,null)
+  assert.equal(profileReport({availability:{honor:true},achievements:{medals:[]}}).honor.summary.listed_count,0)
+  const unknown=profileReport({achievements:{medals:[{obtainTs:'no',level:false}]}}).honor.items[0]
+  assert.equal(unknown.level,null)
+  assert.equal(unknown.obtained_at,null)
+  assert.equal(unknown.is_plated,null)
+})
+
+test('saved region reports and legacy collection-only profiles gain names without changing observations', () => {
+  const region={levels:[{id:'map01_lv001'}],collections:[{level_id:'map01_lv001',name:'上游新名称'}],areas:[{id:'map01_lv001',name:'枢纽区',collections:[]},{id:'map02_lv002',name:null}]}
+  const saved={schema_version:1,regions:{items:[region]}}
+  const result=profileReport({report:saved}).regions.items[0]
+  assert.deepEqual(result.areas.map(item=>item.name),['上游新名称','武陵城'])
+  assert.equal(region.areas[0].name,'枢纽区')
+  const legacy=profileReport({regions:[{collections:[{level_id:'map02_lv001',chest_count:0},{level_id:'future'}]}]}).regions.items[0]
+  assert.deepEqual(legacy.areas.map(item=>item.name),['景玉谷','future'])
+  assert.equal(legacy.areas[0].chests.count,0)
+  assert.equal(legacy.areas[0].chests.total,undefined)
 })

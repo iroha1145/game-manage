@@ -137,7 +137,7 @@ def help_document(game=None):
     if game in (None,'nte'):
         sections.append({'title':'异环专项','layout':'help','fields':[field(title,'异环 '+title) for title in ('房产','车辆','队伍','档案')]})
     if game in (None,'endfield'):
-        sections.append({'title':'终末地专项','layout':'help','fields':[field(title,'终末地 '+title) for title in ('理智','练度','地区','帝江号','寻访战报')]+[field('干员配装','终末地 干员 精确名称')]})
+        sections.append({'title':'终末地专项','layout':'help','fields':[field(title,'终末地 '+title) for title in ('理智','练度','地区','帝江号','光荣之路','挑战','寻访战报')]+[field('干员配装','终末地 干员 精确名称')]})
     card=document('help',game or 'all',prefix+' · 帮助' if game else '帮助 · 游戏管家',subtitle='游戏前缀：鸣潮、异环、终末地；公共单游戏活动无需绑定',sections=sections,
         notices=['先登录网站生成绑定码，再发送绑定指令；收到成功回复即完成。','无前缀的近期活动、活动、日历汇总本人已授权游戏；近期活动指未来168小时内开始或结束，日历显示当前自然月。',
                  '角色名称精确匹配；未知不补零。终末地鹰角寻访与森空岛档案分开展示。'])

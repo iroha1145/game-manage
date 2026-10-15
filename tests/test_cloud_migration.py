@@ -240,6 +240,46 @@ def test_exact_scoped_legacy_layout(case, kind, account):
     assert report['checks']['reconciled']
 
 
+@pytest.mark.parametrize('current,last_sync,scan_pending,expected', [
+    (False, None, None, None), (False, '2026-10-15T00:00:00Z', None, 0),
+    (True, None, None, None), (True, '2026-10-15T00:00:00Z', 1, 1),
+    (True, '2026-10-15T00:00:00Z', 0, 0),
+])
+def test_endfield_pool_scan_schema_migrates_without_losing_coverage_evidence(case, current, last_sync, scan_pending, expected):
+    source, _, mapping, destination = case
+    path = source / 'endfield.sqlite3'
+    with sqlite3.connect(path) as db:
+        extra = ',scan_pending INTEGER' if current else ''
+        db.execute('CREATE TABLE pools(role TEXT NOT NULL,pool_key TEXT NOT NULL,kind TEXT NOT NULL,'
+                   f'label TEXT NOT NULL,last_sync_at TEXT{extra},PRIMARY KEY(role,pool_key))')
+        values = ('uid', 'pool', 'character', 'synthetic', last_sync) + ((scan_pending,) if current else ())
+        db.execute('INSERT INTO pools VALUES (' + ','.join('?' for _ in values) + ')', values)
+    mapping['datasets'].append({'database':path.name,'kind':'endfield_gacha','user_id':'u','account_id':'e','role_id':'e'})
+    before = hashes(source)
+    plan = cli.build_plan(source, mapping)
+    assert plan['report']['ready']
+    # Validate the real staging and reconciliation path without the separate,
+    # platform-specific atomic publication step (unsupported on macOS).
+    destination.mkdir()
+    cli._write_stage(destination, plan)
+    ledger = next(item for item in list_scope_files(destination / 'private') if item['kind'] == 'endfield_gacha')
+    with sqlite3.connect(ledger['path']) as db:
+        assert db.execute('SELECT last_sync_at,scan_pending FROM pools').fetchone() == (last_sync, expected)
+    assert hashes(source) == before
+
+
+def test_endfield_pool_scan_schema_still_rejects_unrecognized_columns(case):
+    source, _, mapping, _ = case
+    path = source / 'endfield.sqlite3'
+    EndfieldGachaStore(path)
+    with sqlite3.connect(path) as db:
+        db.execute('ALTER TABLE pools ADD COLUMN unexpected TEXT')
+    mapping['datasets'].append({'database':path.name,'kind':'endfield_gacha','user_id':'u','account_id':'e','role_id':'e'})
+    report = cli.preview(source, mapping)
+    assert not report['ready']
+    assert any(item['code'] == 'legacy_schema_mismatch' for item in report['issues'])
+
+
 def test_snapshots_preserve_dates_null_failure_and_provider(case):
     source, _, mapping, destination = case
     store = SnapshotStore(str(source / 'snapshots.db'))

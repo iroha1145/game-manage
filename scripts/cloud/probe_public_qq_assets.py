@@ -31,6 +31,10 @@ PUBLIC_PROBES = (
      'https://web.hycdn.cn/endfield/official-v4/_next/static/media/perlica.871dcf57.png'),
     ('endfield', 'role', '祀',
      'https://web.hycdn.cn/endfield/official-v4/_next/static/media/jsspsi.0a31758c.png'),
+    ('endfield', 'portrait', '佩丽卡',
+     'https://web.hycdn.cn/endfield/official-v4/_next/static/media/prelica.d0bbdb53.png'),
+    ('endfield', 'portrait', '祀',
+     'https://web.hycdn.cn/endfield/official-v4/_next/static/media/jsspsi.19ec05d9.png'),
 )
 
 
@@ -42,7 +46,7 @@ async def probe(output):
               'source_manifest':MANIFEST, 'assets':[]}
     refs = []
     for game, kind, name, url in PUBLIC_PROBES:
-        ref = cache.register_url(url)
+        ref = cache.register_url(url, portrait=kind == 'portrait')
         if not ref or ref != cache.ref_for(game, kind, name):
             raise ValueError('Probe is no longer bound to the audited public catalog')
         refs.append(ref)

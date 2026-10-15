@@ -1,6 +1,5 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { vGlide } from '../motion.js'
 import { formatTime } from '../dashboard.js'
 import {
   getPublic, refreshPublic, getMap, getMapMark, getSklandStatus, connectSkland, connectSklandWithPassport, chooseSklandRole,
@@ -18,13 +17,18 @@ const cloud = computed(()=>!!props.cloudAccount)
 const passport = computed(()=>!cloud.value || props.cloudAccount.provider === 'hypergryph')
 const canMaintain = computed(()=>!cloud.value || props.isAdmin)
 const tabs = [
-  ['overview', '概览'], ['operators', '干员与探索'], ['regions', '地区建设'], ['ship', '帝江号'], ['challenges', '挑战记录'],
-  ['gacha', '抽卡统计'], ['map', '地图与图鉴'], ['blueprints', '蓝图收藏'], ['news', '公告与资讯'],
+  ['overview', '概览'], ['operators', '全员练度'], ['regions', '地区建设'], ['ship', '帝江号'], ['gacha', '抽卡统计'],
+  ['honor', '光荣之路'], ['challenges', '挑战记录'], ['news', '公告与资讯'], ['map', '地图与图鉴'], ['blueprints', '蓝图收藏'],
 ]
+const primaryTabs = tabs.slice(0, 5)
+const additionalTabs = tabs.slice(5)
+const moreOpen = ref(false)
+const profileSections = ['overview', 'operators', 'regions', 'ship', 'honor', 'challenges']
 const section = ref(tabs.some(([id]) => id === props.initialSection) ? props.initialSection : 'overview')
 const status = ref(null), statusBusy = ref(false), statusError = ref('')
 const card = ref(null), cardBusy = ref(false), cardError = ref('')
 const operatorDetail = ref(null), operatorDetailId = ref(''), operatorBusy = ref(false), operatorError = ref(''), operatorStale = ref(false)
+const operatorFetchedAt = ref(null)
 const attendance = ref(null), attendanceBusy = ref(false), attendanceError = ref('')
 const challengeKind = ref('war'), challenge = ref(null), challengeBusy = ref(false), challengeError = ref('')
 const publicData = ref(null), publicBusy = ref(false), publicError = ref('')
@@ -132,21 +136,27 @@ function clearPrivate() {
   cardBusy.value = false; operatorBusy.value = false; challengeBusy.value = false; toolBusy.value = false
   ++toolSeq; toolData.value = null; toolError.value = ''
   card.value = null; cardError.value = ''; attendance.value = null; attendanceError.value = ''
-  operatorDetail.value = null; operatorDetailId.value = ''; operatorError.value = ''; operatorStale.value = false
+  operatorDetail.value = null; operatorDetailId.value = ''; operatorError.value = ''; operatorStale.value = false; operatorFetchedAt.value = null
   challenge.value = null; challengeError.value = ''
 }
 async function loadOperator(id) {
   if (!id || !roleKey.value) return
   const seq = ++operatorSeq, owner = roleKey.value
-  operatorDetailId.value = String(id); operatorDetail.value = null; operatorError.value = ''; operatorStale.value = false; operatorBusy.value = true
+  operatorDetailId.value = String(id); operatorDetail.value = null; operatorError.value = ''; operatorStale.value = false; operatorFetchedAt.value = null; operatorBusy.value = true
   try {
     const data = await getSklandOperator(id)
     if (destroyed || seq !== operatorSeq || owner !== roleKey.value) return
-    operatorDetail.value = data.operator || data.payload || null; operatorStale.value = !!data.stale; operatorError.value = humanError(data.error)
+    operatorDetail.value = data.operator || data.payload || null; operatorStale.value = !!data.stale; operatorFetchedAt.value = data.fetched_at || null; operatorError.value = humanError(data.error)
     if (!operatorDetail.value && !operatorError.value) operatorError.value = '暂时无法读取这名干员的配装。'
   } catch (error) { if (seq === operatorSeq) operatorError.value = error.message }
   finally { if (seq === operatorSeq) operatorBusy.value = false }
 }
+function closeOperator() {
+  ++operatorSeq
+  operatorDetailId.value = ''; operatorDetail.value = null; operatorBusy.value = false
+  operatorError.value = ''; operatorStale.value = false; operatorFetchedAt.value = null
+}
+function selectSection(id) { section.value = id; moreOpen.value = false }
 async function loadTool() {
   if (!roleKey.value) { toolError.value = '请先连接并选择森空岛角色。'; return }
   const seq = ++toolSeq, owner = roleKey.value, kind = toolKind.value
@@ -313,11 +323,11 @@ watch(() => status.value?.passport_available, available => { manualOpen.value = 
 watch(roleValue, (next, previous) => {
   if (next === previous) return
   clearPrivate()
-  if (next && ['overview', 'operators', 'regions', 'ship'].includes(section.value)) { loadCard(); if (section.value === 'overview') loadAttendance() }
+  if (next && ['overview', 'operators', 'regions', 'ship', 'honor'].includes(section.value)) { loadCard(); if (section.value === 'overview') loadAttendance() }
   if (next && section.value === 'challenges') loadChallenge()
 })
 watch(section, current => {
-  if (['overview', 'operators', 'regions', 'ship'].includes(current)) { if (roleKey.value && !card.value) loadCard(); if (current === 'overview' && roleKey.value && !attendance.value) loadAttendance() }
+  if (['overview', 'operators', 'regions', 'ship', 'honor'].includes(current)) { if (roleKey.value && !card.value) loadCard(); if (current === 'overview' && roleKey.value && !attendance.value) loadAttendance() }
   if (current === 'challenges' && roleKey.value) loadChallenge()
   if (current === 'map') { if (!publicData.value) loadPublic(); if (!map.value) loadMap() }
   if (current === 'blueprints') loadBlueprints()
@@ -340,10 +350,17 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
 
 <template>
   <div class="endfield-dashboard">
-    <div class="endfield-nav"><nav v-glide class="segmented" aria-label="终末地数据分区"><button v-for="[id, label] in tabs" :key="id" type="button" :aria-pressed="section === id" @click="section = id">{{ label }}</button></nav><button type="button" class="text-link" @click="emit('calendar')"><AppIcon name="calendar" :size="15" />活动日历<AppIcon name="arrow" :size="15" /></button></div>
+    <div class="endfield-nav">
+      <nav class="ef-main-nav" aria-label="终末地数据分区">
+        <button v-for="[id, label] in primaryTabs" :key="id" type="button" :aria-pressed="section === id" @click="selectSection(id)">{{ label }}</button>
+        <button type="button" :aria-expanded="moreOpen" aria-controls="endfield-more-nav" :class="{ active: additionalTabs.some(([id]) => id === section) }" @click="moreOpen = !moreOpen">{{ additionalTabs.find(([id]) => id === section)?.[1] || '更多' }}<AppIcon name="chevron" :size="13" /></button>
+      </nav>
+      <button type="button" class="text-link ef-calendar-link" @click="emit('calendar')"><AppIcon name="calendar" :size="15" />活动日历<AppIcon name="arrow" :size="15" /></button>
+      <nav v-show="moreOpen" id="endfield-more-nav" class="ef-more-nav" aria-label="其他终末地入口"><button v-for="[id,label] in additionalTabs" :key="id" type="button" :aria-pressed="section === id" @click="selectSection(id)">{{ label }}</button></nav>
+    </div>
 
-    <div v-if="['overview','operators','regions','ship','challenges'].includes(section)" class="endfield-stack">
-      <section class="cap-card"><div class="cap-title">森空岛游戏档案<span v-if="connected && connectionSource" class="badge">{{ connectionSource }}</span><span v-if="card?.stale" class="badge badge-stale">待更新</span></div>
+    <div v-if="profileSections.includes(section)" class="endfield-stack">
+      <section class="cap-card ef-connection" :class="{ 'is-connected': connected }"><div class="cap-title"><span class="ef-connection-dot" :class="{ connected }"></span>森空岛游戏档案<span v-if="connected && connectionSource" class="badge">{{ connectionSource }}</span><span v-if="card?.stale" class="badge badge-stale">待更新</span></div>
         <p v-if="statusBusy" class="hint" role="status">正在读取连接状态…</p>
         <p v-if="statusError" class="error" role="alert">{{ statusError }}</p>
         <template v-if="!cloud && !statusBusy && !connected">
@@ -361,7 +378,7 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
             </form>
           </details>
         </template>
-        <div v-else-if="connected && !cloud" class="role-bar"><label>森空岛角色<select :value="roleKey" :disabled="actionBusy" @change="selectRole"><option value="">请选择角色</option><option v-for="role in list(status.roles)" :key="`${role.role_id}:${role.server_id}`" :value="`${role.role_id}:${role.server_id}`">{{ roleLabel(role) }}</option></select></label><button type="button" class="ui-button" :disabled="actionBusy || !roleKey || cardBusy" @click="loadCard(true)"><AppIcon name="refresh" :size="14" />刷新档案</button><button type="button" class="ui-button" :disabled="actionBusy" @click="disconnect">断开</button></div>
+        <div v-else-if="connected && !cloud" class="role-bar"><label><span class="ef-role-label">当前角色</span><select aria-label="森空岛角色" :value="roleKey" :disabled="actionBusy" @change="selectRole"><option value="">请选择角色</option><option v-for="role in list(status.roles)" :key="`${role.role_id}:${role.server_id}`" :value="`${role.role_id}:${role.server_id}`">{{ roleLabel(role) }}</option></select></label><button type="button" class="ui-button" :disabled="actionBusy || !roleKey || cardBusy" @click="loadCard(true)"><AppIcon name="refresh" :size="14" />{{ cardBusy ? '读取中…' : '刷新档案' }}</button><details class="ef-connection-settings"><summary>连接设置</summary><button type="button" class="ui-button" :disabled="actionBusy" @click="disconnect">断开森空岛</button></details></div>
         <p v-if="connected && !roleKey" class="hint">{{ status.source === 'passport' ? '森空岛绑定的角色与通行证登录的角色不同，请确认后手动选择。' : '请选择一个森空岛角色。' }}</p>
 
         <p v-if="cloud" class="hint">{{ cloudAccount.provider === 'skland' ? '森空岛档案' : '鹰角寻访' }} · {{ cloudAccount.roles?.find(r=>r.role_id === cloudRole)?.display_name || cloudRole }}。请在页面上方切换授权与角色。</p><p v-if="cloud && !connected" class="hint">当前是鹰角寻访授权；查看档案、干员、探索与挑战需单独选择森空岛授权。</p>
@@ -369,7 +386,6 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
       </section>
 
       <template v-if="section === 'overview'">
-        <section v-if="passport" class="cap-card"><div class="cap-title">通行证寻访账号<span v-if="snaps.account?.stale" class="badge badge-stale">待更新</span></div><p class="hint">寻访记录所属账号，与上方森空岛角色分别管理。</p><p class="identity">{{ originalAccount?.nickname || '未知昵称' }} · 角色编号 {{ display(originalAccount?.role_id) }}</p></section>
         <template v-if="roleKey"><p v-if="cardBusy" class="hint" role="status">正在读取档案…</p><p v-if="cardError" class="error" role="alert">{{ cardError }}</p>
           <EndfieldReports v-if="cardPayload" :payload="cardPayload" :fetched-at="card?.fetched_at" :stale="card?.stale" view="overview" @navigate="section = $event" /><p v-else-if="!cardBusy && !cardError" class="empty cap-card">暂无档案数据，请手动刷新。</p>
           <section class="cap-card"><div class="cap-title">每日签到<span v-if="attendance?.stale" class="badge badge-stale">待更新</span></div>
@@ -384,13 +400,13 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
             </template>
           </section>
         </template>
+        <aside v-if="passport" class="ef-passport-note"><div><strong>寻访账号 · {{ originalAccount?.nickname || '尚未读取' }}</strong><span>角色编号 {{ display(originalAccount?.role_id) }} · 与森空岛档案分别管理</span></div><button type="button" class="text-link" @click="selectSection('gacha')">查看寻访记录 →</button></aside>
       </template>
 
-      <template v-if="['operators','regions','ship'].includes(section) && roleKey">
+      <template v-if="['operators','regions','ship','honor'].includes(section) && roleKey">
         <p v-if="cardBusy" class="hint" role="status">正在读取档案…</p><p v-if="cardError" class="error" role="alert">{{ cardError }}</p>
-        <EndfieldReports v-if="cardPayload" :key="roleKey" :payload="cardPayload" :view="section" :fetched-at="card?.fetched_at" :stale="card?.stale" :operator-detail="operatorDetail" :operator-detail-id="operatorDetailId" :operator-busy="operatorBusy" :operator-error="operatorError" :operator-stale="operatorStale" @inspect="loadOperator" />
+        <EndfieldReports v-if="cardPayload" :key="roleKey" :payload="cardPayload" :view="section" :fetched-at="card?.fetched_at" :stale="card?.stale" :operator-detail="operatorDetail" :operator-detail-id="operatorDetailId" :operator-busy="operatorBusy" :operator-error="operatorError" :operator-stale="operatorStale" :operator-fetched-at="operatorFetchedAt" @inspect="loadOperator" @close-detail="closeOperator" />
         <p v-else-if="!cardBusy && !cardError" class="empty cap-card">暂无档案数据，请手动刷新。</p>
-        <section v-if="section === 'operators' && cardPayload" class="cap-card"><div class="cap-title">成就</div><p v-if="cardPayload.achievements?.count == null && !list(cardPayload.achievements?.medals).length" class="empty">暂无成就数据</p><ul v-else class="plain-list"><li><span>成就总数</span><strong>{{ display(cardPayload.achievements?.count) }}</strong></li><li><span>勋章</span><strong>{{ list(cardPayload.achievements?.medals).length }}</strong></li></ul></section>
       </template>
 
       <template v-if="section === 'challenges' && roleKey"><section class="cap-card"><div class="cap-title">挑战记录<span v-if="challenge?.stale" class="badge badge-stale">待更新</span></div><div class="segmented" aria-label="挑战类型"><button v-for="[key,label] in [['war','战争'],['monument','丰碑'],['crisis','危机']]" :key="key" type="button" :aria-pressed="challengeKind === key" @click="challengeKind = key">{{ label }}</button></div><p v-if="challengeBusy" class="hint" role="status">正在读取挑战记录…</p><p v-if="challengeError" class="error" role="alert">{{ challengeError }}</p><p v-if="challenge?.supported === false" class="empty">当前账号暂不支持这项挑战。</p><p v-if="challengeKind === 'crisis' && challenge?.summary?.highest != null" class="hint">历史最高：{{ challenge.summary.highest }} · 挑战次数：{{ display(challenge.summary.challenge_count) }}</p><p v-if="challengeKind === 'war' && list(challenge?.summary?.honors).length" class="hint">已获得 {{ list(challenge.summary.honors).length }} 项荣誉。</p><p v-if="!challengeBusy && !list(challenge?.records).length && challenge?.supported !== false" class="empty">暂无挑战记录</p><div v-else><details v-for="(item, i) in list(challenge?.records)" :key="i" class="record-detail" open><summary>{{ item.name || (item.id ? '记录 ' + item.id : '挑战记录') }}<strong>{{ challengeResult(item, challengeKind) }}</strong></summary><p v-if="item.start_at || item.end_at" class="hint">{{ dateText(item.start_at) }} — {{ dateText(item.end_at) }}</p><div v-for="week in list(item.weeks)" :key="week.id" class="inner-card"><h3>{{ week.name || week.id || '轮换' }} · {{ display(week.stars) }} 星</h3><div v-for="(group, j) in list(week.groups)" :key="j"><p>{{ group.name || '关卡' }} · {{ display(group.star) }} 星</p><p v-for="stage in stageList(group)" :key="stage.id || stage.difficulty" class="hint">{{ stage.difficulty }}：{{ stage.name || '关卡' }} · {{ passText(stage) }}</p></div></div><div v-for="(group, j) in list(item.groups)" :key="j" class="inner-card"><p>{{ group.name || '关卡组' }}</p><p v-for="stage in stageList(group)" :key="stage.id || stage.difficulty" class="hint">{{ stage.difficulty }}：{{ stage.name || '关卡' }} · {{ passText(stage) }}</p></div><p v-if="challengeKind === 'crisis'" class="hint">{{ passText(item) }}</p></details></div></section></template>
@@ -443,4 +459,43 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
 .catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.catalog-item{display:grid;gap:5px;align-content:start}.catalog-item h3{margin:0}.catalog-description{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.catalog-item details{margin-top:4px;border-top:1px solid var(--border);padding-top:6px;color:var(--text-muted);font-size:12px;overflow-wrap:anywhere}.catalog-item summary{cursor:pointer;color:var(--accent)}.catalog-item details li{padding:4px 0;border-bottom:1px solid var(--border)}.catalog-item details a{display:inline-flex;align-items:center;gap:4px;margin-top:7px}@media(max-width:720px){.catalog-grid{grid-template-columns:1fr}}
 .operator-item .ui-button{margin-top:8px;font-size:12px}.operator-detail{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:grid;gap:5px}
 .passport-connect{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}.passport-connect .hint{margin:0}.manual-connect{margin-top:10px}.manual-connect>summary{cursor:pointer;color:var(--text-muted);font-size:12px;margin-bottom:8px}
+.endfield-nav { position:relative; gap:12px; margin-bottom:20px; }
+.ef-main-nav { display:flex; align-items:stretch; gap:0; flex:1; border-bottom:1px solid var(--border); }
+.ef-main-nav>button { display:flex; justify-content:center; align-items:center; gap:6px; padding:13px 17px; min-height:44px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); font-size:13px; white-space:nowrap; }
+.ef-main-nav>button[aria-pressed=true],.ef-main-nav>button.active { color:var(--game-endfield); border-bottom-color:var(--game-endfield); background:var(--accent-soft); }
+.ef-main-nav>button:hover { color:var(--text); background:var(--hover-bg); }
+.ef-more-nav { display:flex; gap:8px; flex-wrap:wrap; width:100%; padding:12px; border:1px solid var(--border); background:var(--panel-bg); }
+.ef-more-nav>button { min-height:40px; border:1px solid transparent; background:transparent; color:var(--text-muted); font-size:12px; padding:8px 13px; }
+.ef-more-nav>button[aria-pressed=true] { color:var(--game-endfield); border-color:var(--border); background:var(--accent-soft); }
+.ef-connection { border-radius:0; box-shadow:none; border-left:2px solid var(--border); }
+.ef-connection.is-connected { display:flex; align-items:center; flex-wrap:wrap; gap:12px 20px; padding:12px 16px; border-left-color:var(--game-endfield); }
+.ef-connection.is-connected>.cap-title { margin:0; font-size:12px; }
+.ef-connection.is-connected>p { flex-basis:100%; margin:0; }
+.ef-connection-dot { width:5px; height:5px; background:var(--text-faint); }
+.ef-connection-dot.connected { background:var(--game-endfield); }
+.ef-connection .role-bar { flex:1; align-items:center; justify-content:flex-end; gap:10px; }
+.ef-connection .role-bar label { display:flex; gap:8px; align-items:center; min-width:180px; max-width:380px; }
+.ef-role-label { font-size:11px; white-space:nowrap; }
+.ef-connection .role-bar select { min-width:0; width:100%; border-radius:0; min-height:36px; }
+.ef-connection .ui-button { border-radius:0; }
+.ef-connection-settings { position:relative; font-size:11px; color:var(--text-muted); }
+.ef-connection-settings>summary { cursor:pointer; padding:10px 0; white-space:nowrap; }
+.ef-connection-settings .ui-button { position:absolute; z-index:5; right:0; top:100%; min-width:120px; background:var(--card-bg); box-shadow:var(--popover-shadow); }
+.ef-passport-note { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:14px 0; border-top:1px solid var(--border); }
+.ef-passport-note strong { display:block; font-size:12px; font-weight:500; }
+.ef-passport-note span { display:block; margin-top:5px; color:var(--text-muted); font-size:11px; }
+@media(max-width:900px) { .ef-main-nav>button { flex:1; padding:12px 10px; }.ef-calendar-link { font-size:11px; }.ef-connection .role-bar { justify-content:flex-start; } }
+@media(max-width:600px) {
+  .ef-main-nav { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); flex-basis:100%; }
+  .ef-main-nav>button { padding:11px 5px; font-size:12px; }
+  .ef-calendar-link { margin-left:auto; }
+  .ef-more-nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:6px; gap:4px; }
+  .ef-connection.is-connected { padding:12px; gap:12px; }
+  .ef-connection .role-bar { width:100%; gap:8px; }
+  .ef-connection .role-bar>label { flex-basis:100%; max-width:none; }
+  .ef-connection .role-bar>button,.ef-connection .role-bar>details { width:auto; }
+  .ef-connection .role-bar>details { margin-left:auto; }
+  .ef-connection-settings .ui-button { width:auto; }
+  .ef-passport-note .text-link { min-height:36px; }
+}
 </style>

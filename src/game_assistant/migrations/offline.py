@@ -273,7 +273,11 @@ def build_plan(source, mapping):
                     matches = [d for d in datasets if d['database']==relative and name in TABLES[d['kind']]]
                     valid = []
                     for d in matches:
-                        if (columns,pk) != TABLES[d['kind']][name]:
+                        expected = TABLES[d['kind']][name]
+                        accepted = {expected}
+                        if d['kind'] == 'endfield_gacha' and name == 'pools':
+                            accepted.add((expected[0] + ('scan_pending',), expected[1]))
+                        if (columns,pk) not in accepted:
                             issue('legacy_schema_mismatch',relative,name)
                         else:
                             valid.append(d)
@@ -339,6 +343,10 @@ def convert(name,columns,pk,row,d):
     record = dict(zip(columns,row))
     for column in ('payload','metadata','failed_pools'):
         if column in record and record[column] is not None: json.loads(record[column])
+    if d['kind'] == 'endfield_gacha' and name == 'pools' and 'scan_pending' not in record:
+        # Normalize legacy metadata without treating a missing successful scan
+        # as proof of either an empty pool or a pending synchronization.
+        return (*row, 0 if record['last_sync_at'] is not None else None), name, columns + ('scan_pending',), pk
     if name == 'snapshots':
         columns = ('user_id','account_id','role_id','capability','payload','fetched_at','grant_version')
         return (*validate_scope(d['scope']),record['capability'],record['payload'],record['fetched_at'],d['version']), 'scoped_snapshots', columns, columns[:4]

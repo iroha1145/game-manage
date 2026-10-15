@@ -140,6 +140,7 @@ def parse_card(detail: dict, *, fetched_at: str) -> dict:
     regions = []
     for domain in rows(detail.get("domain")):
         collections = [{"level_id": entry.get("levelId"),
+                        "name": entry.get("name"),
                         "puzzle_count": number(entry.get("puzzleCount")),
                         "chest_count": number(entry.get("trchestCount")),
                         "equipment_chest_count": number(entry.get("equipTrchestCount")),
@@ -185,6 +186,7 @@ def parse_card(detail: dict, *, fetched_at: str) -> dict:
             "observed_at": _utc_ts(detail.get("currentTs")),
             "availability": {"operators": isinstance(detail.get("chars"), list),
                              "regions": isinstance(detail.get("domain"), list),
+                             "honor": isinstance(achieve.get("achieveMedals"), list),
                              "ship": isinstance(obj(detail.get("spaceShip")).get("rooms"), list)},
             "stamina": stamina, "progress": progress,
             "operators": [parse_operator(char) for char in rows(detail.get("chars"))],

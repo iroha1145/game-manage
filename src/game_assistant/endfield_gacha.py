@@ -44,11 +44,17 @@ class EndfieldGachaStore:
                   PRIMARY KEY(role, pool_key, seq_id));
                 CREATE TABLE IF NOT EXISTS pools (
                   role TEXT NOT NULL, pool_key TEXT NOT NULL, kind TEXT NOT NULL, label TEXT NOT NULL,
-                  last_sync_at TEXT, PRIMARY KEY(role, pool_key));
+                  last_sync_at TEXT, scan_pending INTEGER, PRIMARY KEY(role, pool_key));
                 CREATE TABLE IF NOT EXISTS breaks (
                   role TEXT NOT NULL, pool_key TEXT NOT NULL, seq_id INTEGER NOT NULL, permanent INTEGER NOT NULL,
                   PRIMARY KEY(role, pool_key, seq_id));
             """)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(pools)")}
+            if "scan_pending" not in columns:
+                db.execute("ALTER TABLE pools ADD COLUMN scan_pending INTEGER")
+                # A prior successful head walk is evidence of a scanned pool.
+                # Legacy rows without that evidence remain unknown, not empty.
+                db.execute("UPDATE pools SET scan_pending=0 WHERE last_sync_at IS NOT NULL")
 
     @contextmanager
     def _db(self):
@@ -78,14 +84,14 @@ class EndfieldGachaStore:
             return fetch
 
         pools = [(key, label, "character", char_fetch(key)) for key, label in CHAR_POOL_TYPES.items()]
+        # Mark the new attempt before discovery/network I/O. In particular, a
+        # failed weapon-pool listing must not leave the previous run "complete".
+        self._mark_pending(role, pools)
         weapons = parse.weapon_pools(await client.weapon_pools(u8_token))
         used = 1
-        pools += [(f"weapon:{pool_id}", name, "weapon", weapon_fetch(pool_id)) for pool_id, name in weapons]
-        with self._db() as db:
-            for key, label, kind, _ in pools:
-                db.execute("INSERT INTO pools (role, pool_key, kind, label) VALUES (?,?,?,?)"
-                           " ON CONFLICT(role, pool_key) DO UPDATE SET label=excluded.label",
-                           (role, key, kind, label))
+        weapon_jobs = [(f"weapon:{pool_id}", name, "weapon", weapon_fetch(pool_id)) for pool_id, name in weapons]
+        self._mark_pending(role, weapon_jobs)
+        pools += weapon_jobs
         synced_at = datetime.now(timezone.utc).isoformat()
         for key, _, _, fetch in pools:
             if used >= budget:
@@ -93,13 +99,21 @@ class EndfieldGachaStore:
             used, outcome = await self._walk(role, key, fetch, None, used, budget, interval, sleep)
             if outcome in ("overlap", "end"):
                 with self._db() as db:
-                    db.execute("UPDATE pools SET last_sync_at=? WHERE role=? AND pool_key=?", (synced_at, role, key))
+                    db.execute("UPDATE pools SET last_sync_at=?, scan_pending=0 WHERE role=? AND pool_key=?",
+                               (synced_at, role, key))
         for key, _, _, fetch in pools:
             for seq in self._open_breaks(role, key):
                 if used >= budget:
                     return used
                 used, _ = await self._walk(role, key, fetch, seq, used, budget, interval, sleep)
         return used
+
+    def _mark_pending(self, role, pools):
+        with self._db() as db:
+            for key, label, kind, _ in pools:
+                db.execute("INSERT INTO pools (role, pool_key, kind, label, scan_pending) VALUES (?,?,?,?,1)"
+                           " ON CONFLICT(role, pool_key) DO UPDATE SET label=excluded.label, scan_pending=1",
+                           (role, key, kind, label))
 
     async def _walk(self, role, key, fetch, start, used, budget, interval, sleep):
         cursor = str(start) if start is not None else None
@@ -109,6 +123,8 @@ class EndfieldGachaStore:
                 rows, has_more = await fetch(cursor)
                 used += 1
                 if not rows:
+                    if has_more:
+                        raise ValueError("寻访记录返回空页但仍声明有后续记录")
                     outcome = "end"
                     break
                 known = self._known(role, key, [row["seq_id"] for row in rows])
@@ -172,21 +188,31 @@ class EndfieldGachaStore:
 
     def summary(self, role: str) -> EndfieldGacha:
         with self._db() as db:
-            meta = db.execute("SELECT pool_key, kind, label, last_sync_at FROM pools WHERE role=?", (role,)).fetchall()
+            meta = db.execute("SELECT pool_key, kind, label, last_sync_at, scan_pending FROM pools WHERE role=?",
+                              (role,)).fetchall()
             pools = []
-            for key, kind, label, last_sync_at in meta:
+            has_pending = False
+            for key, kind, label, last_sync_at, scan_pending in meta:
+                breaks = dict(db.execute("SELECT seq_id, permanent FROM breaks WHERE role=? AND pool_key=?",
+                                         (role, key)).fetchall())
+                pending = scan_pending == 1 or any(not permanent for permanent in breaks.values())
+                has_pending = has_pending or pending
                 rows = [json.loads(p) for (p,) in db.execute(
                     "SELECT payload FROM records WHERE role=? AND pool_key=? ORDER BY seq_id", (role, key))]
                 if not rows:
                     continue
-                breaks = dict(db.execute("SELECT seq_id, permanent FROM breaks WHERE role=? AND pool_key=?",
-                                         (role, key)).fetchall())
-                pools.append(_pool_summary(key, kind, label, last_sync_at, rows, breaks))
+                item = _pool_summary(key, kind, label, last_sync_at, rows, breaks)
+                item.pending = pending
+                pools.append(item)
         order = list(CHAR_POOL_TYPES)
         pools.sort(key=lambda p: (order.index(p.key) if p.key in order else len(order), -(p.newest_at or 0)))
         from game_assistant.endfield_reports import build_gacha_report
-        summary = EndfieldGacha(role_id=role, total=sum(p.total for p in pools),
-                               complete=not any(p.pending for p in pools), pools=pools)
+        coverage_known = (set(CHAR_POOL_TYPES).issubset({row[0] for row in meta})
+                          and all(row[4] == 0 for row in meta))
+        # Empty/unvisited pools participate in coverage even though the UI's
+        # record list continues to contain only pools with saved pulls.
+        complete = False if has_pending else True if coverage_known else None
+        summary = EndfieldGacha(role_id=role, total=sum(p.total for p in pools), complete=complete, pools=pools)
         summary.report = build_gacha_report(summary)
         return summary
 

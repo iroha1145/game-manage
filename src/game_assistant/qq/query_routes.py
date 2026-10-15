@@ -25,7 +25,7 @@ class QueryBody(BaseModel):
     identity: IdentityBody
     command: Literal['help','status','overview','summary','roles','stamina','exploration','combat','progress','gacha',
                      'calendar','events','recent_events','news','refresh','dashboard','calabash','activities','resources','realestate','vehicles','teams','record',
-                     'training','regions','ship']
+                     'training','regions','ship','honor']
     game: Literal['wuthering_waves','nte','endfield'] | None = None
     image_requested: bool = False
     render_budget_seconds: float = Field(default=0, ge=0, le=10, allow_inf_nan=False)
@@ -40,7 +40,7 @@ class QueryBody(BaseModel):
             raise ValueError('page_not_supported')
         if self.command=='overview' and self.game is not None:
             raise ValueError('overview_all_games')
-        if self.command in ('training','regions','ship') and self.game!='endfield':
+        if self.command in ('training','regions','ship','honor') and self.game!='endfield':
             raise ValueError('endfield_report_only')
         return self
 
@@ -65,8 +65,11 @@ class QqQueryService:
                 self.query_service.accounts._listeners.remove(self.invalidate)
         if self.asset_cache is not None:await self.asset_cache.aclose()
 
-    def _accounts(self,principal,game):
-        rows=[r for r in self.query_service.list_accounts(principal)
+    def _accounts(self,principal,game,*,metadata_only=False):
+        # A cache-only supplemental view must not resolve runtime capabilities:
+        # AccountQuery.list_accounts() also loads grants while decorating rows.
+        reader=self.query_service.accounts.list_accounts if metadata_only else self.query_service.list_accounts
+        rows=[r for r in reader(principal)
               if r['game']==game and r['state']=='active' and r['roles']]
         providers=('hypergryph','skland') if game=='endfield' else ('kuro',) if game=='wuthering_waves' else ('tajiduo',)
         selected=[]
@@ -186,6 +189,25 @@ class QqQueryService:
             snapshot=QueryResult(view.obj(snapshot.payload).get('stamina'),snapshot.fetched_at,snapshot.state,snapshot.complete)
         return snapshot
 
+    def _endfield_challenge_document(self,selected,context):
+        from game_assistant.endfield_challenges import CHALLENGE_KINDS, build_challenge_report
+        from .endfield_presentation import challenge_document
+        selected=[item for item in selected if item[0]['provider']=='skland']
+        if not selected:
+            return view.message('endfield','终末地 · 挑战','挑战需要本人森空岛档案授权；请先在网站授权并查看挑战分类。')
+        _,scope=selected[0]
+        self._capture_scope(context,scope)
+        reader=getattr(getattr(self.query_service,'private',None),'cached_skland_challenge',None)
+        reports=[]
+        for kind in CHALLENGE_KINDS:
+            cached=reader(scope,kind) if reader is not None else None
+            report=build_challenge_report(cached,kind=kind)
+            reports.append(report)
+            snapshot=QueryResult(report,report['fetched_at'],
+                'error' if report['stale'] else 'ok' if report['available'] else 'never',None)
+            self._capture_snapshot(context,scope,'challenge:'+kind,snapshot)
+        return challenge_document(reports)
+
     def _public_events(self,games,command,context):
         from .event_views import event_document
         snapshots={}
@@ -200,7 +222,7 @@ class QqQueryService:
     def _endfield_document(self, selected, command, context, cache, role_name=None):
         """Project each default provider independently; never join game identities."""
         from . import endfield_presentation as endfield
-        account_commands = ('roles','training','stamina','exploration','regions','ship','progress')
+        account_commands = ('roles','training','stamina','exploration','regions','ship','progress','honor')
         if command in account_commands:
             selected = [item for item in selected if item[0]['provider']=='skland']
             if not selected:
@@ -228,7 +250,7 @@ class QqQueryService:
                     return endfield.operator_document(snapshot,role_name,self.asset_cache,detail=detail)
                 builder={'roles':endfield.training_document,'training':endfield.training_document,
                          'regions':endfield.regions_document,'exploration':endfield.regions_document,
-                         'ship':endfield.ship_document}.get(command)
+                         'ship':endfield.ship_document,'honor':endfield.honor_document}.get(command)
                 card=builder(snapshot,self.asset_cache) if builder else endfield.overview_document(snapshot,self.asset_cache,
                     focus=command if command in ('stamina','progress') else None)
                 if command!='summary':return card
@@ -349,9 +371,11 @@ class QqQueryService:
                 card['version']=3
                 return reply(card,True)
             if game is None or game not in GAME_NAMES:return reply(view.help_document())
-            selected=self._accounts(principal,game)
+            challenge=game=='endfield' and command=='combat'
+            selected=self._accounts(principal,game,metadata_only=challenge)
             if not selected:return reply(view.message(game,GAME_NAMES[game],GAME_NAMES[game]+'暂无有效授权账号；请在网站授权。'))
-            if game=='endfield' and command in ('summary','roles','training','stamina','exploration','regions','ship','progress','gacha'):
+            if challenge:return reply(self._endfield_challenge_document(selected,context),True)
+            if game=='endfield' and command in ('summary','roles','training','stamina','exploration','regions','ship','progress','gacha','honor'):
                 return reply(self._endfield_document(selected,command,context,read_cache,role_name),True)
             if game=='endfield' and command in ('roles','stamina','exploration','progress'):
                 selected=[item for item in selected if item[0]['provider']=='skland']

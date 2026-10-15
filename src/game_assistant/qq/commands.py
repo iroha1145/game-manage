@@ -10,7 +10,7 @@ HELP = ('帮助：@机器人发送「我的」或「总览」查看三游戏；/
         '游戏 挑战、游戏 进度、游戏 抽卡。\n'
         '公共资讯：游戏 公告、游戏 近期活动、游戏 活动、游戏 日历；无前缀活动查询汇总本人授权游戏。'
         '鸣潮专项：数据坞、活动进度、资源；异环专项：房产、车辆、队伍、档案。'
-        '终末地专项：理智、练度、地区、帝江号、寻访战报；干员 精确名称查看配装。'
+        '终末地专项：理智、练度、地区、帝江号、光荣之路、寻访战报；干员 精确名称查看配装。'
         '刷新 游戏仅排队刷新；我的账号查看授权；看板查看网站入口。\n'
         '绑定：先在网站生成绑定码，再发送「绑定 实际绑定码」即完成。'
         '私人查询仅限本人已绑定的默认账号；未知数据不会补成零。'
@@ -26,9 +26,10 @@ VERBS.update({'帮助':'help','help':'help','数据坞':'calabash','calabash':'c
               '资源':'resources','resources':'resources','房产':'realestate','realestate':'realestate',
               '车辆':'vehicles','vehicles':'vehicles','队伍':'teams','teams':'teams','档案':'record','record':'record'})
 VERBS.update({'理智':'stamina','练度':'training','全员练度':'training','training':'training',
-              '地区':'regions','地区建设':'regions','regions':'regions','帝江号':'ship','ship':'ship','寻访战报':'gacha'})
+              '地区':'regions','地区建设':'regions','regions':'regions','帝江号':'ship','ship':'ship','寻访战报':'gacha',
+              '光荣之路':'honor','勋章':'honor','奖章':'honor','honor':'honor'})
 PAGED_COMMANDS = frozenset(('overview','summary','status','roles','exploration','combat','progress','gacha','calendar','events','recent_events','news',
-                            'activities','resources','realestate','vehicles','teams','record','training','regions','ship'))
+                            'activities','resources','realestate','vehicles','teams','record','training','regions','ship','honor'))
 MAX_PAGE = 100
 
 
@@ -77,7 +78,7 @@ def parse_command(content):
     elif parts[1] in GAMES and parts[0] in VERBS:
         game,verb=GAMES[parts[1]],VERBS[parts[0]]
     else:return Command('help')
-    if verb in ('training','regions','ship') and game!='endfield':return Command('help')
+    if verb in ('training','regions','ship','honor') and game!='endfield':return Command('help')
     rest=parts[2:]
     page=1
     if rest and re.fullmatch(r'[0-9]+',rest[-1]):

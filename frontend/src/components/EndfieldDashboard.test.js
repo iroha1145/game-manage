@@ -115,6 +115,29 @@ test('operator equipment is requested on demand and shown with skills', async t 
   assert.match(content(root), /战术技能（等级 5）/)
 })
 
+test('operator fallback keeps its own old timestamp and closing ignores a pending detail response', async t => {
+  let pending, requests = 0
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.endsWith('/status')) return response({connected:true,roles:[{role_id:'7',server_id:'1'}],selected_role_id:'7',selected_server_id:'1'})
+    if (url.endsWith('/card')) return response({fetched_at:'2026-10-15T04:00:00Z',payload:{operators:[{id:'a',name:'干员甲'}]}})
+    if (url.includes('/operators/a')) {
+      requests++
+      if (requests===1) return response({operator:{name:'干员甲',weapon:{name:'缓存武器'}},stale:true,error:'本次读取失败，保留旧配装',fetched_at:'2026-10-15T01:00:00Z'})
+      return new Promise(resolve=>{pending=resolve})
+    }
+    return response({})
+  })
+  const root=mount(t,Dashboard,{snaps:{},initialSection:'operators'})
+  await flush();await flush()
+  nodes(root,'button').find(node=>content(node)==='查看配装').props.onClick();await flush()
+  assert.match(content(root),/配装同步于.*09:00/);assert.match(content(root),/配装待更新/)
+  assert.match(content(root),/缓存武器/);assert.match(content(root),/同步于.*12:00/)
+  nodes(root,'button').find(node=>content(node)==='重新读取配装').props.onClick();await flush()
+  nodes(root,'button').find(node=>content(node)==='← 返回全员练度').props.onClick();await flush()
+  pending(response({operator:{name:'晚到的配装'},fetched_at:'2026-10-15T05:00:00Z'}));await flush()
+  assert.doesNotMatch(content(root),/晚到的配装|配装同步于/)
+})
+
 test('refreshing the profile does not discard an in-flight attendance response', async t => {
   let finishAttendance
   t.mock.method(globalThis, 'fetch', async url => {

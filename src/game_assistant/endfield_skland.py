@@ -347,14 +347,21 @@ class EndfieldSklandService:
                 except (TypeError, ValueError, KeyError, AttributeError):
                     raise SklandError('森空岛挑战记录格式已变化') from None
                 result = {**parsed, "fetched_at": self.clock().isoformat(), "stale": False}
+                from .endfield_challenges import build_challenge_report
+                result['report'] = build_challenge_report(result)
                 self._challenge_cache[key] = result
                 return result.copy()
             except SklandError as exc:
                 result = self._challenge_cache.get(key)
                 if result:
-                    return {**result, "stale": True, "error": str(exc)}
-                return {"supported": True, "kind": kind, "records": [], "summary": {},
-                        "fetched_at": None, "stale": True, "error": str(exc)}
+                    result = {**result, "stale": True, "error": str(exc)}
+                else:
+                    result = {"supported": True, "kind": kind, "records": [], "summary": {},
+                              "fetched_at": None, "stale": True, "error": str(exc)}
+                from .endfield_challenges import build_challenge_report
+                result['report'] = build_challenge_report(result)
+                self._challenge_cache[key] = result
+                return result.copy()
 
     async def read_tool(self, kind: str, *, char_id: str | None = None) -> dict:
         if kind not in TOOLS:
@@ -437,6 +444,16 @@ class ScopedSkland:
             return None
         value=self._service._operator_cache.get(char_id)
         return deepcopy(value) if isinstance(value,dict) else None
+
+    def cached_challenge(self,scope,kind):
+        """Only the default category observation; never adopt filtered history."""
+        from copy import deepcopy
+        from .endfield_challenges import CHALLENGE_KINDS
+        self._check(scope)
+        if kind not in CHALLENGE_KINDS or not self._service._session.get('cred'):
+            return None
+        value=self._service._challenge_cache.get((kind,None,None,None))
+        return deepcopy(value) if isinstance(value,dict) and value.get('kind')==kind else None
 
     def clear(self,scope):
         self._check(scope)

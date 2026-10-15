@@ -68,6 +68,6 @@ class EndfieldGachaPool(BaseModel):
 class EndfieldGacha(EndfieldPayload):
     role_id: str
     total: int = 0
-    complete: bool = True
+    complete: bool | None = None  # 未采集或旧账本缺少覆盖证据时保持未知
     pools: list[EndfieldGachaPool] = []
     report: dict | None = None

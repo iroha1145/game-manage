@@ -58,3 +58,43 @@ test('cloud reports consume the selected snapshot without extra profile collecti
   props.snaps={account:{payload:{report:{schema_version:1,regions:{items:[{name:'新地区'}]}}}}};await tick()
   assert.match(content(root),/新地区/)
 })
+
+test('detail return keeps roster filters and gives cached equipment its own timestamp',async t=>{
+  let returned = 0, focused = 0
+  const props=reactive({payload,view:'operators',fetchedAt:'2026-10-15T04:00:00Z',operatorDetailId:'',onCloseDetail:()=>{returned++;props.operatorDetailId=''}})
+  const root=mount(t,Reports,props)
+  nodes(root,'input')[0].props.onInput({target:{value:'干员甲'}});await nextTick()
+  nodes(root,'button').find(node=>content(node)==='查看配装').props.onClick({currentTarget:{focus(){focused++}}})
+  props.operatorDetailId='a';props.operatorDetail={name:'干员甲',level:0};props.operatorStale=true;props.operatorFetchedAt='2026-10-15T01:00:00Z'
+  await nextTick();await nextTick()
+  assert.match(content(root),/配装同步于.*09:00/)
+  assert.match(content(root),/同步于.*12:00/)
+  assert.match(content(root),/上次成功读取的配装/)
+  nodes(root,'button').find(node=>content(node)==='← 返回全员练度').props.onClick()
+  await nextTick();await nextTick()
+  assert.equal(returned,1);assert.equal(focused,1)
+  assert.equal(nodes(root,'input')[0].props.value,'干员甲')
+  assert.match(content(root),/显示 1 \/ 2 名/)
+  assert.doesNotMatch(content(root),/配装同步于/)
+})
+
+test('missing detail time is unknown and never borrows the profile fetch time',t=>{
+  const root=mount(t,Reports,{payload,view:'detail',fetchedAt:'2026-10-15T04:00:00Z',operatorDetailId:'a',operatorDetail:{name:'干员甲'}})
+  assert.match(content(root),/配装同步于 未知/)
+  assert.match(content(root),/来源未提供独立更新时间/)
+})
+
+test('honor displays the whole supplied medal list and preserves zero and unknown fields',t=>{
+  const items=Array.from({length:12},(_,i)=>({id:`m${i}`,name:`奖章${i}`,level:i===0?0:null,is_plated:i===0?false:i===1?true:null,obtained_at:i===0?'2026-10-15T00:00:00Z':null}))
+  const root=mount(t,Reports,{payload:{report:{schema_version:1,honor:{available:true,summary:{declared_count:30,listed_count:12},items}}},view:'honor'})
+  assert.match(content(root),/来源成就总数 30/);assert.match(content(root),/已记录奖章 12/)
+  assert.match(content(root),/奖章11/);assert.match(content(root),/等级 0 未镀层/)
+  assert.match(content(root),/已镀层/);assert.match(content(root),/获得于.*08:00/)
+  assert.match(content(root),/镀层未知/);assert.match(content(root),/获得于 未知/)
+  assert.doesNotMatch(content(root),/100%|30 \/ 30/)
+})
+
+test('known empty officer list is different from missing assignment data',t=>{
+  const root=mount(t,Reports,{payload:{report:{schema_version:1,regions:{items:[{settlements:[{name:'空据点',officers:[],officers_available:true},{name:'未知据点',officers:[],officers_available:false}]}]}}},view:'regions'})
+  assert.match(content(root),/派驻干员：无派驻/);assert.match(content(root),/派驻干员：未提供/)
+})

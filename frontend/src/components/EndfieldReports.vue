@@ -1,28 +1,31 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
-import { profileReport, rows, displayValue as display, sourceName as named, selectOperators, operatorArtwork } from '../endfield-reports.js'
+import { profileReport, rows, displayValue as display, sourceName as named, selectOperators } from '../endfield-reports.js'
 import { formatTime } from '../dashboard.js'
 import SummaryMetrics from './SummaryMetrics.vue'
 import EndfieldArtwork from './EndfieldArtwork.vue'
 const props = defineProps({ payload: Object, view: { type: String, default: 'overview' }, fetchedAt: String, stale: Boolean,
-  operatorDetail: Object, operatorDetailId: String, operatorBusy: Boolean, operatorError: String, operatorStale: Boolean })
-const emit = defineEmits(['inspect', 'navigate'])
+  operatorDetail: Object, operatorDetailId: String, operatorBusy: Boolean, operatorError: String, operatorStale: Boolean, operatorFetchedAt: String })
+const emit = defineEmits(['inspect', 'navigate', 'close-detail'])
 const report = computed(() => profileReport(props.payload))
 const overview = computed(() => report.value.overview || {})
 const training = computed(() => report.value.training || {})
 const regions = computed(() => rows(report.value.regions?.items))
 const rooms = computed(() => rows(report.value.ship?.rooms))
+const honor = computed(() => report.value.honor || { summary: { declared_count: props.payload?.achievements?.count }, items: [] })
 const search = ref(''), rarity = ref(''), profession = ref(''), sort = ref('level')
 const operators = computed(() => rows(training.value.items))
 const selected = computed(() => selectOperators(operators.value, { search: search.value, rarity: rarity.value, profession: profession.value, sort: sort.value }))
 const rarities = computed(() => [...new Set(operators.value.map(item => item.rarity).filter(value => value != null))].sort((a,b) => b-a))
 const professions = computed(() => [...new Set(operators.value.map(item => named(item.profession)).filter(value => value !== '未知'))])
-const failedImages = ref(new Set())
 const detailPanel = ref(null)
-watch(() => props.operatorDetailId, async id => { if (id) { await nextTick(); detailPanel.value?.scrollIntoView?.({ block: 'start' }) } })
-watch(() => props.payload, () => { failedImages.value = new Set() })
-const portrait = item => failedImages.value.has(item.id) ? null : operatorArtwork(item)
-function imageFailed(id) { failedImages.value = new Set([...failedImages.value, id]) }
+let detailOpener = null
+function inspect(id, event) { detailOpener = event?.currentTarget || null; emit('inspect', id) }
+watch(() => props.operatorDetailId, async id => {
+  await nextTick()
+  if (id) { detailPanel.value?.scrollIntoView?.({ block: 'start' }); detailPanel.value?.focus?.({ preventScroll: true }) }
+  else detailOpener?.focus?.()
+})
 const time = value => value == null || value === '' ? '未知' : formatTime(value)
 const pair = value => `${display(value?.current ?? value?.count)} / ${display(value?.total ?? value?.maximum)}`
 const overviewMetrics = computed(() => [
@@ -46,13 +49,14 @@ function collections(area) {
     .map(([key,label]) => ({ key, label, current: area[key]?.count, total: area[key]?.total }))
 }
 const detail = computed(() => props.operatorDetail)
+const detailName = computed(() => detail.value?.name || operators.value.find(item => String(item.id) === props.operatorDetailId)?.name || '干员配装')
 </script>
 
 <template>
   <div class="endfield-reports">
     <template v-if="view === 'overview'">
-      <section class="ef-report ef-hero"><header><div><p class="ef-kicker">01 / DAILY REPORT</p><h2>今日档案</h2></div><span v-if="stale" class="badge badge-stale">待更新</span></header>
-        <p class="ef-identity">{{ overview.base?.name || '未知昵称' }} <span>等级 {{ display(overview.base?.level) }}</span></p>
+      <section class="ef-report ef-hero"><header><div><p class="ef-kicker">01 / FIELD RECORD</p><h2>今日档案</h2></div><span v-if="stale" class="badge badge-stale">待更新</span><span v-else class="ef-state">森空岛档案</span></header>
+        <div class="ef-identity"><EndfieldArtwork :src="overview.base?.avatar_url" :name="overview.base?.name || '管理员'" /><div><h3>{{ overview.base?.name || '未知昵称' }}</h3><p>UID {{ display(overview.base?.role_id) }}</p></div><dl><div><dt>账号等级</dt><dd>{{ display(overview.base?.level) }}</dd></div><div><dt>探索等级</dt><dd>{{ display(overview.base?.world_level) }}</dd></div></dl></div>
         <SummaryMetrics :metrics="overviewMetrics" />
       </section>
       <div class="ef-columns">
@@ -67,20 +71,21 @@ const detail = computed(() => props.operatorDetail)
     </template>
 
     <template v-else-if="view === 'operators' || view === 'detail'">
-      <section v-if="view === 'operators'" class="ef-report"><header><div><p class="ef-kicker">01 / OPERATORS</p><h2>全员练度</h2></div><span class="ef-note">显示 {{ selected.length }} / {{ operators.length }} 名</span></header>
+      <section v-if="view === 'operators'" v-show="!operatorDetailId" class="ef-report"><header><div><p class="ef-kicker">01 / OPERATORS</p><h2>全员练度</h2></div><span class="ef-note">显示 {{ selected.length }} / {{ operators.length }} 名</span></header>
         <SummaryMetrics compact :metrics="trainingMetrics" />
         <div class="ef-distribution"><span v-for="(count,key) in training.summary?.rarity_counts" :key="`r${key}`">{{ key }}★ <b>{{ count }}</b></span><span v-for="(count,key) in training.summary?.phase_counts" :key="`p${key}`">精英阶段 {{ key }} <b>{{ count }}</b></span></div>
         <div class="ef-filters"><label>查找干员<input :value="search" @input="search = $event.target.value" type="search" placeholder="姓名或编号" /></label><label>稀有度<select v-model="rarity"><option value="">全部稀有度</option><option v-for="value in rarities" :key="value" :value="String(value)">{{ value }}★</option></select></label><label>职业<select v-model="profession"><option value="">全部职业</option><option v-for="value in professions" :key="value" :value="value">{{ value }}</option></select></label><label>排序<select v-model="sort"><option value="level">等级从高到低</option><option value="rarity">稀有度从高到低</option><option value="potential">潜能从高到低</option><option value="name">姓名</option></select></label></div>
         <p v-if="!selected.length" class="ef-empty">{{ operators.length ? '没有匹配的干员，可调整筛选。' : '尚无干员资料。' }}</p>
         <div v-else class="ef-roster"><article v-for="(operator,index) in selected" :key="operator.id || index" class="ef-operator">
-          <div class="ef-portrait"><img v-if="portrait(operator)" :src="portrait(operator)" :alt="operator.name || '干员'" loading="lazy" referrerpolicy="no-referrer" @error="imageFailed(operator.id)" /><span v-else aria-hidden="true">{{ (operator.name || '干员').slice(0,1) }}</span><small>{{ display(operator.rarity) }}★</small></div>
-          <h3>{{ display(operator.name) }}</h3><p>等级 {{ display(operator.level) }} · 潜能 {{ display(operator.potential) }}</p><p>精英阶段 {{ display(operator.evolve_phase ?? operator.phase) }}</p><p class="ef-note">{{ named(operator.profession) }} · {{ named(operator.property) }}</p>
-          <button type="button" class="ui-button" :disabled="operatorBusy && operatorDetailId === String(operator.id) || !operator.id" :aria-expanded="operatorDetailId === String(operator.id)" @click="emit('inspect',operator.id)">查看配装</button>
+          <div class="ef-portrait"><EndfieldArtwork role :operator-id="operator.char_id || operator.id" :src="operator.avatar_url" :name="operator.name || '干员'" /><small>{{ display(operator.rarity) }}★</small></div>
+          <div class="ef-operator-copy"><h3>{{ display(operator.name) }}</h3><p class="ef-operator-level">Lv. {{ display(operator.level) }} <span>潜能 {{ display(operator.potential) }}</span></p><p>精英阶段 {{ display(operator.evolve_phase ?? operator.phase) }}</p><p class="ef-note">{{ named(operator.profession) }} · {{ named(operator.property) }}</p></div>
+          <button type="button" class="ui-button" :disabled="operatorBusy && operatorDetailId === String(operator.id) || !operator.id" :aria-expanded="operatorDetailId === String(operator.id)" @click="inspect(operator.id,$event)">查看配装</button>
         </article></div>
       </section>
-      <section v-if="operatorDetailId" ref="detailPanel" class="ef-report ef-detail" aria-live="polite"><header><div><p class="ef-kicker">02 / OPERATOR DETAIL</p><h2>{{ detail?.name || operators.find(item => String(item.id) === operatorDetailId)?.name || '干员配装' }}</h2></div><span v-if="operatorStale" class="badge badge-stale">配装待更新</span></header>
+      <section v-if="operatorDetailId" ref="detailPanel" class="ef-report ef-detail" tabindex="-1" aria-label="干员配装详情" aria-live="polite"><div class="ef-detail-toolbar"><button type="button" class="text-link" @click="emit('close-detail')">← 返回全员练度</button><span v-if="operatorStale" class="badge badge-stale">配装待更新</span></div><header><div><p class="ef-kicker">OPERATOR FILE / LOADOUT</p><h2>{{ detailName }}</h2></div><button type="button" class="ui-button" :disabled="operatorBusy" @click="emit('inspect',operatorDetailId)">重新读取配装</button></header>
         <p v-if="operatorBusy" class="ef-empty" role="status">正在读取干员配装…</p><p v-if="operatorError" class="ef-error" role="alert">{{ operatorError }}</p>
-        <template v-if="detail"><div class="ef-detail-heading"><EndfieldArtwork class="ef-detail-portrait" role :operator-id="detail.char_id || detail.id" :src="detail.avatar_url" :name="detail.name || '干员'" /><SummaryMetrics compact :metrics="[{label:'等级',value:detail.level},{label:'潜能',value:detail.potential},{label:'精英阶段',value:detail.evolve_phase ?? detail.phase}]" /></div>
+        <p class="ef-detail-time">配装同步于 {{ time(operatorFetchedAt) }}<span v-if="operatorStale"> · 正在显示上次成功读取的配装</span><span v-else-if="!operatorFetchedAt"> · 来源未提供独立更新时间</span></p>
+        <template v-if="detail"><div class="ef-detail-heading"><EndfieldArtwork class="ef-detail-portrait" role portrait :operator-id="detail.char_id || detail.id" :src="detail.avatar_url" :name="detail.name || '干员'" /><div class="ef-detail-identity"><p class="ef-kicker">{{ named(detail.profession) }} / {{ named(detail.property) }}</p><SummaryMetrics compact :metrics="[{label:'等级',value:detail.level},{label:'潜能',value:detail.potential},{label:'精英阶段',value:detail.evolve_phase ?? detail.phase}]" /></div></div>
           <div class="ef-columns"><section class="ef-subsection"><h3>武器与基质</h3><div class="ef-media-line"><EndfieldArtwork :src="detail.weapon?.icon_url" :name="named(detail.weapon)" /><div><p><strong>{{ named(detail.weapon) }}</strong> · 等级 {{ display(detail.weapon?.level) }} · 精炼 {{ display(detail.weapon?.refine_level) }}</p><p>突破 {{ display(detail.weapon?.breakthrough_level) }}</p></div></div><div class="ef-media-line"><EndfieldArtwork :src="detail.weapon?.gem?.icon_url" :name="named(detail.weapon?.gem)" /><p>基质：{{ named(detail.weapon?.gem) }}</p></div><ul class="ef-facts"><li v-for="(term,index) in rows(detail.weapon?.gem?.terms)" :key="index"><span>{{ named(term) }}</span><strong>{{ display(term.cost) }}</strong></li></ul></section>
           <section class="ef-subsection"><h3>装备</h3><p v-if="!rows(detail.equipment).length" class="ef-note">尚未采集装备。</p><ul class="ef-equipment-list"><li v-for="(item,index) in rows(detail.equipment)" :key="item.id || index" class="ef-media-line"><EndfieldArtwork :src="item.icon_url" :name="named(item)" /><div><p class="ef-note">{{ item.slot_label || item.slot_name || item.slot || `装备位 ${index+1}` }}</p><strong>{{ named(item) }}（等级 {{ display(item.level) }}）</strong></div></li></ul></section></div>
           <section class="ef-subsection"><h3>技能</h3><p v-if="!rows(detail.skills).length" class="ef-note">尚未采集技能。</p><ul class="ef-skill-list"><li v-for="(skill,index) in rows(detail.skills)" :key="skill.id || index" class="ef-media-line"><EndfieldArtwork :src="skill.icon_url" :name="named(skill)" /><span>{{ named(skill) }}（等级 {{ display(skill.level) }}）<span v-if="skill.mastery != null"> · 专精 {{ display(skill.mastery) }}</span></span></li></ul></section>
@@ -89,10 +94,10 @@ const detail = computed(() => props.operatorDetail)
     </template>
 
     <template v-else-if="view === 'regions'">
-      <section class="ef-report"><header><div><p class="ef-kicker">01 / REGIONAL DEVELOPMENT</p><h2>地区建设</h2></div><span class="ef-note">{{ regions.length }} 个地区</span></header><p v-if="!regions.length" class="ef-empty">尚无地区建设资料。</p><p class="ef-note">调度券与收集进度分别展示；来源未提供上限时不计算比例。</p></section>
+      <section class="ef-report ef-section-intro"><header><div><p class="ef-kicker">01 / REGIONAL DEVELOPMENT</p><h2>地区建设</h2></div><span class="ef-note">地区数 {{ display(report.regions?.summary?.region_count) }}</span></header><p v-if="!regions.length" class="ef-empty">尚无地区建设资料。</p><p class="ef-note">调度券、据点派驻与探索收集。</p></section>
       <section v-for="(region,index) in regions" :key="region.id || index" class="ef-report"><header><div><p class="ef-kicker">REGION {{ String(index+1).padStart(2,'0') }}</p><h2>{{ named(region) }}</h2></div><span>等级 {{ display(region.level) }}</span></header>
         <SummaryMetrics :metrics="[{label:'地区调度券',current:region.money?.current ?? region.money?.count,total:region.money?.total},{label:'据点',value:region.settlements_available === false ? null : region.settlements_available === true || rows(region.settlements).length ? rows(region.settlements).length : null}]" />
-        <div class="ef-settlements"><article v-for="(settlement,number) in rows(region.settlements)" :key="settlement.id || number" class="ef-subsection"><h3>{{ settlement.name || '据点' }} <small>等级 {{ display(settlement.level) }}</small></h3><p>基地调度券 {{ pair(settlement.coupon || {current:settlement.money,total:settlement.money_max}) }}</p><p>派驻干员：{{ rows(settlement.officers).map(item => item.name || item.id || '未知').join('、') || '未提供' }}</p></article></div>
+        <div class="ef-settlements"><article v-for="(settlement,number) in rows(region.settlements)" :key="settlement.id || number" class="ef-subsection"><h3>{{ settlement.name || '据点' }} <small>等级 {{ display(settlement.level) }}</small></h3><p>基地调度券 <strong>{{ pair(settlement.coupon || {current:settlement.money,total:settlement.money_max}) }}</strong></p><p class="ef-note">派驻干员：{{ rows(settlement.officers).map(item => item.name || item.id || '未知').join('、') || (settlement.officers_available === true ? '无派驻' : '未提供') }}</p><div v-if="rows(settlement.officers).length" class="ef-assigned"><EndfieldArtwork v-for="(officer,officerIndex) in rows(settlement.officers)" :key="officer.id || officerIndex" role :operator-id="officer.id" :src="officer.avatar_url" :name="officer.name || officer.id || '干员'" /></div></article></div>
         <div class="ef-areas"><article v-for="(area,number) in rows(region.areas || region.levels)" :key="area.id || number" class="ef-subsection"><h3>{{ area.name || '区域' }}</h3><ul class="ef-facts"><li v-for="item in collections(area)" :key="item.key"><span>{{ item.label }}</span><strong>{{ pair(item) }}<small v-if="item.remaining != null"> · 剩余 {{ item.remaining }}</small></strong><progress v-if="Number.isFinite(item.percent)" :value="item.percent" max="100" :aria-label="`${area.name || '区域'}${item.label}`" /></li></ul></article></div>
       </section>
     </template>
@@ -100,13 +105,140 @@ const detail = computed(() => props.operatorDetail)
     <template v-else-if="view === 'ship'">
       <section class="ef-report"><header><div><p class="ef-kicker">01 / DIJIANG</p><h2>帝江号</h2></div></header><SummaryMetrics compact :metrics="[{label:'房间数',value:report.ship?.summary?.room_count},{label:'有驻守记录的房间',value:report.ship?.summary?.staffed_rooms},{label:'驻守席位记录',value:report.ship?.summary?.operator_slots}]" /><p class="ef-note">心情、信赖展示来源观测值；未换算百分比，也不预测当前状态。</p></section>
       <p v-if="!rooms.length" class="ef-empty ef-report">尚无帝江号资料。</p>
-      <div class="ef-columns"><section v-for="(room,index) in rooms" :key="room.id || index" class="ef-report"><header><div><p class="ef-kicker">ROOM {{ String(index+1).padStart(2,'0') }}</p><h2>{{ room.name || '舱室' }}</h2></div><span>等级 {{ display(room.level) }}</span></header><p v-if="!rows(room.operators).length" class="ef-empty">{{ room.operators_available === true ? '当前没有驻守干员记录。' : '尚未采集驻守干员资料。' }}</p><div v-for="(operator,number) in rows(room.operators)" :key="operator.id || number" class="ef-resident"><h3>{{ operator.name || operator.id || operator.charId || '驻守干员' }}</h3><dl><div><dt>心情观测值</dt><dd>{{ display(operator.mood_raw ?? operator.physicalStrength) }}</dd></div><div><dt>信赖观测值</dt><dd>{{ display(operator.trust_raw ?? operator.favorability) }}</dd></div></dl></div></section></div>
+      <div class="ef-columns"><section v-for="(room,index) in rooms" :key="room.id || index" class="ef-report"><header><div><p class="ef-kicker">ROOM {{ String(index+1).padStart(2,'0') }}</p><h2>{{ room.name || '舱室' }}</h2></div><span>等级 {{ display(room.level) }}</span></header><p v-if="!rows(room.operators).length" class="ef-empty">{{ room.operators_available === true ? '当前没有驻守干员记录。' : '尚未采集驻守干员资料。' }}</p><div v-for="(operator,number) in rows(room.operators)" :key="operator.id || number" class="ef-resident"><EndfieldArtwork role :operator-id="operator.id" :src="operator.avatar_url" :name="operator.name || operator.id || '干员'" /><div class="ef-resident-copy"><h3>{{ operator.name || operator.id || operator.charId || '驻守干员' }}</h3><dl><div><dt>心情观测值</dt><dd>{{ display(operator.mood_raw ?? operator.physicalStrength) }}</dd></div><div><dt>信赖观测值</dt><dd>{{ display(operator.trust_raw ?? operator.favorability) }}</dd></div></dl></div></div></section></div>
+    </template>
+    <template v-else-if="view === 'honor'">
+      <section class="ef-report"><header><div><p class="ef-kicker">01 / HONOR ROAD</p><h2>光荣之路</h2></div></header><SummaryMetrics compact :metrics="[{label:'来源成就总数',value:honor.summary?.declared_count},{label:'已记录奖章',value:honor.summary?.listed_count}]" /><p class="ef-note">展示档案提供的奖章，不推断未获得的奖章或全收集进度。</p></section>
+      <p v-if="!rows(honor.items).length" class="ef-report ef-empty">{{ honor.available === true ? '当前档案没有奖章记录。' : '尚未采集奖章详情，请刷新档案。' }}</p>
+      <div v-else class="ef-medals"><article v-for="(medal,index) in rows(honor.items)" :key="medal.id || index" class="ef-report ef-medal"><EndfieldArtwork :src="medal.icon_url" :name="medal.name || '奖章'" /><div><p class="ef-kicker">MEDAL {{ String(index+1).padStart(2,'0') }}</p><h3>{{ medal.name || '未命名奖章' }}</h3><p>等级 {{ display(medal.level) }} <span class="ef-medal-plated">{{ medal.is_plated === true ? '已镀层' : medal.is_plated === false ? '未镀层' : '镀层未知' }}</span></p><p class="ef-note">获得于 {{ time(medal.obtained_at) }}</p></div></article></div>
     </template>
     <footer class="ef-source">森空岛档案 · {{ stale ? '正在显示已有资料，等待更新' : '已采集资料' }}<span>观测于 {{ time(report.observed_at) }}</span><span>同步于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</span></footer>
   </div>
 </template>
 
 <style scoped>
-.endfield-reports{display:grid;gap:18px;min-width:0}.ef-report{position:relative;padding:22px;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);min-width:0}.ef-report:before{content:'';position:absolute;left:-1px;top:-1px;width:19px;height:19px;border-left:2px solid var(--game-endfield);border-top:2px solid var(--game-endfield);border-radius:10px 0 0}.ef-report>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}.ef-report h2{font-size:19px;line-height:1.4}.ef-kicker{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text-muted);margin-bottom:5px}.ef-identity{font-size:24px;font-weight:600}.ef-identity span{font-size:13px;color:var(--text-muted);font-weight:400;margin-left:8px}.ef-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.ef-empty{color:var(--text-muted);padding:20px 0}.ef-note,.ef-source{font-size:12px;color:var(--text-muted);line-height:1.7}.ef-todos li,.ef-facts li{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:11px 0;border-bottom:1px solid var(--border)}.ef-todos{margin-bottom:15px}.ef-todos strong{color:var(--game-endfield)}.ef-shortcuts{display:flex;gap:10px;flex-wrap:wrap}.ef-distribution{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.ef-distribution>span{font-size:12px;padding:5px 9px;border:1px solid var(--border);border-radius:5px}.ef-distribution b{margin-left:8px;color:var(--game-endfield)}.ef-filters{display:grid;grid-template-columns:minmax(150px,2fr) repeat(3,minmax(100px,1fr));gap:12px;margin:18px 0}.ef-filters label{display:grid;gap:5px;font-size:11px;color:var(--text-muted)}.ef-filters input,.ef-filters select{min-width:0;width:100%;padding:9px 10px;background:var(--panel-bg);color:var(--text);border:1px solid var(--border);border-radius:6px}.ef-roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}.ef-operator{min-width:0;padding:12px;background:var(--panel-bg);border:1px solid var(--border);border-radius:8px}.ef-portrait{height:132px;position:relative;display:grid;place-items:center;background:linear-gradient(150deg,var(--accent-soft),var(--card-bg));border-radius:6px;overflow:hidden;margin-bottom:12px}.ef-portrait img{width:100%;height:100%;object-fit:contain}.ef-portrait>span{font-size:46px;color:var(--game-endfield);opacity:.7}.ef-portrait small{position:absolute;right:8px;top:8px;padding:2px 6px;background:var(--card-bg);color:var(--game-endfield);border-radius:3px}.ef-operator h3{font-size:16px;overflow-wrap:anywhere}.ef-operator p{font-size:12px;margin-top:5px}.ef-operator button{width:100%;margin-top:14px}.ef-subsection{padding:16px;background:var(--panel-bg);border:1px solid var(--border);border-radius:7px;min-width:0}.ef-subsection h3{font-size:15px;margin-bottom:10px}.ef-subsection h3 small{font-size:11px;color:var(--text-muted);font-weight:400}.ef-subsection p{font-size:13px;line-height:1.8;overflow-wrap:anywhere}.ef-facts{font-size:12px}.ef-facts strong{font-weight:500}.ef-facts small{font-size:11px;color:var(--text-muted)}.ef-facts progress{flex-basis:100%;width:100%;height:4px;accent-color:var(--game-endfield)}.ef-detail>.ef-subsection{margin-top:16px}.ef-skill-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:13px}.ef-settlements,.ef-areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px;margin-top:16px}.ef-resident{padding:15px 0;border-top:1px solid var(--border)}.ef-resident h3{font-size:15px;margin-bottom:10px}.ef-resident dl{display:grid;grid-template-columns:1fr 1fr;gap:15px}.ef-resident dt{font-size:11px;color:var(--text-muted)}.ef-resident dd{margin:5px 0 0;font-size:20px;font-variant-numeric:tabular-nums}.ef-source{display:flex;gap:5px 14px;flex-wrap:wrap}.ef-error{color:var(--danger);font-size:13px}@media(max-width:760px){.ef-columns{grid-template-columns:1fr}.ef-filters{grid-template-columns:1fr 1fr}.ef-report{padding:16px}.ef-roster{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
-.ef-detail-heading{display:flex;align-items:center;gap:18px;margin-bottom:20px}.ef-detail-heading>.summary-metrics{flex:1;margin:0}.ef-detail-portrait{width:116px;height:148px;font-size:48px}.ef-media-line{display:flex;gap:12px;align-items:center;margin:12px 0;min-width:0}.ef-media-line>div,.ef-media-line>span{min-width:0;overflow-wrap:anywhere}.ef-equipment-list strong{font-size:13px;font-weight:500}@media(max-width:550px){.ef-detail-heading{align-items:flex-start;flex-direction:column}.ef-detail-heading>.summary-metrics{width:100%}.ef-detail-portrait{width:86px;height:100px}}
+.endfield-reports { --ef-cyan:#79c9d1; display:grid; gap:18px; min-width:0; }
+:global([data-theme="light"]) .endfield-reports { --ef-cyan:#147c88; }
+.ef-report { position:relative; min-width:0; padding:22px; border:1px solid var(--border); background:var(--card-bg); }
+.ef-report::before { content:''; position:absolute; top:-1px; left:-1px; width:28px; border-top:2px solid var(--game-endfield); }
+.ef-report>header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; padding-bottom:14px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.ef-report h2 { font-size:21px; line-height:1.35; letter-spacing:.03em; }
+.ef-kicker { font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; color:var(--text-muted); margin-bottom:7px; }
+.ef-state { color:var(--ef-cyan); font-size:11px; padding:4px 8px; border:1px solid color-mix(in srgb,var(--ef-cyan) 40%,transparent); }
+.ef-hero { background:linear-gradient(115deg,color-mix(in srgb,var(--game-endfield) 4%,var(--card-bg)),var(--card-bg) 60%); }
+.ef-identity { display:flex; gap:16px; align-items:center; margin-bottom:22px; flex-wrap:wrap; }
+.ef-identity>.endfield-artwork { width:70px; height:70px; }
+.ef-identity h3 { font-size:24px; letter-spacing:.02em; overflow-wrap:anywhere; }
+.ef-identity p { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-top:8px; }
+.ef-identity dl { display:flex; gap:28px; margin-left:auto; }
+.ef-identity dt { font-size:11px; color:var(--text-muted); }
+.ef-identity dd { margin:5px 0 0; font-family:var(--font-mono); font-size:25px; }
+.ef-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.ef-empty { color:var(--text-muted); padding:24px 0; line-height:1.7; }
+.ef-empty.ef-report { padding:24px; }
+.ef-note,.ef-source { font-size:12px; color:var(--text-muted); line-height:1.7; }
+.ef-todos { margin-bottom:18px; }
+.ef-todos li,.ef-facts li { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:14px 0; border-bottom:1px solid var(--border); }
+.ef-todos strong { color:var(--game-endfield); font-weight:500; }
+.ef-shortcuts { display:flex; gap:10px; flex-wrap:wrap; }
+.ef-shortcuts .ui-button { flex:1; justify-content:space-between; min-height:44px; border-radius:0; padding:10px 14px; }
+.ef-distribution { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0; }
+.ef-distribution>span { font-size:11px; padding:5px 9px; border-left:2px solid var(--ef-cyan); background:var(--panel-bg); }
+.ef-distribution b { margin-left:8px; color:var(--text); }
+.ef-filters { display:grid; grid-template-columns:minmax(150px,2fr) repeat(3,minmax(100px,1fr)); gap:12px; padding:18px 0; margin:4px 0 18px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.ef-filters label { display:grid; gap:7px; font-size:11px; color:var(--text-muted); }
+.ef-filters input,.ef-filters select { min-width:0; width:100%; min-height:40px; padding:9px 10px; background:var(--panel-bg); color:var(--text); border:1px solid var(--border); border-radius:0; }
+.ef-roster { display:grid; grid-template-columns:repeat(auto-fill,minmax(185px,1fr)); gap:12px; }
+.ef-operator { min-width:0; border:1px solid var(--border); background:var(--panel-bg); display:flex; flex-direction:column; }
+.ef-portrait { height:134px; position:relative; display:grid; place-items:center; background:linear-gradient(150deg,var(--accent-soft),transparent); border-bottom:1px solid var(--border); overflow:hidden; }
+.ef-portrait>.endfield-artwork { width:100%; height:100%; border:0; background:transparent; font-size:46px; }
+.ef-portrait small { position:absolute; right:8px; top:8px; padding:3px 6px; color:var(--game-endfield); background:var(--card-bg); font-family:var(--font-mono); font-size:11px; }
+.ef-operator-copy { padding:14px 14px 0; flex:1; }
+.ef-operator h3 { font-size:16px; line-height:1.4; overflow-wrap:anywhere; }
+.ef-operator p { font-size:12px; margin-top:7px; }
+.ef-operator .ef-operator-level { font-family:var(--font-mono); font-size:17px; }
+.ef-operator-level span { color:var(--text-muted); font-family:var(--font-body); font-size:11px; margin-left:5px; }
+.ef-operator button { margin:14px; justify-content:center; border-radius:0; }
+.ef-subsection { padding:18px; background:var(--panel-bg); border:1px solid var(--border); min-width:0; }
+.ef-subsection h3 { font-size:14px; letter-spacing:.04em; margin-bottom:12px; }
+.ef-subsection h3 small { font-size:11px; color:var(--text-muted); font-weight:400; margin-left:6px; }
+.ef-subsection p { font-size:12px; line-height:1.9; overflow-wrap:anywhere; }
+.ef-facts { font-size:12px; }
+.ef-facts strong { font-family:var(--font-mono); font-weight:500; }
+.ef-facts small { font-size:11px; color:var(--text-muted); }
+.ef-facts progress { flex-basis:100%; width:100%; height:3px; accent-color:var(--ef-cyan); }
+.ef-detail { scroll-margin-top:80px; }
+.ef-detail:focus { outline:none; }
+.ef-detail-toolbar { display:flex; justify-content:space-between; gap:10px; margin-bottom:24px; }
+.ef-detail-time { font-size:11px; line-height:1.8; color:var(--text-muted); margin-top:-8px; }
+.ef-detail-heading { display:flex; align-items:center; gap:24px; margin:20px 0; background:linear-gradient(90deg,var(--accent-soft),transparent 75%); }
+.ef-detail-portrait { width:180px; height:230px; font-size:64px; }
+.ef-detail-identity { min-width:0; flex:1; padding:16px 20px 16px 0; }
+.ef-detail-identity>.summary-metrics { margin:16px 0 0; }
+.ef-detail>.ef-subsection { margin-top:16px; }
+.ef-media-line { display:flex; gap:12px; align-items:center; margin:12px 0; min-width:0; }
+.ef-media-line>div,.ef-media-line>span { min-width:0; overflow-wrap:anywhere; }
+.ef-equipment-list strong { font-size:13px; font-weight:500; }
+.ef-skill-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; font-size:13px; }
+.ef-settlements,.ef-areas { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); gap:12px; margin-top:16px; }
+.ef-assigned { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.ef-assigned>.endfield-artwork { width:42px; height:42px; font-size:18px; }
+.ef-resident { display:flex; gap:14px; align-items:center; padding:16px 0; border-bottom:1px solid var(--border); }
+.ef-resident:last-child { border-bottom:0; padding-bottom:0; }
+.ef-resident-copy { flex:1; min-width:0; }
+.ef-resident h3 { font-size:14px; margin-bottom:12px; overflow-wrap:anywhere; }
+.ef-resident dl { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.ef-resident dt { font-size:10px; color:var(--text-muted); }
+.ef-resident dd { margin:6px 0 0; font-family:var(--font-mono); font-size:17px; overflow-wrap:anywhere; }
+.ef-medals { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(310px,100%),1fr)); gap:14px; }
+.ef-medal { display:flex; gap:16px; align-items:center; }
+.ef-medal>.endfield-artwork { width:78px; height:88px; background:transparent; border:0; }
+.ef-medal>div { min-width:0; }
+.ef-medal h3 { font-size:15px; line-height:1.6; overflow-wrap:anywhere; }
+.ef-medal p:not(.ef-kicker) { margin-top:7px; font-size:11px; }
+.ef-medal-plated { color:var(--ef-cyan); margin-left:8px; }
+.ef-source { display:flex; gap:5px 14px; flex-wrap:wrap; padding:12px 0 0; border-top:1px solid var(--border); font-size:11px; }
+.ef-error { color:var(--danger); font-size:13px; padding:12px; border-left:2px solid var(--danger); background:var(--danger-bg); margin-bottom:16px; }
+.endfield-reports :deep(.summary-metric) { border-radius:0; box-shadow:none; }
+.endfield-reports :deep(.metric-symbol) { border-radius:0; }
+.endfield-reports :deep(.metric-symbol.ring) { border-radius:50%; }
+.endfield-reports :deep(.summary-metric .metric-copy>strong) { font-family:var(--font-mono); font-weight:500; }
+.endfield-reports :deep(.summary-metrics.rows progress::-webkit-progress-value) { background:var(--ef-cyan); }
+.endfield-reports :deep(.summary-metrics.rows progress::-moz-progress-bar) { background:var(--ef-cyan); }
+@media(max-width:760px) {
+  .ef-columns { grid-template-columns:1fr; }
+  .ef-filters { grid-template-columns:1fr 1fr; }
+  .ef-report { padding:16px; }
+  .ef-roster { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ef-shortcuts { display:grid; grid-template-columns:1fr; }
+  .ef-shortcuts .ui-button { width:100%; }
+}
+@media(max-width:550px) {
+  .ef-report>header { margin-bottom:16px; }
+  .ef-report h2 { font-size:19px; }
+  .ef-identity { gap:12px; }
+  .ef-identity h3 { font-size:20px; }
+  .ef-identity dl { width:100%; margin-left:0; border-top:1px solid var(--border); padding-top:14px; gap:30px; }
+  .ef-identity dd { font-size:22px; }
+  .ef-portrait { height:110px; }
+  .ef-operator-copy { padding:12px 10px 0; }
+  .ef-operator h3 { font-size:14px; }
+  .ef-operator p { font-size:11px; }
+  .ef-operator button { margin:12px 10px; min-height:40px; font-size:11px; }
+  .ef-detail-heading { align-items:flex-end; gap:8px; }
+  .ef-detail-portrait { width:118px; height:180px; }
+  .ef-detail-identity { padding:14px 8px 14px 0; }
+  .ef-detail-identity>.ef-kicker { font-size:9px; line-height:1.7; }
+  .ef-detail-identity :deep(.summary-metrics.compact) { grid-template-columns:1fr; gap:4px; }
+  .ef-detail-identity :deep(.summary-metric) { display:block; border:0; padding:3px 0; background:transparent; }
+  .ef-detail-identity :deep(.metric-symbol) { display:none; }
+  .ef-detail-identity :deep(.metric-copy) { display:flex; gap:10px; align-items:baseline; justify-content:space-between; }
+  .ef-detail-identity :deep(.metric-copy>span) { margin:0; }
+  .ef-detail-identity :deep(.metric-copy>strong) { font-size:18px; }
+  .ef-resident { gap:10px; }
+  .ef-resident>.endfield-artwork { width:42px; height:52px; }
+  .ef-resident dd { font-size:15px; }
+  .ef-medal { padding:14px; gap:12px; }
+  .ef-medal>.endfield-artwork { width:60px; height:70px; }
+}
 </style>

@@ -6,14 +6,54 @@ export const displayValue = value => value == null || value === '' || typeof val
 export const sourceName = value => typeof value === 'object' && value !== null ? displayValue(value.name ?? value.value ?? value.key) : displayValue(value)
 
 export function profileReport(payload) {
-  if (payload?.report?.schema_version === 1) return payload.report
+  if (payload?.report?.schema_version === 1) return { ...payload.report,
+    honor: payload.report.honor || honorReport(payload), regions: labeledRegions(payload.report.regions) }
   // Previously saved profiles remain readable until their next normal refresh.
   return {
     overview: { base: payload?.base, stamina: payload?.stamina, progress: rows(payload?.progress), todos: null },
     training: { items: rows(payload?.operators), summary: { listed_count: rows(payload?.operators).length || null } },
-    regions: { items: rows(payload?.regions), summary: { region_count: rows(payload?.regions).length || null } },
+    regions: labeledRegions({ items: rows(payload?.regions), summary: { region_count: rows(payload?.regions).length || null } }),
     ship: { rooms: rows(payload?.ship), summary: { room_count: rows(payload?.ship).length || null } },
+    honor: honorReport(payload),
   }
+}
+
+const areaNames = {map01_lv001:'枢纽区',map01_lv002:'谷地通道',map01_lv003:'阿伯莉采石场',
+  map01_lv005:'源石研究园',map01_lv006:'矿脉源区',map01_lv007:'供能高地',
+  map02_lv001:'景玉谷',map02_lv002:'武陵城',map02_lv003:'清波寨'}
+
+function labeledRegions(report) {
+  if (!report) return report
+  return {...report,items:rows(report.items).map(region=>{
+    const levels=rows(region.levels), collections=rows(region.collections)
+    const areas=Array.isArray(region.areas) ? region.areas : [...levels,...collections
+      .filter(item=>!levels.some(level=>level.id===item.level_id)).map(item=>({id:item.level_id,name:item.name,
+        chests:{count:item.chest_count},puzzles:{count:item.puzzle_count},blackboxes:{count:item.blackbox_count},
+        equipment_chests:{count:item.equipment_chest_count},pieces:{count:item.piece_count}}))]
+    return {...region,areas:areas.map(area=>({...area,name:
+      levels.find(level=>level.id===area.id)?.name || collections.find(item=>item.level_id===area.id)?.name ||
+      area.name || areaNames[area.id] || area.id}))}
+  })}
+}
+
+// Older stored profiles predate the honor projection. Only the explicitly
+// observed medal fields are lifted; an empty legacy array cannot prove zero.
+function honorReport(payload) {
+  const number = value => value == null || typeof value === 'boolean' || value === '' || !Number.isFinite(Number(value)) || Number(value) < 0 ? null : Number(value)
+  const medals = rows(payload?.achievements?.medals).filter(item => item && typeof item === 'object' && !Array.isArray(item))
+  const flag = payload?.availability?.honor
+  const available = typeof flag === 'boolean' ? flag : medals.length ? true : null
+  return { available, summary: { declared_count: number(payload?.achievements?.count), listed_count: available === true ? medals.length : null },
+    items: medals.map(item => {
+      const data = item.achievementData || {}, level = number(item.level), plated = typeof item.isPlated === 'boolean' ? item.isPlated : null
+      let icon = data.initIcon
+      if (level >= 2 && data.reforge2Icon) icon = data.reforge2Icon
+      if (level >= 3 && data.reforge3Icon) icon = data.reforge3Icon
+      if (plated === true && data.platedIcon) icon = data.platedIcon
+      const timestamp = number(item.obtainTs), date = timestamp ? new Date(timestamp * 1000) : null
+      return { id:data.id, name:data.name, level, is_plated:plated,
+        obtained_at:date && Number.isFinite(date.getTime()) ? date.toISOString() : null, icon_url:typeof icon === 'string' ? icon : null }
+    }) }
 }
 
 export function selectOperators(items, { search = '', rarity = '', profession = '', sort = 'level' } = {}) {
@@ -40,7 +80,18 @@ export function operatorImage(value) {
   } catch { return null }
 }
 
-export function operatorArtwork(operator) {
+export function operatorArtwork(operator, { portrait = false } = {}) {
+  if (portrait) {
+    for (const key of [operator?.char_id, operator?.id]) {
+      const url = key && operatorImage(iconCatalog.roles[key]?.portrait)
+      if (url) return url
+    }
+    const portraits = Object.values(iconCatalog.roles).filter(item => item.name === operator?.name)
+    if (portraits.length === 1) {
+      const url = operatorImage(portraits[0].portrait)
+      if (url) return url
+    }
+  }
   const supplied = operatorImage(operator?.avatar_url || operator?.icon_url)
   if (supplied) return supplied
   // Official website keys are deliberately not guessed from game-ID suffixes.

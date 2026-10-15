@@ -1,8 +1,10 @@
 """Mobile QQ long cards, measured without network access or silent truncation."""
 from datetime import date, timedelta
+import re
 import time
 
 from .card_rendering import _Layout, ACCENTS, GAME_LABELS, METADATA_LABELS, encode_image
+from .endfield_theme import COLORS as EF_COLORS, SECTION_LABELS as EF_SECTION_LABELS
 
 WIDTH = 1080
 GACHA_COLORS = {'green':'#04c8a3','yellow':'#edbc49','red':'#e55961','unknown':'#7d8592'}
@@ -163,54 +165,232 @@ class MobileLayout(_Layout):
 
 
 class EndfieldLayout(MobileLayout):
-    """Owned neutral panels with yellow headings and cyan secondary details."""
-    background='#101314'
-    panel='#181c1d'
-    card='#202627'
-    soft='#2a3233'
-    border='#465051'
-    ink='#f4f6ef'
-    muted='#bdc8c7'
-    secondary='#67ded7'
+    """Measured industrial reports, with artwork reserved for actual subjects."""
+    background=EF_COLORS['background']
+    panel=EF_COLORS['panel']
+    card=EF_COLORS['card']
+    soft=EF_COLORS['soft']
+    border=EF_COLORS['border']
+    ink=EF_COLORS['ink']
+    muted=EF_COLORS['muted']
+    secondary=EF_COLORS['cyan']
+
+    def rect(self,coords,fill=None,radius=0,outline=None):
+        self.ops.append(('rect',coords,fill or self.card,0,outline))
+
+    def asset(self, ref):
+        if ref not in self.images:
+            image=self.assets.get_image(ref) if self.assets is not None and ref else None
+            if image is not None:
+                from PIL import Image
+                if not isinstance(image,Image.Image) or image.width*image.height>262144:
+                    raise ValueError('qq_image_asset_limit')
+            self.images[ref]=image
+        return self.images[ref]
+
+    def avatar(self, ref, title, x, y, width, height, *, portrait=False):
+        if self.asset(ref) is not None:
+            self.ops.append(('image',(x,y,width,height),self.images[ref],True))
+        # Missing art does not consume a large initial-letter placeholder.
+
+    def frame(self, index, x, y, width, height):
+        end=x+width;bottom=y+height
+        self.ops[index:index]=[
+            ('rect',(x,y,end,bottom),self.panel,0,self.border),
+            ('rect',(x,y,x+16,y+2),self.accent,0,None),
+            ('rect',(x,y,x+2,y+16),self.accent,0,None),
+            ('rect',(end-16,bottom-2,end,bottom),self.secondary,0,None),
+            ('rect',(end-2,bottom-16,end,bottom),self.secondary,0,None),
+        ]
+
+    def heading(self, title, category, number, x, y, width):
+        self.text(f'{number:02}',x,y+3,42,24,self.secondary)
+        bottom=self.text(title,x+54,y,width-54,30,self.ink)
+        bottom=self.text(EF_SECTION_LABELS.get(category,'ENDFIELD // OBSERVATION'),x+54,bottom+1,width-54,22,self.muted)
+        if category not in ('ef_provenance','ef_room'):
+            self.rect((x,bottom+11,x+width,bottom+12),self.border,0)
+            return bottom+28
+        return bottom+18
 
     def field_grid(self, fields, x, y, width, *, columns=4, tiles=True):
+        if not fields:return y
         if len(fields) in (2,4):
             columns=4 if len(fields)==4 and all(len(item['value'])<=10 for item in fields) else 2
         elif len(fields)==8:columns=4
-        return super().field_grid(fields,x,y,width,columns=columns,tiles=tiles)
+        columns=min(columns,len(fields))
+        if any(len(item['value'])>24 for item in fields):columns=min(columns,2)
+        gap=16;cell=(width-gap*(columns-1))//columns
+        for start in range(0,len(fields),columns):
+            group=fields[start:start+columns]
+            sizes=[36 if tiles and len(item['value'])<=12 else 26 for item in group]
+            height=max(20+len(self.wrap(item['label'],22,cell-24))*30+
+                       len(self.wrap(item['value'],size,cell-24))*(size+8)+
+                       (22 if item.get('metric',{}).get('maximum') is not None else 8)
+                       for item,size in zip(group,sizes))
+            for index,(item,size) in enumerate(zip(group,sizes)):
+                left=x+index*(cell+gap)
+                if tiles:
+                    self.rect((left,y,left+cell,y+height),self.card,0)
+                    self.rect((left,y,left+2,y+height),self.border,0)
+                bottom=self.text(item['label'],left+12,y+9,cell-24,22,self.muted)
+                bottom=self.text(item['value'],left+12,bottom+3,cell-24,size,self.ink)
+                if item.get('metric',{}).get('maximum') is not None:
+                    self.progress(item['metric'],left+12,bottom+6,cell-24)
+            y+=height+12
+        return y
+
+    def grid_field_lines(self, field, width):
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}',field['value']):
+            value=field['value']
+            lines=[value] if self.fonts[22].getlength(value)<=width else value.split(' ')
+            return self.wrap(field['label'],22,width)+lines
+        return self.wrap(field['label']+' '+field['value'],22,width)
 
     def grid(self, rows, x, y, width, *, layout='grid'):
-        columns=4;gap=16;cell=(width-gap*(columns-1))//columns
-        image_height=150 if layout=='grid' else 100
+        if not rows:return y
+        columns=min(4,len(rows));gap=16;cell=(width-gap*(columns-1))//columns
         for start in range(0,len(rows),columns):
             group=rows[start:start+columns]
-            title_height=max(len(self.wrap(row['title'],26,cell-24))*34 for row in group)
-            subtitle_height=max(len(self.wrap(row['subtitle'],22,cell-24))*30 for row in group)
+            art=[self.asset(row.get('image')) is not None for row in group]
+            header_heights=[max(88 if present else 0,
+                len(self.wrap(row['title'],24,cell-112 if present else cell-28))*32+
+                len(self.wrap(row['subtitle'],22,cell-112 if present else cell-28))*30)
+                for row,present in zip(group,art)]
+            header_height=max(header_heights)
             field_count=max((len(row['fields']) for row in group),default=0)
-            field_heights=[max((len(self.wrap(row['fields'][index]['label']+' '+row['fields'][index]['value'],24,cell-24))*32
+            field_heights=[max((len(self.grid_field_lines(row['fields'][index],cell-28))*30
                                for row in group if len(row['fields'])>index),default=0) for index in range(field_count)]
-            height=40+image_height+title_height+subtitle_height+sum(field_heights)
-            for index,row in enumerate(group):
+            height=34+header_height+sum(field_heights)
+            for index,(row,present) in enumerate(zip(group,art)):
                 left=x+index*(cell+gap)
-                self.rect((left,y,left+cell,y+height),self.card,8,self.border)
-                self.rect((left,y,left+cell,y+4),self.accent,0)
-                self.avatar(row.get('image'),row['title'],left+12,y+14,cell-24,image_height,portrait=True)
-                top=y+image_height+26
-                self.text(row['title'],left+12,top,cell-24,26)
-                top+=title_height
-                self.text(row['subtitle'],left+12,top,cell-24,22,self.secondary)
-                top+=subtitle_height
+                self.rect((left,y,left+cell,y+height),self.card,0,self.border)
+                self.rect((left,y,left+24,y+3),self.accent,0)
+                title_x=left+14
+                title_width=cell-28
+                if present:
+                    self.avatar(row.get('image'),row['title'],left+10,y+14,80,80,portrait=True)
+                    title_x=left+98;title_width=cell-112
+                bottom=self.text(row['title'],title_x,y+14,title_width,24)
+                self.text(row['subtitle'],title_x,bottom,title_width,22,self.secondary)
+                top=y+header_height+22
                 for slot,field in enumerate(row['fields']):
-                    self.text(field['label']+' '+field['value'],left+12,top,cell-24,24,self.muted)
+                    for line_index,line in enumerate(self.grid_field_lines(field,cell-28)):
+                        self.text(line,left+14,top+line_index*30,cell-28,22,self.muted)
                     top+=field_heights[slot]
             y+=height+16
             self.check()
         return y
 
+    def data_rows(self, rows, x, y, width, *, collection=False):
+        for row in rows:
+            start=y;present=self.asset(row.get('image')) is not None
+            left=x+96 if present else x
+            area=width-(left-x)
+            if present:self.avatar(row.get('image'),row['title'],x,y+4,80,80,portrait=True)
+            bottom=self.text(row['title'],left,y,area,28,self.ink)
+            if row['subtitle']:bottom=self.text(row['subtitle'],left,bottom+2,area,22,self.secondary)
+            if collection:
+                for item in row['fields']:
+                    label_width=min(300,area*.4)
+                    a=self.text(item['label'],left,bottom+12,label_width,24,self.muted)
+                    b=self.text(item['value'],left+label_width+16,bottom+10,area-label_width-16,26,self.ink)
+                    bottom=max(a,b)+4
+                    if item.get('metric',{}).get('maximum') is not None:
+                        self.progress(item['metric'],left+label_width+16,bottom,area-label_width-16);bottom+=18
+            else:
+                bottom=self.field_grid(row['fields'],left,bottom+4,area,columns=3,tiles=False)
+            y=max(start+92 if present else start,bottom)+8
+            self.rect((x,y,x+width,y+1),self.border,0)
+            y+=20
+        return y
+
+    def operator(self, card, section, x, y, width):
+        ref=card.get('image')
+        if self.asset(ref) is None:ref=section.get('image')
+        present=self.asset(ref) is not None
+        source=self.asset(ref)
+        large=present and (source.height>192 or source.width>192)
+        art_width,art_height=(316,400) if large else (176,176)
+        left=x+art_width+24 if present else x
+        area=width-(left-x)
+        if present:
+            self.rect((x,y,x+art_width,y+art_height),self.card,0)
+            # Small fallback avatars remain small instead of blurring into a portrait.
+            target_width,target_height=(304,392) if large else (144,144)
+            self.avatar(ref,card['title'],x+(art_width-target_width)//2,y+(art_height-target_height)//2,target_width,target_height,portrait=True)
+            self.rect((x,y+art_height-1,x+art_width,y+art_height+1),self.accent,0)
+        fields=list(section['fields'])
+        main=fields[:1];others=fields[1:]
+        bottom=y
+        if main:
+            bottom=self.text(main[0]['label'],left,y,area,22,self.muted)
+            bottom=self.text(main[0]['value'],left,bottom+4,area,52,self.accent)
+        bottom=self.attribute_list(others,left,bottom+10,area)
+        return max(y+art_height+14 if present else y,bottom+14)
+
+    def paint(self,height):
+        grid=[]
+        for x in range(32,self.width,64):grid.append(('rect',(x,0,x+1,height),'#13191c',0,None))
+        for y in range(28,int(height),64):grid.append(('rect',(0,y,self.width,y+1),'#13191c',0,None))
+        self.ops[0:0]=grid
+        return super().paint(height)
+
+
+def render_endfield_card(card, *, font, max_bytes, max_pixels, budget_seconds, asset_cache):
+    layout=EndfieldLayout(font,EF_COLORS['yellow'],asset_cache,time.monotonic()+budget_seconds)
+    start=28;index=len(layout.ops)
+    layout.rect((52,48,56,144),layout.accent,0)
+    y=layout.text('GAME MANAGE  /  ENDFIELD',76,43,936,22,layout.secondary)
+    y=layout.text(card['title'],76,y+8,936,44,layout.ink)
+    if card['subtitle']:y=layout.text(card['subtitle'],76,y+7,936,24,layout.muted)
+    y=max(164,y+22)
+    layout.frame(index,32,start,1016,y-start)
+    y+=22
+    for number,section in enumerate(card['sections'],1):
+        category=section.get('category','');start=y;index=len(layout.ops)
+        y=layout.heading(section['title'],category,number,54,y+18,972)
+        metadata_labels=METADATA_LABELS | ({'待同步'} if category=='ef_gacha_pool' else set())
+        metadata=[field for field in section['fields'] if field['label'] in metadata_labels]
+        fields=[field for field in section['fields'] if field['label'] not in metadata_labels]
+        if card['kind']=='detail' and number==1:
+            y=layout.operator(card,section,54,y,972)
+        elif category=='ef_provenance':
+            y=layout.metadata_strip(fields,54,y-12,972)+6
+        else:
+            if category=='ef_room':
+                y=layout.metadata_strip(fields,54,y-12,972)+10
+            elif section.get('image') and section['layout']=='equipment' and layout.asset(section['image']) is not None:
+                layout.avatar(section['image'],section['title'],54,y,120,120,portrait=True)
+                bottom=layout.attribute_list(fields,198,y,828)
+                y=max(y+136,bottom+10)
+            elif section['layout']=='help':y=layout.help(fields,54,y,972)
+            else:y=layout.field_grid(fields,54,y,972,columns=3)
+            rows=section['rows'];mode=section['layout']
+            if mode in ('grid','skills','equipment'):
+                y=layout.grid(rows,54,y,972,layout=mode)
+            elif mode=='timeline':y=layout.timeline(rows,card['timeline'],54,y,972)
+            else:y=layout.data_rows(rows,54,y,972,collection=category=='ef_collections')
+        y=layout.metadata_strip(metadata,54,y+1,972)+8
+        layout.frame(index,32,start,1016,y-start)
+        y+=22
+        if y>16000 or WIDTH*y>max_pixels:raise ValueError('qq_image_pixel_limit')
+    if card['notices']:
+        y=layout.text('OBSERVATION NOTES',44,y+4,992,22,layout.secondary)+8
+        for notice in card['notices']:y=layout.text('· '+notice,44,y,992,22,layout.muted)+4
+    if card['footer']:
+        layout.rect((44,y+13,1036,y+14),layout.border,0)
+        y=layout.text(card['footer'],44,y+25,992,22,layout.muted)
+    height=max(240,y+30)
+    if height>16000 or WIDTH*height>max_pixels:raise ValueError('qq_image_pixel_limit')
+    layout.check()
+    return encode_image(layout.paint(height),max_bytes=max_bytes,check=layout.check)
+
 
 def render_mobile_card(card, *, font, max_bytes, max_pixels, budget_seconds, asset_cache):
-    layout_class=EndfieldLayout if card['game']=='endfield' else MobileLayout
-    layout=layout_class(font,ACCENTS[card['game']],asset_cache,time.monotonic()+budget_seconds)
+    if card['game']=='endfield':
+        return render_endfield_card(card,font=font,max_bytes=max_bytes,max_pixels=max_pixels,
+            budget_seconds=budget_seconds,asset_cache=asset_cache)
+    layout=MobileLayout(font,ACCENTS[card['game']],asset_cache,time.monotonic()+budget_seconds)
     layout.rect((32,28,1048,172),layout.panel,18,layout.border)
     layout.avatar(card.get('image'),GAME_LABELS[card['game']],52,46,100,100,portrait=True)
     kind_label='专项报告' if card['game']=='endfield' and card['kind']=='list' else KIND_LABELS[card['kind']]

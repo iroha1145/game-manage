@@ -5,6 +5,7 @@ missing observation is never interpreted as zero, completion, or a prediction.
 No game-specific mood/trust conversion is assumed here.
 """
 from copy import deepcopy
+from datetime import datetime, timezone
 from math import isfinite
 
 
@@ -72,6 +73,55 @@ COLLECTIONS = (
     ('pieces', '维修灵感点', 'piece_count'),
 )
 
+# Exact region IDs documented by the reviewed dashboard capture (2026-10-14).
+# Current upstream labels always win; unfamiliar IDs remain visible as IDs.
+AREA_NAMES = {
+    'map01_lv001': '枢纽区', 'map01_lv002': '谷地通道', 'map01_lv003': '阿伯莉采石场',
+    'map01_lv005': '源石研究园', 'map01_lv006': '矿脉源区', 'map01_lv007': '供能高地',
+    'map02_lv001': '景玉谷', 'map02_lv002': '武陵城', 'map02_lv003': '清波寨',
+}
+
+
+def _area_name(name, identity):
+    if isinstance(name, str) and name:
+        return name
+    if isinstance(identity, (str, int)) and not isinstance(identity, bool):
+        identity = str(identity)
+        return AREA_NAMES.get(identity) or identity
+    return None
+
+
+def _honor(payload):
+    achievements = _object(payload.get('achievements'))
+    medals = _items(achievements.get('medals'))
+    explicit = _object(payload.get('availability')).get('honor')
+    available = explicit if isinstance(explicit, bool) else True if medals else None
+    items = []
+    for medal in medals:
+        data = _object(medal.get('achievementData'))
+        level = _number(medal.get('level'))
+        plated = medal.get('isPlated') if isinstance(medal.get('isPlated'), bool) else None
+        icon = data.get('initIcon')
+        if level is not None and level >= 2 and data.get('reforge2Icon'):
+            icon = data['reforge2Icon']
+        if level is not None and level >= 3 and data.get('reforge3Icon'):
+            icon = data['reforge3Icon']
+        if plated is True and data.get('platedIcon'):
+            icon = data['platedIcon']
+        timestamp = _number(medal.get('obtainTs'))
+        obtained_at = None
+        if timestamp:
+            try:
+                obtained_at = datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+            except (OverflowError, ValueError, OSError):
+                pass
+        items.append({'id': data.get('id'), 'name': data.get('name'), 'level': level,
+                      'is_plated': plated, 'obtained_at': obtained_at,
+                      'icon_url': icon if isinstance(icon, str) else None})
+    return {'available': available, 'items': items,
+            'summary': {'declared_count': _number(achievements.get('count')),
+                        'listed_count': len(items) if available is True else None}}
+
 
 def _regions(payload, operators):
     result = []
@@ -84,9 +134,9 @@ def _regions(payload, operators):
             settlements.append({**deepcopy(settlement),
                                 'coupon': _metric(settlement.get('money'), settlement.get('money_max')),
                                 'officers': officers, 'officers_available': isinstance(ids, list)})
-        areas, by_id = [], {}
+        areas, by_id, named_ids = [], {}, set()
         for level in _items(region.get('levels')):
-            area = {'id': level.get('id'), 'name': level.get('name'),
+            area = {'id': level.get('id'), 'name': _area_name(level.get('name'), level.get('id')),
                           'collections': [{'key': key, 'label': label,
                                            **_metric(_object(level.get(key)).get('count'),
                                                      _object(level.get(key)).get('total'))}
@@ -94,14 +144,19 @@ def _regions(payload, operators):
             areas.append(area)
             if level.get('id') is not None:
                 by_id[str(level['id'])] = area
+                if isinstance(level.get('name'), str) and level['name']:
+                    named_ids.add(str(level['id']))
         for collection in _items(region.get('collections')):
             existing = by_id.get(str(collection.get('level_id')))
             if existing:
+                if str(collection.get('level_id')) not in named_ids and isinstance(collection.get('name'), str) and collection['name']:
+                    existing['name'] = collection['name']
+                    named_ids.add(str(collection['level_id']))
                 for metric, (_, _, raw_key) in zip(existing['collections'], COLLECTIONS):
                     if metric['current'] is None:
                         metric.update(_metric(collection.get(raw_key), metric['total']))
                 continue
-            areas.append({'id': collection.get('level_id'), 'name': collection.get('name'),
+            areas.append({'id': collection.get('level_id'), 'name': _area_name(collection.get('name'), collection.get('level_id')),
                           'collections': [{'key': key, 'label': label,
                                            **_metric(collection.get(raw_key), None)}
                                           for key, label, raw_key in COLLECTIONS]})
@@ -165,6 +220,7 @@ def build_endfield_report(payload, *, fetched_at=None):
                                      'max_level': max(levels) if levels else None,
                                      'rarity_counts': rarities, 'phase_counts': phases}},
             'regions': _regions(payload, index),
+            'honor': _honor(payload),
             'ship': {'rooms': rooms, 'available': ship_available,
                      'summary': {'room_count': len(rooms) if ship_available is True else None,
                                  'staffed_rooms': sum(bool(room['operators']) for room in rooms) if staff_available else None,
@@ -192,7 +248,8 @@ def build_gacha_report(summary):
     return {'schema_version': 1, 'role_id': summary.get('role_id'), 'total': _number(summary.get('total')),
             'six_star': total('six_star'), 'five_star': total('five_star'), 'free': total('free'),
             'complete': summary.get('complete') if isinstance(summary.get('complete'), bool) else None,
-            'gaps': total('gaps'), 'pending': True if any(pool.get('pending') is True for pool in pools)
+            'gaps': total('gaps'), 'pending': True if summary.get('complete') is False or any(pool.get('pending') is True for pool in pools)
+            else None if 'complete' in summary and summary['complete'] is None
             else False if (pools and all(pool.get('pending') is False for pool in pools)) or summary.get('total') == 0 else None,
             'known_exact_intervals': len(exact),
             'average_exact_pulls': round(sum(exact) / len(exact), 1) if exact else None,

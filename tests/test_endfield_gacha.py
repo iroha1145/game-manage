@@ -1,9 +1,11 @@
 """终末地寻访账本：分页续传、断档与统计口径（离线假客户端，每页 5 条）。"""
 import httpx
 import pytest
+import sqlite3
 from fastapi import FastAPI
 
 from game_assistant.adapters.endfield.hypergryph import EndfieldError
+from game_assistant.adapters.endfield.endpoints import CHAR_POOL_TYPES
 from game_assistant.config import Settings
 from game_assistant.endfield_gacha import EndfieldGachaStore
 from game_assistant.endfield_gacha_routes import install_endfield_gacha_routes
@@ -99,6 +101,95 @@ async def test_budget_exhaustion_leaves_a_gap_that_the_next_sync_resumes(tmp_pat
     assert (done.total, done.gaps, done.pending) == (30, 0, False)
     assert done.since_last_six.model_dump() == {"count": 2, "status": "exact"}
     assert [(h.pulls, h.status) for h in done.history] == [(25, "exact"), (3, "lower_bound")]
+    assert store.summary('r1').complete is True
+
+
+async def test_budget_at_pool_boundary_keeps_unvisited_pools_pending(tmp_path):
+    store = EndfieldGachaStore(tmp_path / 'g.sqlite3')
+    client = FakeClient(special=history(1, 5))
+    assert await sync(store, client, budget=2) == 2
+    summary = store.summary('r1')
+    # The first pool ended cleanly. The other four pools have not been read.
+    assert summary.pools[0].pending is False and summary.pools[0].gaps == 0
+    assert summary.complete is False and summary.report['pending'] is True
+    # The state survives closing/reopening the ledger.
+    store = EndfieldGachaStore(store.path)
+    assert store.summary('r1').complete is False
+    await sync(store, client)
+    assert store.summary('r1').complete is True
+
+
+async def test_empty_unvisited_and_successfully_scanned_pools_are_distinct(tmp_path):
+    store = EndfieldGachaStore(tmp_path / 'g.sqlite3')
+    unseen = store.summary('r1')
+    assert unseen.total == 0 and unseen.complete is None and unseen.report['pending'] is None
+    await sync(store, FakeClient(), budget=1)  # Discovery used the entire budget.
+    pending = store.summary('r1')
+    assert pending.pools == [] and pending.total == 0
+    assert pending.complete is False and pending.report['pending'] is True
+    await sync(store, FakeClient())
+    empty = store.summary('r1')
+    assert empty.pools == [] and empty.complete is True and empty.report['pending'] is False
+    assert store.summary('another-role').complete is None
+
+
+async def test_discovered_weapon_pool_must_be_scanned_even_when_all_character_pools_are_empty(tmp_path):
+    store = EndfieldGachaStore(tmp_path / 'g.sqlite3')
+    client = FakeClient(weapons={'weapon_1': ('合成武器池', [])})
+    await sync(store, client, budget=1 + len(CHAR_POOL_TYPES))
+    summary = store.summary('r1')
+    assert summary.total == 0 and summary.pools == []
+    assert summary.complete is False and summary.report['pending'] is True
+    await sync(store, client)
+    assert store.summary('r1').complete is True
+
+
+@pytest.mark.parametrize('failure', ['discovery', 'first_page', 'empty_has_more'])
+async def test_failed_scan_retains_success_time_and_cannot_claim_completion(tmp_path, failure):
+    store = EndfieldGachaStore(tmp_path / 'g.sqlite3')
+    await sync(store, FakeClient(special=history(1, 5)))
+    successful = pool(store).last_sync_at
+
+    class FailedClient(FakeClient):
+        async def weapon_pools(self, token):
+            if failure == 'discovery':
+                raise EndfieldError('synthetic catalog failure')
+            return await super().weapon_pools(token)
+
+        async def char_records(self, token, pool_type, seq_id=None):
+            if failure == 'empty_has_more':
+                return {'list': [], 'hasMore': True}
+            raise EndfieldError('synthetic first page failure')
+
+    with pytest.raises((EndfieldError, ValueError)):
+        await sync(store, FailedClient())
+    failed = store.summary('r1')
+    assert failed.complete is False and failed.report['pending'] is True
+    assert pool(store).last_sync_at == successful and pool(store).total == 5
+    await sync(store, FakeClient(special=history(1, 5)))
+    assert store.summary('r1').complete is True
+
+
+@pytest.mark.parametrize('all_pools,successful,pending_break,expected', [
+    (False, True, False, None), (True, False, False, None),
+    (True, True, False, True), (True, True, True, False),
+])
+def test_legacy_coverage_is_inferred_only_from_successful_scans(tmp_path, all_pools, successful, pending_break, expected):
+    path = tmp_path / 'legacy.sqlite3'
+    with sqlite3.connect(path) as db:
+        db.execute('CREATE TABLE pools(role TEXT NOT NULL,pool_key TEXT NOT NULL,kind TEXT NOT NULL,'
+                   'label TEXT NOT NULL,last_sync_at TEXT,PRIMARY KEY(role,pool_key))')
+        for key, label in (CHAR_POOL_TYPES.items() if all_pools else [(SPECIAL, '特许寻访')]):
+            db.execute('INSERT INTO pools VALUES(?,?,?,?,?)',
+                       ('r1', key, 'character', label, '2026-10-15T00:00:00Z' if successful else None))
+    store = EndfieldGachaStore(path)
+    if pending_break:
+        with sqlite3.connect(path) as db:
+            db.execute('INSERT INTO breaks VALUES(?,?,?,0)', ('r1', SPECIAL, 5))
+    summary = store.summary('r1')
+    assert summary.complete is expected
+    assert summary.report['pending'] is (None if expected is None else not expected)
+    assert EndfieldGachaStore(path).summary('r1').complete is expected
 
 
 async def test_an_inclusive_cursor_still_walks_to_the_window_end(tmp_path):
@@ -203,6 +294,8 @@ async def test_invalid_records_fail_closed_without_writing(tmp_path):
     with pytest.raises(ValueError):
         await sync(store, FakeClient(special=rows))
     assert store.summary("r1").pools == []
+    assert store.summary('r1').complete is False
+    assert store.summary('r1').report['pending'] is True
 
 
 async def test_routes_require_a_logged_in_role_and_serve_the_ledger(tmp_path):

@@ -306,3 +306,23 @@ async def test_subsequent_prefetch_skips_cached_first_batch_and_completes_later_
     await cache.prefetch(refs, budget_seconds=1)
     assert all(cache.get_image(ref) is not None for ref in refs)
     assert len(calls) == 100
+
+
+async def test_reviewed_portraits_keep_detail_resolution_with_bounded_separate_cache(monkeypatch):
+    assets = module()
+    cache = assets.PublicAssetCache()
+    portrait = cache.ref_for('endfield', 'portrait', '佩丽卡')
+    assert portrait == cache.ref_for('endfield', 'portrait', 'perlica')
+    assert cache.ref_for('endfield', 'portrait', '管理员') is None
+    assert cache.register_url('https://bbs.hycdn.cn/unreviewed.png', portrait=True) is None
+    url = cache._sources[portrait]
+    ordinary = cache.register_url(url)
+    assert portrait != ordinary
+    async def fetch(url, **kwargs): return png((600, 800))
+    monkeypatch.setattr(assets, '_download', fetch)
+    await cache.prefetch([portrait, ordinary], budget_seconds=2)
+    assert cache.get_image(portrait).size == (384, 512)
+    assert cache.get_image(ordinary).size == (144, 192)
+    assert cache._bytes <= cache.cache_bytes
+    assert cache.fingerprint(portrait) != cache.fingerprint(ordinary)
+    await cache.aclose()

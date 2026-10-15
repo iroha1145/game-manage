@@ -48,7 +48,8 @@ class CachedQuery:
         self.versions = {}
         self.reads = []
         self.refreshes = []
-        self.accounts = SimpleNamespace(require_scope=self.require_scope, describe=self.describe, _listeners=[])
+        self.accounts = SimpleNamespace(require_scope=self.require_scope, describe=self.describe,
+                                        list_accounts=self.list_accounts, _listeners=[])
 
     def add(self, game, provider, account, payloads, *, default=True, role='default-role'):
         scope = AccountScope('u', account, role)

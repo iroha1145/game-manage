@@ -223,7 +223,8 @@ def test_public_operator_catalog_matches_name_after_unmapped_game_id_and_renders
     assert rows['佩丽卡']['image']==refs['佩丽卡'] and rows['祀']['image']==refs['祀']
     assert 'image' not in rows['管理员'] and image_ref(cache,'endfield','role','管理员') is None
     detail=operator_document(snapshot(source),'佩丽卡',cache)
-    assert detail['image']==refs['佩丽卡']
+    assert detail['image']==image_ref(cache,'endfield','portrait','佩丽卡')
+    assert detail['image']!=refs['佩丽卡']
     loaded=[];original=EndfieldLayout.avatar
     def avatar(self,ref,*args,**kwargs):
         original(self,ref,*args,**kwargs)

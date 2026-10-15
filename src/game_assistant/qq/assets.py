@@ -32,6 +32,8 @@ MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024
 MAX_SOURCE_PIXELS = 4_000_000
 MAX_ICON_EDGE = 192
 MAX_SANITIZED_BYTES = 192 * 192 * 4 + 2048
+MAX_PORTRAIT_EDGE = 512
+MAX_PORTRAIT_BYTES = 512 * 512 * 4 + 4096
 
 
 def safe_public_url(value):
@@ -55,7 +57,7 @@ def safe_public_url(value):
         return None
 
 
-def sanitize_image(raw):
+def sanitize_image(raw, *, portrait=False):
     """Return a small static RGBA PNG, stripping metadata and original encoding."""
     if not isinstance(raw, bytes) or not 1 <= len(raw) <= MAX_DOWNLOAD_BYTES:
         raise ValueError('qq_asset_size_limit')
@@ -68,14 +70,15 @@ def sanitize_image(raw):
                         or getattr(source, 'n_frames', 1) != 1):
                     raise ValueError('qq_asset_pixels_or_animation')
                 source.load()
-                source.thumbnail((MAX_ICON_EDGE, MAX_ICON_EDGE), Image.Resampling.LANCZOS)
+                edge = MAX_PORTRAIT_EDGE if portrait else MAX_ICON_EDGE
+                source.thumbnail((edge, edge), Image.Resampling.LANCZOS)
                 # Fresh image drops EXIF, text chunks, ICC profiles and other metadata.
                 result = Image.new('RGBA', source.size)
                 result.paste(source.convert('RGBA'))
                 output = BytesIO()
                 result.save(output, 'PNG')
                 png = output.getvalue()
-                if len(png) > MAX_SANITIZED_BYTES:
+                if len(png) > (MAX_PORTRAIT_BYTES if portrait else MAX_SANITIZED_BYTES):
                     raise ValueError('qq_asset_sanitized_size_limit')
                 return png
     except (OSError, UnidentifiedImageError, Image.DecompressionBombWarning,
@@ -201,16 +204,20 @@ class PublicAssetCache:
         self._semaphore = asyncio.Semaphore(max(1, min(concurrency, 8)))
         self._bytes = 0
         self._catalog = CATALOG
+        self._portrait_sources = frozenset(CATALOG['games'].get('endfield', {}).get('portrait', {}).values())
+        self._portrait_refs = set()
 
-    def register_url(self, url):
+    def register_url(self, url, *, portrait=False):
         safe = safe_public_url(url)
-        if not safe:
+        if not safe or (portrait and safe not in self._portrait_sources):
             return None
-        ref = 'qqasset_' + hashlib.sha256(safe.encode('ascii')).hexdigest()
+        ref = 'qqasset_' + hashlib.sha256((('portrait-v1:' if portrait else '') + safe).encode('ascii')).hexdigest()
         with self._lock:
             if ref not in self._sources and len(self._sources) >= 2048:
                 return None
             self._sources[ref] = safe
+            if portrait:
+                self._portrait_refs.add(ref)
         return ref
 
     def ref_for(self, game, kind, id_or_name):
@@ -223,7 +230,7 @@ class PublicAssetCache:
             return ref
         bucket = self._catalog['games'].get(game, {}).get(kind, {})
         entry = bucket.get(str(id_or_name))
-        return self.register_url(entry) if entry else None
+        return self.register_url(entry, portrait=kind == 'portrait') if entry else None
 
     def skill_ref(self, game, role_id, skill_name):
         return self.ref_for(game, 'skill', str(role_id) + '::' + str(skill_name))
@@ -278,7 +285,7 @@ class PublicAssetCache:
                     return
                 raw = await _download(self._sources[ref], timeout_seconds=min(remaining, self.request_timeout))
                 if time.monotonic() < deadline:
-                    self._store(ref, sanitize_image(raw))
+                    self._store(ref, sanitize_image(raw, portrait=ref in self._portrait_refs))
         except (ValueError, OSError, TimeoutError, UnicodeError, asyncio.IncompleteReadError,
                 asyncio.LimitOverrunError):
             with self._lock:

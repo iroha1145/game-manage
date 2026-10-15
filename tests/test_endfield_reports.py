@@ -140,8 +140,75 @@ def test_gacha_averages_only_exact_observed_intervals_and_keeps_gap_qualifiers()
     assert build_gacha_report({'total': 1, 'pools': [{'six_star': None}]})['six_star'] is None
 
 
+@pytest.mark.parametrize('complete,expected', [(False, True), (True, False), (None, None)])
+@pytest.mark.parametrize('pools', [[], [{'total': 2, 'pending': False}]])
+def test_gacha_coverage_accounts_for_empty_or_unvisited_pools(complete, expected, pools):
+    report = build_gacha_report({'total': sum(pool['total'] for pool in pools), 'complete': complete, 'pools': pools})
+    assert report['complete'] is complete
+    assert report['pending'] is expected
+
+
 @pytest.mark.parametrize('current,total', [(None, 10), (0, None), (0, 0), (True, 10), (-1, 10)])
 def test_unknown_or_invalid_measurement_never_becomes_complete(current, total):
     report = build_endfield_report({'progress': [{'id': 'daily', 'cur': current, 'total': total}]})
     assert report['overview']['progress'][0]['state'] == 'unknown'
     assert report['overview']['todos'] == []
+
+
+def test_honor_report_preserves_full_list_and_observed_variants_without_inventing_totals():
+    source = {'achieve': {'count': 0, 'achieveMedals': [
+        {'achievementData': {'id': str(i), 'name': '勋章' + str(i), 'initIcon': 'init',
+                             'reforge2Icon': 'two', 'reforge3Icon': 'three', 'platedIcon': 'plated'},
+         'level': 3, 'isPlated': i == 0, 'obtainTs': 1792029600} for i in range(12)]}}
+    original = deepcopy(source)
+    report = parse_card(source, fetched_at=STAMP)['report']['honor']
+    assert report['available'] is True
+    assert report['summary'] == {'declared_count': 0, 'listed_count': 12}
+    assert len(report['items']) == 12
+    assert report['items'][0]['icon_url'] == 'plated'
+    assert report['items'][1]['icon_url'] == 'three'
+    assert report['items'][0]['obtained_at'].startswith('2026-')
+    assert source == original
+
+
+def test_honor_distinguishes_successful_empty_from_absent_and_legacy_empty():
+    empty = parse_card({'achieve': {'count': 0, 'achieveMedals': []}}, fetched_at=STAMP)['report']['honor']
+    assert empty['available'] is True and empty['summary']['listed_count'] == 0
+    absent = parse_card({}, fetched_at=STAMP)['report']['honor']
+    assert absent['available'] is False and absent['summary']['listed_count'] is None
+    legacy = build_endfield_report({'achievements': {'count': 10, 'medals': []}})['honor']
+    assert legacy['available'] is None and legacy['summary']['listed_count'] is None
+    assert legacy['summary']['declared_count'] == 10
+
+
+@pytest.mark.parametrize('level,plated,expected', [(0, False, 'init'), (2, False, 'two'),
+    (3, False, 'three'), (0, True, 'plated'), (None, None, 'init')])
+def test_honor_icon_selection_uses_only_observed_level_and_plating(level, plated, expected):
+    medal = {'achievementData': {'initIcon': 'init', 'reforge2Icon': 'two',
+                                'reforge3Icon': 'three', 'platedIcon': 'plated'},
+             'level': level, 'isPlated': plated, 'obtainTs': 'invalid'}
+    item = build_endfield_report({'achievements': {'medals': [medal]}})['honor']['items'][0]
+    assert item['icon_url'] == expected
+    assert item['obtained_at'] is None
+    assert item['is_plated'] == plated
+
+
+def test_collection_only_areas_keep_distinct_labels_without_guessing_unknown_ids():
+    report = build_endfield_report({'regions': [{'collections': [
+        {'level_id': 'map01_lv001', 'chest_count': 0},
+        {'level_id': 'map02_lv001', 'name': '上游新名称'},
+        {'level_id': 'future_area'},
+    ]}]})
+    areas = report['regions']['items'][0]['areas']
+    assert [area['name'] for area in areas] == ['枢纽区', '上游新名称', 'future_area']
+    assert areas[0]['collections'][0]['current'] == 0
+    assert areas[0]['collections'][0]['total'] is None
+
+
+def test_collection_name_wins_over_static_fallback_but_not_explicit_level_name():
+    regions = [{'levels': [{'id': 'map01_lv001'}, {'id': 'map02_lv001', 'name': '关卡上游名称'}],
+                'collections': [{'level_id': 'map01_lv001', 'name': '收集上游新名称', 'chest_count': 0},
+                                {'level_id': 'map02_lv001', 'name': '次要名称'}]}]
+    areas = build_endfield_report({'regions': regions})['regions']['items'][0]['areas']
+    assert [area['name'] for area in areas] == ['收集上游新名称', '关卡上游名称']
+    assert areas[0]['collections'][0]['current'] == 0
