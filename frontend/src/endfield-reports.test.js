@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { selectOperators, profileReport, operatorImage, operatorArtwork } from './endfield-reports.js'
+import { selectOperators, selectMedals, profileReport, operatorImage, operatorArtwork } from './endfield-reports.js'
 
 test('operator filters combine name rarity and profession; stable numeric sorting preserves zero and unknown last', () => {
   const items = [{ id:'missing',name:'未知',rarity:6,profession:'近卫' },{id:'zero',name:'管理员零',level:0,rarity:6,profession:'近卫'},
@@ -79,4 +79,23 @@ test('saved region reports and legacy collection-only profiles gain names withou
 test('legacy region money spelling alias keeps known zero before conut',()=>{
  const report=profileReport({regions:[{money:{count:0,conut:9}},{money:{count:null,conut:9}},{money:{conut:7}}]})
  assert.deepEqual(report.regions.items.map(item=>item.money.count),[0,9,7])
+})
+
+test('honor categories backfill only an unambiguous observed ID and preserve explicit unknown',()=>{
+ const raw=[{achievementData:{id:0,cateName:' 探索 '}},{achievementData:{id:'dupe',cateName:'甲'}},{achievementData:{id:'dupe',cateName:'乙'}},{achievementData:{id:'explicit',cateName:'探索'}},{achievementData:{id:'invalid',cateName:42}}]
+ const items=[{id:'0'},{id:'dupe'},{id:'explicit',category:null},{id:'invalid'},{id:'new',category:' 战斗 '}]
+ const result=profileReport({achievements:{medals:raw},report:{schema_version:1,honor:{items}}}).honor.items
+ assert.deepEqual(result.map(item=>item.category),['探索',null,null,null,'战斗'])
+ assert.equal(items[0].category,undefined)
+ assert.equal(profileReport({achievements:{medals:raw}}).honor.items[0].category,'探索')
+})
+
+test('honor filters intersect while time sorting leaves unknown dates last and never mutates source',()=>{
+ const items=[{id:'u',name:'未知时间',category:null},{id:'a',name:'探索甲',category:'探索',obtained_at:'2025-10-15T00:00:00Z'},{id:'b',name:'探索乙',category:'探索',obtained_at:'2026-10-15T00:00:00Z'},{id:'c',name:'战斗甲',category:'战斗',obtained_at:'invalid'}]
+ assert.deepEqual(selectMedals(items).map(item=>item.id),['b','a','u','c'])
+ assert.deepEqual(selectMedals(items,{sort:'oldest'}).map(item=>item.id),['a','b','u','c'])
+ assert.deepEqual(selectMedals(items,{sort:'source'}),items)
+ assert.deepEqual(selectMedals(items,{search:'甲',category:'探索'}).map(item=>item.id),['a'])
+ assert.deepEqual(selectMedals(items,{category:null}).map(item=>item.id),['u'])
+ assert.equal(items[0].id,'u')
 })

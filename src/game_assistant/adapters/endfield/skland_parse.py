@@ -1,5 +1,8 @@
 """森空岛响应转为界面能展示的安全、固定字段。"""
 from datetime import datetime, timezone
+from math import isfinite
+import re
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 
 def obj(value):
@@ -93,6 +96,56 @@ def _equipment(char: dict) -> list[dict]:
     return out
 
 
+def _text(raw):
+    return raw.strip() or None if isinstance(raw, str) else None
+
+
+def _tactical_icon(raw):
+    """Only anonymous Endfield CDN raster images; this does not fetch anything."""
+    if (not isinstance(raw, str) or not 1 <= len(raw) <= 1024 or not raw.isascii()
+            or any(ord(char) <= 32 or ord(char) >= 127 for char in raw) or '\\' in raw):
+        return None
+    try:
+        url = urlsplit(raw)
+        path = unquote(url.path)
+        if (url.scheme != 'https' or url.hostname not in ('bbs.hycdn.cn', 'web.hycdn.cn')
+                or url.username or url.password or url.port not in (None, 443)
+                or '?' in raw or '#' in raw or not path.startswith('/')
+                or any(ord(char) <= 32 or ord(char) >= 127 for char in path)
+                or '\\' in path or '%' in path or any(part in ('.', '..') for part in path.split('/'))
+                or not re.search(r'\.(?:png|jpe?g|webp)\Z', path, re.I)):
+            return None
+        return urlunsplit(('https', url.hostname, url.path, '', ''))
+    except (ValueError, UnicodeError):
+        return None
+
+
+def _tactical_item(raw):
+    # Public /card/char documents both direct data and tacticalItemData wrapping.
+    # Optional malformed data must not erase otherwise usable operator details.
+    if not isinstance(raw, dict):
+        return None
+    data = raw.get('tacticalItemData')
+    data = data if isinstance(data, dict) else raw
+    rarity = value(data.get('rarity'))
+    if isinstance(rarity, str):
+        rarity = _text(rarity)
+    elif isinstance(rarity, bool) or not isinstance(rarity, (int, float)):
+        rarity = None
+    else:
+        try:
+            if not isfinite(rarity) or rarity < 0:
+                rarity = None
+        except OverflowError:
+            rarity = None
+    item = {'name': _text(data.get('name')), 'rarity': rarity,
+            'icon_url': _tactical_icon(data.get('iconUrl')) or _tactical_icon(data.get('icon_url')),
+            'active_effect': _text(data.get('activeEffect')),
+            'passive_effect': _text(data.get('passiveEffect'))}
+    # Effects stay as observed templates: no speculative parameter substitution.
+    return item if any(field is not None for field in item.values()) else None
+
+
 def parse_operator(char: dict) -> dict:
     char = obj(char)
     info = obj(char.get("charData"))
@@ -121,7 +174,8 @@ def parse_operator(char: dict) -> dict:
                                'terms': [{'name': term.get('name'), 'cost': number(term.get('cost'))}
                                          for term in rows(gem.get('terms'))]} if gem else None}
                       if weapon_data else None,
-            "equipment": _equipment(char), "skills": skills}
+            "equipment": _equipment(char), "skills": skills,
+            'tactical_item': _tactical_item(char.get('tacticalItem'))}
 
 
 def parse_card(detail: dict, *, fetched_at: str) -> dict:

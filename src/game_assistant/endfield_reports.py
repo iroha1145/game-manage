@@ -2,11 +2,13 @@
 
 Inputs are normalized, credential-free payloads, including older snapshots. A
 missing observation is never interpreted as zero, completion, or a prediction.
-No game-specific mood/trust conversion is assumed here.
+Ship percentages are static conversions using the cited reference model, never
+time-based predictions of the player's current state.
 """
 from copy import deepcopy
 from datetime import datetime, timezone
-from math import isfinite
+from math import floor, isfinite
+import re
 
 
 def _object(value):
@@ -65,6 +67,42 @@ def _resident(raw, operators):
             'trust_raw': _number(raw.get('favorability'))}
 
 
+SHIP_CONVERSION_MODEL = {
+    'id': 'endfield-plugin-spaceship-v3.5.0',
+    'kind': 'static_observation',
+    'source_url': 'https://github.com/Entropy-Increase-Team/endfield-plugin/blob/main/API.md#L6089-L6123',
+}
+
+
+def _ship_number(raw):
+    # Python float and JavaScript Number accept different non-decimal spellings.
+    # Saved observations use one explicit decimal grammar in both clients.
+    if isinstance(raw, str) and not re.fullmatch(
+            r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?', raw.strip()):
+        return None
+    return _number(raw)
+
+
+def _ship_resident(raw, operators):
+    resident = _resident(raw, operators)
+    mood = _ship_number(_object(raw).get('physicalStrength'))
+    trust = _ship_number(_object(raw).get('favorability'))
+    resident.update(mood_raw=mood, trust_raw=trust)
+    # Preserve the exact ratio. Both display clients round to at most one decimal
+    # with floor(percent * 10 + 0.5) / 10; no Python-specific banker's rounding.
+    resident['mood_percent'] = mood / 100 if mood is not None and mood <= 10000 else None
+    resident['trust_percent'] = None
+    resident['trust_level_name'] = None
+    if trust is not None:
+        if trust < 300:
+            resident.update(trust_percent=floor(trust / 3), trust_level_name='友好')
+        elif trust < 1500:
+            resident.update(trust_percent=100 + floor((trust - 300) / 12), trust_level_name='亲近')
+        else:
+            resident.update(trust_percent=200, trust_level_name='信任')
+    return resident
+
+
 COLLECTIONS = (
     ('chests', '宝箱', 'chest_count'),
     ('puzzles', '醚质', 'puzzle_count'),
@@ -115,7 +153,10 @@ def _honor(payload):
                 obtained_at = datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
             except (OverflowError, ValueError, OSError):
                 pass
+        category = data.get('cateName')
+        category = category.strip() if isinstance(category, str) else None
         items.append({'id': data.get('id'), 'name': data.get('name'), 'level': level,
+                      'category': category or None,
                       'is_plated': plated, 'obtained_at': obtained_at,
                       'icon_url': icon if isinstance(icon, str) else None})
     return {'available': available, 'items': items,
@@ -203,7 +244,7 @@ def build_endfield_report(payload, *, fetched_at=None):
     rooms = [{**deepcopy(room),
               'operators_available': room.get('operators_available') if isinstance(room.get('operators_available'), bool)
                                      else True if _items(room.get('operators')) else None,
-              'operators': [_resident(item, index) for item in _items(room.get('operators'))]}
+              'operators': [_ship_resident(item, index) for item in _items(room.get('operators'))]}
              for room in _items(payload.get('ship'))]
     operators_available, ship_available = _available(payload, 'operators'), _available(payload, 'ship')
     staff_available = ship_available is True and all(room['operators_available'] is True for room in rooms)
@@ -223,6 +264,7 @@ def build_endfield_report(payload, *, fetched_at=None):
             'regions': _regions(payload, index),
             'honor': _honor(payload),
             'ship': {'rooms': rooms, 'available': ship_available,
+                     'conversion_model': deepcopy(SHIP_CONVERSION_MODEL),
                      'summary': {'room_count': len(rooms) if ship_available is True else None,
                                  'staffed_rooms': sum(bool(room['operators']) for room in rooms) if staff_available else None,
                                  'operator_slots': sum(len(room['operators']) for room in rooms) if staff_available else None}}}

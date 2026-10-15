@@ -66,12 +66,28 @@ test('skland detail selectors use every allowed challenge/tool kind and isolate 
   assert.ok(calls.some(p=>p.endsWith('kind=monument'))); assert.ok(calls.some(p=>p.endsWith('kind=materials')))
 })
 test('skland profile preserves structured exploration, assigned operators and zero counts', t => {
-  const root=mount(t,Profile,{payload:{base:{name:'本人档案'},regions:[{name:'谷地',money:{count:0,total:10},levels:[{name:'矿区',puzzles:{count:0,total:3},chests:{count:2,total:4}}],settlements:[{name:'据点甲',level:0}]}],ship:[{name:'舱室甲',level:0,operators:[{name:'驻守甲',physicalStrength:0,favorability:1}]}],achievements:{count:0,medals:[{name:'勋章甲'}]}}})
-  assert.match(content(root),/矿区.*谜质.*0.*3/); assert.match(content(root),/据点甲/); assert.match(content(root),/驻守甲.*体力.*0/); assert.match(content(root),/勋章甲/)
+  const root=mount(t,Profile,{payload:{base:{name:'本人档案'},regions:[{name:'谷地',money:{count:0,total:10},levels:[{name:'矿区',puzzles:{count:0,total:3},chests:{count:2,total:4}}],settlements:[{name:'据点甲',level:0}]}],ship:[{name:'舱室甲',level:0,operators:[{name:'驻守甲',physicalStrength:0,favorability:1}]}],achievements:{count:0,medals:[{achievementData:{id:'m',name:'勋章甲',cateName:'探索'}}]}}})
+  assert.match(content(root),/矿区.*醚质.*0.*3/); assert.match(content(root),/据点甲/); assert.match(content(root),/驻守甲.*心情.*0%/); assert.match(content(root),/勋章甲/)
+  assert.match(content(root),/信赖 友好 0%/);assert.match(content(root),/奖章分类/)
 })
 test('public source state uses nested source statuses and retains original Beijing content time',t=>{
   const root=mount(t,Status,{capabilities:['news'],snapshots:{news:{state:'ok',fetched_at:'2026-10-14T00:00:00Z',primary_source:'bilibili',version:'3.0',poll_status:{source_statuses:{community:{state:'error',last_success_at:'2026-10-13T00:00:00Z',error:'原生来源失败'},bilibili:{state:'ok',last_success_at:'2026-10-14T00:00:00Z'}}}}}})
   assert.match(content(root),/原生来源失败/);assert.match(content(root),/2026-10-14 08:00/);assert.match(content(root),/版本 3.0/)
+})
+test('cloud saved profile propagates stale, failed state and error to both shared reports with original time',async t=>{
+ configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+ let source={}
+ t.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({...source,fetched_at:'2025-12-31T01:00:00Z',payload:{ship:[],achievements:{medals:[]}}})))
+ const root=mount(t,Details,{account:account('skland'),role:'skland-default'})
+ for(const state of [{stale:true},{state:'error'},{error:'保留旧资料'},{state:'ok'},{state:'success'}]) {
+  source=state;await button(root,'读取详情').props.onClick();await tick()
+  const reports=nodes(root,'footer').filter(node=>node.props.class==='ef-source')
+  assert.equal(reports.length,2)
+  for(const footer of reports) {
+   assert.match(content(footer),/同步于 2025-12-31 09:00/)
+   assert.equal(content(footer).includes('正在显示已有资料，等待更新'),!['ok','success'].includes(state.state))
+  }
+ }
 })
 test('operator changes clear details synchronously and prevent an old response being shown for new selection',async t=>{
   configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))

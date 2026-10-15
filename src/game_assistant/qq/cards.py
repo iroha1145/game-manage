@@ -230,6 +230,15 @@ def card_to_text(card):
     pools=next((section['rows'] for section in card['sections'] if section.get('category')=='ef_gacha_pools'),None)
     if card['game']=='endfield' and card['kind']=='list' and pools is not None:
         return _endfield_gacha_summary(card,pools)
+    honor=next((section for section in card['sections'] if section.get('category')=='ef_honor_groups'),None)
+    if card['game']=='endfield' and honor is not None:
+        lines=[card['title'],'文字摘要 · 分类统计优先；勋章明细见图片或网站']
+        for section in card['sections']:
+            if section.get('category') in ('ef_honor','ef_honor_groups'):
+                lines.append(section['title'])
+                lines.extend(f"{item['label']}：{item['value']}" for item in section['fields'])
+        lines+=card['notices']+([card['footer']] if card['footer'] else [])
+        if len('\n'.join(lines))<=MAX_TEXT:return '\n'.join(lines)
     challenge=[section for section in card['sections'] if section.get('category')=='ef_challenge']
     if card['game']=='endfield' and card['kind']=='list' and challenge:
         # Challenge timestamps describe separate observations. Keep all three

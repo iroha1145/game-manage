@@ -1,9 +1,12 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
-import { profileReport, rows, displayValue as display, sourceName as named, selectOperators } from '../endfield-reports.js'
-import { formatTime } from '../dashboard.js'
+import { profileReport, rows, displayValue as display, sourceName as named, selectOperators, selectMedals } from '../endfield-reports.js'
+import { displayBeijing } from '../time.js'
+import { SHIP_CONVERSION_MODEL } from '../endfield-ship.js'
 import SummaryMetrics from './SummaryMetrics.vue'
 import EndfieldArtwork from './EndfieldArtwork.vue'
+import EndfieldShipResident from './EndfieldShipResident.vue'
+import EndfieldTacticalItem from './EndfieldTacticalItem.vue'
 const props = defineProps({ payload: Object, view: { type: String, default: 'overview' }, fetchedAt: String, stale: Boolean,
   operatorDetail: Object, operatorDetailId: String, operatorBusy: Boolean, operatorError: String, operatorStale: Boolean, operatorFetchedAt: String })
 const emit = defineEmits(['inspect', 'navigate', 'close-detail'])
@@ -13,6 +16,12 @@ const training = computed(() => report.value.training || {})
 const regions = computed(() => rows(report.value.regions?.items))
 const rooms = computed(() => rows(report.value.ship?.rooms))
 const honor = computed(() => report.value.honor || { summary: { declared_count: props.payload?.achievements?.count }, items: [] })
+const medalSearch=ref(''), medalCategory=ref(''), medalSort=ref('recent')
+const medals=computed(()=>rows(honor.value.items))
+const categories=computed(()=>[...new Set(medals.value.map(item=>item.category ?? null))].sort((a,b)=>a==null?1:b==null?-1:a.localeCompare(b,'zh-CN')))
+const filteredMedals=computed(()=>selectMedals(medals.value,{search:medalSearch.value,category:medalCategory.value===''?undefined:JSON.parse(medalCategory.value),sort:medalSort.value}))
+function clearMedalFilters(){medalSearch.value='';medalCategory.value=''}
+const mainMission=computed(()=>typeof overview.value.base?.main_mission === 'string' ? overview.value.base.main_mission.trim() : '')
 const search = ref(''), rarity = ref(''), profession = ref(''), sort = ref('level')
 const operators = computed(() => rows(training.value.items))
 const selected = computed(() => selectOperators(operators.value, { search: search.value, rarity: rarity.value, profession: profession.value, sort: sort.value }))
@@ -26,10 +35,10 @@ watch(() => props.operatorDetailId, async id => {
   if (id) { detailPanel.value?.scrollIntoView?.({ block: 'start' }); detailPanel.value?.focus?.({ preventScroll: true }) }
   else detailOpener?.focus?.()
 })
-const time = value => value == null || value === '' ? '未知' : formatTime(value)
+const time = value => value == null || value === '' ? '未知' : displayBeijing(value)
 const pair = value => `${display(value?.current ?? value?.count)} / ${display(value?.total ?? value?.maximum)}`
 const overviewMetrics = computed(() => [
-  { label: '理智', current: overview.value.stamina?.current, total: overview.value.stamina?.maximum, note: `预计回满 ${time(overview.value.stamina?.expected_full_at)}` },
+  { label: '理智', current: overview.value.stamina?.current, total: overview.value.stamina?.maximum, note: Number.isFinite(overview.value.stamina?.current) && Number.isFinite(overview.value.stamina?.maximum) && overview.value.stamina.maximum > 0 && overview.value.stamina.current >= overview.value.stamina.maximum ? '该次观测理智已满' : `预计回满 ${time(overview.value.stamina?.expected_full_at)}` },
   { label: '已记录干员', value: training.value.summary?.listed_count, icon: 'user' },
   { label: '建设地区', value: report.value.regions?.summary?.region_count, icon: 'grid' },
   { label: '帝江号房间', value: report.value.ship?.summary?.room_count, icon: 'grid' },
@@ -45,7 +54,7 @@ const trainingMetrics = computed(() => [
 ])
 function collections(area) {
   if (Array.isArray(area.collections)) return area.collections
-  return [['puzzles','谜质'],['chests','储藏箱'],['equipment_chests','装备箱'],['pieces','维修点'],['blackboxes','黑匣子']]
+  return [['puzzles','醚质'],['chests','宝箱'],['equipment_chests','装备制造模板'],['pieces','维修灵感点'],['blackboxes','协议采录桩']]
     .map(([key,label]) => ({ key, label, current: area[key]?.count, total: area[key]?.total }))
 }
 const detail = computed(() => props.operatorDetail)
@@ -57,6 +66,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
     <template v-if="view === 'overview'">
       <section class="ef-report ef-hero"><header><div><p class="ef-kicker">01 / FIELD RECORD</p><h2>今日档案</h2></div><span v-if="stale" class="badge badge-stale">待更新</span><span v-else class="ef-state">森空岛档案</span></header>
         <div class="ef-identity"><EndfieldArtwork :src="overview.base?.avatar_url" :name="overview.base?.name || '管理员'" /><div><h3>{{ overview.base?.name || '未知昵称' }}</h3><p>UID {{ display(overview.base?.role_id) }}</p></div><dl><div><dt>账号等级</dt><dd>{{ display(overview.base?.level) }}</dd></div><div><dt>探索等级</dt><dd>{{ display(overview.base?.world_level) }}</dd></div></dl></div>
+        <p v-if="mainMission" class="ef-main-mission"><span>主线进度</span><strong>{{ mainMission }}</strong></p>
         <SummaryMetrics :metrics="overviewMetrics" />
       </section>
       <div class="ef-columns">
@@ -88,6 +98,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
         <template v-if="detail"><div class="ef-detail-heading"><EndfieldArtwork class="ef-detail-portrait" role portrait :operator-id="detail.char_id || detail.id" :src="detail.avatar_url" :name="detail.name || '干员'" /><div class="ef-detail-identity"><p class="ef-kicker">{{ named(detail.profession) }} / {{ named(detail.property) }}</p><SummaryMetrics compact :metrics="[{label:'等级',value:detail.level},{label:'潜能',value:detail.potential},{label:'精英阶段',value:detail.evolve_phase ?? detail.phase}]" /></div></div>
           <div class="ef-columns"><section class="ef-subsection"><h3>武器与基质</h3><div class="ef-media-line"><EndfieldArtwork :src="detail.weapon?.icon_url" :name="named(detail.weapon)" /><div><p><strong>{{ named(detail.weapon) }}</strong> · 等级 {{ display(detail.weapon?.level) }} · 精炼 {{ display(detail.weapon?.refine_level) }}</p><p>突破 {{ display(detail.weapon?.breakthrough_level) }}</p></div></div><div class="ef-media-line"><EndfieldArtwork :src="detail.weapon?.gem?.icon_url" :name="named(detail.weapon?.gem)" /><p>基质：{{ named(detail.weapon?.gem) }}</p></div><ul class="ef-facts"><li v-for="(term,index) in rows(detail.weapon?.gem?.terms)" :key="index"><span>{{ named(term) }}</span><strong>{{ display(term.cost) }}</strong></li></ul></section>
           <section class="ef-subsection"><h3>装备</h3><p v-if="!rows(detail.equipment).length" class="ef-note">尚未采集装备。</p><ul class="ef-equipment-list"><li v-for="(item,index) in rows(detail.equipment)" :key="item.id || index" class="ef-media-line"><EndfieldArtwork :src="item.icon_url" :name="named(item)" /><div><p class="ef-note">{{ item.slot_label || item.slot_name || item.slot || `装备位 ${index+1}` }}</p><strong>{{ named(item) }}（等级 {{ display(item.level) }}）</strong></div></li></ul></section></div>
+          <EndfieldTacticalItem :item="detail.tactical_item" />
           <section class="ef-subsection"><h3>技能</h3><p v-if="!rows(detail.skills).length" class="ef-note">尚未采集技能。</p><ul class="ef-skill-list"><li v-for="(skill,index) in rows(detail.skills)" :key="skill.id || index" class="ef-media-line"><EndfieldArtwork :src="skill.icon_url" :name="named(skill)" /><span>{{ named(skill) }}（等级 {{ display(skill.level) }}）<span v-if="skill.mastery != null"> · 专精 {{ display(skill.mastery) }}</span></span></li></ul></section>
         </template>
       </section>
@@ -103,21 +114,22 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
     </template>
 
     <template v-else-if="view === 'ship'">
-      <section class="ef-report"><header><div><p class="ef-kicker">01 / DIJIANG</p><h2>帝江号</h2></div></header><SummaryMetrics compact :metrics="[{label:'房间数',value:report.ship?.summary?.room_count},{label:'有驻守记录的房间',value:report.ship?.summary?.staffed_rooms},{label:'驻守席位记录',value:report.ship?.summary?.operator_slots}]" /><p class="ef-note">心情、信赖展示来源观测值；未换算百分比，也不预测当前状态。</p></section>
+      <section class="ef-report"><header><div><p class="ef-kicker">01 / DIJIANG</p><h2>帝江号</h2></div><span class="ef-state">快照换算</span></header><SummaryMetrics compact :metrics="[{label:'房间数',value:report.ship?.summary?.room_count},{label:'有驻守记录的房间',value:report.ship?.summary?.staffed_rooms},{label:'驻守席位记录',value:report.ship?.summary?.operator_slots}]" /><p class="ef-note ef-ship-note">心情与信赖采用原站 API v3.5.0 参考模型换算该次快照，不外推当前状态。心情以 100% 为上限，信赖最高 200%。</p><p class="ef-note">游戏观测于 {{ time(report.observed_at) }} · 抓取于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p><details class="ef-model-note"><summary>查看换算依据</summary><p>模型声明心情原始值为 0–10000；超出范围时保留原值，百分比显示未知。信赖按来源阈值分为友好、亲近、信任。换算结果不是官方实时状态，也未计入时间或房间加成。</p><a :href="SHIP_CONVERSION_MODEL.source_url" target="_blank" rel="noopener noreferrer">公开模型说明 ↗</a></details></section>
       <p v-if="!rooms.length" class="ef-empty ef-report">尚无帝江号资料。</p>
-      <div class="ef-columns"><section v-for="(room,index) in rooms" :key="room.id || index" class="ef-report"><header><div><p class="ef-kicker">ROOM {{ String(index+1).padStart(2,'0') }}</p><h2>{{ room.name || '舱室' }}</h2></div><span>等级 {{ display(room.level) }}</span></header><p v-if="!rows(room.operators).length" class="ef-empty">{{ room.operators_available === true ? '当前没有驻守干员记录。' : '尚未采集驻守干员资料。' }}</p><div v-for="(operator,number) in rows(room.operators)" :key="operator.id || number" class="ef-resident"><EndfieldArtwork role :operator-id="operator.id" :src="operator.avatar_url" :name="operator.name || operator.id || '干员'" /><div class="ef-resident-copy"><h3>{{ operator.name || operator.id || operator.charId || '驻守干员' }}</h3><dl><div><dt>心情观测值</dt><dd>{{ display(operator.mood_raw ?? operator.physicalStrength) }}</dd></div><div><dt>信赖观测值</dt><dd>{{ display(operator.trust_raw ?? operator.favorability) }}</dd></div></dl></div></div></section></div>
+      <div class="ef-columns ef-ship-rooms"><section v-for="(room,index) in rooms" :key="room.id || index" class="ef-report"><header><div><p class="ef-kicker">ROOM {{ String(index+1).padStart(2,'0') }}</p><h2>{{ room.name || '舱室' }}</h2></div><span>等级 {{ display(room.level) }}</span></header><p v-if="!rows(room.operators).length" class="ef-empty">{{ room.operators_available === true ? '当前没有驻守干员记录。' : '尚未采集驻守干员资料。' }}</p><EndfieldShipResident v-for="(operator,number) in rows(room.operators)" :key="operator.id || operator.charId || number" :operator="operator" /></section></div>
     </template>
     <template v-else-if="view === 'honor'">
-      <section class="ef-report"><header><div><p class="ef-kicker">01 / HONOR ROAD</p><h2>光荣之路</h2></div></header><SummaryMetrics compact :metrics="[{label:'来源成就总数',value:honor.summary?.declared_count},{label:'已记录奖章',value:honor.summary?.listed_count}]" /><p class="ef-note">展示档案提供的奖章，不推断未获得的奖章或全收集进度。</p></section>
-      <p v-if="!rows(honor.items).length" class="ef-report ef-empty">{{ honor.available === true ? '当前档案没有奖章记录。' : '尚未采集奖章详情，请刷新档案。' }}</p>
-      <div v-else class="ef-medals"><article v-for="(medal,index) in rows(honor.items)" :key="medal.id || index" class="ef-report ef-medal"><EndfieldArtwork :src="medal.icon_url" :name="medal.name || '奖章'" /><div><p class="ef-kicker">MEDAL {{ String(index+1).padStart(2,'0') }}</p><h3>{{ medal.name || '未命名奖章' }}</h3><p>等级 {{ display(medal.level) }} <span class="ef-medal-plated">{{ medal.is_plated === true ? '已镀层' : medal.is_plated === false ? '未镀层' : '镀层未知' }}</span></p><p class="ef-note">获得于 {{ time(medal.obtained_at) }}</p></div></article></div>
+      <section class="ef-report"><header><div><p class="ef-kicker">01 / HONOR ROAD</p><h2>光荣之路</h2></div><span v-if="medals.length" class="ef-note" role="status">显示 {{ filteredMedals.length }} / {{ medals.length }} 条已记录奖章</span></header><SummaryMetrics compact :metrics="[{label:'来源成就总数',value:honor.summary?.declared_count},{label:'已记录奖章',value:honor.summary?.listed_count}]" /><p class="ef-note">展示档案提供的奖章，不推断未获得的奖章或全收集进度。</p><div v-if="medals.length" class="ef-filters ef-medal-filters"><label>查找奖章<input :value="medalSearch" @input="medalSearch=$event.target.value" type="search" placeholder="输入奖章名称" /></label><label>奖章分类<select v-model="medalCategory"><option value="">全部分类</option><option v-for="category in categories" :key="JSON.stringify(category)" :value="JSON.stringify(category)">{{ category || '未提供分类' }}</option></select></label><label>获得时间排序<select v-model="medalSort"><option value="recent">最近获得优先</option><option value="oldest">最早获得优先</option><option value="source">来源顺序</option></select></label></div></section>
+      <p v-if="!medals.length" class="ef-report ef-empty">{{ honor.available === true ? '当前档案没有奖章记录。' : '尚未采集奖章详情，请刷新档案。' }}</p>
+      <section v-else-if="!filteredMedals.length" class="ef-report ef-empty"><p>没有匹配的奖章；可调整名称或分类筛选。</p><button type="button" class="ui-button" @click="clearMedalFilters">清除奖章筛选</button></section>
+      <div v-else class="ef-medals"><article v-for="(medal,index) in filteredMedals" :key="medal.id ?? index" class="ef-report ef-medal"><EndfieldArtwork :src="medal.icon_url" :name="medal.name || '奖章'" /><div><p class="ef-kicker">MEDAL {{ String(index+1).padStart(2,'0') }}</p><h3>{{ medal.name || '未命名奖章' }}</h3><span class="ef-medal-category">{{ medal.category || '未提供分类' }}</span><p>等级 {{ display(medal.level) }} <span class="ef-medal-plated">{{ medal.is_plated === true ? '已镀层' : medal.is_plated === false ? '未镀层' : '镀层未知' }}</span></p><p class="ef-note">获得于 {{ time(medal.obtained_at) }}</p></div></article></div>
     </template>
     <footer class="ef-source">森空岛档案 · {{ stale ? '正在显示已有资料，等待更新' : '已采集资料' }}<span>观测于 {{ time(report.observed_at) }}</span><span>同步于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</span></footer>
   </div>
 </template>
 
 <style scoped>
-.endfield-reports { --ef-cyan:#79c9d1; display:grid; gap:18px; min-width:0; }
+.endfield-reports { --ef-cyan:#79c9d1; --accent:var(--game-endfield); --accent-soft:color-mix(in srgb,var(--game-endfield) 12%,var(--card-bg)); display:grid; gap:18px; min-width:0; }
 :global([data-theme="light"]) .endfield-reports { --ef-cyan:#147c88; }
 .ef-report { position:relative; min-width:0; padding:22px; border:1px solid var(--border); background:var(--card-bg); }
 .ef-report::before { content:''; position:absolute; top:-1px; left:-1px; width:28px; border-top:2px solid var(--game-endfield); }
@@ -134,6 +146,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 .ef-identity dt { font-size:11px; color:var(--text-muted); }
 .ef-identity dd { margin:5px 0 0; font-family:var(--font-mono); font-size:25px; }
 .ef-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.ef-ship-rooms { align-items:start; }
 .ef-empty { color:var(--text-muted); padding:24px 0; line-height:1.7; }
 .ef-empty.ef-report { padding:24px; }
 .ef-note,.ef-source { font-size:12px; color:var(--text-muted); line-height:1.7; }
@@ -183,13 +196,17 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 .ef-settlements,.ef-areas { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); gap:12px; margin-top:16px; }
 .ef-assigned { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 .ef-assigned>.endfield-artwork { width:42px; height:42px; font-size:18px; }
-.ef-resident { display:flex; gap:14px; align-items:center; padding:16px 0; border-bottom:1px solid var(--border); }
-.ef-resident:last-child { border-bottom:0; padding-bottom:0; }
-.ef-resident-copy { flex:1; min-width:0; }
-.ef-resident h3 { font-size:14px; margin-bottom:12px; overflow-wrap:anywhere; }
-.ef-resident dl { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.ef-resident dt { font-size:10px; color:var(--text-muted); }
-.ef-resident dd { margin:6px 0 0; font-family:var(--font-mono); font-size:17px; overflow-wrap:anywhere; }
+.ef-main-mission { display:flex;gap:16px;align-items:baseline;margin:0 0 18px;padding:12px 0;border-top:1px solid var(--border);font-size:12px;line-height:1.8; }
+.ef-main-mission>span { color:var(--text-muted);white-space:nowrap; }
+.ef-main-mission>strong { font-weight:500;overflow-wrap:anywhere; }
+.ef-ship-note { margin:16px 0 8px; }
+.ef-model-note { margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;line-height:1.8;color:var(--text-muted); }
+.ef-model-note summary { cursor:pointer;padding:6px 0; }
+.ef-model-note p { margin:7px 0; }
+.ef-model-note a { color:var(--ef-cyan); }
+.ef-medal-category { display:inline-block;border:1px solid var(--border);padding:3px 7px;color:var(--ef-cyan);font-size:10px;margin-top:8px;line-height:1.6;overflow-wrap:anywhere; }
+.ef-medal-filters { grid-template-columns:2fr 1fr 1fr; }
+.ef-empty .ui-button { margin-top:14px; }
 .ef-medals { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(310px,100%),1fr)); gap:14px; }
 .ef-medal { display:flex; gap:16px; align-items:center; }
 .ef-medal>.endfield-artwork { width:78px; height:88px; background:transparent; border:0; }
@@ -235,9 +252,6 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
   .ef-detail-identity :deep(.metric-copy) { display:flex; gap:10px; align-items:baseline; justify-content:space-between; }
   .ef-detail-identity :deep(.metric-copy>span) { margin:0; }
   .ef-detail-identity :deep(.metric-copy>strong) { font-size:18px; }
-  .ef-resident { gap:10px; }
-  .ef-resident>.endfield-artwork { width:42px; height:52px; }
-  .ef-resident dd { font-size:15px; }
   .ef-medal { padding:14px; gap:12px; }
   .ef-medal>.endfield-artwork { width:60px; height:70px; }
 }

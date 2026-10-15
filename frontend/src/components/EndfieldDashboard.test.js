@@ -102,7 +102,7 @@ test('operator equipment is requested on demand and shown with skills', async t 
     calls.push(url)
     if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: '7', server_id: '1', nickname: '管理员' }], selected_role_id: '7', selected_server_id: '1' })
     if (url.endsWith('/card')) return response({ payload: { operators: [{ id: 'op1', name: '干员甲', level: 30 }] } })
-    if (url.includes('/operators/op1')) return response({ operator: { id: 'op1', name: '干员甲', weapon: { name: '试作武器', level: 20, gem: { name: '晶石' } }, equipment: [{ name: '护甲', level: 10 }], skills: [{ name: '战术技能', level: 5 }] } })
+    if (url.includes('/operators/op1')) return response({ operator: { id: 'op1', name: '干员甲', weapon: { name: '试作武器', level: 20, gem: { name: '晶石' } }, equipment: [{ name: '护甲', level: 10 }], skills: [{ name: '战术技能', level: 5 }], tactical_item: { name:'试作战术设备',rarity:0,active_effect:'造成 {0} 点伤害' } } })
     return response({ supported: false })
   })
   const root = mount(t, Dashboard, { snaps: {}, initialSection: 'operators' })
@@ -113,6 +113,9 @@ test('operator equipment is requested on demand and shown with skills', async t 
   assert.match(content(root), /试作武器/)
   assert.match(content(root), /护甲（等级 10）/)
   assert.match(content(root), /战术技能（等级 5）/)
+  assert.match(content(root), /试作战术设备/)
+  assert.match(content(root), /稀有度 0/)
+  assert.match(content(root), /造成 \{0\} 点伤害/)
 })
 
 test('operator fallback keeps its own old timestamp and closing ignores a pending detail response', async t => {

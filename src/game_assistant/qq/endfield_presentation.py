@@ -275,14 +275,17 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
         if same_id:
             # Basic level/potential stay anchored to the account observation.
             # Only equipment fields come from this separately-timed detail.
-            equipment_source={**item,**{key:cached[key] for key in ('weapon','equipment','skills') if key in cached}}
+            equipment_source={**item,**{key:cached[key] for key in ('weapon','equipment','skills','tactical_item') if key in cached}}
+            # Legacy independent details predate this field. Do not relabel an
+            # account-snapshot item with the independent detail's older time.
+            equipment_source['tactical_item']=cached.get('tactical_item')
             observed=view.format_time(detail.fetched_at);account_time=view.format_time(snapshot.fetched_at)
             older=observed!='未知' and account_time!='未知' and observed<account_time
             state=('最近读取失败，显示旧详情' if detail.state not in ('ok','success') else
                    '已观测详情；早于当前档案' if older else '已观测详情；非实时状态')
             detail_fields=[view.time_field('档案抓取时间',snapshot.fetched_at),view.time_field('配装抓取时间',detail.fetched_at),
                            view.field('配装状态',state)]
-            detail_notice='基础练度来自档案；武器、装备与技能来自同一干员的独立详情快照。'
+            detail_notice='基础练度来自档案；武器、装备、技能与战术道具来自同一干员的独立详情快照。'
         elif detail.payload is None:
             detail_fields=[view.field('配装状态','最近读取失败，未取得独立详情'),view.time_field('配装抓取时间',detail.fetched_at)]
             detail_notice='独立详情尚无成功观测；当前配装仍取自档案快照。'
@@ -321,8 +324,26 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
     sections.append(_section('技能', layout='skills', rows=[view.with_image({'title': view.text(skill.get('name')),
         'fields': [view.field('等级', skill.get('level'))]+([view.field('专精',skill['mastery'])] if skill.get('mastery') is not None else [])}, _image(asset_cache, 'skill', skill)) for skill in skills],
         fields=[] if skills else [view.field('状态', '未采集')], category='ef_skills'))
+    tactical=view.obj(equipment_source.get('tactical_item'))
+    tactical_clipped=False
+    if tactical:
+        fields=[view.field('稀有度',tactical.get('rarity'))]
+        for key,label in (('active_effect','主动效果'),('passive_effect','被动效果')):
+            raw=tactical.get(key)
+            effect=view.text(raw,641) if isinstance(raw,str) and raw.strip() else '未采集'
+            tactical_clipped=tactical_clipped or len(effect)>640
+            effect=effect[:640]
+            for index in range(0,len(effect),160):
+                fields.append({'label':label+(' · 续 '+str(index//160+1) if index else ''),'value':effect[index:index+160]})
+        sections.append(view.with_image(_section('战术道具 · '+view.text(tactical.get('name')),fields=fields,
+            category='ef_tactical'),_image(asset_cache,'tactical',tactical)))
+    else:
+        sections.append(_section('战术道具',fields=[view.field('状态','未采集')],category='ef_tactical'))
+    notices=_notice(snapshot)+['配装仅限已采集字段；未采集与未装备不能互相代替。',detail_notice]
+    if tactical:
+        notices[2]+='战术道具效果按原文展示，未代入属性或参数。'+('过长效果已省略尾部，完整内容请到网站查看。' if tactical_clipped else '')
     card = view.document('detail', 'endfield', '终末地 · ' + view.text(name), sections=sections,
-        notices=_notice(snapshot) + ['配装仅限已采集字段；未采集与未装备不能互相代替。',detail_notice],
+        notices=notices,
         subtitle='森空岛档案 · 干员与已观测配装', footer=_footer(snapshot, report))
     return view.with_image(card, portrait)
 
@@ -365,32 +386,93 @@ def ship_document(snapshot, asset_cache=None):
     for room in ship['rooms']:
         operators = view.rows(room.get('operators'))
         items = [view.with_image({'title': view.text(item.get('name') or item.get('id')), 'fields': [
+            _percent_field('心情',item.get('mood_percent'),100),_percent_field('信赖',item.get('trust_percent'),200),
+            view.field('信赖阶段',item.get('trust_level_name')),
             view.field('心情原始值', item.get('mood_raw')), view.field('信赖原始值', item.get('trust_raw'))]},
             _image(asset_cache, 'role', item)) for item in operators]
         sections.append(_section(view.text(room.get('name')), fields=[view.field('舱室等级', room.get('level'))] +
             ([] if operators else [view.field('驻守', '无驻守' if room.get('operators_available') is True else '未采集')]), rows=items, layout='rows', category='ef_room'))
-    notices = _notice(snapshot) + ['心情与信赖保留原始观测口径；换算规则未验证，不显示百分比或实时预测。']
+    notices = _notice(snapshot) + ['心情与信赖按协议终端公开模型换算快照；保留原始值，不按时间外推。']
     if not ship['rooms']: notices.append(_missing(snapshot, 'ship', '舱室'))
     return view.document('list', 'endfield', '终末地 · 帝江号', sections=sections, notices=notices,
         subtitle='森空岛档案 · 舱室与驻守', footer=_footer(snapshot, report))
 
 
+def _percent_field(label,value,maximum):
+    from math import floor
+    number=view.number(value)
+    if number is not None and number>maximum:number=None
+    display='未知' if number is None else f'{floor(number*10+0.5)/10:g}%'
+    return {'label':label,'value':display,'metric':{'current':number,'maximum':maximum}}
+
+
+def _honor_budget(sections):
+    """Bound category grids before normalization, including future cached art."""
+    from math import ceil
+    fields=rows=characters=0;height=900;encoded=60000
+    if len(sections)>34:return False
+    for section in sections:
+        characters+=len(section['title'])+8
+        fields+=len(section['fields'])
+        characters+=sum(len(item['label'])+len(item['value'])+8 for item in section['fields'])
+        height+=160+ceil(len(section['fields'])/2)*125
+        entries=section['rows'];rows+=len(entries)
+        fields+=sum(len(row['fields']) for row in entries)
+        characters+=sum(len(row['title'])+len(row.get('subtitle',''))+12+
+                        sum(len(item['label'])+len(item['value'])+8 for item in row['fields']) for row in entries)
+        if not entries:continue
+        columns=min(4,len(entries));cell=(972-16*(columns-1))//columns
+        encoded+=sum(6000 if row.get('image') else 1800 for row in entries)
+        for index in range(0,len(entries),columns):
+            group=entries[index:index+columns]
+            header=max(max(88 if row.get('image') else 0,
+                ceil(len(row['title'])*24/(cell-112 if row.get('image') else cell-28))*32) for row in group)
+            height+=50+header+sum(max(ceil((len(row['fields'][slot]['label'])+len(row['fields'][slot]['value'])+1)*22/(cell-28))*30
+                                      for row in group) for slot in range(3))
+    return fields<=350 and rows<=250 and characters<=21000 and height<=12000 and encoded<=460000
+
+
 def honor_document(snapshot, asset_cache=None):
     report = build_endfield_report(view.obj(snapshot.payload), fetched_at=snapshot.fetched_at)
     honor = report['honor']; summary = honor['summary']
-    items = []
+    groups={}
     for medal in honor['items']:
-        items.append(view.with_image({'title': view.text(medal.get('name') or medal.get('id')),
-            'fields': [view.field('等级', medal.get('level')), view.field('镀层', medal.get('is_plated')),
-                       view.time_field('获得时间', medal.get('obtained_at'))]}, _image(asset_cache, 'medal', medal)))
-    sections = [_section('勋章概况', fields=[view.field('账号声明勋章数', summary.get('declared_count')),
-        view.field('已采集勋章', summary.get('listed_count'))], category='ef_honor'),
-        _section('已采集勋章', rows=items, layout='grid', category='ef_medals')]
-    notices = _notice(snapshot) + ['只展示已采集勋章；未观测内容不推断为未获得，不补算隐藏进度。']
-    if not items:
+        category=medal.get('category')
+        category=category.strip() if isinstance(category,str) and category.strip() else '分类未知'
+        row=view.with_image({'title':view.text(medal.get('name') or medal.get('id'),64),
+            'fields':[view.field('等级',medal.get('level')),view.field('镀层',medal.get('is_plated')),
+                      view.time_field('获得时间',medal.get('obtained_at'))]},_image(asset_cache,'medal',medal))
+        groups.setdefault(category,[]).append(row)
+    # Statistics are always ahead of detail grids. A hard category cap is
+    # explicitly reported; missing categories are never described as complete.
+    displayed=list(groups.items())[:16];counts=[0]*len(displayed)
+
+    def compose(allocated):
+        sections=[_section('勋章概况',fields=[view.field('账号声明勋章数',summary.get('declared_count')),
+            view.field('已采集勋章',summary.get('listed_count')),
+            view.field('已观测分类',len(groups) if honor['available'] is True else None),
+            view.field('本图分类',str(len(displayed))+' / '+str(len(groups)) if honor['available'] is True else '未知'),
+            view.field('本图勋章',str(sum(allocated))+' / '+view.text(summary.get('listed_count')) if honor['available'] is True else '未知')],category='ef_honor')]
+        if displayed:
+            sections.append(_section('分类覆盖 · 本图 / 已采集',fields=[
+                view.field(name,str(count)+' / '+str(len(entries))) for (name,entries),count in zip(displayed,allocated)],
+                category='ef_honor_groups'))
+        sections.extend(_section(view.text(name,72)+' · '+str(count)+' / '+str(len(entries)),rows=entries[:count],
+            layout='grid',category='ef_medals') for (name,entries),count in zip(displayed,allocated) if count)
+        return sections
+
+    while True:
+        candidate=[min(count+1,len(entries)) for count,(_,entries) in zip(counts,displayed)]
+        if candidate==counts or not _honor_budget(compose(candidate)):break
+        counts=candidate
+    notices=_notice(snapshot)+['只展示已采集勋章；未观测内容不推断为未获得，不补算隐藏进度。']
+    clipped=len(displayed)<len(groups) or any(count<len(entries) for count,(_,entries) in zip(counts,displayed))
+    if clipped:
+        notices.append('本图分类 '+str(len(displayed))+' / '+str(len(groups))+'；各类按覆盖数量展示，超限勋章或分类已省略，完整内容请到网站查看。')
+    if not groups:
         notices.append('本次成功快照的勋章列表为空。' if honor.get('available') is True else '勋章尚未采集；请在网站采集后查询。')
-    return view.document('list', 'endfield', '终末地 · 光荣之路', sections=sections, notices=notices,
-        subtitle='森空岛档案 · 已观测勋章', footer=_footer(snapshot, report))
+    return view.document('list','endfield','终末地 · 光荣之路',sections=compose(counts),notices=notices,
+        subtitle='森空岛档案 · 按已观测分类整理',footer=_footer(snapshot,report))
 
 
 def _boundary(count, status):

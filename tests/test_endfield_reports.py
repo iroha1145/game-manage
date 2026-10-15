@@ -73,7 +73,7 @@ def test_regions_use_roster_names_and_only_compute_gaps_when_totals_known():
     assert second['equipment_chests']['percent'] is None
 
 
-def test_ship_keeps_observed_raw_values_without_unverified_percent_conversion():
+def test_ship_keeps_observed_raw_values_alongside_static_percent_conversion():
     card = parse_card({'chars': [{'id': 'char1', 'charData': {'name': '佩丽卡'}}],
                        'spaceShip': {'rooms': [{'id': 'room1', 'chars': [
                            {'charId': 'char1', 'physicalStrength': 0, 'favorability': 1500},
@@ -84,7 +84,9 @@ def test_ship_keeps_observed_raw_values_without_unverified_percent_conversion():
     assert residents[0]['name'] == '佩丽卡'
     assert residents[0]['mood_raw'] == 0 and residents[0]['trust_raw'] == 1500
     assert residents[1]['mood_raw'] is None and residents[1]['name'] is None
-    assert 'percent' not in residents[0]
+    assert residents[0]['mood_percent'] == 0 and residents[0]['trust_percent'] == 200
+    assert residents[0]['trust_level_name'] == '信任'
+    assert residents[1]['mood_percent'] is None and residents[1]['trust_percent'] is None
 
 
 def test_old_card_rebuilds_reports_without_trusting_cached_derived_data():

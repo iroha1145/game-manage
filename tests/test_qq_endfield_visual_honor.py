@@ -42,7 +42,7 @@ def test_honor_uses_default_skland_snapshot_and_keeps_all_observed_medals():
     context={};reply=service(query).query(IDENTITY,'honor','endfield',image_context=context)
     assert [(scope.account_id,cap) for scope,cap in query.reads]==[('sk','account')]
     assert query.refreshes==[] and len(context['grants'])==1
-    assert len(context['card']['sections'][1]['rows'])==12
+    assert sum(len(section['rows']) for section in context['card']['sections'] if section.get('category')=='ef_medals')==12
     assert '合成勋章11' in reply['text'] and '账号声明勋章数：14' in reply['text']
     assert '镀层：是' in reply['text'] and '等级：0' in reply['text'] and '获得时间：未知' in reply['text']
 
@@ -116,7 +116,7 @@ def test_honor_image_retains_more_than_ten_medals_within_transport_budget(monkey
     card=long_document(honor_document(snapshot(synthetic_honor(12))))
     png=render_card(card,font=cjk_font(),budget_seconds=10)
     image=Image.open(BytesIO(png))
-    assert len(card['sections'][1]['rows'])==12 and '合成勋章11' in card_to_text(card)
+    assert sum(len(section['rows']) for section in card['sections'] if section.get('category')=='ef_medals')==12 and '合成勋章11' in card_to_text(card)
     assert image.width==1080 and image.width*image.height<=16_000_000 and len(png)<=1_048_576
     assert '2026-10-15 09:00' in texts and '2026-10-' not in texts
     with pytest.raises(ValueError,match='pixel_limit'):

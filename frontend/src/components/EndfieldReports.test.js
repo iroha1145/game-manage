@@ -33,10 +33,12 @@ test('regions distinguish unknown limits and show settlements, assignment and re
   assert.equal(nodes(root,'progress').length,1)
 })
 
-test('ship preserves raw zero mood and trust without deriving a percent',t=>{
+test('ship shows static zero percentages and stage with accessible scales and original observations',t=>{
   const root=mount(t,Reports,{payload,view:'ship'})
   assert.match(content(root),/培育室/);assert.match(content(root),/心情观测值 0/);assert.match(content(root),/信赖观测值 0/)
-  assert.doesNotMatch(content(root),/0%|实时预测/)
+  assert.match(content(root),/心情 0%/);assert.match(content(root),/信赖 友好 0%/)
+  assert.deepEqual(nodes(root,'progress').map(node=>[node.props.value,node.props.max]),[[0,'100'],[0,'200']])
+  assert.match(content(root),/不外推当前状态/);assert.match(content(root),/查看原始观测值/)
 })
 
 test('missing collection metadata stays unknown and fetched time does not become game observation time',t=>{
@@ -97,4 +99,45 @@ test('honor displays the whole supplied medal list and preserves zero and unknow
 test('known empty officer list is different from missing assignment data',t=>{
   const root=mount(t,Reports,{payload:{report:{schema_version:1,regions:{items:[{settlements:[{name:'空据点',officers:[],officers_available:true},{name:'未知据点',officers:[],officers_available:false}]}]}}},view:'regions'})
   assert.match(content(root),/派驻干员：无派驻/);assert.match(content(root),/派驻干员：未提供/)
+})
+
+test('ship keeps unsupported values visible and independent observation/fetch dates',t=>{
+  const root=mount(t,Reports,{view:'ship',fetchedAt:'2026-10-15T01:00:00Z',payload:{observed_at:'2025-12-31T00:00:00Z',ship:[{operators:[{name:'越界样本',physicalStrength:8640000,favorability:null}]},{name:'空舱',operators_available:true,operators:[]},{name:'未知舱',operators:[]}]}})
+  assert.match(content(root),/心情 未知/);assert.match(content(root),/心情观测值 8640000/)
+  assert.match(content(root),/信赖 阶段未知 未知/);assert.equal(nodes(root,'progress').length,0)
+  assert.match(content(root),/游戏观测于 2025-12-31 08:00.*抓取于 2026-10-15 09:00/)
+  assert.match(content(root),/当前没有驻守干员记录/);assert.match(content(root),/尚未采集驻守干员资料/)
+})
+
+test('overview exposes observed main mission and only confirms full stamina with a known positive limit',t=>{
+  for(const [current,maximum,full] of [[240,240,true],[250,240,true],[0,0,false],[0,null,false],[null,240,false]]){
+    const root=mount(t,Reports,{view:'overview',payload:{base:{main_mission:'第三章 · 合成任务'},stamina:{current,maximum}}})
+    assert.match(content(root),/主线进度 第三章 · 合成任务/)
+    assert.equal(content(root).includes('该次观测理智已满'),full)
+    if(full)assert.doesNotMatch(content(root),/预计回满/)
+  }
+})
+
+test('honor category, search and time controls keep totals and distinguish no results from no data',async t=>{
+  const items=[{id:'a',name:'探索甲',category:'探索',obtained_at:'2025-10-15T00:00:00Z'},{id:'b',name:'探索乙',category:'探索',obtained_at:'2026-10-15T00:00:00Z'},{id:'c',name:'战斗甲',category:'战斗'},{id:'u',name:'未分类奖章',category:null}]
+  const root=mount(t,Reports,{view:'honor',payload:{report:{schema_version:1,honor:{available:true,items,summary:{declared_count:99,listed_count:4}}}}})
+  const headings=()=>nodes(root,'h3').map(content)
+  assert.deepEqual(headings(),['探索乙','探索甲','战斗甲','未分类奖章'])
+  nodes(root,'select')[1].props['onUpdate:modelValue']('oldest');await nextTick()
+  assert.deepEqual(headings(),['探索甲','探索乙','战斗甲','未分类奖章'])
+  nodes(root,'select')[0].props['onUpdate:modelValue']('"探索"');nodes(root,'input')[0].props.onInput({target:{value:'甲'}});await nextTick()
+  assert.deepEqual(headings(),['探索甲']);assert.match(content(root),/显示 1 \/ 4/);assert.match(content(root),/来源成就总数 99/)
+  assert.match(content(root),/获得于 2025-10-15 08:00/)
+  nodes(root,'input')[0].props.onInput({target:{value:'不存在'}});await nextTick()
+  assert.match(content(root),/没有匹配的奖章/);assert.doesNotMatch(content(root),/当前档案没有奖章记录/)
+  nodes(root,'button').find(node=>content(node)==='清除奖章筛选').props.onClick();await nextTick()
+  assert.equal(headings().length,4)
+  nodes(root,'select')[0].props['onUpdate:modelValue']('null');await nextTick()
+  assert.deepEqual(headings(),['未分类奖章'])
+})
+
+test('legacy regional collections use the observed game labels',t=>{
+  const root=mount(t,Reports,{view:'regions',payload:{regions:[{levels:[{id:'map01_lv001',puzzles:{count:0}}]}]}})
+  for(const label of ['醚质','宝箱','装备制造模板','维修灵感点','协议采录桩'])assert.ok(content(root).includes(label))
+  assert.doesNotMatch(content(root),/谜质|储藏箱|装备箱|片段|黑盒/)
 })

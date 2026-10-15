@@ -212,7 +212,17 @@ class EndfieldLayout(MobileLayout):
             return bottom+28
         return bottom+18
 
-    def field_grid(self, fields, x, y, width, *, columns=4, tiles=True):
+    def progress(self,metric,x,y,width,*,color=None):
+        self.rect((x,y,x+width,y+8),'#303844',0)
+        current,maximum=metric['current'],metric['maximum']
+        if current is not None and maximum is not None and maximum>0:
+            fill=width*min(1,current/maximum)
+            if fill>0:self.rect((x,y,x+fill,y+8),color or self.accent,0)
+        else:
+            for offset in range(10,int(width),22):
+                self.rect((x+offset,y,x+min(offset+6,width),y+8),self.panel,0)
+
+    def field_grid(self, fields, x, y, width, *, columns=4, tiles=True, metric_colors=None):
         if not fields:return y
         if len(fields) in (2,4):
             columns=4 if len(fields)==4 and all(len(item['value'])<=10 for item in fields) else 2
@@ -235,7 +245,8 @@ class EndfieldLayout(MobileLayout):
                 bottom=self.text(item['label'],left+12,y+9,cell-24,22,self.muted)
                 bottom=self.text(item['value'],left+12,bottom+3,cell-24,size,self.ink)
                 if item.get('metric',{}).get('maximum') is not None:
-                    self.progress(item['metric'],left+12,bottom+6,cell-24)
+                    self.progress(item['metric'],left+12,bottom+6,cell-24,
+                                  color=(metric_colors or {}).get(item['label']))
             y+=height+12
         return y
 
@@ -330,6 +341,40 @@ class EndfieldLayout(MobileLayout):
         bottom=self.attribute_list(others,left,bottom+10,area)
         return max(y+art_height+14 if present else y,bottom+14)
 
+    def tactical(self,section,x,y,width):
+        """Keep descriptive effects in a measured, full-width reading column."""
+        fields=section['fields']
+        present=self.asset(section.get('image')) is not None
+        first=fields[:1];remaining=fields[1:]
+        if present:
+            self.avatar(section['image'],section['title'],x,y,80,80,portrait=True)
+            bottom=self.field_lines(first,x+100,y+8,width-100)
+            y=max(y+92,bottom+12)
+        else:y=self.field_lines(first,x,y,width)+12
+        paragraphs=[]
+        for field in remaining:
+            label=field['label'].split(' · 续 ')[0]
+            if paragraphs and paragraphs[-1][0]==label:
+                paragraphs[-1]=(label,paragraphs[-1][1]+field['value'])
+            else:paragraphs.append((label,field['value']))
+        for label,value in paragraphs:
+            # The safe document splits long prose into bounded fields; join
+            # those chunks for continuous wrapping instead of breaking a word.
+            y=self.text(label,x,y,width,22,self.secondary)+5
+            y=self.text(value,x,y,width,26,self.ink)+16
+        return y
+
+    def ship_rows(self,rows,x,y,width):
+        for row in rows:
+            present=self.asset(row.get('image')) is not None
+            if present:self.avatar(row['image'],row['title'],x,y,72,72,portrait=True)
+            bottom=self.text(row['title'],x+90 if present else x,y+5,width-90 if present else width,28,self.ink)
+            y=max(y+84 if present else y+48,bottom+12)
+            # Two aligned visual scales; original values use the metadata size.
+            y=self.field_grid(row['fields'][:2],x,y,width,columns=2,metric_colors={'信赖':self.secondary})
+            y=self.metadata_strip(row['fields'][2:],x,y,width)+14
+        return y
+
     def paint(self,height):
         grid=[]
         for x in range(32,self.width,64):grid.append(('rect',(x,0,x+1,height),'#13191c',0,None))
@@ -358,6 +403,8 @@ def render_endfield_card(card, *, font, max_bytes, max_pixels, budget_seconds, a
             y=layout.operator(card,section,54,y,972)
         elif category=='ef_provenance':
             y=layout.metadata_strip(fields,54,y-12,972)+6
+        elif category=='ef_tactical':
+            y=layout.tactical(section,54,y,972)
         else:
             if category=='ef_room':
                 y=layout.metadata_strip(fields,54,y-12,972)+10
@@ -368,7 +415,8 @@ def render_endfield_card(card, *, font, max_bytes, max_pixels, budget_seconds, a
             elif section['layout']=='help':y=layout.help(fields,54,y,972)
             else:y=layout.field_grid(fields,54,y,972,columns=3)
             rows=section['rows'];mode=section['layout']
-            if mode in ('grid','skills','equipment'):
+            if category=='ef_room':y=layout.ship_rows(rows,54,y,972)
+            elif mode in ('grid','skills','equipment'):
                 y=layout.grid(rows,54,y,972,layout=mode,compact_art=category=='ef_gacha_pool')
             elif mode=='timeline':y=layout.timeline(rows,card['timeline'],54,y,972)
             else:y=layout.data_rows(rows,54,y,972,collection=category=='ef_collections')

@@ -1,4 +1,6 @@
 import iconCatalog from './endfield-icon-catalog.js'
+import { shipReport } from './endfield-ship.js'
+import { parseBeijingTime } from './calendar.js'
 
 // Display helpers. Report calculations belong to the shared backend projection.
 export const rows = value => Array.isArray(value) ? value : []
@@ -7,13 +9,16 @@ export const sourceName = value => typeof value === 'object' && value !== null ?
 
 export function profileReport(payload) {
   if (payload?.report?.schema_version === 1) return { ...payload.report,
-    honor: payload.report.honor || honorReport(payload), regions: labeledRegions(payload.report.regions) }
+    honor: categorizedHonor(payload.report.honor, payload), regions: labeledRegions(payload.report.regions),
+    ship: shipReport(payload.report.ship, payload.report.training?.items || payload.operators) }
   // Previously saved profiles remain readable until their next normal refresh.
   return {
+    observed_at: payload?.observed_at,
     overview: { base: payload?.base, stamina: payload?.stamina, progress: rows(payload?.progress), todos: null },
     training: { items: rows(payload?.operators), summary: { listed_count: rows(payload?.operators).length || null } },
     regions: labeledRegions({ items: rows(payload?.regions), summary: { region_count: rows(payload?.regions).length || null } }),
-    ship: { rooms: rows(payload?.ship), summary: { room_count: rows(payload?.ship).length || null } },
+    ship: shipReport({ rooms: rows(payload?.ship), available: payload?.availability?.ship ?? (rows(payload?.ship).length ? true : null),
+      summary: { room_count: payload?.availability?.ship === false ? null : payload?.availability?.ship === true || rows(payload?.ship).length ? rows(payload?.ship).length : null } }, payload?.operators),
     honor: honorReport(payload),
   }
 }
@@ -51,9 +56,31 @@ function honorReport(payload) {
       if (level >= 3 && data.reforge3Icon) icon = data.reforge3Icon
       if (plated === true && data.platedIcon) icon = data.platedIcon
       const timestamp = number(item.obtainTs), date = timestamp ? new Date(timestamp * 1000) : null
-      return { id:data.id, name:data.name, level, is_plated:plated,
+      return { id:data.id, name:data.name, category:categoryName(data.cateName), level, is_plated:plated,
         obtained_at:date && Number.isFinite(date.getTime()) ? date.toISOString() : null, icon_url:typeof icon === 'string' ? icon : null }
     }) }
+}
+
+const categoryName = value => typeof value === 'string' && value.trim() ? value.trim() : null
+function categorizedHonor(report, payload) {
+  if (!report) return honorReport(payload)
+  const legacy = honorReport(payload).items
+  return {...report,items:rows(report.items).map(item=>{
+    if (Object.prototype.hasOwnProperty.call(item,'category')) return {...item,category:categoryName(item.category)}
+    const matches = item.id == null ? [] : legacy.filter(raw=>raw.id != null && String(raw.id) === String(item.id))
+    return {...item,category:matches.length === 1 ? matches[0].category : null}
+  })}
+}
+
+export function selectMedals(items, {search='',category=undefined,sort='recent'}={}) {
+  const term=search.trim().toLocaleLowerCase('zh-CN')
+  return rows(items).filter(item=>(!term || String(item.name ?? '').toLocaleLowerCase('zh-CN').includes(term))
+    && (category === undefined || categoryName(item.category) === category))
+    .map((item,index)=>({item,index,time:parseBeijingTime(item.obtained_at)})).sort((a,b)=>{
+      if (sort==='source') return a.index-b.index
+      if (a.time == null || b.time == null) return a.time == null && b.time == null ? a.index-b.index : a.time == null ? 1 : -1
+      return (sort==='oldest' ? a.time-b.time : b.time-a.time) || a.index-b.index
+    }).map(({item})=>item)
 }
 
 export function selectOperators(items, { search = '', rarity = '', profession = '', sort = 'level' } = {}) {
