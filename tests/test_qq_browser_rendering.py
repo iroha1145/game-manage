@@ -11,6 +11,7 @@ import pytest
 
 from game_assistant.accounts.models import AccountScope, QueryResult
 from game_assistant.qq.browser_rendering import BrowserRenderer, validate_snapshot
+from game_assistant.qq.client import valid_reply_image
 from game_assistant.qq.render_snapshot import calendar_snapshot, role_snapshot, gacha_snapshot, project, ROLE
 from game_assistant.qq.rendering import RenderQueue, RenderingUnavailable, RenderingPageUnavailable
 
@@ -257,7 +258,7 @@ async def test_real_shared_component_pngs_optional_images_and_no_account_api(kin
         value=gacha_snapshot('nte',row,NOW,ledger=ledger)
     try:
         png=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
-        assert png.startswith(b'\x89PNG') and renderer.last_state['state']=='ready'
+        assert valid_reply_image(png,max_bytes=renderer.max_bytes) and renderer.last_state['state']=='ready'
         assert png.total_pages==1 and png.page==1
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
         value['page']=2
