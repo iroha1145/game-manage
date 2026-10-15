@@ -293,3 +293,53 @@ def test_transport_bounds_real_local_subprocess(tmp_path, monkeypatch, mode):
     monkeypatch.setattr(pull, 'TIMEOUT_SECONDS', 0.2 if mode == 'timeout' else 10)
     with pytest.raises(ValueError):
         transport.download(NAME, tmp_path / 'download.tar')
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows .NET ACL descriptor policy')
+@pytest.mark.parametrize('case,owner,token_owner,enabled,aces,expected', [
+    ('ordinary-user', 'user', 'user', False, [('user','FullControl','Allow','None')], True),
+    ('ordinary-owner-rights', 'user', 'user', False, [('owner-rights','FullControl','Allow','None')], True),
+    ('verified-admin-inherited-user', 'admin', 'admin', True, [('user','FullControl','Allow','None'),('admin','FullControl','Allow','None')], True),
+    ('verified-admin-owner-rights', 'admin', 'admin', True, [('owner-rights','FullControl','Allow','None'),('system','FullControl','Allow','None')], True),
+    ('disabled-admin', 'admin', 'admin', False, [('user','FullControl','Allow','None')], False),
+    ('admin-is-not-token-owner', 'admin', 'user', True, [('user','FullControl','Allow','None')], False),
+    ('foreign-owner', 'foreign', 'admin', True, [('user','FullControl','Allow','None')], False),
+    ('foreign-default-owner', 'foreign', 'foreign', True, [('owner-rights','FullControl','Allow','None')], False),
+    ('everyone-extra-read', 'admin', 'admin', True, [('user','FullControl','Allow','None'),('everyone','Read','Allow','None')], False),
+    ('users-extra-full', 'admin', 'admin', True, [('owner-rights','FullControl','Allow','None'),('users','FullControl','Allow','None')], False),
+    ('limited-user-rights', 'user', 'user', False, [('user','Read','Allow','None')], False),
+    ('deny-user', 'user', 'user', False, [('user','FullControl','Deny','None')], False),
+    ('inheritable-only', 'admin', 'admin', True, [('owner-rights','FullControl','Allow','InheritOnly')], False),
+    ('user-owner-admin-ace-only', 'user', 'admin', True, [('admin','FullControl','Allow','None')], False),
+    ('admin-owner-without-creator-access', 'admin', 'admin', True, [('system','FullControl','Allow','None')], False),
+    ('empty-dacl', 'admin', 'admin', True, [], False),
+])
+def test_child_acl_uses_verified_actual_token_owner_without_widening(case,owner,token_owner,enabled,aces,expected):
+    policy=getattr(pull,'CHILD_ACL_POLICY','')
+    assert policy, 'Child ACL validator must distinguish User from the enabled actual token owner'
+    ids={'user':'S-1-5-21-111111111-222222222-333333333-1001',
+         'foreign':'S-1-5-21-111111111-222222222-333333333-1002',
+         'admin':'S-1-5-32-544','system':'S-1-5-18','owner-rights':'S-1-3-4','everyone':'S-1-1-0','users':'S-1-5-32-545'}
+    value={'user':ids['user'],'owner':ids[owner],'token_owner':ids[token_owner],'enabled':enabled,
+           'aces':[[ids[principal],rights,kind,propagation] for principal,rights,kind,propagation in aces]}
+    script=policy+"""
+$ErrorActionPreference='Stop'
+$value=ConvertFrom-Json 'JSON_LITERAL'
+$acl=New-Object System.Security.AccessControl.DirectorySecurity
+$acl.SetOwner((New-Object System.Security.Principal.SecurityIdentifier($value.owner)))
+$acl.SetAccessRuleProtection($true,$false)
+foreach($ace in $value.aces){
+    $rule=New-Object System.Security.AccessControl.FileSystemAccessRule(
+        (New-Object System.Security.Principal.SecurityIdentifier($ace[0])),
+        $ace[1],'ContainerInherit,ObjectInherit',$ace[3],$ace[2])
+    $acl.AddAccessRule($rule)
+}
+$before=$acl.GetSecurityDescriptorSddlForm('All')
+$result=Test-TrustedChildAcl $acl $value.user $value.token_owner $value.enabled
+$after=$acl.GetSecurityDescriptorSddlForm('All')
+@{accepted=[bool]$result;unchanged=($before -eq $after)} | ConvertTo-Json -Compress
+""".replace('JSON_LITERAL',json.dumps(value,separators=(',',':')))
+    result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',script],capture_output=True,timeout=30)
+    assert result.returncode==0,case
+    observed=json.loads(result.stdout)
+    assert observed=={'accepted':expected,'unchanged':True},case

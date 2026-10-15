@@ -19,6 +19,31 @@ DEFAULT_KEY = 'C:/GPT/LOLhelper/reki2.pem'
 DEFAULT_HOST = 'ubuntu@111.229.64.119'
 
 
+# This read-only predicate is shared by the real NTFS walk and synthetic ACL
+# tests. An elevated creator can have Administrators as its token default owner;
+# that principal already has exact FullControl in the protected root policy.
+CHILD_ACL_POLICY = r'''
+function Test-TrustedChildAcl {
+    param($Acl, [string]$UserSid, [string]$TokenOwnerSid, [bool]$AdminEnabled)
+    $admin='S-1-5-32-544'
+    $allowed=@($UserSid,'S-1-5-18',$admin)
+    $childOwner=$Acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+    $verifiedAdminOwner=($TokenOwnerSid -eq $admin -and $AdminEnabled -and $childOwner -eq $TokenOwnerSid)
+    if($childOwner -ne $UserSid -and !$verifiedAdminOwner){return $false}
+    $seen=@()
+    foreach($rule in $Acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])){
+        $identity=$rule.IdentityReference.Value
+        # OWNER RIGHTS is the descriptor's actual owner, never an invented User ACE.
+        if($identity -eq 'S-1-3-4'){$identity=$childOwner}
+        if($identity -notin $allowed -or $rule.AccessControlType -ne 'Allow' -or $rule.FileSystemRights -ne 'FullControl' -or $rule.PropagationFlags -ne 'None'){return $false}
+        $seen+=$identity
+    }
+    if($UserSid -in $seen){return $true}
+    return ($verifiedAdminOwner -and $TokenOwnerSid -in $seen)
+}
+'''
+
+
 def safe_path(value):
     path = Path(value).absolute()
     for part in (path, *path.parents):
@@ -35,10 +60,13 @@ def prepare_root(value, *, allowed_files=()):
         raise ValueError('windows_ntfs_required')
     path = safe_path(value)
     quoted = "'" + str(path).replace("'", "''") + "'"
-    script = r'''
+    script = CHILD_ACL_POLICY + r'''
 $ErrorActionPreference='Stop'
 $p=PATH_LITERAL
-$sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$current=[System.Security.Principal.WindowsIdentity]::GetCurrent()
+$sid=$current.User
+$tokenOwner=$current.Owner.Value
+$adminEnabled=(New-Object System.Security.Principal.WindowsPrincipal($current)).IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
 $volume=New-Object System.IO.DriveInfo([System.IO.Path]::GetPathRoot($p))
 if($volume.DriveFormat -ne 'NTFS'){throw 'ntfs_required'}
 $allowed=@($sid.Value,'S-1-5-18','S-1-5-32-544')
@@ -71,16 +99,7 @@ while($queue.Count -gt 0){
         $count++
         if($count -gt 65536 -or ($entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint)){throw 'unsafe_tree'}
         $child=$entry.GetAccessControl()
-        if($child.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value){throw 'unsafe_child_owner'}
-        $childSeen=@()
-        foreach($rule in $child.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])){
-            $identity=$rule.IdentityReference.Value
-            # Windows mkdir(0700) uses OWNER RIGHTS; owner was checked above.
-            if($identity -eq 'S-1-3-4'){$identity=$sid.Value}
-            if($identity -notin $allowed -or $rule.AccessControlType -ne 'Allow' -or $rule.FileSystemRights -ne 'FullControl' -or $rule.PropagationFlags -ne 'None'){throw 'unsafe_child_acl'}
-            $childSeen+=$identity
-        }
-        if($sid.Value -notin $childSeen){throw 'incomplete_child_acl'}
+        if(!(Test-TrustedChildAcl $child $sid.Value $tokenOwner $adminEnabled)){throw 'unsafe_child_acl'}
         if($entry -is [System.IO.DirectoryInfo]){$queue.Enqueue($entry)}
     }
 }
