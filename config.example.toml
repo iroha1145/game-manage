@@ -22,6 +22,11 @@ bilibili_poll_seconds = 600
 auth_store_path = ""
 auth_allowed_origins = ["http://127.0.0.1:8010", "http://localhost:8010", "http://127.0.0.1:5173", "http://localhost:5173"]
 
+# QQ公开图片默认使用系统DNS。仅在运行环境返回FakeIP等非公网地址时，
+# 可由操作者显式选择"cloudflare"（固定可信DoH）；不影响账号接口或系统DNS。
+# 两种模式均校验全部公网IP、固定IP连接及CDN证书，失败不会切换解析器。
+qq_asset_dns_resolver = "system"
+
 # 可选微信推送：send_key留空时不发送。provider可选serverchan或pushplus。
 notify_provider = "serverchan"
 notify_send_key = ""

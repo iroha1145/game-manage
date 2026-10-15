@@ -505,7 +505,7 @@ def install_qq_query_routes(app, *, app_id, dashboard_url='', urls_approved=Fals
     from game_assistant.cloud_app import allow_cloud_route
     settings=app.state.settings
     from .assets import PublicAssetCache
-    asset_cache=PublicAssetCache() if settings.qq_images_enabled else None
+    asset_cache=PublicAssetCache(dns_resolver=settings.qq_asset_dns_resolver) if settings.qq_images_enabled else None
     render_queue=RenderQueue(SummaryRenderer(font_path=settings.qq_image_font_path,max_bytes=settings.qq_image_max_bytes,asset_cache=asset_cache)) if settings.qq_images_enabled else None
     service=QqQueryService(app.state.qq_bindings,getattr(app.state,'account_query',None),
                            getattr(app.state,'public_query',None),dashboard_url=dashboard_url,urls_approved=urls_approved,render_queue=render_queue,asset_cache=asset_cache)

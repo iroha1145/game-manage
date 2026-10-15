@@ -341,10 +341,86 @@ class EndfieldLayout(MobileLayout):
         if main:
             bottom=self.text(main[0]['label'],left,y,area,22,self.muted)
             bottom=self.text(main[0]['value'],left,bottom+4,area,52,self.accent)
-        bottom=self.attribute_list(others,left,bottom+10,area)
+        # The dossier reads as one identity block, rather than a table of boxes.
+        bottom=self.inline_fields(others[:3],left,bottom+14,area)
+        bottom=self.inline_fields(others[3:],left,bottom+10,area,size=26)
         for field in dates:
-            bottom=self.metadata_strip([field],left,bottom+8,area)
+            bottom=self.text(field['label']+' '+field['value'],left,bottom+24,area,22,self.muted)
         return max(y+art_height+14 if present else y,bottom+14)
+
+    def inline_fields(self,fields,x,y,width,*,size=22,color=None):
+        """Measured compact facts; preserve every label/value without tiles."""
+        line='';font=self.fonts[size]
+        for field in fields:
+            piece=field['label']+' '+field['value']
+            trial=line+('  ·  ' if line else '')+piece
+            if line and font.getlength(trial)>width:
+                y=self.text(line,x,y,width,size,color or self.muted)+4;line=''
+            line+=('  ·  ' if line else '')+piece
+        return self.text(line,x,y,width,size,color or self.muted)+4 if line else y
+
+    def assembly_heading(self,title,number,x,y,width):
+        self.rect((x,y,x+width,y+1),self.border,0)
+        self.text(f'{number:02}',x,y+15,42,22,self.secondary)
+        return self.text(title,x+54,y+12,width-54,26,self.ink)+18
+
+    def icon_slot(self,ref,title,x,y,size,*,stage=None):
+        """A game assembly slot reserves room for genuine, cached artwork."""
+        stage=stage or size
+        self.rect((x,y,x+stage,y+stage),self.card,0)
+        for left,top,dx,dy in ((x,y,16,1),(x,y,1,16),
+                              (x+stage-16,y+stage-1,16,1),(x+stage-1,y+stage-16,1,16)):
+            self.rect((left,top,left+dx,top+dy),self.border,0)
+        if self.asset(ref) is not None:
+            self.avatar(ref,title,x+(stage-size)//2,y+(stage-size)//2,size,size,portrait=True)
+
+    def weapon_loadout(self,section,gem,x,y,width):
+        present=self.asset(section.get('image')) is not None
+        inset=180 if present else 0
+        if present:self.icon_slot(section['image'],section['title'],x,y,144,stage=160)
+        left=x+inset;area=width-inset
+        bottom=self.text(section['title'],left,y,area,30,self.ink)
+        bottom=self.inline_fields(section['fields'],left,bottom+10,area)
+        if gem is not None:
+            bottom+=18
+            gem_present=self.asset(gem.get('image')) is not None
+            if gem_present:self.avatar(gem['image'],gem['title'],left,bottom,48,48,portrait=True)
+            gem_left=left+64 if gem_present else left
+            end=self.text(gem['title'],gem_left,bottom,area-(gem_left-left),24,self.secondary)
+            end=self.inline_fields(gem['fields'],gem_left,end+3,area-(gem_left-left))
+            for row in gem['rows']:
+                end=self.inline_fields([{'label':row['title'],'value':field['value']} for field in row['fields']],
+                    gem_left,end,area-(gem_left-left))
+            bottom=max(bottom+52 if gem_present else bottom,end)
+        return max(y+172 if present else y,bottom)+20
+
+    def assembly_slots(self,rows,x,y,width,*,skills=False):
+        """Four fixed equipment slots and horizontal skill icons with LV badges."""
+        columns=min(4,len(rows));gap=24
+        if not columns:return y
+        cell=(width-gap*(columns-1))//columns
+        stage,size=(104,88) if skills else (176,152)
+        for start in range(0,len(rows),columns):
+            group=rows[start:start+columns];ends=[]
+            for index,row in enumerate(group):
+                left=x+index*(cell+gap);art_x=left+(cell-stage)//2
+                top=y
+                if not skills:
+                    top=self.text(row['subtitle'] or '槽位未知',left,top,cell,22,self.muted)+10
+                self.icon_slot(row.get('image'),row['title'],art_x,top,size,stage=stage)
+                level=next((field for field in row['fields'] if field['label']=='等级'),None)
+                if level:
+                    badge='Lv.'+level['value']
+                    badge_width=self.fonts[22].getlength(badge)+16
+                    self.rect((art_x+stage-badge_width,top+stage-32,art_x+stage,top+stage),self.background,0)
+                    self.text(badge,art_x+stage-badge_width+8,top+stage-30,badge_width-8,22,self.accent)
+                bottom=self.text(row['title'],left,top+stage+14,cell,24,self.ink)
+                if skills and row['subtitle']:bottom=self.text(row['subtitle'],left,bottom,cell,22,self.muted)
+                remaining=[field for field in row['fields'] if field['label']!='等级']
+                bottom=self.inline_fields(remaining,left,bottom+4,cell)
+                ends.append(bottom)
+            y=max(ends)+24
+        return y
 
     def tactical(self,section,x,y,width):
         """Keep descriptive effects in a measured, full-width reading column."""
@@ -388,7 +464,53 @@ class EndfieldLayout(MobileLayout):
         return super().paint(height)
 
 
+def render_endfield_operator_card(card, *, font, max_bytes, max_pixels, budget_seconds, asset_cache):
+    """An equipment screen: one hero, actual assembly slots and a quiet source line."""
+    layout=EndfieldLayout(font,EF_COLORS['yellow'],asset_cache,time.monotonic()+budget_seconds)
+    layout.rect((54,40,58,112),layout.accent,0)
+    y=layout.text('ENDFIELD / OPERATOR',76,35,950,22,layout.secondary)
+    y=layout.text(card['title'],76,y+5,950,44,layout.ink)+22
+    y=layout.text('OPERATOR DOSSIER',54,y,972,22,layout.muted)+14
+    y=layout.operator(card,card['sections'][0],54,y,972)+10
+    gem=next((section for section in card['sections'] if section.get('category')=='ef_gem'),None)
+    provenance=[];number=2
+    for section in card['sections'][1:]:
+        category=section.get('category','')
+        if category=='ef_provenance':
+            provenance.extend(section['fields']);continue
+        if category=='ef_gem':continue  # The essence stays beside its weapon.
+        title='武器与基质' if category=='ef_weapon' else section['title']
+        y=layout.assembly_heading(title,number,54,y,972)
+        number+=1
+        if category=='ef_weapon':y=layout.weapon_loadout(section,gem,54,y,972)
+        elif category in ('ef_equipment','ef_skills'):
+            y=layout.inline_fields(section['fields'],54,y,972)
+            y=layout.assembly_slots(section['rows'],54,y,972,skills=category=='ef_skills')
+        elif category=='ef_tactical':y=layout.tactical(section,54,y,972)
+        else:
+            y=layout.inline_fields(section['fields'],54,y,972)
+            y=layout.data_rows(section['rows'],54,y,972)
+        if y>16000 or WIDTH*y>max_pixels:raise ValueError('qq_image_pixel_limit')
+    layout.rect((54,y+4,1026,y+5),layout.border,0);y+=22
+    # Keep every source/status fact on the same safe document used by text
+    # replies. Independent equipment observations retain their own timestamp.
+    # The archive timestamp already appears in the footer. Show equipment's
+    # independent time and state once, beside the current archive status.
+    source_fields=[field for field in provenance if field['label']!='档案抓取时间']
+    if card['notices']:source_fields.insert(0,{'label':'资料','value':card['notices'][0]})
+    y=layout.inline_fields(source_fields,54,y,972)
+    for notice in card['notices'][1:]:y=layout.text(notice,54,y+4,972,22,layout.muted)+3
+    if card['footer']:y=layout.text(card['footer'],54,y+12,972,22,layout.muted)
+    height=max(240,y+30)
+    if height>16000 or WIDTH*height>max_pixels:raise ValueError('qq_image_pixel_limit')
+    layout.check()
+    return encode_image(layout.paint(height),max_bytes=max_bytes,check=layout.check)
+
+
 def render_endfield_card(card, *, font, max_bytes, max_pixels, budget_seconds, asset_cache):
+    if card['kind']=='detail' and card['sections'] and card['sections'][0].get('category')=='ef_operator':
+        return render_endfield_operator_card(card,font=font,max_bytes=max_bytes,max_pixels=max_pixels,
+            budget_seconds=budget_seconds,asset_cache=asset_cache)
     layout=EndfieldLayout(font,EF_COLORS['yellow'],asset_cache,time.monotonic()+budget_seconds)
     start=28;index=len(layout.ops)
     layout.rect((52,48,56,144),layout.accent,0)

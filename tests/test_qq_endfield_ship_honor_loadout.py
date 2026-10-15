@@ -83,7 +83,7 @@ def test_ship_render_emphasizes_percentages_and_keeps_unknown_track(monkeypatch)
     for color in ('#ffd000','#58d5de'):
         assert any(op[0]=='rect' and op[2]==color and op[1][3]-op[1][1]==8 and op[1][2]-op[1][0]>100 for op in operations)
     assert Image.open(BytesIO(png)).width==1080 and len(png)<=524288
-    assert TEMPLATE_VERSION=='qq-unified-3-endfield-5'
+    assert TEMPLATE_VERSION=='qq-unified-3-endfield-6'
 
 
 def assert_honor_counts(card):

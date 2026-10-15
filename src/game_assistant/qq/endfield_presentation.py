@@ -293,7 +293,7 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
                    '已观测详情；早于当前档案' if older else '已观测详情；非实时状态')
             detail_fields=[view.time_field('档案抓取时间',snapshot.fetched_at),view.time_field('配装抓取时间',detail.fetched_at),
                            view.field('配装状态',state)]
-            detail_notice='基础资料与获得时间来自档案；武器、装备、技能与战术道具来自同一干员的独立详情快照。'
+            detail_notice='基础资料与获得时间来自档案；配装来自同一干员的独立详情。'
         elif detail.payload is None:
             detail_fields=[view.field('配装状态','最近读取失败，未取得独立详情'),view.time_field('配装抓取时间',detail.fetched_at)]
             detail_notice='独立详情尚无成功观测；当前配装仍取自档案快照。'
@@ -328,6 +328,14 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
             gear.append(view.with_image({'title': view.text(entry.get('name')), 'subtitle': label,
                 'fields': [view.field('等级', entry.get('level')), view.field('稀有度', entry.get('rarity'))]},
                 _image(asset_cache, 'equipment', entry)))
+    # Unfamiliar saved slots remain visible after the four known assembly slots.
+    # Their names/artwork cannot be discarded or assigned to a guessed position.
+    for entry in equipment:
+        if entry.get('slot') not in SLOTS:
+            gear.append(view.with_image({'title': view.text(entry.get('name')),
+                'subtitle': '槽位 · '+view.text(entry.get('slot')),
+                'fields': [view.field('等级', entry.get('level')), view.field('稀有度', entry.get('rarity'))]},
+                _image(asset_cache, 'equipment', entry)))
     sections.append(_section('四件装备', rows=gear, layout='equipment', category='ef_equipment'))
     skills = view.rows(equipment_source.get('skills'))
     sections.append(_section('技能', layout='skills', rows=[view.with_image({'title': view.text(skill.get('name')),
@@ -348,9 +356,10 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
             category='ef_tactical'),_image(asset_cache,'tactical',tactical)))
     else:
         sections.append(_section('战术道具',fields=[view.field('状态','未采集')],category='ef_tactical'))
-    notices=_notice(snapshot)+['配装仅限已采集字段；未采集与未装备不能互相代替。',detail_notice]
+    notices=[view.metadata(snapshot)[0]['value'],
+        '未知不等于未装备；缓存不代表实时状态。',detail_notice]
     if tactical:
-        notices[2]+='战术道具效果按原文展示，未代入属性或参数。'+('过长效果已省略尾部，完整内容请到网站查看。' if tactical_clipped else '')
+        notices[1]+='战术效果保留原文与参数。'+('过长效果已省略尾部，完整内容请到网站查看。' if tactical_clipped else '')
     card = view.document('detail', 'endfield', '终末地 · ' + view.text(name), sections=sections,
         notices=notices,
         subtitle='森空岛档案 · 干员与已观测配装', footer=_footer(snapshot, report))

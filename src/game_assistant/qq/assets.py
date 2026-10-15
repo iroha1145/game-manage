@@ -4,6 +4,8 @@ Only anonymous HTTPS images from the frontend's audited official CDN hosts are
 accepted. DNS results are vetted then the TLS socket is connected to that exact
 IP, with the original CDN hostname used for certificate verification and SNI.
 No disk cache, proxies, account headers, redirects, SVG or token URLs are used.
+System DNS is the default; operators may explicitly select a fixed trusted DoH
+resolver for public-image hosts without changing machine-wide DNS settings.
 """
 import asyncio
 import base64
@@ -129,16 +131,22 @@ async def _read_body(reader, headers):
             raise ValueError('qq_asset_size_limit')
 
 
-async def _download(value, *, timeout_seconds=3):
+async def _download(value, *, timeout_seconds=3, dns_resolver='system'):
     url = safe_public_url(value)
     if not url:
         raise ValueError('qq_asset_invalid_url')
+    if dns_resolver not in ('system', 'cloudflare'):
+        raise ValueError('qq_asset_dns_resolver_invalid')
     target = urlsplit(url)
     writer = None
     # timeout spans DNS, TLS, headers and entire body, including slow streaming.
     async with asyncio.timeout(max(.001, min(timeout_seconds, 5))):
-        addresses = await asyncio.get_running_loop().getaddrinfo(
-            target.hostname, 443, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
+        if dns_resolver == 'cloudflare':
+            from .public_asset_dns import cloudflare_addresses
+            addresses = await cloudflare_addresses(target.hostname, allowed_hosts=ALLOWED_HOSTS)
+        else:
+            addresses = await asyncio.get_running_loop().getaddrinfo(
+                target.hostname, 443, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
         if not addresses or len(addresses) > 32:
             raise ValueError('qq_asset_dns_invalid')
         pinned = []
@@ -191,7 +199,10 @@ async def _download(value, *, timeout_seconds=3):
 
 class PublicAssetCache:
     def __init__(self, *, cache_entries=128, cache_bytes=16*1024*1024, cache_ttl=3600,
-                 concurrency=6, request_timeout=3):
+                 concurrency=6, request_timeout=3, dns_resolver='system'):
+        if dns_resolver not in ('system', 'cloudflare'):
+            raise ValueError('qq_asset_dns_resolver_invalid')
+        self.dns_resolver = dns_resolver
         self.cache_entries = max(1, min(cache_entries, 256))
         self.cache_bytes = max(1, min(cache_bytes, 32*1024*1024))
         self.cache_ttl = max(.001, min(cache_ttl, 86400))
@@ -283,7 +294,8 @@ class PublicAssetCache:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     return
-                raw = await _download(self._sources[ref], timeout_seconds=min(remaining, self.request_timeout))
+                options = {'dns_resolver': self.dns_resolver} if self.dns_resolver != 'system' else {}
+                raw = await _download(self._sources[ref], timeout_seconds=min(remaining, self.request_timeout), **options)
                 if time.monotonic() < deadline:
                     self._store(ref, sanitize_image(raw, portrait=ref in self._portrait_refs))
         except (ValueError, OSError, TimeoutError, UnicodeError, asyncio.IncompleteReadError,

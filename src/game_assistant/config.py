@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     qq_image_font_path: str = ''
     # Conservative cap pending controlled platform acceptance; not a platform limit claim.
     qq_image_max_bytes: int = Field(default=524288, ge=16384, le=1048576)
+    # Explicit public-image DNS only; never an automatic fallback or arbitrary URL.
+    qq_asset_dns_resolver: Literal['system', 'cloudflare'] = 'system'
     # Account mode is an explicit operator opt-in; missing keys never regenerate.
     cloud_accounts_enabled: bool = False
     cloud_credentials_key_path: str = ''
