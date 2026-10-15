@@ -58,7 +58,7 @@ class MobileLayout(_Layout):
             y+=14
         return y
 
-    def grid(self, rows, x, y, width, *, layout='grid'):
+    def grid(self, rows, x, y, width, *, layout='grid', compact_art=False):
         # Four readable columns; equipment uses wide rows in overview instead.
         columns=3 if layout in ('skills','equipment') else 4
         gap=16;cell=(width-gap*(columns-1))//columns
@@ -246,15 +246,17 @@ class EndfieldLayout(MobileLayout):
             return self.wrap(field['label'],22,width)+lines
         return self.wrap(field['label']+' '+field['value'],22,width)
 
-    def grid(self, rows, x, y, width, *, layout='grid'):
+    def grid(self, rows, x, y, width, *, layout='grid', compact_art=False):
         if not rows:return y
         columns=min(4,len(rows));gap=16;cell=(width-gap*(columns-1))//columns
+        art_size=48 if compact_art else 80
+        art_inset=art_size+32
         for start in range(0,len(rows),columns):
             group=rows[start:start+columns]
             art=[self.asset(row.get('image')) is not None for row in group]
-            header_heights=[max(88 if present else 0,
-                len(self.wrap(row['title'],24,cell-112 if present else cell-28))*32+
-                len(self.wrap(row['subtitle'],22,cell-112 if present else cell-28))*30)
+            header_heights=[max(art_size+8 if present else 0,
+                len(self.wrap(row['title'],24,cell-art_inset if present else cell-28))*32+
+                len(self.wrap(row['subtitle'],22,cell-art_inset if present else cell-28))*30)
                 for row,present in zip(group,art)]
             header_height=max(header_heights)
             field_count=max((len(row['fields']) for row in group),default=0)
@@ -268,8 +270,8 @@ class EndfieldLayout(MobileLayout):
                 title_x=left+14
                 title_width=cell-28
                 if present:
-                    self.avatar(row.get('image'),row['title'],left+10,y+14,80,80,portrait=True)
-                    title_x=left+98;title_width=cell-112
+                    self.avatar(row.get('image'),row['title'],left+10,y+14,art_size,art_size,portrait=True)
+                    title_x=left+art_size+18;title_width=cell-art_inset
                 bottom=self.text(row['title'],title_x,y+14,title_width,24)
                 self.text(row['subtitle'],title_x,bottom,title_width,22,self.secondary)
                 top=y+header_height+22
@@ -367,7 +369,7 @@ def render_endfield_card(card, *, font, max_bytes, max_pixels, budget_seconds, a
             else:y=layout.field_grid(fields,54,y,972,columns=3)
             rows=section['rows'];mode=section['layout']
             if mode in ('grid','skills','equipment'):
-                y=layout.grid(rows,54,y,972,layout=mode)
+                y=layout.grid(rows,54,y,972,layout=mode,compact_art=category=='ef_gacha_pool')
             elif mode=='timeline':y=layout.timeline(rows,card['timeline'],54,y,972)
             else:y=layout.data_rows(rows,54,y,972,collection=category=='ef_collections')
         y=layout.metadata_strip(metadata,54,y+1,972)+8

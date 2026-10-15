@@ -148,9 +148,18 @@ def _render_v1(card, *, font, max_bytes=524288, max_pixels=2592000, budget_secon
 
 
 def encode_image(image, *, max_bytes, check):
-    """Try PNG then three fixed JPEG qualities; never shrink readable content."""
+    """Try PNG, bounded palette PNG, then JPEG; never shrink readable content."""
     output=BytesIO()
     image.save(output,format='PNG',compress_level=6)
+    check()
+    data=output.getvalue()
+    if len(data)<=max_bytes:
+        return data
+    # Flat report panels and antialiased text compress well in a full 256-color
+    # palette. Keep pixel dimensions and glyph size unchanged before considering
+    # lossy JPEG; the fast octree pass stays bounded by the existing pixel cap.
+    output=BytesIO()
+    image.quantize(colors=256,method=Image.Quantize.FASTOCTREE).save(output,format='PNG',compress_level=6)
     check()
     data=output.getvalue()
     if len(data)<=max_bytes:

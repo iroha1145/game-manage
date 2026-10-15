@@ -161,7 +161,8 @@ def _regions(payload, operators):
                                            **_metric(collection.get(raw_key), None)}
                                           for key, label, raw_key in COLLECTIONS]})
         money = _object(region.get('money'))
-        result.append({**deepcopy(region), 'money': _metric(money.get('count'), money.get('total')),
+        current_money = money.get('count') if money.get('count') is not None else money.get('conut')
+        result.append({**deepcopy(region), 'money': _metric(current_money, money.get('total')),
                        'settlements': settlements, 'areas': areas})
     available = _available(payload, 'regions')
     settlements_available = all(
@@ -237,6 +238,17 @@ def build_gacha_report(summary):
         summary = summary.model_dump(mode='json', exclude={'report'})
     summary = _object(summary)
     pools = deepcopy(_items(summary.get('pools')))
+    for pool in pools:
+        available = len(_items(pool.get('history')))
+        count = _number(pool.get('history_total'))
+        if count is None:
+            count = _number(pool.get('six_star'))
+        if count is not None and count < available:
+            count = None
+        pool.update(history_total=count, history_available=available,
+                    history_limit=_number(pool.get('history_limit')),
+                    history_truncated=count > available if count is not None else None,
+                    four_star=_number(pool.get('four_star')), unknown_rarity=_number(pool.get('unknown_rarity')))
     history = [{**deepcopy(item), 'pool_key': pool.get('key'), 'pool_label': pool.get('label')}
                for pool in pools for item in _items(pool.get('history'))]
     history.sort(key=lambda item: (-(_number(item.get('obtained_at')) or 0), str(item.get('pool_key') or '')))
@@ -246,7 +258,8 @@ def build_gacha_report(summary):
         values = [_number(pool.get(field)) for pool in pools]
         return sum(values) if values and all(value is not None for value in values) else 0 if summary.get('total') == 0 else None
     return {'schema_version': 1, 'role_id': summary.get('role_id'), 'total': _number(summary.get('total')),
-            'six_star': total('six_star'), 'five_star': total('five_star'), 'free': total('free'),
+            'six_star': total('six_star'), 'five_star': total('five_star'), 'four_star': total('four_star'),
+            'unknown_rarity': total('unknown_rarity'), 'free': total('free'),
             'complete': summary.get('complete') if isinstance(summary.get('complete'), bool) else None,
             'gaps': total('gaps'), 'pending': True if summary.get('complete') is False or any(pool.get('pending') is True for pool in pools)
             else None if 'complete' in summary and summary['complete'] is None

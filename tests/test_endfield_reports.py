@@ -212,3 +212,59 @@ def test_collection_name_wins_over_static_fallback_but_not_explicit_level_name()
     areas = build_endfield_report({'regions': regions})['regions']['items'][0]['areas']
     assert [area['name'] for area in areas] == ['收集上游新名称', '关卡上游名称']
     assert areas[0]['collections'][0]['current'] == 0
+
+
+@pytest.mark.parametrize('money,current', [
+    ({'conut': 0}, 0),
+    ({'count': 0, 'conut': 8}, 0),
+    ({'count': 5, 'conut': 8}, 5),
+    ({'count': None, 'conut': 8}, 8),
+    ({'count': 'invalid', 'conut': 8}, None),
+    ({'count': False, 'conut': 8}, None),
+    ({'count': None}, None),
+    ({}, None),
+])
+def test_region_coupon_legacy_alias_preserves_zero_and_unknown(money, current):
+    money = {**money, 'total': 10}
+    source = {'domain': [{'domainId': 'd', 'moneyMgr': money}]}
+    legacy = {'regions': [{'id': 'd', 'money': money}],
+              'report': {'regions': {'items': [{'money': {'current': 999}}]}}}
+    source_before, legacy_before = deepcopy(source), deepcopy(legacy)
+    reports = [parse_card(source, fetched_at=STAMP)['report'], build_endfield_report(legacy)]
+    for report in reports:
+        coupon = report['regions']['items'][0]['money']
+        assert coupon['current'] == current
+        assert coupon['total'] == 10
+        assert coupon['remaining'] == (10 - current if current is not None else None)
+        assert coupon['percent'] == (current * 10 if current is not None else None)
+    assert source == source_before and legacy == legacy_before
+
+
+@pytest.mark.parametrize('officers,expected', [
+    ('char1', ['char1']), (0, ['0']), (5, ['5']), (['char1', 0], ['char1', '0']),
+    ([], []), (None, None), ('', ['']),
+])
+def test_region_officers_accept_documented_scalar_without_guessing_empty_meaning(officers, expected):
+    source = {'chars': [{'id': 'instance', 'charData': {'id': 'char1', 'name': '佩丽卡'}}],
+              'domain': [{'settlements': [{'officerCharIds': officers}]}]}
+    original = deepcopy(source)
+    payload = parse_card(source, fetched_at=STAMP)
+    assert payload['regions'][0]['settlements'][0]['officer_char_ids'] == expected
+    settlement = payload['report']['regions']['items'][0]['settlements'][0]
+    assert settlement['officers_available'] is (expected is not None)
+    assert [resident['id'] for resident in settlement['officers']] == (expected or [])
+    if expected and expected[0] == 'char1':
+        assert settlement['officers'][0]['name'] == '佩丽卡'
+    assert source == original
+
+
+@pytest.mark.parametrize('officers', [True, False, {}, 1.5, ['char1', True], ['char1', {}], ['char1', None]])
+def test_region_officers_still_reject_invalid_shapes(officers):
+    with pytest.raises(ValueError, match='expected officer ids'):
+        parse_card({'domain': [{'settlements': [{'officerCharIds': officers}]}]}, fetched_at=STAMP)
+
+
+def test_ship_reception_room_type_has_documented_fallback_name():
+    rooms = parse_card({'spaceShip': {'rooms': [
+        {'id': 'r1', 'type': 3}, {'id': 'r2', 'type': 3, 'name': '上游会客室名称'}]}}, fetched_at=STAMP)['ship']
+    assert [room['name'] for room in rooms] == ['会客室', '上游会客室名称']

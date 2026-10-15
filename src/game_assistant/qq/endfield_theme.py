@@ -20,7 +20,7 @@ SECTION_LABELS = {
     'ef_regions': 'REGIONAL DEVELOPMENT', 'ef_settlements': 'SETTLEMENT STATUS',
     'ef_collections': 'EXPLORATION RECORDS', 'ef_ship': 'DIJIANG OVERVIEW',
     'ef_room': 'ROOM ASSIGNMENTS', 'ef_gacha': 'HEADHUNTING REPORT',
-    'ef_gacha_pool': 'RECORDED PULL HISTORY', 'ef_honor': 'PATH OF HONOR',
+    'ef_gacha_pool': 'RECORDED PULL HISTORY', 'ef_gacha_pools': 'POOL COVERAGE', 'ef_honor': 'PATH OF HONOR',
     'ef_medals': 'MEDAL COLLECTION',
     'ef_challenge': 'CHALLENGE OBSERVATIONS', 'ef_war': 'WAR RECORDS',
     'ef_monument': 'MONUMENT RECORDS', 'ef_crisis': 'CRISIS RECORDS',

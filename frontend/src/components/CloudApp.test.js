@@ -30,7 +30,7 @@ test('minute session check defers during an accepted refresh and resumes after s
     else if (path.endsWith('/csrf')) data = { csrf_token: 'fixture' }
     else if (path === '/api/accounts') data = { accounts: [{ account_id: 'a', provider: 'hypergryph', state: 'active', capabilities: ['account'], roles: [{ role_id: 'r', is_default: true }] }] }
     else if (path.endsWith('/refresh/account')) { posts++; data = { state: 'queued' } }
-    else if (path.endsWith('/snapshot/account')) { reads++; data = { state: 'ok', payload: { nickname: reads > 3 ? '定时交互新快照' : '定时交互旧快照' }, poll_status: { refresh_state: posts && reads === 3 ? 'queued' : 'idle' } } }
+    else if (path.endsWith('/snapshot/account')) { reads++; data = { account_id:'a',role_id:'r',state: 'ok', payload: { role_id:'r',nickname: reads > 3 ? '定时交互新快照' : '定时交互旧快照' }, poll_status: { refresh_state: posts && reads === 3 ? 'queued' : 'idle' } } }
     else data = { state: 'never', payload: null }
     return new Response(JSON.stringify(data))
   })
@@ -58,7 +58,7 @@ test('refresh UI converges without the minute timer and public never state is ex
     else if (path.endsWith('/csrf')) data = { csrf_token: 'fixture' }
     else if (path === '/api/accounts') data = { accounts: [{ account_id: 'a', provider: 'hypergryph', state: 'active', capabilities: ['account'], roles: [{ role_id: 'r', is_default: true }] }] }
     else if (path.endsWith('/refresh/account')) { posts++; data = { state: 'queued' } }
-    else if (path.endsWith('/snapshot/account')) { reads++; data = { state: 'ok', payload: { nickname: reads > 3 ? '新快照' : '旧快照' }, poll_status: { refresh_state: posts && reads === 3 ? 'queued' : 'idle' } } }
+    else if (path.endsWith('/snapshot/account')) { reads++; data = { account_id:'a',role_id:'r',state: 'ok', payload: { role_id:'r',nickname: reads > 3 ? '新快照' : '旧快照' }, poll_status: { refresh_state: posts && reads === 3 ? 'queued' : 'idle' } } }
     else data = { state: 'never', payload: null }
     return new Response(JSON.stringify(data))
   })

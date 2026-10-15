@@ -20,7 +20,7 @@ from .commands import safe_text
 from .cards import validate_card_document, card_to_text, image_references
 from . import card_rendering
 
-TEMPLATE_VERSION = 'qq-unified-3-endfield-2'
+TEMPLATE_VERSION = 'qq-unified-3-endfield-3'
 
 
 class RenderingUnavailable(Exception):

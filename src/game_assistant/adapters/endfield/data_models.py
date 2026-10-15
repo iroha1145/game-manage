@@ -55,9 +55,15 @@ class EndfieldGachaPool(BaseModel):
     total: int = 0
     six_star: int = 0
     five_star: int = 0
+    four_star: int | None = None
+    unknown_rarity: int | None = None
     free: int = 0
     since_last_six: EndfieldPity = EndfieldPity()
     history: list[EndfieldSixStar] = []
+    history_total: int | None = None
+    history_available: int | None = None
+    history_limit: int | None = None
+    history_truncated: bool | None = None
     newest_at: int | None = None
     oldest_at: int | None = None
     gaps: int = 0

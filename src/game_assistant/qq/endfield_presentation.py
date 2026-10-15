@@ -61,10 +61,55 @@ def _missing(snapshot, key, label):
     return '本次成功快照的' + label + '列表为空。'
 
 
+def _challenge_budget(sections):
+    """Reserve for measured typography before the generic long-card limits.
+
+    Details have at most four rows per section. The CJK-width estimate is
+    deliberately conservative, including long names and wrapped field labels.
+    No final normalizer may remove a field that the coverage counts promise.
+    """
+    from math import ceil
+    if len(sections)>34:return False
+    fields=rows=characters=0
+    height=850  # report heading, notices and footer
+
+    def lines(value,size,width):
+        return max(1,ceil(len(value)*size/width))
+
+    def field_height(items, *, tiles):
+        if not items:return 0
+        columns=min(3,len(items))
+        if len(items) in (2,4):
+            columns=4 if len(items)==4 and all(len(item['value'])<=10 for item in items) else 2
+        elif len(items)==8:columns=4
+        if any(len(item['value'])>24 for item in items):columns=min(columns,2)
+        width=(972-16*(columns-1))//columns-24
+        total=0
+        for index in range(0,len(items),columns):
+            group=items[index:index+columns]
+            total+=max(20+lines(item['label'],22,width)*30+
+                       lines(item['value'],36 if tiles and len(item['value'])<=12 else 26,width)*
+                       (44 if tiles and len(item['value'])<=12 else 34)+8 for item in group)+12
+        return total
+
+    for section in sections:
+        height+=110+lines(section['title'],30,918)*38+field_height(section['fields'],tiles=True)
+        characters+=len(section['title'])+8
+        fields+=len(section['fields'])
+        characters+=sum(len(item['label'])+len(item['value'])+8 for item in section['fields'])
+        for row in section['rows']:
+            rows+=1;fields+=len(row['fields'])
+            characters+=len(row['title'])+len(row.get('subtitle',''))+12
+            characters+=sum(len(item['label'])+len(item['value'])+8 for item in row['fields'])
+            height+=lines(row['title'],28,972)*36+field_height(row['fields'],tiles=False)+42
+    return fields<=350 and rows<=250 and characters<=21000 and height<=12200
+
+
 def challenge_document(reports):
-    """Three separately timed default-query observations, never live requests."""
+    """Three independently timed summaries, then fairly budgeted observations."""
     labels={'war':'战争','monument':'丰碑','crisis':'危机'}
-    sections=[]
+    units={'war':('赛季','周次','关卡组','荣誉'),'monument':('记录','关卡组'),'crisis':('记录',)}
+    summaries=[];details=[];totals=[];available=[]
 
     def title(item, fallback):
         value=item.get('name')
@@ -95,7 +140,21 @@ def challenge_document(reports):
             fields += [view.field('最高值',summary['highest']),view.field('挑战次数',summary['challenge_count'])]
         if report['available'] and not report['records']:
             fields.append(view.field('记录说明','本次返回列表为空；不据此判断未解锁或未挑战'))
-        sections.append(_section(label+' · 缓存状态',fields=fields,category=category))
+        summaries.append(_section(label+' · 缓存状态',fields=fields,category='ef_challenge'))
+        available.append(report['available'] and report['supported'] is not False)
+        counts={unit:0 for unit in units[kind]};entries=[]
+
+        def add(name, *, fields=None, rows=None, increments=None, row_unit=None):
+            rows=rows or []
+            for index in range(0,max(1,len(rows)),4):
+                chunk=rows[index:index+4]
+                count=dict(increments or {}) if index==0 else {}
+                if row_unit:count[row_unit]=len(chunk)
+                for key,value in count.items():counts[key]+=value
+                suffix=' · 续 '+str(index//4+1) if index else ''
+                entries.append((_section(view.text(name,80)+suffix,fields=fields if index==0 else [],
+                    rows=chunk,layout='rows' if chunk else 'stats',category=category),count))
+
         for record in report['records']:
             record_title=label+' · '+title(record,'未命名记录')
             fields=[]
@@ -103,23 +162,54 @@ def challenge_document(reports):
                 fields=[view.time_field('开始时间',record['start_at']),view.time_field('结束时间',record['end_at'])]
             if kind=='war':
                 fields.append(view.field('赛季星数',record['stars']))
-                sections.append(_section(record_title,fields=fields,category=category))
+                add(record_title,fields=fields,increments={'赛季':1})
                 for week in record['weeks']:
-                    sections.append(_section(title(week,'未命名周次'),fields=[view.field('周星数',week['stars'])],
-                        rows=group_rows(week['groups']),layout='rows',category=category))
+                    add(record_title+' · '+title(week,'未命名周次'),fields=[view.field('周星数',week['stars'])],
+                        rows=group_rows(week['groups']),increments={'周次':1},row_unit='关卡组')
             elif kind=='monument':
-                sections.append(_section(record_title,fields=fields,rows=group_rows(record['groups']),layout='rows',category=category))
+                add(record_title,fields=fields,rows=group_rows(record['groups']),increments={'记录':1},row_unit='关卡组')
             else:
-                sections.append(_section(record_title,fields=[view.field('通关状态',passed(record['passed'])),
-                    view.field('记录结果',record['result'])],category=category))
+                add(record_title,fields=[view.field('通关状态',passed(record['passed'])),
+                    view.field('记录结果',record['result'])],increments={'记录':1})
         if report['honors']:
-            sections.append(_section('战争 · 已观测荣誉',rows=[{'title':title(item,'未命名荣誉'),'fields':[
+            add('战争 · 已观测荣誉',rows=[{'title':title(item,'未命名荣誉'),'fields':[
                 view.field('星数',item['stars']),view.time_field('首次通关',item['first_pass_at'])]} for item in report['honors']],
-                layout='rows',category=category))
+                row_unit='荣誉')
+        details.append(entries);totals.append(counts)
+
+    selected=[[] for _ in details]
+
+    def compose(candidate):
+        from copy import deepcopy
+        output=deepcopy(summaries)
+        for index,entries in enumerate(candidate):
+            for unit,total in totals[index].items():
+                shown=sum(count.get(unit,0) for _,count in entries)
+                output[index]['fields'].append(view.field(unit+'（本图 / 已观测）',
+                    str(shown)+' / '+str(total) if available[index] else '未知 / 未采集'))
+        # All three statuses and times are above any detail, regardless of size.
+        return output+[section for entries in candidate for section,_ in entries]
+
+    # Whole bounded chunks are allocated in turns. A long first category can
+    # neither erase later summaries nor consume their first observation slots.
+    blocked=set()
+    while True:
+        progressed=False
+        for index,entries in enumerate(details):
+            if index in blocked or len(selected[index])==len(entries):continue
+            candidate=[list(items) for items in selected]
+            candidate[index].append(entries[len(selected[index])])
+            if _challenge_budget(compose(candidate)):
+                selected=candidate;progressed=True
+            else:blocked.add(index)
+        if not progressed:break
+    sections=compose(selected)
+    notices=['仅复用网站已查看的各分类默认查询缓存；未采集分类请在网站分别查看。',
+             '各分类时间独立；空列表不代表未参与，已采集记录不代表全部历史。']
+    if any(len(chosen)<len(entries) for chosen,entries in zip(selected,details)):
+        notices.append('明细按各分类本图 / 已观测数量展示；超限部分已省略，完整内容请到网站查看。')
     return view.document('list','endfield','终末地 · 挑战记录',sections=sections,
-        subtitle='森空岛档案 · 本人默认角色 · 战争 / 丰碑 / 危机',
-        notices=['仅复用网站已查看的各分类默认查询缓存；未采集分类请在网站分别查看。',
-                 '各分类时间独立；空列表不代表未参与，已采集记录不代表全部历史。'],
+        subtitle='森空岛档案 · 本人默认角色 · 战争 / 丰碑 / 危机',notices=notices,
         footer='时间均为北京时间；缺失字段保留未知；查询不会触发实时挑战采集。')
 
 
@@ -229,7 +319,7 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
     sections.append(_section('四件装备', rows=gear, layout='equipment', category='ef_equipment'))
     skills = view.rows(equipment_source.get('skills'))
     sections.append(_section('技能', layout='skills', rows=[view.with_image({'title': view.text(skill.get('name')),
-        'fields': [view.field('等级', skill.get('level'))]}, _image(asset_cache, 'skill', skill)) for skill in skills],
+        'fields': [view.field('等级', skill.get('level'))]+([view.field('专精',skill['mastery'])] if skill.get('mastery') is not None else [])}, _image(asset_cache, 'skill', skill)) for skill in skills],
         fields=[] if skills else [view.field('状态', '未采集')], category='ef_skills'))
     card = view.document('detail', 'endfield', '终末地 · ' + view.text(name), sections=sections,
         notices=_notice(snapshot) + ['配装仅限已采集字段；未采集与未装备不能互相代替。',detail_notice],
@@ -308,32 +398,101 @@ def _boundary(count, status):
     return ('至少 ' if status == 'lower_bound' else '') + view.text(count)
 
 
+def _gacha_budget(sections):
+    """Reserve readable four-column rows within the existing card limits.
+
+    A conservative text measurement also reserves space for images that may be
+    prefetched later. Whole rounds preserve fair coverage across all pools.
+    """
+    from math import ceil
+    fields=rows=characters=0; height=1000; encoded_reserve=60000
+    for section in sections:
+        characters+=len(section['title'])+8
+        height+=140
+        for field in section['fields']:
+            fields+=1;characters+=len(field['label'])+len(field['value'])+8
+        height+=ceil(len(section['fields'])/3)*130
+        entries=section['rows'];rows+=len(entries)
+        for row in entries:
+            characters+=len(row['title'])+len(row.get('subtitle',''))+12
+            for field in row['fields']:
+                fields+=1;characters+=len(field['label'])+len(field['value'])+8
+        if section.get('category')=='ef_gacha_pools':
+            height+=len(entries)*400
+            encoded_reserve+=len(entries)*16000
+        else:
+            # A catalog thumbnail can arrive after document preparation. Reserve
+            # its entropy even before prefetch, while text-only rows stay cheap.
+            encoded_reserve+=sum(4500 if row.get('image') else 1500 for row in entries)
+            for index in range(0,len(entries),4):
+                group=entries[index:index+4]
+                header=max(max(88,ceil(len(row['title'])/4)*32+ceil(len(row.get('subtitle',''))/4)*30) for row in group)
+                height+=header+230
+    return fields<=350 and rows<=250 and characters<=21000 and height<=13700 and encoded_reserve<=480000
+
+
 def gacha_document(snapshot, asset_cache=None, *, compact=False):
     report = build_gacha_report(view.obj(snapshot.payload))
     fields = [view.field(label, report.get(key)) for key, label in (
         ('total', '已记录抽数'), ('six_star', '6 星'), ('five_star', '5 星'), ('free', '免费抽'),
-        ('gaps', '已知缺口'), ('average_exact_pulls', '已展示准确区间均抽'))]
+        ('gaps', '已知缺口'), ('average_exact_pulls', '报告准确区间均抽'))]
     fields += [view.field('准确区间样本数', report.get('known_exact_intervals'))]
     fields += [view.field('同步状态', '无待续传记录' if report.get('complete') is True else
                          '仍有待续传记录' if report.get('complete') is False else '未知')]
-    sections = [_section('鹰角寻访 · 本人账本', fields=fields + view.metadata(snapshot)[:2], category='ef_gacha')]
-    for pool in report['pools']:
-        values = [view.field('已记录抽数', pool.get('total')), view.field('6 星', pool.get('six_star')),
-                  view.field('5 星', pool.get('five_star')), view.field('免费抽', pool.get('free'))]
+    state=('账本缓存 · 最近查询成功' if snapshot.state in ('ok','success') else
+           '最近查询失败或待刷新，显示已保存账本' if snapshot.state not in ('unknown','never') else
+           '同步状态未确认，显示已保存账本')
+    sections = [_section('鹰角寻访 · 本人账本', fields=fields + [view.field('数据状态',state),
+        view.time_field('最新成功扫描',snapshot.fetched_at)], category='ef_gacha')]
+    # Pool summaries precede every historical row; no early pool can consume a
+    # later pool's statistics. More than 16 pools is an explicit resource cut.
+    pools=report['pools'][:16];counts=[0]*len(pools);summaries=[];histories=[]
+    for pool in pools:
         pity = view.obj(pool.get('since_last_six'))
-        values += [view.field('距上次 6 星（记录边界）', _boundary(pity.get('count'), pity.get('status'))),
-                   view.field('已知缺口', pool.get('gaps')), view.field('待同步', pool.get('pending'))]
+        status='待续传' if pool.get('pending') is True else '无待续传' if pool.get('pending') is False else '未知'
+        values=[view.field('已记录抽数',pool.get('total')),
+            view.field('稀有度',' / '.join(label+' '+view.text(pool.get(key)) for key,label in
+                (('six_star','6★'),('five_star','5★'),('four_star','4★'),('unknown_rarity','其他或未知')))),
+            view.field('免费抽',pool.get('free')),
+            view.field('距上次 6 星',_boundary(pity.get('count'),pity.get('status'))),
+            view.field('扫描与缺口',status+' · 缺口 '+view.text(pool.get('gaps'))),
+            view.field('账本时间范围',view.format_time(pool.get('oldest_at'))+' 至 '+view.format_time(pool.get('newest_at'))),
+            view.time_field('本池成功扫描',pool.get('last_sync_at')),view.field('6 星覆盖','待分配')]
+        summaries.append({'title':view.text(pool.get('label') or pool.get('key')), 'fields':values})
         entries = []
         if not compact:
             for item in view.rows(pool.get('history')):
-                entries.append(view.with_image({'title': view.text(item.get('name')), 'fields': [
-                    view.field('该次 6 星抽数', _boundary(item.get('pulls'), item.get('status'))),
-                    view.field('记录边界', {'exact': '记录内准确', 'lower_bound': '下限'}.get(item.get('status'), '未知')),
+                entries.append(view.with_image({'title': view.text(item.get('name'),40),
+                    'subtitle':view.text(item['pool_name'],64) if item.get('pool_name') else '', 'fields': [
+                    view.field('该次 6 星抽数', _boundary(item.get('pulls'), item.get('status'))+' · '+
+                        {'exact':'记录内准确','lower_bound':'记录下限'}.get(item.get('status'),'边界未知')),
                     view.time_field('获取时间', item.get('obtained_at'))]}, _image(asset_cache,
                         'weapon' if pool.get('kind') == 'weapon' else 'role', item)))
-        sections.append(_section(view.text(pool.get('label') or pool.get('key')), fields=values, rows=entries, layout='rows', category='ef_gacha_pool'))
-    notices = [view.metadata(snapshot)[0]['value'], '只代表已记录历史；同步完成不证明全生涯历史完整。记录边界保留准确、下限或未知。',
-               '均抽仅取当前展示的准确出货区间；免费抽与缺口不当作确定垫抽，不预测下次出货。']
+        histories.append(entries)
+
+    def compose(allocated):
+        for index,(pool,row) in enumerate(zip(pools,summaries)):
+            value='本图 '+str(allocated[index])+' / 报告 '+str(pool['history_available'])+' / 账本 '+view.text(pool['history_total'])
+            if pool['history_limit'] is not None:value+=' · 报告上限 '+view.text(pool['history_limit'])
+            if allocated[index]<pool['history_available'] or pool['history_truncated'] is True:value+=' · 有省略'
+            row['fields'][-1]=view.field('6 星覆盖',value)
+        output=sections+([_section('各卡池统计 · 全部优先',rows=summaries,layout='rows',category='ef_gacha_pools')] if summaries else [])
+        return output+[_section(summaries[index]['title']+' · 最近 6 星',rows=histories[index][:count],layout='grid',category='ef_gacha_pool')
+                       for index,count in enumerate(allocated) if count]
+
+    if not compact:
+        while True:
+            candidate=[min(count+1,len(entries)) for count,entries in zip(counts,histories)]
+            if candidate==counts or not _gacha_budget(compose(candidate)):break
+            counts=candidate
+    sections=compose(counts)
+    notices = [state, '只代表已记录历史；同步完成不证明全生涯历史完整。记录边界保留准确、下限或未知。',
+               '均抽来自报告中准确区间，不随图片裁减重算；免费抽与缺口不当作确定垫抽。']
+    clipped=len(pools)<len(report['pools']) or any(count<len(entries) for count,entries in zip(counts,histories))
+    if clipped or any(pool['history_truncated'] is True for pool in pools):
+        notices.append('6 星明细按各池覆盖数展示；更早或超限内容已省略，完整逐抽请到网站查看或导出。')
+    if len(pools)<len(report['pools']):
+        notices[-1]='本图卡池 '+str(len(pools))+' / '+str(len(report['pools']))+'；'+notices[-1]
     if not report['pools']:
         notices.append('本次账本记录为空。' if report.get('total') == 0 else '暂无已采集寻访记录；请在网站同步本人记录。')
     return view.document('list', 'endfield', '终末地 · 寻访战报', sections=sections, notices=notices,

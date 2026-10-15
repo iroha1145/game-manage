@@ -75,3 +75,8 @@ test('saved region reports and legacy collection-only profiles gain names withou
   assert.equal(legacy.areas[0].chests.count,0)
   assert.equal(legacy.areas[0].chests.total,undefined)
 })
+
+test('legacy region money spelling alias keeps known zero before conut',()=>{
+ const report=profileReport({regions:[{money:{count:0,conut:9}},{money:{count:null,conut:9}},{money:{conut:7}}]})
+ assert.deepEqual(report.regions.items.map(item=>item.money.count),[0,9,7])
+})

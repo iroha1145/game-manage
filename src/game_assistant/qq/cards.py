@@ -227,6 +227,19 @@ def card_to_text(card):
     full = _serialize(card)
     if len(full)<=MAX_TEXT:
         return full
+    pools=next((section['rows'] for section in card['sections'] if section.get('category')=='ef_gacha_pools'),None)
+    if card['game']=='endfield' and card['kind']=='list' and pools is not None:
+        return _endfield_gacha_summary(card,pools)
+    challenge=[section for section in card['sections'] if section.get('category')=='ef_challenge']
+    if card['game']=='endfield' and card['kind']=='list' and challenge:
+        # Challenge timestamps describe separate observations. Keep all three
+        # statuses before choosing any detailed record for a transport fallback.
+        lines=[card['title'],'文字摘要 · 三类状态优先；关卡明细见图片或网站']
+        for section in challenge:
+            lines.append(section['title'])
+            lines.extend(f"{item['label']}：{item['value']}" for item in section['fields'])
+        lines+=card['notices']+([card['footer']] if card['footer'] else [])
+        if len('\n'.join(lines))<=MAX_TEXT:return '\n'.join(lines)
     # The long image is complete; fallback is explicitly a summary. Preserve
     # every source notice and timestamp, and shorten only whole display lines.
     head=[card['title'],card['subtitle'],'文字摘要 · 完整内容见图片或网站']
@@ -245,6 +258,34 @@ def card_to_text(card):
                 return '\n'.join(head+body+tail)
             body.append(line);remaining-=len(line)+1
     return '\n'.join(head+body+tail)
+
+
+def _endfield_gacha_summary(card,pools):
+    """Prefer every pool's statistics to one pool's historical rows."""
+    head=[card['title'],'文字摘要 · 各池统计优先；逐条明细见图片或网站']
+    overview=next((section['fields'] for section in card['sections'] if section.get('category')=='ef_gacha'),[])
+    values={field['label']:field['value'] for field in overview}
+    head.append('已记录 '+values.get('已记录抽数','未知')+' 抽 · 6★ '+values.get('6 星','未知')+
+                ' · 5★ '+values.get('5 星','未知')+' · 报告区间均抽 '+values.get('报告准确区间均抽','未知')+
+                '（样本 '+values.get('准确区间样本数','未知')+'）')
+    tail=card['notices']+([card['footer']] if card['footer'] else [])
+    body=[]
+    for row in pools:
+        values={field['label']:field['value'] for field in row['fields']}
+        body.append(row['title']+'：记录 '+values.get('已记录抽数','未知')+' · '+values.get('稀有度','未知')+
+                    ' · 免费 '+values.get('免费抽','未知')+' · 距6★ '+values.get('距上次 6 星','未知')+
+                    ' · '+values.get('扫描与缺口','未知')+'\n6★ '+values.get('6 星覆盖','未知')+
+                    ' · 扫描 '+values.get('本池成功扫描','未知'))
+    if len('\n'.join(head+body+tail))<=MAX_TEXT:
+        return '\n'.join(head+body+tail)
+    # Extremely many/long pool names still obey the transport limit. Never
+    # pretend omitted pools are included, nor discard the source-state tail.
+    selected=[]
+    for line in body:
+        notice=f'文字统计 {len(selected)+1} / {len(pools)} 池；其余卡池见图片或网站。'
+        if len('\n'.join(head+selected+[line,notice]+tail))>MAX_TEXT:break
+        selected.append(line)
+    return '\n'.join(head+selected+[f'文字统计 {len(selected)} / {len(pools)} 池；其余卡池见图片或网站。']+tail)
 
 
 def image_references(card):

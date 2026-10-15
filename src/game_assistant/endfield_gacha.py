@@ -272,9 +272,13 @@ def _pool_summary(key, kind, label, last_sync_at, rows, breaks) -> EndfieldGacha
     return EndfieldGachaPool(
         key=key, label=label, kind=kind, total=len(rows),
         six_star=sum(row.get("rarity") == 6 for row in rows), five_star=sum(row.get("rarity") == 5 for row in rows),
+        four_star=sum(row.get("rarity") == 4 for row in rows),
+        unknown_rarity=sum(row.get("rarity") not in (4, 5, 6) for row in rows),
         free=sum(row.get("is_free") is True for row in rows),
         since_last_six=EndfieldPity(count=count, status="exact" if exact and not free_in_count else "lower_bound"),
         history=list(reversed(history))[:HISTORY_LIMIT],
+        history_total=len(history), history_available=min(len(history), HISTORY_LIMIT),
+        history_limit=HISTORY_LIMIT, history_truncated=len(history)>HISTORY_LIMIT,
         newest_at=max(times, default=None), oldest_at=min(times, default=None),
         gaps=len(breaks), pending=any(not permanent for permanent in breaks.values()), last_sync_at=last_sync_at)
 

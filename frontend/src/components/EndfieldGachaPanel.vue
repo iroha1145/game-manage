@@ -4,6 +4,7 @@ const cloudMode = isCloudMode()
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { fetchedLabel } from '../time.js'
 import { exportRecords, getRecords, pityText, pullDate, rarityLabel } from '../endfield-gacha-api.js'
+import { gachaPools } from '../endfield-gacha-summary.js'
 import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
@@ -18,21 +19,20 @@ const reportMetrics = computed(() => [
   { label: '5★ 记录', value: report.value?.five_star },
   { label: '免费寻访', value: report.value?.free },
 ])
-const pools = computed(() => Array.isArray(summary.value?.pools) ? summary.value.pools : [])
+const pools = computed(() => gachaPools(summary.value))
 const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 const poolOptions = computed(() => [{ value: '', label: '全部卡池' }, ...pools.value.map(pool => ({ value: pool.key, label: pool.label }))])
 const opened = ref(false), recordPool = ref(''), records = ref([]), total = ref(0), offset = ref(0), busy = ref(false), message = ref('')
 const PAGE = 50
 let generation = 0
 
-// Rarity split of a pool: 6★, 5★ and the rest, as flex weights for the stacked bar
-// (colours as in the Wuwa panel: game colour, purple, then grey for the common tier).
+// Unknown rarity stays unknown; old snapshots do not prove a 4★ remainder.
 function split(pool) {
-  const rest = Math.max(0, (pool.total || 0) - (pool.six_star || 0) - (pool.five_star || 0))
   return [
-    { label: '6★', count: pool.six_star || 0, series: 'var(--game-endfield)' },
-    { label: '5★', count: pool.five_star || 0, series: 'var(--chart-5)' },
-    { label: '4★', count: rest, series: 'var(--text-faint)' },
+    {label:'6★',count:pool.six_star,series:'var(--game-endfield)'},
+    {label:'5★',count:pool.five_star,series:'var(--chart-5)'},
+    {label:'4★',count:pool.four_star,series:'var(--text-faint)'},
+    {label:'未知 / 其他',count:pool.unknown_rarity,series:'var(--border)'},
   ]
 }
 const sixPulls = item => item.pulls == null ? '未知' : item.status === 'exact' ? `${item.pulls} 抽` : item.status === 'lower_bound' ? `≥${item.pulls} 抽` : '未知'
@@ -101,14 +101,16 @@ async function download() {
             <span class="k">距上次 6★<InfoHint v-if="pool.since_last_six?.status === 'lower_bound'" text="≥ 表示已知最少抽数。记录缺口、更早记录缺失或免费寻访会影响统计；免费寻访是否计入保底尚不确定。" /></span>
             <strong>{{ pityText(pool.since_last_six) }}</strong>
           </div>
-          <div class="stack-bar" role="img" :aria-label="split(pool).map(part => `${part.label} ${part.count}`).join('，')">
+          <div class="stack-bar" role="img" :aria-label="split(pool).map(part => `${part.label} ${part.count ?? '未知'}`).join('，')">
             <i v-for="part in split(pool).filter(part => part.count)" :key="part.label" :style="{ '--series': part.series, flex: part.count }" />
           </div>
           <ul class="legend">
-            <li v-for="part in split(pool)" :key="part.label" :style="{ '--series': part.series }">{{ part.label }} <b>{{ part.count }}</b></li>
+            <li v-for="part in split(pool)" :key="part.label" :style="{ '--series': part.series }">{{ part.label }} <b>{{ part.count ?? '未知' }}</b></li>
             <li class="plain">共 <b>{{ pool.total }}</b> 抽</li>
             <li v-if="pool.free" class="plain">免费 <b>{{ pool.free }}</b></li>
           </ul>
+          <p class="notice history-coverage">6★ 历史：最近 {{ pool.history_available }} 条 / 账本 {{ pool.history_total ?? '未知' }} 条<span v-if="pool.history_limit != null"> · 最多展示 {{ pool.history_limit }} 条</span></p>
+          <p v-if="pool.history_truncated === true" class="notice">此处未展示全部 6★ 历史；展开逐条记录或导出完整已保存账本查看。</p><p v-else-if="pool.history_truncated == null" class="notice">历史覆盖范围未知；不代表完整生涯记录。</p>
           <ul v-if="pool.history?.length" class="chip-list" :aria-label="`${pool.label}的 6★ 记录`">
             <li v-for="(item, index) in pool.history" :key="index" class="chip six" :title="`${item.pool_name || pool.label} · ${pullDate(item.obtained_at)}`">{{ item.name || '未知' }} <b>{{ sixPulls(item) }}</b></li>
           </ul>

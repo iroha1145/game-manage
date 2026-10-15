@@ -64,3 +64,11 @@ test('closing the ledger while its response is pending discards late private rec
   nodes(root,'details')[0].props.onToggle({target:{open:false}});await flush();resolve();await flush()
   assert.doesNotMatch(content(root),/迟到私人记录/)
 })
+
+test('pool report coverage and unknown rarity are shown instead of inventing four-star remainder',t=>{
+ const pool={...summary.pools[0],six_star:51,four_star:null,unknown_rarity:4,history:Array.from({length:50},()=>({name:'报告出货'})),history_limit:50}
+ const root=mount(t,Panel,{accountId:'r1',snap:{payload:{...summary,report:{schema_version:1,pools:[pool]}}}})
+ assert.match(content(root),/4★ 未知/);assert.match(content(root),/未知 \/ 其他 4/);assert.match(content(root),/最近 50 条 \/ 账本 51 条/)
+ assert.match(content(root),/最多展示 50 条/);assert.match(content(root),/此处未展示全部 6★ 历史/);assert.match(content(root),/导出完整已保存账本/)
+ assert.doesNotMatch(content(root),/提弗洛斯/)
+})

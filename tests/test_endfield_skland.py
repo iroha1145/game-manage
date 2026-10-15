@@ -344,6 +344,25 @@ async def test_malformed_card_and_challenge_keep_last_success(tmp_path):
     assert bad_war['fetched_at'] == war['fetched_at']
 
 
+async def test_documented_scalar_officer_card_can_refresh_and_invalid_shape_keeps_it(tmp_path):
+    service, fake = await connected_service(tmp_path)
+    source = {'base': {'roleId': 'r1'},
+              'domain': [{'settlements': [{'officerCharIds': 'char1'}]}]}
+
+    async def card(*args, **kwargs):
+        return source
+
+    fake.card = card
+    good = await service.read_card(force=True)
+    assert good['stale'] is False and good['error'] is None
+    assert good['payload']['regions'][0]['settlements'][0]['officer_char_ids'] == ['char1']
+    source['domain'][0]['settlements'][0]['officerCharIds'] = {'unexpected': 'char1'}
+    bad = await service.read_card(force=True)
+    assert bad['stale'] is True
+    assert bad['payload'] == good['payload']
+    assert bad['fetched_at'] == good['fetched_at']
+
+
 async def test_malformed_attendance_cannot_replace_valid_status(tmp_path):
     service, fake = await connected_service(tmp_path)
     signed = await service.sign_attendance()

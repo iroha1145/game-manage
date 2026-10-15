@@ -158,6 +158,8 @@ def parse_card(detail: dict, *, fetched_at: str) -> dict:
         settlements = []
         for item in rows(domain.get("settlements")):
             officers = item.get('officerCharIds')
+            if isinstance(officers, (str, int)) and not isinstance(officers, bool):
+                officers = [officers]
             if officers is not None and (not isinstance(officers, list) or any(
                     isinstance(identity, bool) or not isinstance(identity, (str, int)) for identity in officers)):
                 raise ValueError('expected officer ids')
@@ -170,7 +172,7 @@ def parse_card(detail: dict, *, fetched_at: str) -> dict:
                         "levels": levels, "settlements": settlements,
                         "settlements_available": isinstance(domain.get("settlements"), list),
                         "money": obj(domain.get("moneyMgr"))})
-    room_types = {0: '总控中枢', 1: '制造', 2: '种植', 4: '指挥', 5: '接待', 999997: '未解锁'}
+    room_types = {0: '总控中枢', 1: '制造', 2: '种植', 3: '会客室', 4: '指挥', 5: '接待', 999997: '未解锁'}
     ship = [{"id": room.get("id"), "type": room.get("type"),
              'name': room.get('name') or room_types.get(room.get('type'), '舱室'), "level": number(room.get("level")),
              "operators_available": isinstance(room.get("chars"), list),

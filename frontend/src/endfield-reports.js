@@ -30,7 +30,7 @@ function labeledRegions(report) {
       .filter(item=>!levels.some(level=>level.id===item.level_id)).map(item=>({id:item.level_id,name:item.name,
         chests:{count:item.chest_count},puzzles:{count:item.puzzle_count},blackboxes:{count:item.blackbox_count},
         equipment_chests:{count:item.equipment_chest_count},pieces:{count:item.piece_count}}))]
-    return {...region,areas:areas.map(area=>({...area,name:
+    return {...region,money:region.money ? {...region.money,count:region.money.count ?? region.money.conut} : region.money,areas:areas.map(area=>({...area,name:
       levels.find(level=>level.id===area.id)?.name || collections.find(item=>item.level_id===area.id)?.name ||
       area.name || areaNames[area.id] || area.id}))}
   })}

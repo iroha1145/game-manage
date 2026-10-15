@@ -32,7 +32,7 @@ test('NTE restores guides and the original full ledger panel',async t=>{
 test('Endfield uses original dashboard without fetching another authorization identity',async t=>{
  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}));setAccountScope({user_id:'u',account_id:'a',role_id:'r',provider:'hypergryph'})
  const calls=[];t.mock.method(globalThis,'fetch',async path=>{calls.push(path);return new Response(JSON.stringify({}))})
- const root=mount(t,Card,{account:{...account('hypergryph'),capabilities:['account','gacha']},role:'r',userId:'u',snapshots:{account:{payload:{nickname:'鹰角本人',role_id:'r'}}}});await tick()
+ const root=mount(t,Card,{account:{...account('hypergryph'),capabilities:['account','gacha']},role:'r',userId:'u',snapshots:{account:{account_id:'a',role_id:'r',payload:{nickname:'鹰角本人',role_id:'r'}}}});await tick()
  assert.ok(btn(root,'地图与图鉴'));assert.match(content(root),/鹰角本人/);assert.ok(calls.every(p=>!p.includes('/skland/')));assert.doesNotMatch(content(root),/填写 cred/)
 })
 test('NTE residence names and name search use selected role mapping',async t=>{

@@ -54,7 +54,7 @@ test('cloud owner overview navigates to wuwa and its calendar preselects the gam
 test('skland detail selectors use every allowed challenge/tool kind and isolate late categories', async t => {
   configureHttpClient({mode:'cloud'}); t.after(() => configureHttpClient({mode:'local'}))
   const calls=[]; let delayed
-  t.mock.method(globalThis,'fetch',async path => { calls.push(path); if(path.endsWith('kind=war')) return new Promise(resolve=>{delayed=()=>resolve(new Response(JSON.stringify({records:[{name:'过期战争'}]}))) }); return new Response(JSON.stringify(path.includes('/challenges') ? {records:[{name:'当前挑战'}]} : {payload:[{name:'工具目录'}]})) })
+  t.mock.method(globalThis,'fetch',async path => { calls.push(path); if(path.endsWith('kind=war')) return new Promise(resolve=>{delayed=()=>resolve(new Response(JSON.stringify({kind:'war',fetched_at:'2026-10-15T01:00:00Z',records:[{name:'过期战争'}]}))) }); return new Response(JSON.stringify(path.includes('/challenges') ? {kind:'monument',fetched_at:'2026-10-15T02:00:00Z',records:[{name:'当前挑战'}]} : {payload:[{name:'工具目录'}]})) })
   const props=reactive({account:account('skland'),role:'skland-default'}), root=mount(t,Details,props)
   const type=nodes(root,'select')[0]; type.props['onUpdate:modelValue']('challenges'); await tick()
   const kind=nodes(root,'select')[1]; assert.equal(kind.children.filter(n=>n.type==='option').length,3)

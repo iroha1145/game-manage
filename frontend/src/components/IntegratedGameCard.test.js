@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { nextTick } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
 
 const Card = await loadVue(new URL('./GameCard.vue', import.meta.url))
@@ -17,10 +17,13 @@ test('integrated NTE keeps inline resources and the independent guide entry', as
 
 test('integrated shell retains the upstream Endfield gacha panel', async t => {
   t.mock.method(globalThis,'fetch',async()=>({ok:true,json:async()=>({connected:false,roles:[]})}))
-  const root=mount(t,Card,{game:game('endfield',['gacha']),externalSnapshots:{}})
+  const props=reactive({game:game('endfield',['gacha']),externalSnapshots:{}})
+  const root=mount(t,Card,props)
   nodes(root,'button').find(n=>content(n)==='抽卡统计').props.onClick()
   await nextTick()
-  assert.match(content(root),/登录终末地后/)
+  assert.match(content(root),/请登录有效的鹰角通行证/)
+  assert.equal(nodes(root,'button').find(n=>content(n)==='导出记录'),undefined)
+  props.game={...props.game,credentials_configured:true};props.externalSnapshots={account:{payload:{role_id:'r'}}};await nextTick()
   assert.match(content(root),/寻访记录/)
   assert.doesNotMatch(content(root),/敬请期待/)
 })

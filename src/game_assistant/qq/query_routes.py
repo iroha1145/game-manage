@@ -172,6 +172,12 @@ class QqQueryService:
         if cap=='gacha' and provider!='skland' and game!='nte':
             ledger=self._ledger_snapshot(scope,game)
             if ledger is not None:
+                if game=='endfield':
+                    # The ledger's successful scan times are independent of
+                    # the latest poll attempt. Preserve a known failed poll,
+                    # and do not invent success when status was never observed.
+                    source=self.query_service.read(scope,cap) if cap in caps else None
+                    ledger=QueryResult(ledger.payload,ledger.fetched_at,source.state if source else 'unknown',ledger.complete)
                 self._capture_snapshot(context,scope,cap,ledger)
                 return ledger
             if cap not in caps and game=='wuthering_waves':
