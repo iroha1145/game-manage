@@ -3,7 +3,7 @@ from copy import deepcopy
 from dataclasses import asdict
 from io import BytesIO
 
-from PIL import Image
+from PIL import Image, ImageDraw
 import pytest
 from pydantic import ValidationError
 
@@ -106,6 +106,45 @@ def test_portrait_catalog_precedes_avatar_url_and_failed_portrait_uses_small_ava
     cache._store(portrait_ref,sanitize_image(marker.getvalue(),portrait=True))
     uses.clear();render_card(card,font=cjk_font(),budget_seconds=10,asset_cache=cache)
     assert uses==[(portrait_ref,304,392)]
+
+
+@pytest.mark.parametrize('art',['portrait','avatar','none'])
+@pytest.mark.parametrize('obtained,expected',[
+    ('2026-01-22T02:51:00+00:00','2026-01-22 10:51'),(None,'未知')])
+def test_operator_acquisition_time_draws_one_full_width_line_inside_dossier(monkeypatch,art,obtained,expected):
+    cache=PublicAssetCache();source=synthetic_account()
+    source['operators'][1]['obtained_at']=obtained
+    card=long_document(operator_document(snapshot(source),'佩丽卡',cache),asset_cache=cache)
+    if art!='none':
+        marker=BytesIO();size=(303,386) if art=='portrait' else (120,120)
+        Image.new('RGB',size,(12,94,163)).save(marker,format='PNG')
+        ref=card['image'] if art=='portrait' else card['sections'][0]['image']
+        cache._store(ref,sanitize_image(marker.getvalue(),portrait=art=='portrait'))
+    drawn=[];operations=[];original_draw=ImageDraw.ImageDraw.text;original_paint=EndfieldLayout.paint
+    def capture_draw(self,position,value,*args,**kwargs):
+        drawn.append((position,value,kwargs['font']))
+        return original_draw(self,position,value,*args,**kwargs)
+    def capture_paint(self,height):
+        operations.extend(self.ops)
+        return original_paint(self,height)
+    monkeypatch.setattr(ImageDraw.ImageDraw,'text',capture_draw)
+    monkeypatch.setattr(EndfieldLayout,'paint',capture_paint)
+    png=render_card(card,font=cjk_font(),max_bytes=524288,asset_cache=cache)
+    date=[item for item in drawn if item[1].startswith('获得时间')]
+    assert len(date)==1 and date[0][1]=='获得时间 '+expected
+    position,text,font=date[0]
+    assert font.size>=22 and position[0]+font.getlength(text)<=1026
+    assert not any(item[0][1]==position[1] and item[1]!=text for item in drawn)
+    # The complete date belongs to the operator dossier, before the next
+    # section, regardless of portrait availability or an unknown value.
+    dossier=next(item for item in drawn if item[1]=='OPERATOR DOSSIER')
+    next_section=next(item for item in drawn if item[1]=='02')
+    assert dossier[0][1]<position[1]<next_section[0][1]
+    portraits=[op for op in operations if op[0]=='image']
+    assert len(portraits)==(0 if art=='none' else 1)
+    if portraits:assert portraits[0][1][2:]==((304,392) if art=='portrait' else (144,144))
+    image=Image.open(BytesIO(png))
+    assert image.width==1080 and image.width*image.height<=16000000 and len(png)<=524288
 
 
 def test_honor_image_retains_more_than_ten_medals_within_transport_budget(monkeypatch):

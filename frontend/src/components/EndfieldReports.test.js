@@ -41,6 +41,12 @@ test('ship shows static zero percentages and stage with accessible scales and or
   assert.match(content(root),/不外推当前状态/);assert.match(content(root),/查看原始观测值/)
 })
 
+test('saved ship report shows roster name and avatar for the observed template hash relation',t=>{
+  const root=mount(t,Reports,{view:'ship',payload:{operators:[{id:'66bc7e8123d7cd04b08d5834f343003a',name:'合成驻守',avatar_url:'https://bbs.hycdn.cn/synthetic.png'}],ship:[{operators:[{charId:'chr_1234_synthetic',physicalStrength:0,favorability:0}]}]}})
+  assert.match(content(root),/合成驻守/);assert.doesNotMatch(content(root),/chr_1234_synthetic|66bc7e8123d7cd04b08d5834f343003a/)
+  assert.ok(nodes(root,'img').some(node=>node.props.src==='https://bbs.hycdn.cn/synthetic.png' && node.props.alt==='合成驻守'))
+})
+
 test('missing collection metadata stays unknown and fetched time does not become game observation time',t=>{
   const old={stamina:{updated_at:'2026-10-15T01:00:00Z'},operators:[],regions:[],ship:[]}
   const overview=mount(t,Reports,{payload:old,view:'overview',fetchedAt:'2026-10-15T01:00:00Z'})
@@ -84,6 +90,16 @@ test('missing detail time is unknown and never borrows the profile fetch time',t
   const root=mount(t,Reports,{payload,view:'detail',fetchedAt:'2026-10-15T04:00:00Z',operatorDetailId:'a',operatorDetail:{name:'干员甲'}})
   assert.match(content(root),/配装同步于 未知/)
   assert.match(content(root),/来源未提供独立更新时间/)
+  assert.match(content(root),/获得时间 未知（北京时间）/)
+})
+
+test('operator obtained time uses only the selected detail, independent of profile and loadout fetch times',t=>{
+  for(const obtained_at of ['2025-12-31T17:02:00Z',null]) {
+    const root=mount(t,Reports,{payload:{operators:[{id:'a',obtained_at:'2020-01-01T00:00:00Z'}]},view:'detail',fetchedAt:'2026-10-15T04:00:00Z',operatorFetchedAt:'2026-10-15T01:00:00Z',operatorDetailId:'a',operatorDetail:{name:'干员甲',obtained_at}})
+    assert.match(content(root),/配装同步于 2026-10-15 09:00/)
+    assert.match(content(root),obtained_at?/获得时间 2026-01-01 01:02（北京时间）/:/获得时间 未知（北京时间）/)
+    assert.doesNotMatch(content(root),/获得时间 2026-10-15|2020-01-01/)
+  }
 })
 
 test('honor displays the whole supplied medal list and preserves zero and unknown fields',t=>{

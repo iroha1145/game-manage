@@ -1,12 +1,12 @@
 from copy import deepcopy
 from io import BytesIO
-from pathlib import Path
 import socket
 
 from PIL import Image
 import pytest
 
 from game_assistant.accounts.models import AccountScope, QueryResult
+from tests.qq_test_fonts import cjk_font_path as cjk_font
 
 
 def document(game='nte', kind='summary'):
@@ -46,14 +46,6 @@ def test_card_rejects_unknown_fields_types_and_oversized_content(change):
     change(card)
     with pytest.raises(ValueError):
         validate_card_document(card)
-
-
-def cjk_font():
-    path = next((p for p in ('C:/Windows/Fonts/msyh.ttc',
-        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc') if Path(p).is_file()), None)
-    if path is None:
-        pytest.skip('operator CJK font required')
-    return path
 
 
 def rendered(card=None, scopes=None, fingerprints=None):
@@ -123,9 +115,9 @@ def test_time_budget_fails_before_allocating_image(monkeypatch):
     ticks = iter((0, 4))
     monkeypatch.setattr(card_rendering.time,'monotonic',lambda: next(ticks))
     monkeypatch.setattr(card_rendering.Image,'new',lambda *a,**kw: pytest.fail('overspent before allocation'))
-    from PIL import ImageFont
+    from tests.qq_test_fonts import cjk_font as loaded_font
     with pytest.raises(ValueError, match='time_limit'):
-        card_rendering.render_card(document(),font=ImageFont.truetype(cjk_font(),30),budget_seconds=3)
+        card_rendering.render_card(document(),font=loaded_font(),budget_seconds=3)
 
 
 @pytest.mark.parametrize('game,kind', [('all','overview'), ('wuthering_waves','summary'),

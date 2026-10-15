@@ -28,6 +28,26 @@ def category_honor(categories=4,each=3):
     return source
 
 
+def test_observed_game_color_spans_are_display_only_without_resolving_parameters():
+    from game_assistant.qq.endfield_presentation import _tactical_effect_text
+    source = synthetic_account()
+    effect = ('每秒回复<@ba.vup>{triggerheal2:0%}</>生命值。'
+              '<@tips.purple>支援主控干员</> · <@tips.orange>恢复次数</>；'
+              '未知 <foo>原文</foo> 与 {count:0} 保留。')
+    source['operators'][0]['tactical_item'] = {
+        'name': '合成战术道具', 'active_effect': effect, 'passive_effect': None,
+    }
+    before = deepcopy(source)
+    assert _tactical_effect_text('<@unknown>原文</>') == '<@unknown>原文</>'
+    card = operator_document(snapshot(source), '陈千语')
+    fields = next(section for section in card['sections']
+                  if section.get('category') == 'ef_tactical')['fields']
+    prose = ''.join(field['value'] for field in fields if field['label'].startswith('主动效果'))
+    assert prose == ('每秒回复{triggerheal2:0%}生命值。支援主控干员 · 恢复次数；'
+                     '未知 <foo>原文</foo> 与 {count:0} 保留。')
+    assert source == before
+
+
 @pytest.mark.parametrize('mood,trust,expected_mood,expected_trust,stage',[
     (0,0,'0%','0%','友好'),(6250.129,1064,'62.5%','163%','亲近'),
     (6255,996,'62.6%','158%','亲近'),(10000,1500,'100%','200%','信任'),
@@ -63,7 +83,7 @@ def test_ship_render_emphasizes_percentages_and_keeps_unknown_track(monkeypatch)
     for color in ('#ffd000','#58d5de'):
         assert any(op[0]=='rect' and op[2]==color and op[1][3]-op[1][1]==8 and op[1][2]-op[1][0]>100 for op in operations)
     assert Image.open(BytesIO(png)).width==1080 and len(png)<=524288
-    assert TEMPLATE_VERSION=='qq-unified-3-endfield-4'
+    assert TEMPLATE_VERSION=='qq-unified-3-endfield-5'
 
 
 def assert_honor_counts(card):

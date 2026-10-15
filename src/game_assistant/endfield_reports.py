@@ -7,6 +7,7 @@ time-based predictions of the player's current state.
 """
 from copy import deepcopy
 from datetime import datetime, timezone
+import hashlib
 from math import floor, isfinite
 import re
 
@@ -55,11 +56,17 @@ def _operator_index(operators):
     return result
 
 
-def _resident(raw, operators):
+def _resident(raw, operators, *, template_hash=False):
     raw = _object(raw)
     identity = raw.get('charId', raw.get('char_id', raw.get('id')))
     identity = str(identity) if identity is not None else ''
     operator = operators.get(identity, {})
+    if not operator and template_hash and re.fullmatch(r'chr_[0-9]{4}_[a-z0-9_]+', identity):
+        # Observed card rosters use MD5(template ID), while spaceship residents
+        # retain the template ID. Resolve that exact key without changing either
+        # public ID or guessing from names, catalog aliases, or image paths.
+        digest = hashlib.md5(identity.encode('utf-8'), usedforsecurity=False).hexdigest()
+        operator = operators.get(digest, {})
     char_data = _object(raw.get('charData'))
     return {'id': identity, 'name': raw.get('name') or char_data.get('name') or operator.get('name'),
             'avatar_url': operator.get('avatar_url') or char_data.get('avatarSqUrl'),
@@ -84,7 +91,7 @@ def _ship_number(raw):
 
 
 def _ship_resident(raw, operators):
-    resident = _resident(raw, operators)
+    resident = _resident(raw, operators, template_hash=True)
     mood = _ship_number(_object(raw).get('physicalStrength'))
     trust = _ship_number(_object(raw).get('favorability'))
     resident.update(mood_raw=mood, trust_raw=trust)

@@ -1,6 +1,5 @@
 import asyncio
 from io import BytesIO
-from pathlib import Path
 import threading
 
 from PIL import Image
@@ -8,6 +7,7 @@ import pytest
 
 from game_assistant.accounts.models import AccountScope, QueryResult
 from game_assistant.qq.commands import render_result
+from tests.qq_test_fonts import cjk_font_path as cjk_font
 
 
 def renderer_module():
@@ -17,14 +17,6 @@ def renderer_module():
 
 def result(text='昵称：测试\n等级：0', timestamp='2026-10-12T12:00:00Z'):
     return QueryResult({'text': text}, timestamp, 'ok', None)
-
-
-def cjk_font():
-    paths = ('C:/Windows/Fonts/msyh.ttc', '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc')
-    path = next((p for p in paths if Path(p).is_file()), None)
-    if path is None:
-        pytest.skip('Install system fonts-noto-cjk to verify real CJK PNG rendering')
-    return path
 
 
 def test_cache_includes_account_and_snapshot():

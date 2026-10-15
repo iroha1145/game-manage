@@ -56,6 +56,14 @@ def _utc_ts(value):
         return None
 
 
+def _optional_utc_ts(value):
+    # Optional metadata must not invalidate the rest of an observed operator.
+    try:
+        return _utc_ts(value)
+    except (OverflowError, TypeError, ValueError):
+        return None
+
+
 def parse_roles(data: dict) -> list[dict]:
     found = []
     for app in rows(data.get("list")):
@@ -162,6 +170,7 @@ def parse_operator(char: dict) -> dict:
                        "icon_url": skill.get("iconUrl")})
     return {"id": str(char.get("id") or info.get("id") or ""),
             "char_id": str(info.get("id") or char.get("charId") or char.get("id") or ""), "name": info.get("name"),
+            "obtained_at": _optional_utc_ts(char.get("ownTs")),
             "level": number(char.get("level")), "rarity": value(info.get("rarity")),
             "potential": number(char.get("potentialLevel")), "evolve_phase": number(char.get("evolvePhase")),
             "profession": value(info.get("profession")), "property": value(info.get("property")),

@@ -3,11 +3,19 @@
 This module never reads credentials, contacts upstream services or joins game
 identities. Only existing scoped snapshots and the public image cache enter it.
 """
+import re
+
 from game_assistant.endfield_reports import build_endfield_report, build_gacha_report
 
 from . import presentation as view
 
 SLOTS = {'bodyEquip': '护甲', 'armEquip': '护手', 'firstAccessory': '配件一', 'secondAccessory': '配件二'}
+
+
+def _tactical_effect_text(raw):
+    # Observed game color spans are formatting, not part of the effect prose.
+    # Keep unknown markup and parameter placeholders; never interpret HTML.
+    return re.sub(r'<@(?:ba\.vup|tips\.(?:purple|orange))>([^<>]*)</>', r'\1', raw)
 
 
 def _image(cache, kind, item):
@@ -273,7 +281,7 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
         cached=view.obj(detail.payload)
         same_id=bool(item.get('id')) and cached.get('id')==item['id']
         if same_id:
-            # Basic level/potential stay anchored to the account observation.
+            # Basic stats and acquisition time stay anchored to the account observation.
             # Only equipment fields come from this separately-timed detail.
             equipment_source={**item,**{key:cached[key] for key in ('weapon','equipment','skills','tactical_item') if key in cached}}
             # Legacy independent details predate this field. Do not relabel an
@@ -285,7 +293,7 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
                    '已观测详情；早于当前档案' if older else '已观测详情；非实时状态')
             detail_fields=[view.time_field('档案抓取时间',snapshot.fetched_at),view.time_field('配装抓取时间',detail.fetched_at),
                            view.field('配装状态',state)]
-            detail_notice='基础练度来自档案；武器、装备、技能与战术道具来自同一干员的独立详情快照。'
+            detail_notice='基础资料与获得时间来自档案；武器、装备、技能与战术道具来自同一干员的独立详情快照。'
         elif detail.payload is None:
             detail_fields=[view.field('配装状态','最近读取失败，未取得独立详情'),view.time_field('配装抓取时间',detail.fetched_at)]
             detail_notice='独立详情尚无成功观测；当前配装仍取自档案快照。'
@@ -295,6 +303,7 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
     fields = [view.field(label, item.get(key)) for key, label in (
         ('level', '等级'), ('rarity', '稀有度'), ('evolve_phase', '精英阶段'), ('potential', '潜能'),
         ('profession', '职业'), ('property', '属性'))]
+    fields.append(view.time_field('获得时间', item.get('obtained_at')))
     portrait = _image(asset_cache, 'portrait', item)
     # Keep a separately-prefetched small avatar as the portrait failure fallback.
     sections = [view.with_image(_section('干员资料', fields=fields, layout='detail', category='ef_operator'), _image(asset_cache, 'role', item))]
@@ -330,7 +339,7 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
         fields=[view.field('稀有度',tactical.get('rarity'))]
         for key,label in (('active_effect','主动效果'),('passive_effect','被动效果')):
             raw=tactical.get(key)
-            effect=view.text(raw,641) if isinstance(raw,str) and raw.strip() else '未采集'
+            effect=view.text(_tactical_effect_text(raw),641) if isinstance(raw,str) and raw.strip() else '未采集'
             tactical_clipped=tactical_clipped or len(effect)>640
             effect=effect[:640]
             for index in range(0,len(effect),160):

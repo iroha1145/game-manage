@@ -332,13 +332,18 @@ class EndfieldLayout(MobileLayout):
             target_width,target_height=(304,392) if large else (144,144)
             self.avatar(ref,card['title'],x+(art_width-target_width)//2,y+(art_height-target_height)//2,target_width,target_height,portrait=True)
             self.rect((x,y+art_height-1,x+art_width,y+art_height+1),self.accent,0)
-        fields=list(section['fields'])
+        # Acquisition dates need the whole reading column, not half of a
+        # label/value cell beside the portrait. Keep unknown dates here too.
+        dates=[field for field in section['fields'] if field['label']=='获得时间']
+        fields=[field for field in section['fields'] if field['label']!='获得时间']
         main=fields[:1];others=fields[1:]
         bottom=y
         if main:
             bottom=self.text(main[0]['label'],left,y,area,22,self.muted)
             bottom=self.text(main[0]['value'],left,bottom+4,area,52,self.accent)
         bottom=self.attribute_list(others,left,bottom+10,area)
+        for field in dates:
+            bottom=self.metadata_strip([field],left,bottom+8,area)
         return max(y+art_height+14 if present else y,bottom+14)
 
     def tactical(self,section,x,y,width):

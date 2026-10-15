@@ -2,10 +2,9 @@
 from copy import deepcopy
 from dataclasses import asdict
 from io import BytesIO
-from pathlib import Path
 from types import SimpleNamespace
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import pytest
 from pydantic import ValidationError
 
@@ -20,6 +19,7 @@ from game_assistant.qq.endfield_presentation import (
 from game_assistant.qq.presentation import long_document
 from game_assistant.qq.query_routes import QueryBody
 from tests.test_qq_unified_queries import CachedQuery, IDENTITY, service, no_external_network
+from tests.qq_test_fonts import cjk_font
 
 NOW = '2026-10-15T02:30:00+00:00'
 
@@ -63,14 +63,6 @@ def synthetic_gacha():
 
 def snapshot(payload=None, **kwargs):
     return QueryResult(synthetic_account() if payload is None else payload,NOW,kwargs.get('state','ok'),kwargs.get('complete',None))
-
-
-def cjk_font():
-    candidates = ('/System/Library/Fonts/Hiragino Sans GB.ttc','/System/Library/Fonts/STHeiti Medium.ttc',
-                  'C:/Windows/Fonts/msyh.ttc','/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc')
-    path = next((value for value in candidates if Path(value).is_file()), None)
-    if path is None: pytest.skip('CJK font unavailable')
-    return ImageFont.truetype(path,30)
 
 
 @pytest.mark.parametrize('text,command', [('终末地 理智','stamina'),('终末地练度','training'),

@@ -8,6 +8,37 @@ const number = value => (typeof value === 'number' || typeof value === 'string' 
 const bounded = (value, maximum) => { const result = number(value); return result != null && result <= maximum ? result : null }
 const rows = value => Array.isArray(value) ? value.filter(item => item && typeof item === 'object' && !Array.isArray(item)) : []
 
+const md5Shifts = [7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21]
+const md5Constants = Array.from({length:64}, (_, index) => Math.floor(Math.abs(Math.sin(index + 1)) * 0x100000000))
+
+// Live ship charId values use this ASCII template form; the same roster stores
+// their lowercase MD5 digest. Keep this exact relation for saved observations.
+function residentRosterId(id) {
+  if (typeof id !== 'string' || /^chr_[0-9]{4}_[a-z0-9_]+$/.exec(id)?.[0] !== id) return null
+  const words = new Int32Array((((id.length + 8) >>> 6) + 1) * 16)
+  for (let index = 0; index < id.length; index++) words[index >>> 2] |= id.charCodeAt(index) << ((index % 4) * 8)
+  words[id.length >>> 2] |= 0x80 << ((id.length % 4) * 8)
+  words[words.length - 2] = id.length * 8
+  words[words.length - 1] = Math.floor(id.length / 0x20000000)
+  const state = [0x67452301,0xefcdab89,0x98badcfe,0x10325476]
+  for (let offset = 0; offset < words.length; offset += 16) {
+    let [a,b,c,d] = state
+    for (let index = 0; index < 64; index++) {
+      let mix, word
+      if (index < 16) { mix = (b & c) | (~b & d); word = index }
+      else if (index < 32) { mix = (d & b) | (~d & c); word = (5 * index + 1) % 16 }
+      else if (index < 48) { mix = b ^ c ^ d; word = (3 * index + 5) % 16 }
+      else { mix = c ^ (b | ~d); word = (7 * index) % 16 }
+      const shift = md5Shifts[(index >>> 4) * 4 + index % 4]
+      const sum = (a + mix + md5Constants[index] + words[offset + word]) | 0
+      const previousD = d
+      d = c; c = b; b = (b + ((sum << shift) | (sum >>> (32 - shift)))) | 0; a = previousD
+    }
+    for (const [index, value] of [a,b,c,d].entries()) state[index] = (state[index] + value) | 0
+  }
+  return state.flatMap(word => [0,8,16,24].map(shift => ((word >>> shift) & 0xff).toString(16).padStart(2,'0'))).join('')
+}
+
 // Compatibility for saved observations predating the shared backend fields.
 // Explicit values (including null) from the new report remain authoritative.
 export function shipResident(operator) {
@@ -30,7 +61,7 @@ export function shipReport(value, operators = []) {
     operators_available: typeof room.operators_available === 'boolean' ? room.operators_available : rows(room.operators).length ? true : null,
     operators: rows(room.operators).map(operator => {
       const id = operator.id ?? operator.charId ?? operator.char_id
-      const record = index.get(String(id))
+      const record = index.get(String(id)) || index.get(residentRosterId(id))
       return shipResident({ ...operator, id, name: operator.name || operator.charData?.name || record?.name,
         avatar_url: operator.avatar_url || record?.avatar_url || operator.charData?.avatarSqUrl })
     }) }))

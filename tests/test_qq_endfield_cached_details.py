@@ -105,6 +105,41 @@ def test_same_id_detail_keeps_newer_basic_stats_and_separate_observation_time(tm
     assert query.data[('sk','account')].payload['operators'][0]['weapon'] is None
 
 
+@pytest.mark.parametrize('obtained,expected', [
+    ('2026-04-12T03:04:05+00:00', '2026-04-12 11:04'),
+    (None, '未知'),
+])
+def test_acquisition_time_comes_only_from_account_not_detail_or_fetch_time(tmp_path, obtained, expected):
+    query,scope,grant,bundle,scoped=fixture(tmp_path)
+    account=query.data[('sk','account')]
+    account.payload['operators'][0]['obtained_at']=obtained
+    detail=scoped._service._operator_cache['c1']
+    detail['operator']['obtained_at']='2020-01-02T03:04:05Z'
+    detail['stale']=True
+    context={};text=service(query).query(IDENTITY,'roles','endfield',role_name='佩丽卡',image_context=context)['text']
+    fields=context['card']['sections'][0]['fields']
+    assert {'label':'获得时间','value':expected} in fields
+    assert '获得时间：'+expected in text and '2020-01-02' not in text
+    assert '基础资料与获得时间来自档案' in text
+    assert '最近读取失败，显示旧详情' in text
+    assert '配装抓取时间：2026-10-14 08:00' in text
+    assert query.refreshes==[] and account.payload['operators'][0]['obtained_at']==obtained
+
+
+def test_acquisition_field_changes_complete_card_cache_key_even_when_unknown(tmp_path):
+    from game_assistant.accounts.models import QueryResult
+    from game_assistant.qq.rendering import SummaryRenderer
+    query,scope,grant,bundle,scoped=fixture(tmp_path)
+    context={};service(query).query(IDENTITY,'roles','endfield',role_name='佩丽卡',image_context=context)
+    card=context['card'];legacy=deepcopy(card)
+    legacy['sections'][0]['fields']=[field for field in legacy['sections'][0]['fields'] if field['label']!='获得时间']
+    assert {'label':'获得时间','value':'未知'} in card['sections'][0]['fields']
+    renderer=SummaryRenderer()
+    current=QueryResult({'card':card},None,'ok',None)
+    before=QueryResult({'card':legacy},None,'ok',None)
+    assert renderer.cache_key(scope,current)!=renderer.cache_key(scope,before)
+
+
 def test_mismatched_detail_id_is_rejected_and_duplicate_names_do_not_read_cache(tmp_path):
     query,scope,grant,bundle,scoped=fixture(tmp_path)
     scoped._service._operator_cache['c1']=detail('foreign-id')

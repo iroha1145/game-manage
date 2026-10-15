@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { shipResident, shipPercent, SHIP_CONVERSION_MODEL } from './endfield-ship.js'
 import { profileReport } from './endfield-reports.js'
 
@@ -52,4 +53,30 @@ test('legacy ship summaries require complete room and staff observation, preserv
   assert.deepEqual(summary({...known,ship:[...known.ship,{operators:[]}]}),{room_count:3,staffed_rooms:null,operator_slots:null})
   assert.deepEqual(summary({...known,ship:[{operators:[{charId:'a'}],operators_available:false}]}),{room_count:1,staffed_rooms:null,operator_slots:null})
   assert.equal(summary({report:{schema_version:1,ship:{available:true,rooms:[],summary:{staffed_rooms:null}}}}).staffed_rooms,null)
+})
+
+test('saved ship observations join exact template MD5 roster IDs without replacing resident IDs or source fields',()=>{
+  // Synthetic IDs cover both MD5 padding boundaries and multiple blocks.
+  const ids = ['chr_0001_synthetic',...Array.from({length:75},(_,index)=>`chr_1234_${'a'.repeat(index+1)}`)]
+  const operators = ids.map((id,index)=>({id:createHash('md5').update(id,'utf8').digest('hex'),name:`合成驻守 ${index}`,avatar_url:`https://bbs.hycdn.cn/${index}.png`}))
+  const ship = [{operators:ids.map(charId=>({charId,physicalStrength:0,favorability:0}))}]
+  for (const payload of [{ship,operators},{report:{schema_version:1,ship:{rooms:ship},training:{items:operators}}}]) {
+    const residents = profileReport(payload).ship.rooms[0].operators
+    assert.deepEqual(residents.map(item=>item.name),operators.map(item=>item.name))
+    assert.deepEqual(residents.map(item=>item.avatar_url),operators.map(item=>item.avatar_url))
+    assert.deepEqual(residents.map(item=>item.id),ids)
+  }
+  assert.equal(ship[0].operators[0].name,undefined)
+  assert.equal(operators[0].char_id,undefined)
+})
+
+test('ship ID lookup keeps direct matches first and hashes only unchanged standard template IDs',()=>{
+  const id='chr_1234_synthetic',hash=value=>createHash('md5').update(value,'utf8').digest('hex')
+  const invalid=['chr_synthetic','CHR_1234_synthetic','chr_123_synthetic','chr_1234_Synthetic','chr_1234_合成',` ${id}`,`${id} `,`${id}\n`,`${id}\r\n`]
+  const operators=[{id:hash(id),name:'哈希匹配'},{id:'owned-id',char_id:id,name:'直接匹配'},...invalid.map(value=>({id:hash(value),name:'不可借用'}))]
+  const residents=profileReport({ship:[{operators:[{charId:id,name:'来源姓名',avatar_url:'https://bbs.hycdn.cn/source.png'},{charId:id},...invalid.map(charId=>({charId}))]}],operators}).ship.rooms[0].operators
+  assert.equal(residents[0].name,'来源姓名');assert.equal(residents[0].avatar_url,'https://bbs.hycdn.cn/source.png')
+  assert.equal(residents[1].name,'直接匹配')
+  assert.ok(residents.slice(2).every(item=>item.name==null))
+  assert.deepEqual(residents.slice(2).map(item=>item.id),invalid)
 })

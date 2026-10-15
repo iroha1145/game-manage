@@ -14,6 +14,9 @@ import EndfieldReports from './EndfieldReports.vue'
 import EndfieldChallenges from './EndfieldChallenges.vue'
 import { challengeReport, retainedChallenge } from '../endfield-challenges.js'
 import AnnouncementList from './AnnouncementList.vue'
+import EndfieldAttendance from './EndfieldAttendance.vue'
+import EndfieldNewsSummary from './EndfieldNewsSummary.vue'
+import { attendanceEnvelope } from '../endfield-attendance.js'
 
 const props = defineProps({ cloudAccount:Object, cloudRole:String, isAdmin:Boolean, configured:{type:Boolean,default:undefined}, authAccount:Object, refreshing:Boolean, snaps: { type: Object, default: () => ({}) }, initialSection: { type: String, default: 'overview' } })
 const emit = defineEmits(['calendar','refresh'])
@@ -66,7 +69,7 @@ const shipSummary = item => `${item.name || '舱室'} · 等级 ${display(item.l
 const countPair = item => `${display(item?.count)} / ${display(item?.total)}`
 const roleValue = computed(() => roleKey.value)
 const publicNewsSnap = computed(() => publicData.value?.news ? { ...publicData.value.news, payload: publicData.value.news.items, error: publicError.value } : null)
-const signedDays = computed(() => list(attendance.value?.calendar).filter(item => item.done).length)
+const newsSnapshots = computed(() => [publicNewsSnap.value, props.snaps.news, props.snaps.announcement].filter(Boolean))
 const officialTools = computed(() => list(publicData.value?.tools).filter(item => safeExternalUrl(item.url)))
 const selectedMap = computed(() => list(map.value?.maps).find(item => String(item.id) === String(mapId.value)))
 const toolKinds = [
@@ -177,7 +180,10 @@ async function loadCard(refresh = false) {
     const data = refresh ? await refreshSklandCard() : await getSklandCard()
     if (destroyed || seq !== privateSeq || owner !== roleKey.value) return
     card.value = data; cardError.value = humanError(data.error)
-  } catch (error) { if (seq === privateSeq && owner === roleKey.value) cardError.value = error.message }
+  } catch (error) { if (!destroyed && seq === privateSeq && owner === roleKey.value && error.name !== 'AbortError') {
+    cardError.value = error.message
+    if (card.value?.payload) card.value = { ...card.value, stale: true, error: error.message }
+  } }
   finally { if (seq === privateSeq) cardBusy.value = false }
 }
 async function loadAttendance(sign = false) {
@@ -188,8 +194,11 @@ async function loadAttendance(sign = false) {
   try {
     const data = sign ? await signAttendance() : await getAttendance()
     if (destroyed || seq !== attendanceSeq || owner !== roleKey.value) return
-    attendance.value = data; attendanceError.value = humanError(data.error)
-  } catch (error) { if (seq === attendanceSeq && owner === roleKey.value) attendanceError.value = error.message }
+    attendance.value = attendanceEnvelope(data); attendanceError.value = humanError(attendance.value?.error)
+  } catch (error) { if (!destroyed && seq === attendanceSeq && owner === roleKey.value && error.name !== 'AbortError') {
+    attendanceError.value = error.message
+    if (attendance.value) attendance.value = { ...attendance.value, stale: true, error: error.message }
+  } }
   finally { if (seq === attendanceSeq) attendanceBusy.value = false }
 }
 async function loadChallenge() {
@@ -392,19 +401,10 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
       <template v-if="section === 'overview'">
         <template v-if="roleKey"><p v-if="cardBusy" class="hint" role="status">正在读取档案…</p><p v-if="cardError" class="error" role="alert">{{ cardError }}</p>
           <EndfieldReports v-if="cardPayload" :payload="cardPayload" :fetched-at="card?.fetched_at" :stale="card?.stale" view="overview" @navigate="section = $event" /><p v-else-if="!cardBusy && !cardError" class="empty cap-card">暂无档案数据，请手动刷新。</p>
-          <section class="cap-card"><div class="cap-title">每日签到<span v-if="attendance?.stale" class="badge badge-stale">待更新</span></div>
-            <p v-if="attendanceBusy" class="hint" role="status">正在读取签到状态…</p>
-            <p v-if="attendanceError" class="error" role="alert">{{ attendanceError }}</p>
-            <p v-if="attendance?.supported === false" class="hint">当前账号暂不支持签到。</p>
-            <template v-else>
-              <div class="attendance-summary"><strong>{{ { signed: '今日已签', unsigned: '今日待签', unknown: '状态未知' }[attendance?.status] || '尚未读取' }}</strong><span v-if="list(attendance?.calendar).length">本期已签 {{ signedDays }} 天</span></div>
-              <p v-if="attendance?.today_award" class="hint">今日奖励：{{ named(attendance.today_award) }}<template v-if="attendance.today_award.count != null"> × {{ attendance.today_award.count }}</template></p>
-              <p v-if="attendance?.updated_at" class="hint">更新于 {{ dateText(attendance.updated_at) }}</p>
-              <button v-if="!cloud" type="button" class="ui-button" :disabled="attendanceBusy || attendance?.status === 'signed'" @click="loadAttendance(true)">手动签到</button>
-            </template>
-          </section>
+          <EndfieldAttendance :value="attendance" :busy="attendanceBusy" :error="attendanceError" :allow-sign="!cloud" @reload="loadAttendance(false)" @sign="loadAttendance(true)" />
         </template>
         <EndfieldGachaSummary v-if="passport" :view="passportView" :refreshing="refreshing" @details="selectSection('gacha')" @refresh="emit('refresh')" />
+        <EndfieldNewsSummary :snapshots="newsSnapshots" @all="selectSection('news')" />
       </template>
 
       <template v-if="['operators','regions','ship','honor'].includes(section) && roleKey">
@@ -451,7 +451,7 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
 
     <div v-else-if="section === 'blueprints'" class="endfield-stack"><p v-if="cloud && cloudAccount.provider !== 'skland'" class="cap-card hint">蓝图保存在森空岛授权与角色的本人空间，请在页面上方选择森空岛授权。</p><section v-else class="cap-card"><div class="cap-title">蓝图收藏<button type="button" class="ui-button" :disabled="blueprintBusy" @click="downloadBlueprints">导出备份</button></div><p class="hint">{{ cloud ? '分享码和备注保存在当前用户、授权与角色的云端空间。' : '分享码和备注保存在本机。' }}</p><form class="field-grid" @submit.prevent="submitBlueprint"><label>名称<input v-model="blueprintName" type="text" maxlength="100" required /></label><label>分享码<input v-model="blueprintCode" type="text" maxlength="2000" required /></label><label>备注<textarea v-model="blueprintNotes" maxlength="2000" rows="2" /></label><div class="actions"><button type="submit" class="ui-button" :disabled="blueprintBusy">{{ editingId === null ? '保存蓝图' : '保存修改' }}</button><button v-if="editingId !== null" type="button" class="ui-button" @click="resetBlueprint">取消编辑</button></div></form><p v-if="blueprintError" class="error" role="alert">{{ blueprintError }}</p><p v-if="blueprintBusy" class="hint" role="status">正在处理蓝图…</p><p v-if="!blueprintBusy && !blueprints.length" class="empty">还没有收藏蓝图</p><ul v-else class="blueprint-list"><li v-for="item in blueprints" :key="item.id"><strong>{{ item.name }}</strong><code>{{ item.code }}</code><p v-if="item.notes" class="hint">{{ item.notes }}</p><div class="actions"><button type="button" class="ui-button" @click="copyCode(item.code)">复制分享码</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="editBlueprint(item)">编辑</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="removeBlueprint(item.id)">删除</button></div></li></ul></section></div>
 
-    <div v-else-if="section === 'news'" class="endfield-stack"><AnnouncementList game-id="endfield" :snap="publicNewsSnap || snaps.news || snaps.announcement" :extra-snaps="publicNewsSnap && snaps.news ? [snaps.news] : []"><template #actions><button v-if="canMaintain" type="button" class="ui-button" :disabled="publicBusy" @click="loadPublic(true)"><AppIcon name="refresh" :size="14" />{{ publicBusy ? '正在读取…' : '刷新资讯' }}</button></template></AnnouncementList><p v-if="publicBusy" class="hint" role="status">正在读取公开资讯…</p><p v-if="publicError && !publicNewsSnap" class="error" role="alert">{{ publicError }}</p></div>
+    <div v-else-if="section === 'news'" class="endfield-stack"><AnnouncementList game-id="endfield" :snap="newsSnapshots[0]" :extra-snaps="newsSnapshots.slice(1)"><template #actions><button v-if="canMaintain" type="button" class="ui-button" :disabled="publicBusy" @click="loadPublic(true)"><AppIcon name="refresh" :size="14" />{{ publicBusy ? '正在读取…' : '刷新资讯' }}</button></template></AnnouncementList><p v-if="publicBusy" class="hint" role="status">正在读取公开资讯…</p><p v-if="publicError && !publicNewsSnap" class="error" role="alert">{{ publicError }}</p></div>
   </div>
 </template>
 

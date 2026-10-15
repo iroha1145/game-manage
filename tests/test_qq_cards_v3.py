@@ -1,21 +1,13 @@
 from copy import deepcopy
 from io import BytesIO
-from pathlib import Path
 import socket
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import pytest
 
 from game_assistant.qq.cards import validate_card_document, card_to_text
 from game_assistant.qq.card_rendering import render_card
-
-
-def font():
-    path = next((p for p in ('C:/Windows/Fonts/msyh.ttc',
-        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc') if Path(p).is_file()), None)
-    if path is None:
-        pytest.skip('operator CJK font required')
-    return ImageFont.truetype(path, 30)
+from tests.qq_test_fonts import cjk_font as font
 
 
 def calendar():

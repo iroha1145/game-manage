@@ -100,6 +100,18 @@ test('operator changes clear details synchronously and prevent an old response b
   nodes(root,'select')[1].props['onUpdate:modelValue']('b');await tick();finish();await pending;await tick()
   assert.doesNotMatch(content(root),/旧干员|旧武器/)
 })
+test('actual cloud operator entry consumes the endpoint operator envelope with independent obtained time',async t=>{
+ configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+ const calls=[]
+ t.mock.method(globalThis,'fetch',async path=>{calls.push(path);return new Response(JSON.stringify({operator:{name:'契约干员甲',obtained_at:'2025-12-31T17:02:00Z',weapon:{name:'契约武器'},tactical_item:{name:'契约战术道具',rarity:0}},fetched_at:'2026-10-15T01:00:00Z'}))})
+ const root=mount(t,Details,{account:account('skland'),role:'skland-default',snapshot:{payload:{operators:[{id:'a',name:'干员甲'}]}}})
+ nodes(root,'select')[0].props['onUpdate:modelValue']('operators');await tick()
+ nodes(root,'select')[1].props['onUpdate:modelValue']('a');await tick()
+ await button(root,'读取详情').props.onClick();await tick()
+ assert.match(content(root),/契约干员甲 · 干员配装/);assert.match(content(root),/契约武器/);assert.match(content(root),/契约战术道具/)
+ assert.match(content(root),/来源时间：2026-10-15 09:00/);assert.match(content(root),/获得时间 2026-01-01 01:02/)
+ assert.deepEqual(calls,['/api/accounts/skland/roles/skland-default/endfield/skland/operators/a'])
+})
 test('public partial-source failures distinguish fresh contributing fallback from retained stale data', t=>{
   for(const stale of [false,true]) {
     const snap={state:'error',stale,primary_source:'community',fetched_at:'2026-10-14T00:00:00Z',payload:[{name:'可用来源活动',title:'可用来源资讯',source:'community',source_stale:stale,start_at:null,end_at:null}],poll_status:{source_statuses:{community:{state:'ok',stale:false},bilibili:{state:'error',error:'B站412'}}}}

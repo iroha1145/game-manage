@@ -1,13 +1,13 @@
 from io import BytesIO
-from pathlib import Path
 import socket
 
-from PIL import Image, ImageFont
+from PIL import Image
 import pytest
 
 from game_assistant.accounts.models import AccountScope, QueryResult
 from game_assistant.qq.cards import card_to_text, validate_card_document
 from game_assistant.qq.rendering import SummaryRenderer, RenderingUnavailable
+from tests.qq_test_fonts import cjk_font_path as font, cjk_font
 
 REF = 'qqasset_'+'a'*64
 
@@ -18,12 +18,6 @@ def card(count=40):
             dict(title='合成测试角色完整长图 '+str(i),image=REF,fields=[dict(label='等级',value='90'),
                 dict(label='共鸣链',value='0'),dict(label='属性',value='凝')]) for i in range(count)])],
         notices=['缓存装备不代表完整库存'],footer='更新：2026-10-14 20:30')
-
-
-def font():
-    path=next((p for p in ('C:/Windows/Fonts/msyh.ttc','/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc') if Path(p).is_file()),None)
-    if path is None:pytest.skip('operator CJK font required')
-    return path
 
 
 class Assets:
@@ -111,10 +105,10 @@ def test_v2_unknown_progress_is_not_drawn_as_a_zero_progress_value():
     from game_assistant.qq.card_rendering import render_card
     value=dict(version=2,game='nte',kind='summary',title='体力',sections=[dict(layout='stats',fields=[
         dict(label='体力',value='未知 / 240',metric=dict(current=None,maximum=240))])])
-    unknown=Image.open(BytesIO(render_card(value,font=ImageFont.truetype(font(),30))))
+    unknown=Image.open(BytesIO(render_card(value,font=cjk_font())))
     value['sections'][0]['fields'][0]['metric']['current']=0
     value['sections'][0]['fields'][0]['value']='0 / 240'
-    zero=Image.open(BytesIO(render_card(value,font=ImageFont.truetype(font(),30))))
+    zero=Image.open(BytesIO(render_card(value,font=cjk_font())))
     # Unknown has an interrupted track; known zero has the full neutral track.
     neutral=(48,56,68)
     unknown_track=sum(count for count,pixel in unknown.getcolors(unknown.width*unknown.height) if pixel==neutral)
@@ -136,7 +130,7 @@ def test_source_metadata_is_compact_and_keeps_minute_timestamp_in_one_drawn_line
         dict(label='等级',value='42'),dict(label='体力',value='180 / 240'),
         dict(label='更新时间',value='2026-10-14 08:00'),dict(label='体力更新时间',value='2026-10-14 08:01'),
         dict(label='数据状态',value='缓存快照'),dict(label='完整性',value='未知')])])
-    png=render_card(value,font=ImageFont.truetype(font(),30))
+    png=render_card(value,font=cjk_font())
     assert Image.open(BytesIO(png)).width==960
     level_size=next(size for content,size in drawn if content=='42')
     for stamp in ('2026-10-14 08:00','2026-10-14 08:01'):
@@ -150,7 +144,7 @@ def test_plain_numeric_stat_does_not_imply_progress_without_a_maximum():
     from game_assistant.qq.card_rendering import render_card
     value=dict(version=2,game='nte',kind='summary',title='账号',sections=[dict(layout='stats',fields=[
         dict(label='等级',value='60',metric=dict(current=60,maximum=None))])])
-    with_metric=render_card(value,font=ImageFont.truetype(font(),30))
+    with_metric=render_card(value,font=cjk_font())
     del value['sections'][0]['fields'][0]['metric']
-    without_metric=render_card(value,font=ImageFont.truetype(font(),30))
+    without_metric=render_card(value,font=cjk_font())
     assert with_metric==without_metric

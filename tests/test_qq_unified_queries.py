@@ -294,12 +294,10 @@ def test_long_overview_keeps_every_section_in_one_bounded_document():
 
 async def test_actual_presentation_renders_overview_and_six_roles():
     from io import BytesIO
-    from pathlib import Path
     from PIL import Image
     from game_assistant.qq.rendering import SummaryRenderer
-    paths=('C:/Windows/Fonts/msyh.ttc','/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc')
-    font=next((p for p in paths if Path(p).is_file()),None)
-    if font is None:pytest.skip('System CJK font unavailable')
+    from tests.qq_test_fonts import cjk_font_path
+    font=cjk_font_path()
     query=CachedQuery()
     for game,provider,account in [('wuthering_waves','kuro','ww'),('nte','tajiduo','nte'),('endfield','hypergryph','hg'),('endfield','skland','sk')]:
         payload={'base':{'name':'森空岛玩家','level':50}} if provider=='skland' else {'nickname':'测试玩家','level':80}
