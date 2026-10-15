@@ -18,10 +18,10 @@ class BilibiliSaveBusy(SourceError):
     pass
 
 class BilibiliService:
-    def __init__(self, settings, sources, client_factory=BilibiliClient):
+    def __init__(self, settings, sources, client_factory=BilibiliClient, *, credential_store=None):
         self.settings, self.sources, self.client_factory = settings, sources, client_factory
         self.store = BilibiliStore(settings.db_path)
-        self.credentials = CredentialStore(Path(settings.db_path).with_suffix('.bilibili.credentials.json'))
+        self.credentials = credential_store if credential_store is not None else CredentialStore(Path(settings.db_path).with_suffix('.bilibili.credentials.json'))
         self.tasks = {}
         self.loop_task = None
 
@@ -35,16 +35,17 @@ class BilibiliService:
         self.credentials.save({'bilibili': {k: unquote(str(values[k]).strip()) for k in allowed if values.get(k)}})
         for game, uid in self.sources.items(): self.store.set_state(game, uid, next_retry=0)
 
-    def commit_verified_account(self, account):
+    def commit_verified_account(self, account, *, credential_store=None):
         from game_assistant.auth.bilibili_provider import VerifiedBilibiliAccount, LIMITS
         if not isinstance(account, VerifiedBilibiliAccount):
             raise TypeError('Verified account required')
         if any(not task.done() for task in self.tasks.values()):
             raise BilibiliSaveBusy()
-        saved = self.credentials.load()
+        credentials = credential_store if credential_store is not None else self.credentials
+        saved = credentials.load()
         saved['bilibili'] = {k: v for k, v in account.credentials.items() if k in LIMITS}
         saved['bilibili_meta'] = {'uid': account.uid, 'nickname': account.nickname, 'validated_at': account.validated_at}
-        self.credentials.save(saved)
+        credentials.save(saved)
         warning = False
         for game, uid in self.sources.items():
             try:
@@ -83,7 +84,7 @@ class BilibiliService:
         if game in self.tasks and not self.tasks[game].done(): return
         self.tasks[game] = asyncio.create_task(self.run(game, backfill))
 
-    async def run(self, game, backfill=False):
+    async def run(self, game, backfill=False, *, history_days=None):
         uid = self.sources[game]
         previous = self.store.state(game, uid)
         if time.time() < previous.get('next_retry', 0): return
@@ -91,7 +92,7 @@ class BilibiliService:
         # Re-read originals after rule changes; cached decisions may predate
         # the incremental window and do not retain raw completeness flags.
         full = backfill or not previous.get('history_complete') or previous.get('rule_version') != RULE_VERSION
-        days = self.settings.bilibili_history_days
+        days = history_days if history_days is not None else self.settings.bilibili_history_days
         if not full and previous.get('last_success'):
             days = min(days, max(2, math.ceil((now - datetime.fromisoformat(previous['last_success'])).total_seconds()/86400) + 1))
         window = f'{days}天' + ('历史回补' if full else '增量采集')

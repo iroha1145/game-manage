@@ -17,6 +17,7 @@ dependencies = [
   "pycryptodome>=3.20,<4",
   "bilibili-api-python>=17.4.1,<18",
   "qrcode[pil]>=8.2,<9",
+  "argon2-cffi>=25.1,<26",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +26,7 @@ dev = [
   "opencv-python>=4.8,<5", "numpy>=1.24,<3",
 ]
 ocr = ["rapidocr-onnxruntime>=1.4,<2", "opencv-python>=4.8,<5", "numpy>=1.24,<3"]
+qq = ["qqbot-agent-sdk==1.2.2"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

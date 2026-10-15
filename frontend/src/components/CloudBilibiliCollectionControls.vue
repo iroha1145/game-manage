@@ -1,0 +1,77 @@
+<script setup>
+import { ref,onMounted,onUnmounted } from 'vue'
+import { subscribeSessionInvalidation } from '../http-client.js'
+import { getCloudBilibiliSources,refreshCloudBilibiliSource } from '../cloud-bilibili-api.js'
+import { formatTime } from '../dashboard.js'
+const sources=ref([]),error=ref(''),message=ref(''),busy=ref(false),paused=ref(false)
+const names={wuthering_waves:'鸣潮',nte:'异环',endfield:'终末地',league_of_legends:'英雄联盟'}
+const labels={queued:'已排队',running:'公共采集中',backoff:'退避中',cooldown:'成功后冷却中',idle:'空闲'}
+let stopped=false,invalidated=false,generation=0,readId=0,timer,reads=0,deadline=0,controller=new AbortController()
+const observed=new Map()
+function active(s){return ['queued','running'].includes(s.queue_state)}
+function disabled(s){return busy.value||active(s)||['backoff','cooldown'].includes(s.queue_state)}
+function resetBudget(){reads=0;deadline=Date.now()+10*60*1000;paused.value=false}
+function clear(){generation++;controller.abort();clearTimeout(timer);sources.value=[];observed.clear();busy.value=false;error.value=message.value=''}
+const unsubscribe=subscribeSessionInvalidation(()=>{invalidated=true;clear()})
+async function load(){
+  if(stopped||invalidated)return
+  const run=generation,id=++readId;clearTimeout(timer);reads++
+  try{
+    const result=await getCloudBilibiliSources(controller.signal)
+    if(stopped||invalidated||run!==generation||id!==readId)return
+    if(!Array.isArray(result.sources))throw new Error('无法读取B站采集状态')
+    for(const s of result.sources){
+      const before=observed.get(s.game_id)
+      if(before&&!active(s)){
+        message.value=s.last_success&&s.last_success!==before.lastSuccess?'采集完成，请刷新游戏资讯或日历以读取公共结果。':s.status==='error'?'采集失败，已保留已有记录。':'本次任务已结束；尚未确认新增采集成功，请检查最近成功时间。'
+        observed.delete(s.game_id)
+      }
+      if(active(s)&&!observed.has(s.game_id))observed.set(s.game_id,{lastSuccess:s.last_success})
+    }
+    sources.value=result.sources;error.value=''
+  }catch(e){
+    if(!stopped&&!invalidated&&run===generation&&id===readId&&e.name!=='AbortError'){error.value='无法读取B站采集状态，请手动检查';paused.value=true;return}
+  }finally{
+    if(!stopped&&!invalidated&&run===generation&&id===readId&&!paused.value){
+      if(reads>=120||Date.now()>=deadline)paused.value=true
+      else timer=setTimeout(load,sources.value.some(active)?2500:30000)
+    }
+  }
+}
+async function refresh(s,backfill){
+  if(stopped||invalidated||disabled(s))return
+  const run=generation;busy.value=true;error.value=message.value='';resetBudget()
+  try{
+    await refreshCloudBilibiliSource(s.game_id,backfill,controller.signal)
+    if(stopped||invalidated||run!==generation)return
+    observed.set(s.game_id,{lastSuccess:s.last_success});await load()
+  }catch(e){if(!stopped&&!invalidated&&run===generation&&e.name!=='AbortError')error.value=({source_busy:'该游戏公共采集已排队或进行中，请等待结束。',source_backoff:'来源仍在退避，请到下次可请求时间后重试。'})[e.message]||'无法提交采集，请检查状态后重试'}
+  finally{if(run===generation)busy.value=false}
+}
+function check(){resetBudget();void load()}
+onMounted(check)
+onUnmounted(()=>{stopped=true;unsubscribe();clear()})
+</script>
+<template>
+  <section class="cloud-bili-collection" aria-label="B站公共动态采集">
+    <h3>公共动态采集</h3>
+    <p>采集新动态在历史不完整或规则更新时会自动回补历史；手动回补覆盖60天。仅收录符合规则的官方图文通知，结果供成员读取。失败保留已有记录。</p>
+    <p v-if="error" role="alert">{{ error }}</p><p v-if="message" role="status">{{ message }}</p>
+    <article v-for="s in sources" :key="s.game_id">
+      <strong>{{ names[s.game_id] || s.game_id }} · UID {{ s.uid }} · {{ labels[s.queue_state] || '状态未知' }}</strong>
+      <p>{{ s.status==='ok'?'最近采集成功':s.status==='error'?'最近采集失败或中断':s.status==='running'?'正在读取动态':'等待首次采集' }} · 已读取 {{ s.pages || 0 }} 页 · 连续失败 {{ s.failures || 0 }} 次<span v-if="s.http_status"> · HTTP {{ s.http_status }}</span><span v-if="s.business_code !== undefined"> · 业务码 {{ s.business_code }}</span></p>
+      <p>{{ s.history_complete?'历史已完整回补':'历史尚未完整回补' }} · 已保存 {{ s.total || 0 }} 条 · 收入资讯 {{ s.article_count || 0 }} 条</p>
+      <p v-if="s.last_success">最近成功：{{ formatTime(s.last_success) }}</p>
+      <p v-if="s.last_attempt">最近尝试：{{ formatTime(s.last_attempt) }}</p>
+      <p v-if="s.queue_state==='backoff'">退避期间暂不可采集，下次可请求：{{ formatTime(s.next_retry*1000) }}</p>
+      <p v-else-if="s.queue_state==='cooldown'">本次采集成功后的正常冷却，下次可请求：{{ formatTime(s.next_retry*1000) }}</p>
+      <p v-else-if="active(s)">该游戏公共任务已排队或正在执行，请等待结束。</p>
+      <div class="actions"><button class="ui-button" :disabled="disabled(s)" @click="refresh(s,false)">采集新动态</button><button class="ui-button" :disabled="disabled(s)" @click="refresh(s,true)">回补60天</button></div>
+    </article>
+    <p v-if="paused">自动状态刷新已停止，可手动检查。</p>
+    <button class="ui-button" :disabled="busy" @click="check">检查采集状态</button>
+  </section>
+</template>
+<style scoped>
+.cloud-bili-collection{display:grid;gap:10px;border-top:1px solid var(--border);padding-top:14px}.cloud-bili-collection article{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--border)}h3,p{margin:0}p{line-height:1.65}p[role=alert]{color:var(--danger)}.actions{display:flex;flex-wrap:wrap;gap:10px}
+</style>

@@ -88,3 +88,9 @@ def install_wuwa_archive_routes(app):
             return gacha.import_records(records, account, server, source=source, failed_pools=failed)
         except ValueError as error:
             raise HTTPException(422, str(error)) from None
+
+
+def install_cloud_wuwa_archive_routes(app, boundary):
+    """Install scoped cloud routes; the legacy local router stays separate."""
+    from game_assistant.private_routes import _install_wuwa_archive
+    _install_wuwa_archive(boundary, app)

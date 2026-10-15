@@ -1,3 +1,4 @@
+import { requestResponse } from './http-client.js'
 // All requests remain on the local service; server error bodies may contain LCU input.
 async function request(path, { signal, method = 'GET', timeout = 30000 } = {}) {
   const controller = new AbortController()
@@ -7,7 +8,7 @@ async function request(path, { signal, method = 'GET', timeout = 30000 } = {}) {
   let timedOut = false
   const timer = setTimeout(() => { timedOut = true; controller.abort() }, timeout)
   try {
-    const response = await fetch(`/api/lol/${path}`, {
+    const response = await requestResponse(`/api/lol/${path}`, {
       method, signal: controller.signal, cache: 'no-store', referrerPolicy: 'no-referrer',
       ...(method === 'POST' ? { headers: { 'X-Game-Assistant': '1' } } : {}),
     })

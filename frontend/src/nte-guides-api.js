@@ -1,7 +1,8 @@
+import { requestResponse } from './http-client.js'
 async function request(path = '', { refresh = false, signal } = {}) {
   let response
   try {
-    response = await fetch(`/api/nte/guides${path}`, { signal, ...(refresh ? { method:'POST', headers:{ 'X-Game-Assistant':'1' } } : {}) })
+    response = await requestResponse(`/api/nte/guides${path}`, { signal, ...(refresh ? { method:'POST', headers:{ 'X-Game-Assistant':'1' } } : {}) })
   } catch (error) {
     if (error.name === 'AbortError') throw error
     throw Error('攻略服务暂时无法连接，请稍后重试。')

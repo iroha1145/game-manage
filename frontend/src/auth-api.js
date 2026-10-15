@@ -1,3 +1,5 @@
+import { requestResponse, isCloudMode } from './http-client.js'
+import { getAccounts, revokeAuthorization } from './accounts-api.js'
 export class AuthError extends Error {
   constructor(message, status = 0, retryAfter = 0) {
     super(message)
@@ -13,7 +15,9 @@ async function request(path, method = 'GET', body, timeoutMs = 30000) {
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   let response
   try {
-    response = await fetch(`/api/auth${path}`, {
+    const provider = { wuthering_waves: 'kuro', nte: 'tajiduo', endfield: 'hypergryph' }
+    const cloudPath = path.replace(/^\/([^/]+)/, (_, game) => '/' + (provider[game] || game))
+    response = await requestResponse(isCloudMode() ? `/api/accounts/auth${cloudPath}` : `/api/auth${path}`, {
       method, headers, credentials: 'same-origin',
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: AbortSignal.timeout(timeoutMs),
@@ -36,9 +40,24 @@ async function request(path, method = 'GET', body, timeoutMs = 30000) {
   return data
 }
 
-export const getAuthStatus = () => request('/status')
+export const getAuthStatus = async () => {
+  if (!isCloudMode()) return request('/status')
+  const data = await getAccounts(), accounts = {}
+  for (const [game, provider] of Object.entries({ wuthering_waves: 'kuro', nte: 'tajiduo', endfield: 'hypergryph' })) {
+    const account = data.accounts?.find(row => row.provider === provider)
+    accounts[game] = { configured: !!account && account.state !== 'revoked', state: account?.state || 'unconfigured', nickname: account?.roles?.find(row => row.is_default)?.display_name || '' }
+  }
+  return { accounts }
+}
 export const createAuthSession = (game) => request(`/${encodeURIComponent(game)}/sessions`, 'POST')
 export const sendAuthSms = (game, body) => request(`/${encodeURIComponent(game)}/sms`, 'POST', body)
 // Login exchanges several upstream credentials sequentially before saving the account.
 export const loginAuth = (game, body) => request(`/${encodeURIComponent(game)}/login`, 'POST', body, 120000)
-export const logoutAuth = (game) => request(`/${encodeURIComponent(game)}`, 'DELETE')
+export const logoutAuth = async game => {
+  if (!isCloudMode()) return request(`/${encodeURIComponent(game)}`, 'DELETE')
+  const provider = { wuthering_waves: 'kuro', nte: 'tajiduo', endfield: 'hypergryph' }[game]
+  const data = await getAccounts(), account = data.accounts?.find(row => row.provider === provider)
+  if (!account) throw new AuthError('游戏授权不存在', 404)
+  await revokeAuthorization(account.account_id)
+  return { ok: true, account: { configured: false, state: 'unconfigured' } }
+}

@@ -1,4 +1,6 @@
 <script setup>
+import { isCloudMode } from '../http-client.js'
+const cloudMode = isCloudMode()
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
 import { value, list, stamp } from '../wuwa-display.js'

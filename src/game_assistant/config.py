@@ -1,7 +1,13 @@
 import tomllib
 from pathlib import Path
+from typing import Literal, get_args
 
 from pydantic_settings import BaseSettings
+from pydantic import Field
+
+
+WuwaPublicIpUrl = Literal['https://api.ipify.org', 'https://api64.ipify.org', 'https://checkip.amazonaws.com']
+WUWA_PUBLIC_IP_URLS = get_args(WuwaPublicIpUrl)
 
 
 class Settings(BaseSettings):
@@ -11,6 +17,31 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = 8010
     db_path: str = "data/assistant.db"
+    # Explicit cloud entrypoint only; never reuse/import the local single-user DB.
+    cloud_db_path: str = "data/cloud.db"
+    cloud_allowed_origins: list[str] = ["https://localhost"]
+    cloud_session_seconds: int = Field(default=14 * 86400, ge=60, le=90 * 86400)
+    cloud_invite_seconds: int = Field(default=48 * 3600, ge=60, le=7 * 86400)
+    cloud_recovery_seconds: int = Field(default=900, ge=60, le=3600)
+    cloud_body_limit_bytes: int = Field(default=65536, ge=1024, le=1048576)
+    # Independent fixed service credential, provisioned by the operator.
+    qq_app_id: str = Field(default='', max_length=256)
+    qq_service_token: str = Field(default='', max_length=4096, repr=False)
+    qq_dashboard_url: str = Field(default='', max_length=2048)
+    qq_dashboard_urls_approved: bool = False
+    qq_images_enabled: bool = False
+    qq_image_font_path: str = ''
+    # Conservative cap pending controlled platform acceptance; not a platform limit claim.
+    qq_image_max_bytes: int = Field(default=524288, ge=16384, le=1048576)
+    # Account mode is an explicit operator opt-in; missing keys never regenerate.
+    cloud_accounts_enabled: bool = False
+    cloud_credentials_key_path: str = ''
+    cloud_data_root: str = 'data/cloud'
+    cloud_private_poll_seconds: int = Field(default=900, ge=60, le=86400)
+    cloud_public_poll_seconds: int = Field(default=600, ge=60, le=86400)
+    cloud_poll_concurrency: int = Field(default=4, ge=1, le=16)
+    cloud_provider_concurrency: int = Field(default=1, ge=1, le=4)
+    cloud_upstream_timeout_seconds: int = Field(default=120, ge=5, le=600)
     stamina_seconds: int = 300
     activity_seconds: int = 3600
     announcement_seconds: int = 3600
@@ -28,6 +59,8 @@ class Settings(BaseSettings):
     activity_remind_days: int = 3
     fail_notify_threshold: int = 3
     wuwa_enabled: bool = True
+    # Operator-only HTTPS resolvers; credentials/query/fragment and arbitrary hosts are rejected.
+    wuwa_login_public_ip_url: WuwaPublicIpUrl = 'https://api.ipify.org'
     wuwa_token: str = ""
     wuwa_token_source: str = "h5"  # legacy web token; SDK login persists ios
     wuwa_user_id: str = ""

@@ -9,7 +9,7 @@ import { vPop, vSpotlight } from '../motion.js'
 
 const props = defineProps({ games: { type: Array, default: () => [] }, snapshots: { type: Object, default: () => ({}) },
   accounts: { type: Object, default: () => ({}) }, readErrors: { type: Object, default: () => ({}) }, refreshErrors: { type: Object, default: () => ({}) },
-  refreshing: { type: Object, default: () => ({}) }, collection: { type: Array, default: () => [] }, now: { type: Number, required: true }, loading: Boolean })
+  refreshing: { type: Object, default: () => ({}) }, collection: { type: Array, default: () => [] }, now: { type: Number, required: true }, loading: Boolean, storageLabel: { type: String, default: '数据保存在本机' }, refreshLabel: {type:String,default:'刷新数据'} })
 const emit = defineEmits(['navigate', 'refresh'])
 const newsFilter = ref('')
 const sourceFilter = ref('')
@@ -56,7 +56,7 @@ function resourceNote(card) {
   <div class="overview-page">
     <header class="page-heading">
       <div class="page-heading-copy"><p class="page-kicker"><span class="section-no">01</span><span class="eyebrow">Daily overview</span></p><h1>今日总览</h1><p class="page-description">游戏进度与近期活动，一处查看。</p></div>
-      <div class="page-meta"><span class="hero-count"><b>{{ String(games.length).padStart(2, '0') }}</b>个游戏正在关注</span><button class="ui-button" :disabled="loading || anyRefreshing || !games.length" @click="emit('refresh')"><AppIcon name="refresh" :size="15" :class="{ spinning: anyRefreshing }" /><span :class="{ 't-shimmer': anyRefreshing }">{{ anyRefreshing ? '同步中…' : '刷新数据' }}</span></button></div>
+      <div class="page-meta"><span class="hero-count"><b>{{ String(games.length).padStart(2, '0') }}</b>个游戏正在关注</span><button class="ui-button" :disabled="loading || anyRefreshing || !games.length" @click="emit('refresh')"><AppIcon name="refresh" :size="15" :class="{ spinning: anyRefreshing }" /><span :class="{ 't-shimmer': anyRefreshing }">{{ anyRefreshing ? '同步中…' : refreshLabel }}</span></button></div>
     </header>
 
     <div v-if="fullGames.length || nearEvents.length" class="attention-strip">
@@ -68,7 +68,7 @@ function resourceNote(card) {
     <div class="section-heading"><h2>我的游戏 <span class="count-label">/ {{ String(games.length).padStart(2, '0') }}</span></h2><span class="muted small">各游戏独立同步</span></div>
     <div class="game-summary-grid" :class="{ many: cards.length > 3 }" :style="{ '--cards': Math.min(cards.length, 4) }">
       <button v-for="(card, index) in cards" :key="card.game_id" v-spotlight class="game-summary game-theme t-item t-glare" :style="{ '--game-color': card.style.color, '--game-accent': card.style.color, '--i': index }" @click="emit('navigate', 'game', card.game_id)">
-        <div class="summary-header"><GameIcon class="game-monogram" :game-id="card.game_id" :name="card.display_name" /><div class="game-identity"><h3>{{ card.display_name }}</h3><p>{{ platform(card.game_id) }}</p></div><span class="summary-state" :class="{ warn: card.summary.stale || card.auth?.state === 'expired' || readErrors[card.game_id] || card.source?.tone === 'danger' }"><i></i>{{ status(card) }}</span></div>
+        <div class="summary-header"><GameIcon class="game-monogram" :game-id="card.game_id" :name="card.display_name" /><div class="game-identity"><h3>{{ card.display_name }}</h3><p>{{ card.platform || platform(card.game_id) }}</p></div><span class="summary-state" :class="{ warn: card.summary.stale || card.auth?.state === 'expired' || readErrors[card.game_id] || card.source?.tone === 'danger' }"><i></i>{{ status(card) }}</span></div>
         <div class="summary-metric"><div><p>{{ metricLabel(card) }}</p><div class="summary-number" v-pop>{{ card.summary.metric === 'gacha' && card.summary.pityStatus === 'lower_bound' && card.summary.value != null ? '≥' : '' }}{{ card.summary.value ?? '—' }}<small>{{ card.summary.hasStamina ? `/ ${card.summary.maximum ?? '—'}` : METRIC_UNITS[card.summary.metric] }}</small></div></div><p class="summary-note">{{ resourceNote(card) }}</p></div>
         <div v-if="card.summary.percent != null" class="summary-meter" role="meter" :aria-label="metricLabel(card)" :aria-valuenow="card.summary.percent" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: `${Math.min(100, card.summary.percent)}%` }"></i></div>
         <div v-else class="summary-meter unknown"></div>

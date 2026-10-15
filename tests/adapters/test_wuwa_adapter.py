@@ -122,6 +122,8 @@ async def test_unconfigured_reports_error():
     a = _unconfigured()
     assert a.credentials_configured is False
     for cap in a.capabilities:
+        if cap in (Capability.ANNOUNCEMENT, Capability.EVENTS):
+            continue  # Public forum capabilities have an independent credential-free contract.
         r = await a.fetch(cap)
         assert r.ok is False and "未配置凭据" in r.error
 

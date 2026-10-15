@@ -1,5 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { isCloudMode } from '../http-client.js'
+const cloudMode = isCloudMode()
 import WuwaProfile from './WuwaProfile.vue'
 import WuwaRoles from './WuwaRoles.vue'
 import WuwaCombat from './WuwaCombat.vue'

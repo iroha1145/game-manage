@@ -29,6 +29,17 @@ class SnapshotStore:
                 " consecutive_failures INTEGER NOT NULL, error TEXT, error_kind TEXT,"
                 " PRIMARY KEY (game_id, capability))"
             )
+            self._conn.execute(
+                "CREATE TABLE IF NOT EXISTS scoped_snapshots ("
+                " user_id TEXT NOT NULL, account_id TEXT NOT NULL, role_id TEXT NOT NULL,"
+                " capability TEXT NOT NULL, payload TEXT NOT NULL, fetched_at TEXT NOT NULL,"
+                " grant_version INTEGER NOT NULL CHECK(grant_version > 0),"
+                " PRIMARY KEY(user_id, account_id, role_id, capability))")
+            self._conn.execute(
+                "CREATE TABLE IF NOT EXISTS scoped_poll_status ("
+                " user_id TEXT NOT NULL, account_id TEXT NOT NULL, role_id TEXT NOT NULL,"
+                " capability TEXT NOT NULL, status TEXT NOT NULL, grant_version INTEGER NOT NULL,"
+                " PRIMARY KEY(user_id, account_id, role_id, capability))")
             self._conn.commit()
 
     def record_poll(self, game_id: str, capability: str, result: FetchResult,
@@ -155,3 +166,116 @@ class SnapshotStore:
                 f"DELETE FROM poll_status WHERE game_id = ? AND {clause}",
                 (game_id, *public))
             self._conn.commit()
+
+
+    def save_scoped(self, scope, capability, payload_json, grant_version):
+        from .private_data import validate_scope
+        key = validate_scope(scope)
+        if not isinstance(capability, str) or not capability:
+            raise ValueError('A capability is required')
+        if type(grant_version) is not int or grant_version < 1:
+            raise ValueError('A positive grant version is required')
+        json.loads(payload_json)
+        with self._lock:
+            self._conn.execute(
+                'INSERT INTO scoped_snapshots VALUES(?,?,?,?,?,?,?) '
+                'ON CONFLICT(user_id,account_id,role_id,capability) DO UPDATE SET '
+                'payload=excluded.payload,fetched_at=excluded.fetched_at,grant_version=excluded.grant_version',
+                (*key, capability, payload_json, datetime.now(timezone.utc).isoformat(), grant_version))
+            self._conn.commit()
+
+    def get_scoped(self, scope, capability, *, grant_version=None):
+        from .private_data import validate_scope
+        key = validate_scope(scope)
+        with self._lock:
+            row = self._conn.execute(
+                'SELECT payload,fetched_at,grant_version FROM scoped_snapshots '
+                'WHERE user_id=? AND account_id=? AND role_id=? AND capability=?',
+                (*key,capability)).fetchone()
+        if row is None or (grant_version is not None and row[2] != grant_version):
+            return None
+        return dict(payload=row[0],fetched_at=row[1],grant_version=row[2])
+
+    def clear_scoped(self, scope):
+        from .private_data import validate_scope
+        key = validate_scope(scope)
+        with self._lock:
+            for table in ('scoped_snapshots','scoped_poll_status'):
+                self._conn.execute('DELETE FROM '+table+' WHERE user_id=? AND account_id=? AND role_id=?',key)
+            self._conn.commit()
+
+    def record_poll_scoped(self, scope, capability, result, grant_version, now=None):
+        from .private_data import validate_scope
+        key = validate_scope(scope)
+        if type(grant_version) is not int or grant_version < 1:
+            raise ValueError('A positive grant version is required')
+        attempted=(now or datetime.now(timezone.utc)).isoformat()
+        with self._lock:
+            row=self._conn.execute('SELECT status,grant_version FROM scoped_poll_status '
+                'WHERE user_id=? AND account_id=? AND role_id=? AND capability=?',(*key,capability)).fetchone()
+            previous=json.loads(row[0]) if row and row[1]==grant_version else {}
+            if not previous.get('last_success_at'):
+                snapshot=self._conn.execute('SELECT fetched_at FROM scoped_snapshots '
+                    'WHERE user_id=? AND account_id=? AND role_id=? AND capability=? AND grant_version=?',
+                    (*key,capability,grant_version)).fetchone()
+                if snapshot:
+                    previous['last_success_at']=snapshot[0]
+            kind=None if result.ok else result.error_kind
+            state='ok' if result.ok else kind if kind in ('offline','unconfigured','auth_expired') else 'error'
+            status=dict(capability=capability,state=state,last_attempt_at=attempted,
+                last_success_at=attempted if result.ok else previous.get('last_success_at'),
+                consecutive_failures=0 if state in ('ok','offline','unconfigured') else previous.get('consecutive_failures',0)+1,
+                error=None if result.ok else result.error,error_kind=kind)
+            self._conn.execute('INSERT INTO scoped_poll_status VALUES(?,?,?,?,?,?) '
+                'ON CONFLICT(user_id,account_id,role_id,capability) DO UPDATE SET '
+                'status=excluded.status,grant_version=excluded.grant_version',
+                (*key,capability,json.dumps(status,ensure_ascii=False),grant_version))
+            self._conn.commit()
+        return status
+
+    def get_poll_status_scoped(self, scope, capability, *, grant_version=None):
+        from .private_data import validate_scope
+        key = validate_scope(scope)
+        with self._lock:
+            row=self._conn.execute('SELECT status,grant_version FROM scoped_poll_status '
+                'WHERE user_id=? AND account_id=? AND role_id=? AND capability=?',(*key,capability)).fetchone()
+        return json.loads(row[0]) if row and (grant_version is None or row[1]==grant_version) else None
+
+
+    def export_private_scoped(self, scope):
+        from .private_data import validate_scope
+        key=validate_scope(scope)
+        with self._lock:
+            snapshots=self._conn.execute('SELECT capability,payload,fetched_at,grant_version FROM scoped_snapshots '
+                'WHERE user_id=? AND account_id=? AND role_id=? ORDER BY capability',key).fetchall()
+            status=self._conn.execute('SELECT capability,status,grant_version FROM scoped_poll_status '
+                'WHERE user_id=? AND account_id=? AND role_id=? ORDER BY capability',key).fetchall()
+        return dict(scope=dict(zip(('user_id','account_id','role_id'),key)),snapshots=snapshots,status=status)
+
+    def restore_private_scoped(self, scope, backup):
+        from .private_data import validate_scope
+        key=validate_scope(scope)
+        owner=dict(zip(('user_id','account_id','role_id'),key))
+        if not isinstance(backup,dict) or backup.get('scope')!=owner:
+            raise PermissionError('Private backup belongs to another scope')
+        snapshots,status=backup['snapshots'],backup['status']
+        # Validate the whole batch before replacing any successful data.
+        for capability,payload,fetched_at,version in snapshots:
+            if not isinstance(capability,str) or not capability or type(version) is not int or version<1:
+                raise ValueError('Invalid scoped snapshot backup')
+            json.loads(payload)
+            datetime.fromisoformat(fetched_at)
+        for capability,payload,version in status:
+            if not isinstance(capability,str) or not capability or type(version) is not int or version<1:
+                raise ValueError('Invalid scoped status backup')
+            if not isinstance(json.loads(payload),dict):
+                raise ValueError('Invalid scoped status backup')
+        with self._lock:
+            with self._conn:
+                self._conn.executemany('INSERT INTO scoped_snapshots VALUES(?,?,?,?,?,?,?) '
+                    'ON CONFLICT(user_id,account_id,role_id,capability) DO UPDATE SET '
+                    'payload=excluded.payload,fetched_at=excluded.fetched_at,grant_version=excluded.grant_version',
+                    [(*key,*row) for row in snapshots])
+                self._conn.executemany('INSERT INTO scoped_poll_status VALUES(?,?,?,?,?,?) '
+                    'ON CONFLICT(user_id,account_id,role_id,capability) DO UPDATE SET '
+                    'status=excluded.status,grant_version=excluded.grant_version',[(*key,*row) for row in status])

@@ -11,6 +11,22 @@ const click = async (root, label) => {
 }
 const article = (title, body, extra = {}) => ({ title, body, summary: body?.slice(0, 20), url: 'https://example.com/' + encodeURIComponent(title), ...extra })
 
+test('collection state distinguishes never, failed retained data and successful empty content', async t => {
+  const props = reactive({ snap: { state: 'never', payload: null } })
+  const root = mount(t, List, props)
+  assert.match(content(root), /尚未采集公告与资讯/)
+  assert.doesNotMatch(content(root), /暂无公告与资讯/)
+  props.snap = { state: 'error', payload: null }; await nextTick()
+  assert.match(content(root), /采集失败.*尚无/)
+  props.snap = { state: 'error', payload: [article('旧公告', '保留正文')] }; await nextTick()
+  assert.match(content(root), /采集失败.*保留上次/); assert.match(content(root), /旧公告/)
+  props.snap = { state: 'error', payload: [] }; await nextTick()
+  assert.match(content(root), /采集失败.*保留上次/)
+  props.snap = { state: 'ok', payload: [] }; await nextTick()
+  assert.match(content(root), /已采集.*暂无公告与资讯/)
+  assert.doesNotMatch(content(root), /尚未采集|采集失败/)
+})
+
 test('a new successful snapshot replaces old full or stale content of the same article', () => {
   for (const status of ['full', 'stale']) {
     const rows = prepareArticles([

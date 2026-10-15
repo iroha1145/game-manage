@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { formatTime } from '../dashboard.js'
 import { ARTICLE_CATEGORIES, prepareArticles, contentNote } from '../articles.js'
+import { collectionState, hasFreshPublicFallback } from '../snapshot-state.js'
 import ArticleDetailDialog from './ArticleDetailDialog.vue'
 const props = defineProps({ snap: { type: Object, default: null }, extraSnaps: { type: Array, default: () => [] }, capability: { type: String, default: 'news' }, gameId: { type: String, default: '' } })
 const category = ref('all'), selectedKey = ref('')
@@ -13,6 +14,10 @@ const filtered = computed(() => category.value === 'all' ? rows.value : rows.val
 const stale = computed(() => snapshots.value.some(snap => snap.stale))
 const errors = computed(() => [...new Set(snapshots.value.map(snap => snap.error || snap.poll_status?.error).filter(error => typeof error === 'string' && error))])
 const fetchedAt = computed(() => snapshots.value.map(snap => snap.fetched_at).filter(Boolean).sort().at(-1))
+const failed = computed(() => snapshots.value.some(snap => collectionState(snap) === 'failed'))
+const partialFailure = computed(() => failed.value && snapshots.value.filter(snap => collectionState(snap) === 'failed').every(hasFreshPublicFallback))
+const retained = computed(() => snapshots.value.some(snap => Array.isArray(snap.payload)))
+const emptyText = computed(() => snapshots.value.some(snap => collectionState(snap) === 'never') ? '尚未采集公告与资讯，请等待公共采集。' : snapshots.value.some(snap => collectionState(snap) === 'collected') ? '已采集，暂无公告与资讯' : '暂无公告与资讯')
 function date(value) { return value ? formatTime(value, { hour: undefined, minute: undefined }) : '' }
 watch(categories, value => { if (category.value !== 'all' && !value.some(item => item.id === category.value)) category.value = 'all' })
 watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all' })
@@ -21,9 +26,10 @@ watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all'
   <section class="cap-card article-list">
     <div class="cap-title article-heading"><h2>公告与资讯</h2><span v-if="stale" class="badge badge-stale">待更新</span><span v-if="fetchedAt" class="cap-meta">更新于 {{ formatTime(fetchedAt) }}</span><slot name="actions" /></div>
     <p v-for="error in errors" :key="error" class="article-error" role="status">{{ error }}</p>
+    <p v-if="failed" class="article-error" role="status">{{ partialFailure ? '部分来源不可用，显示可用来源数据。' : `采集失败，${retained ? '保留上次成功数据，请留意更新时间。' : '尚无可显示的公告与资讯快照。'}` }}</p>
     <nav v-if="rows.length" class="article-filters" aria-label="文章内容分类"><button type="button" :aria-pressed="category === 'all'" @click="category = 'all'">全部 <span>{{ rows.length }}</span></button><button v-for="item in categories" :key="item.id" type="button" :aria-pressed="category === item.id" @click="category = item.id">{{ item.label }} <span>{{ item.count }}</span></button></nav>
-    <p v-if="!rows.length" class="empty">暂无公告与资讯</p>
-    <ul v-else class="item-list">
+    <p v-if="!rows.length && !failed" class="empty" role="status">{{ emptyText }}</p>
+    <ul v-if="rows.length" class="item-list">
       <li v-for="it in filtered" :key="it.key" class="item">
         <p class="item-title"><button type="button" class="item-link" @click="selectedKey = it.key">{{ it.title }}</button></p>
         <p class="item-meta"><span class="chip article-category">{{ it.categoryLabel }}</span><span v-if="it.source_name" class="item-source">{{ it.source_name }}</span><span v-if="it.source_stale" class="badge badge-stale">待更新</span><span v-if="date(it.published_at)" class="item-date">{{ date(it.published_at) }}</span></p>

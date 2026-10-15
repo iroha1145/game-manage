@@ -48,3 +48,19 @@ test('missing login, legacy snapshots and read errors are explained without inve
   nodes(root, 'details')[0].props.onToggle({ target: { open: true } }); await flush()
   assert.match(content(root), /请先登录终末地/)
 })
+
+test('report summary labels its bounded exact sample and keeps unknown history distinct from lower bounds', t=>{
+  api(t,()=>[200,{}])
+  const report={schema_version:1,total:30,six_star:1,five_star:3,free:0,gaps:1,pending:true,known_exact_intervals:2,average_exact_pulls:44}
+  const root=mount(t,Panel,{snap:{payload:{...summary,report,pools:[{...summary.pools[0],history:[{name:'未知区间',pulls:12,status:'unknown'}]}]}},accountId:'r1'})
+  assert.match(content(root),/免费寻访 0/);assert.match(content(root),/记录内准确区间均值 44 抽/)
+  assert.match(content(root),/当前展示历史中 2 个抽数准确/);assert.match(content(root),/未知区间 未知/);assert.doesNotMatch(content(root),/未知区间 ≥12/)
+})
+
+test('closing the ledger while its response is pending discards late private records',async t=>{
+  let resolve
+  api(t,()=>new Promise(done=>{resolve=()=>done([200,{total:1,records:[{name:'迟到私人记录'}]}])}))
+  const root=mount(t,Panel,{snap,accountId:'r1'});nodes(root,'details')[0].props.onToggle({target:{open:true}});await flush()
+  nodes(root,'details')[0].props.onToggle({target:{open:false}});await flush();resolve();await flush()
+  assert.doesNotMatch(content(root),/迟到私人记录/)
+})

@@ -318,6 +318,7 @@ onBeforeUnmount(() => {
   clearInterval(statusTimer)
   if (shakeTimer) clearTimeout(shakeTimer)
   destroyCaptcha()
+  mobile.value = ''; code.value = ''; session.value = null; accounts.value = {}
 })
 </script>
 

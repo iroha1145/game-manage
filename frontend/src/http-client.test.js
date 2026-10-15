@@ -1,0 +1,79 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { requestJson, requestResponse, configureHttpClient, invalidateSession, subscribeSessionInvalidation, setAccountScope } from './http-client.js'
+import { loadFavorites, saveFavorites } from './nte-roles.js'
+import { readdirSync, readFileSync } from 'node:fs'
+import { logoutSite } from './identity-api.js'
+import { createAuthSession, getAuthStatus } from './auth-api.js'
+import { wuwaRequest } from './wuwa-api.js'
+
+const json = value => new Response(JSON.stringify(value))
+test('csrf added to every mutation and stable across authenticated writes', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const requests = []
+  t.mock.method(globalThis, 'fetch', async (path, options) => {
+    requests.push({ path, options }); return json(path.endsWith('/csrf') ? { csrf_token: 'csrf-only' } : { ok: true })
+  })
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) await requestJson('/api/accounts/a/default-role', { method, body: { role_id: 'r' } })
+  assert.equal(requests.filter(x => x.path.endsWith('/csrf')).length, 1)
+  for (const { options } of requests.filter(x => !x.path.endsWith('/csrf'))) {
+    assert.equal(options.headers['X-CSRF-Token'], 'csrf-only'); assert.equal(options.credentials, 'same-origin')
+  }
+})
+test('late response from previous user or role is ignored even when transport ignores abort', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  let finish
+  t.mock.method(globalThis, 'fetch', () => new Promise(resolve => { finish = resolve }))
+  const pending = requestJson('/api/accounts')
+  invalidateSession(); finish(json({ accounts: ['private-A'] }))
+  await assert.rejects(pending, error => error.name === 'AbortError')
+  setAccountScope({ account_id: 'a', role_id: 'r1', provider: 'kuro' })
+  const rolePending = requestJson('/api/accounts/a/roles/r1/snapshot/account')
+  setAccountScope({ account_id: 'a', role_id: 'r2', provider: 'kuro' }); finish(json({ payload: 'old-role' }))
+  await assert.rejects(rolePending, error => error.name === 'AbortError')
+})
+test('401 revocation invalidates private state and blocks cloud legacy routes before fetch', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  let cleared = 0, fetched = 0
+  const stop = subscribeSessionInvalidation(() => cleared++); t.after(stop)
+  t.mock.method(globalThis, 'fetch', async () => { fetched++; return new Response('{}', { status: 401 }) })
+  await assert.rejects(requestJson('/api/accounts'), error => error.status === 401)
+  assert.equal(cleared, 1)
+  await assert.rejects(requestJson('/api/lol/collect', { method: 'POST' }), /云端/)
+  assert.equal(fetched, 1)
+})
+test('canonical community auth and role detail use owned cloud routes with CSRF', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (path, options) => { calls.push([path,options]); return json(path.endsWith('/csrf') ? { csrf_token: 'csrf' } : path === '/api/accounts' ? { accounts: [] } : { ok: true }) })
+  await getAuthStatus(); await createAuthSession('wuthering_waves'); await createAuthSession('nte'); await createAuthSession('endfield')
+  setAccountScope({ account_id: 'a', role_id: 'r', provider: 'kuro' }); await wuwaRequest('roles/123')
+  assert.deepEqual(calls.filter(x => !x[0].endsWith('/csrf')).map(x => x[0]), ['/api/accounts','/api/accounts/auth/kuro/sessions','/api/accounts/auth/tajiduo/sessions','/api/accounts/auth/hypergryph/sessions','/api/accounts/a/roles/r/wuwa/roles/123'])
+  for (const [,options] of calls.filter(x => x[1].method === 'POST')) assert.equal(options.headers['X-CSRF-Token'],'csrf')
+  await wuwaRequest('gacha/import', {body:{}}); assert.equal(calls.at(-1)[0],'/api/accounts/a/roles/r/wuwa/gacha/import'); assert.equal(calls.at(-1)[1].headers['X-CSRF-Token'],'csrf')
+})
+test('logout mutation reaches server while private scope is cleared', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async path => { calls.push(path); return json(path.endsWith('/csrf') ? { csrf_token:'csrf' } : {}) })
+  await requestJson('/api/accounts/a/default-role',{method:'PUT',body:{role_id:'r'}})
+  setAccountScope({ account_id:'a',role_id:'r',provider:'kuro' })
+  const pending = logoutSite(); setAccountScope(null); await pending
+  assert.ok(calls.includes('/api/identity/logout'))
+})
+test('legacy detail json parsing ignores late old user data, and cloud favorites never touch shared storage', async t => {
+  configureHttpClient({ mode:'cloud' }); t.after(() => configureHttpClient({mode:'local'}))
+  let finish
+  t.mock.method(globalThis,'fetch',async () => ({ok:true,status:200,json:() => new Promise(resolve => { finish=resolve })}))
+  const response=await requestResponse('/api/accounts/a/roles/r/snapshot/account')
+  const pending=response.json(); invalidateSession(); finish({payload:'old-user'})
+  await assert.rejects(pending,error=>error.name==='AbortError')
+  const storage={getItem(){throw new Error('private storage read')},setItem(){throw new Error('private storage write')}}
+  assert.deepEqual(loadFavorites('game-uid',storage),{ids:[],error:null})
+  assert.equal(saveFavorites('game-uid',['character'],storage).error,null)
+})
+test('every production fetch remains behind the audited HTTP broker', () => {
+  const root = new URL('.',import.meta.url)
+  const callers = readdirSync(root,{recursive:true}).filter(name => /\.(js|vue)$/.test(name) && !name.endsWith('.test.js') && /\bfetch\s*\(/.test(readFileSync(new URL(name.replaceAll('\\','/'),root),'utf8')))
+  assert.deepEqual(callers,['http-client.js'])
+})

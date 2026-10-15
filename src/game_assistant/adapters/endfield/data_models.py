@@ -70,3 +70,4 @@ class EndfieldGacha(EndfieldPayload):
     total: int = 0
     complete: bool = True
     pools: list[EndfieldGachaPool] = []
+    report: dict | None = None

@@ -27,6 +27,13 @@ def store_path(db_path: str) -> Path:
 
 
 class EndfieldGachaStore:
+    @classmethod
+    def for_scope(cls, scope, private_root, *, role_uid, server_id):
+        """Cloud factory: scope is mandatory and no local data is adopted."""
+        from game_assistant.private_data import scoped_ledger
+        return scoped_ledger(cls, 'endfield_gacha', scope, private_root,
+                             role_uid=role_uid, server_id=server_id)
+
     def __init__(self, path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -177,8 +184,11 @@ class EndfieldGachaStore:
                 pools.append(_pool_summary(key, kind, label, last_sync_at, rows, breaks))
         order = list(CHAR_POOL_TYPES)
         pools.sort(key=lambda p: (order.index(p.key) if p.key in order else len(order), -(p.newest_at or 0)))
-        return EndfieldGacha(role_id=role, total=sum(p.total for p in pools),
-                             complete=not any(p.pending for p in pools), pools=pools)
+        from game_assistant.endfield_reports import build_gacha_report
+        summary = EndfieldGacha(role_id=role, total=sum(p.total for p in pools),
+                               complete=not any(p.pending for p in pools), pools=pools)
+        summary.report = build_gacha_report(summary)
+        return summary
 
     def records(self, role: str, pool_key: str | None = None, limit: int = 100, offset: int = 0) -> dict:
         where, args = "role=?", [role]

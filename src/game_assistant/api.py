@@ -67,7 +67,7 @@ def create_app(registry=None, store=None, scheduler=None, notifier=None,
     install_lol_routes(app)
     from game_assistant.sources.bilibili_service import BilibiliService
     from game_assistant.sources.bilibili_routes import install_bilibili_routes
-    from game_assistant.sources.public_content import MOBILE_GAMES, merge_events, merge_news
+    from game_assistant.sources.public_content import MOBILE_GAMES
     sources = {game: str(uid) for game, uid in settings.bilibili_sources.items()
                if game in {a.game_id for a in app.state.registry.all()} and str(uid).isdigit()}
     bili = BilibiliService(settings, sources) if sources else None
@@ -122,80 +122,10 @@ def create_app(registry=None, store=None, scheduler=None, notifier=None,
             return read_esports_snapshot(app, datetime.now(timezone.utc))
         snap = app.state.store.get(game_id, capability)
         source_status = poll_status(game_id, capability, snap)
-        # Endfield's own website supplies the calendar. Bilibili is the fallback
-        # until the first successful official snapshot, not a replacement for it.
-        if game_id == 'endfield' and capability in ('news', 'events') and snap:
-            rows = json.loads(snap['payload'])
-            interval = interval_for(Capability(capability), settings)
-            stale = _stale(snap['fetched_at'], interval) or source_status['state'] in ('error', 'auth_expired')
-            rows = [{**row, 'source_stale': stale} for row in rows]
-            if capability == 'news' and bili and game_id in sources:
-                # Community articles supplement the website; calendar acceptance
-                # and official game-notice priority stay unchanged.
-                extra = [row for row in bili.news(game_id) if row.get('decision') != 'accepted']
-                rows = merge_news(rows, extra)
+        if game_id in MOBILE_GAMES and capability in ('news', 'events'):
+            from game_assistant.sources.public_snapshot import read_public_snapshot
             return {'game_id': game_id, 'capability': capability,
-                    'payload': rows,
-                    'fetched_at': snap['fetched_at'], 'stale': stale,
-                    'poll_status': source_status, 'primary_source': 'official',
-                    'version': next((row.get('version') for row in rows if row.get('version')), None)}
-        if capability in ('news', 'events') and bili and game_id in sources and game_id in MOBILE_GAMES:
-            state = bili.store.state(game_id, sources[game_id])
-            native_status = {k: v for k, v in source_status.items() if k != 'observed_at'}
-            rows = json.loads(snap['payload']) if snap else []
-            rows = rows if isinstance(rows, list) else []
-            native_stale = bool(snap and (_stale(snap['fetched_at'], settings.news_seconds) or source_status['state'] in ('error', 'auth_expired')))
-            rows = [{**r, 'source_stale': native_stale} for r in rows]
-            calendar = None
-            if capability == 'news':
-                announcements = app.state.store.get(game_id, 'announcement')
-                if announcements:
-                    extra = json.loads(announcements['payload'])
-                    if isinstance(extra, list):
-                        rows += [{**r, 'source_stale': _stale(announcements['fetched_at'], settings.news_seconds)} for r in extra]
-                primary = bili.news(game_id)
-                rows = merge_news(primary, rows)
-            else:
-                calendar = bili.calendar(game_id)
-                primary = calendar['events']
-                rows = merge_events(primary, rows, calendar['version'])
-            # Collection freshness is independent of when an unchanged article
-            # was first saved. Per-row failures must still retain their warning.
-            success_at = state.get('last_success') or max(
-                (r.get('fetched_at') for r in primary if r.get('fetched_at')), default=None)
-            expired = bool(success_at and _stale(success_at, max(600, settings.bilibili_poll_seconds)))
-            failed = state.get('status') == 'error'
-            partial = any(r.get('source_stale') for r in primary)
-            bili_status = {
-                'state': 'error' if failed or partial else 'ok' if primary else 'never',
-                'error': (state.get('message') or 'B站采集失败，保留成功记录') if failed else
-                         '部分B站正文更新失败，保留上次成功内容' if partial else None,
-                'error_kind': 'source_error' if failed else 'partial_data' if partial else None,
-                'last_success_at': success_at, 'last_attempt_at': state.get('last_attempt'),
-                'consecutive_failures': state.get('failures', 0),
-            }
-            if expired or failed:
-                rows = [{**r, 'source_stale': True} if r.get('source') == 'bilibili' else r for r in rows]
-            native_failed = source_status['state'] in ('error', 'auth_expired')
-            if primary or failed or (snap is None and not native_failed):
-                source_status = {**source_status, 'scope': 'public_source',
-                                 **bili_status}
-                if not primary and rows and not failed:
-                    # News may consist solely of the native announcement feed.
-                    fallback_cap = 'announcement' if capability == 'news' and announcements else capability
-                    fallback = poll_status(game_id, fallback_cap)
-                    source_status.update({k: v for k, v in fallback.items()
-                                          if k not in ('game_id', 'capability', 'observed_at')})
-            stale = bool(rows) and all(r.get('source_stale', False) for r in rows)
-            source_status = {**source_status, 'stale': stale,
-                             'source_statuses': {'community': native_status, 'bilibili': bili_status}}
-            return {'game_id': game_id, 'capability': capability,
-                    'payload': rows if rows or snap or state.get('last_success') else None,
-                    'fetched_at': max(filter(None, [snap['fetched_at'] if snap else None, state.get('last_success'), *[r.get('fetched_at') for r in rows]]), default=None),
-                    'stale': stale,
-                    'poll_status': source_status, 'bilibili_status': state,
-                    'primary_source': 'bilibili' if primary else 'community',
-                    'version': calendar['version'] if calendar else None}
+                    **read_public_snapshot(app.state.store, game_id, capability, settings, bili)}
         if snap is None:
             return {"game_id": game_id, "capability": capability,
                     "payload": None, "fetched_at": None, "stale": False,

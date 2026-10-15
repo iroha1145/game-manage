@@ -111,7 +111,14 @@ def parse_post_events(post, game, version):
         return []
     from .bilibili import PROMOTION
     lines = [s.strip() for s in post.get('body', '').splitlines() if s.strip()]
-    year = datetime.fromisoformat(post['published_at']).astimezone(BJ).year
+    published = post.get('published_at')
+    if published:
+        year = datetime.fromisoformat(published).astimezone(BJ).year
+    else:
+        explicit = next((m[1] for m in DATE.finditer(post.get('body', '')) if m[1]), None)
+        if not explicit:
+            return []  # An undated notice cannot anchor a short month/day to a year.
+        year = int(explicit)
     events = []
     for i, line in enumerate(lines):
         heading = _heading(line, game)
@@ -142,9 +149,9 @@ def parse_post_events(post, game, version):
                         entity = '角色' if category == '角色卡池' else '弧盘' if category == '弧盘研募' else None
                         aliases = re.findall(r'(?:限定)?S级'+entity+r'「([^」]+)」', context) if entity else []
                         events.append(dict(name=name, category=category, aliases=[name, *aliases], version=version, **dates,
-                        source='bilibili', source_name='B站官方动态', source_url=post['url'],
-                        source_post_id=post['id'], source_title=content_title(post),
-                        published_at=post['published_at'], fetched_at=post.get('fetched_at'),
+                        source=post.get('source') or 'bilibili', source_name=post.get('source_name') or 'B站官方动态', source_url=post['url'],
+                        source_post_id=post['id'], source_title=post.get('title') if post.get('source') == 'community' else content_title(post),
+                        published_at=published, fetched_at=post.get('fetched_at'),
                         source_stale=post.get('source_stale', False)))
     return events
 
@@ -245,7 +252,8 @@ def merge_events(primary, community, version):
             continue
         if primary:
             declared = VERSION.search(row.get('source_title') or '')
-            if not declared or declared[1] != version:
+            declared_version = row.get('version') or (declared[1] if declared else None)
+            if declared_version != version:
                 continue
         result.append(item)
     return result
@@ -276,7 +284,7 @@ def merge_news(primary, community):
                 if link.get('url') and not any(old.get('url') == link['url'] for old in links):
                     links.append(link)
             if rank(row) > rank(same):
-                for field in ('body', 'images', 'summary', 'content_status', 'content_error', 'fetched_at', 'source_stale'):
+                for field in ('body', 'images', 'summary', 'content_status', 'content_error', 'fetched_at', 'source_stale', '_snapshot_capability'):
                     if field in row: same[field] = row[field]
             continue
         result.append(row)

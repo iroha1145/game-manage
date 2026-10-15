@@ -101,12 +101,18 @@ class TajiduoWebClient:
     async def get_teams(self) -> dict:
         return await _request_json(self._client, 'GET', TEAMS, authorized=False)
 
-    async def get_official_post_list(self, column_id: str, count: int = 20) -> dict:
+    async def get_official_post_list(self, column_id: str, count: int = 20, *, official_type: int | None = None) -> dict:
         # 2026-09-13 匿名实测：version/officialType 传空串会被服务端拒绝
         # （code=6 NumberFormatException，officialType 需 int），故仅传
         # columnId + count（officialType=1 亦验证 200，返回相同数据）
+        params = {"columnId": column_id, "count": count}
+        if official_type is not None:
+            if type(official_type) is not int or official_type not in (1, 2, 3):
+                raise ValueError('invalid_official_post_type')
+            # Anonymous NOTICE=3/version=0 was verified separately from the default INFO feed.
+            params.update(officialType=official_type, version=0)
         return await _request_json(self._client, "GET", OFFICIAL_POST_LIST,
-                                   params={"columnId": column_id, "count": count},
+                                   params=params,
                                    authorized=False)
 
     async def get_post_full(self, post_id) -> dict:

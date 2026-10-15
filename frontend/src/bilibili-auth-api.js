@@ -1,3 +1,4 @@
+import { requestResponse } from './http-client.js'
 const ROOT = '/api/auth/bilibili-source/login'
 export class BilibiliAuthError extends Error {
   constructor(message, { status=0, errorCode='', state='', retryAfter=0, timedOut=false }={}) {
@@ -12,7 +13,7 @@ async function request(path, method='GET', body, signal) {
   const timeout=AbortSignal.timeout(75000)
   let response
   try {
-    response=await fetch(ROOT+path,{method,headers,credentials:'same-origin',
+    response=await requestResponse(ROOT+path,{method,headers,credentials:'same-origin',
       ...(body!==undefined?{body:JSON.stringify(body)}:{}), signal:signal?AbortSignal.any([signal,timeout]):timeout})
   } catch {
     if(signal?.aborted) throw new DOMException('已取消','AbortError')

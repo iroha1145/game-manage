@@ -1,5 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { isCloudMode } from '../http-client.js'
+const cloudMode = isCloudMode()
 import { getLedgerSummary, getLedgerRecords, previewLedger, importLedger, getLedgerRules, saveLedgerRule, exportLedger, pityLabel, ledgerDate, poolLabel, requirementLabel, resultLabel } from '../nte-gacha-api.js'
 import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
@@ -111,7 +113,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
 </script>
 
 <template>
-  <section class="cap-card ledger" aria-label="本地逐抽账本">
+  <section class="cap-card ledger" :aria-label="cloudMode ? '本人逐抽账本' : '本地逐抽账本'">
     <header class="cap-title ledger-head">
       <h2>逐抽账本</h2>
       <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已导入记录</span>
@@ -145,7 +147,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
             <p v-if="preview.identity_confirmation_required" class="warn">文件未标明角色，请勾选“确认属于当前角色”后重新预览。</p>
             <ul v-if="preview.warnings?.length"><li v-for="(note, index) in preview.warnings" :key="index">{{ requirementLabel(note) }}</li></ul>
             <ul v-if="preview.missing_requirements?.length"><li v-for="(note, index) in preview.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul>
-            <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">确认导入到本机</button>
+            <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">{{ cloudMode ? '确认导入到本人空间' : '确认导入到本机' }}</button>
           </div>
           <details class="source-help"><summary>导入文件说明</summary><p>使用逐抽历史导出文件，或本账本导出的备份。社区出 S 汇总无法导入。</p><p><a href="https://github.com/Golumpa/nte-exporter" target="_blank" rel="noopener noreferrer">nte-exporter 文件格式说明 ↗</a></p></details>
         </div>

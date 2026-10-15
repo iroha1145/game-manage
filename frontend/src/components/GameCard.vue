@@ -25,6 +25,10 @@ import NteGuides from './NteGuides.vue'
 import NteModuleCard from './NteModuleCard.vue'
 
 const props = defineProps({
+  cloudAccount: Object,
+  cloudRole: String,
+  cloudScope: Object,
+  isAdmin: Boolean,
   esportsBrowse: Object,
   game: { type: Object, required: true },
   externalSnapshots: { type: Object, required: true },
@@ -87,7 +91,7 @@ function capProps(cap) {
     snap: snaps[cap],
     gameId: props.game.game_id,
     capability: cap,
-    accountId: ['nte', 'endfield'].includes(props.game.game_id) ? snaps.account?.payload?.role_id || '' : '',
+    accountId: cap === 'roles' && props.cloudScope ? props.cloudScope : props.cloudScope ? `${props.cloudScope.account_id}:${props.cloudScope.role_id}` : ['nte', 'endfield'].includes(props.game.game_id) ? snaps.account?.payload?.role_id || '' : '',
     roles: snaps.roles?.payload?.entries || [],
     stats: snaps.stats?.payload ?? null,
   }
@@ -123,8 +127,8 @@ function capProps(cap) {
     <div v-if="!['wuthering_waves','league_of_legends','endfield'].includes(game.game_id)" class="detail-navigation"><nav v-glide class="detail-tabs segmented" aria-label="游戏数据分区"><button v-for="group in groups" :key="group.id" type="button" :aria-pressed="activeSection === group.id" :class="{ active: activeSection === group.id }" @click="activeSection = group.id">{{ group.label }}</button></nav><button v-if="game.capabilities.includes('events')" class="text-link" @click="emit('calendar')"><AppIcon name="calendar" :size="15" />活动日历 <AppIcon name="arrow" :size="15" /></button></div>
     <WuwaDashboard v-if="game.game_id === 'wuthering_waves'" :snaps="externalSnapshots" :configured="game.credentials_configured" :initial-section="initialSection" @calendar="emit('calendar')" />
     <LolDashboard v-else-if="game.game_id === 'league_of_legends'" :snaps="externalSnapshots" :esports-browse="esportsBrowse" @esports-snapshot="emit('esports-snapshot', $event)" @esports-browse="emit('esports-browse', $event)" @refresh="emit('refresh')" />
-    <EndfieldDashboard v-else-if="game.game_id === 'endfield'" :snaps="externalSnapshots" :initial-section="initialSection" @calendar="emit('calendar')" />
-    <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides /></NteModuleCard>
+    <EndfieldDashboard v-else-if="game.game_id === 'endfield'" :snaps="externalSnapshots" :initial-section="initialSection" :cloud-account="cloudAccount" :cloud-role="cloudRole" :is-admin="isAdmin" @calendar="emit('calendar')" @refresh="emit('refresh')" />
+    <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" :can-maintain="!cloudAccount || isAdmin" /></NteModuleCard>
     <div v-else class="cap-list">
       <template v-for="(cap, index) in visibleCaps" :key="cap">
         <NteModuleCard v-if="game.game_id === 'nte' && capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">

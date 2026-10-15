@@ -35,3 +35,16 @@ def build_default_registry(settings: Settings) -> GameRegistry:
     if settings.endfield_enabled:
         registry.register(EndfieldAdapter(settings))
     return registry
+
+
+def build_account_registry(settings: Settings, game: str, *, provider: str) -> GameRegistry:
+    """One explicit game context; never enables LCU or unrelated credentials."""
+    registry = GameRegistry()
+    if provider == 'skland':
+        from game_assistant.accounts.runtime import SklandAccountAdapter
+        registry.register(SklandAccountAdapter(settings))
+    else:
+        adapter = {'wuthering_waves': WutheringWavesAdapter,
+                   'nte': NteAdapter, 'endfield': EndfieldAdapter}[game]
+        registry.register(adapter(settings))
+    return registry

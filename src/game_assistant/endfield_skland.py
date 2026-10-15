@@ -32,6 +32,17 @@ def _safe_public_data(value):
 class EndfieldSklandService:
     ttl_seconds = 120
 
+    @classmethod
+    def for_scope(cls, scope, session, *, client=None, clock=None):
+        """Read-only cloud service; credentials come from the resolved grant."""
+        from .private_data import validate_scope
+        validate_scope(scope)
+        if not isinstance(session, dict) or any(not isinstance(session.get(k),str) or not session[k]
+                for k in ('cred','user_id','role_id','server_id')):
+            raise ValueError('A verified Skland session is required')
+        service=cls('',store=_GrantSession(session),client=client,clock=clock)
+        return ScopedSkland(scope,service)
+
     def __init__(self, db_path: str, *, client: SklandClient | None = None,
                  store: CredentialStore | None = None, clock=None, passport=None, hypergryph=None):
         self.client = client or SklandClient()
@@ -274,8 +285,13 @@ class EndfieldSklandService:
                 error = str(exc) if isinstance(exc, SklandError) else '森空岛干员详情格式已变化'
                 previous = self._operator_cache.get(char_id)
                 if previous:
-                    return {**previous, 'stale': True, 'error': error}
-                return {'operator': None, 'fetched_at': None, 'stale': True, 'error': error}
+                    result = {**previous, 'stale': True, 'error': error}
+                else:
+                    result = {'operator': None, 'fetched_at': None, 'stale': True, 'error': error}
+                # Preserve the last successful observation time together with
+                # its latest failure state for offline website/QQ consumers.
+                self._operator_cache[char_id] = result
+                return result.copy()
 
     async def _read_attendance_unlocked(self, session: dict) -> dict:
         session, token = await self._token(session)
@@ -366,3 +382,72 @@ class EndfieldSklandService:
                     return {**result, "stale": True, "error": str(exc)}
                 return {"supported": True, "kind": kind, "payload": None,
                         "fetched_at": None, "stale": True, "error": str(exc)}
+
+
+class _GrantSession:
+    """Ephemeral view of an existing cloud grant; never creates a credential file."""
+    def __init__(self, session):
+        from copy import deepcopy
+        self.session=deepcopy(session)
+
+    def load(self):
+        return {'session': self.session}
+
+    def save(self, value):
+        raise PermissionError('Cloud Skland grants must use AccountService')
+
+
+class ScopedSkland:
+    METHODS=frozenset(('status','read_card','attendance_status','read_operator','read_challenges','read_tool'))
+
+    def __init__(self,scope,service):
+        self.scope,self._service=scope,service
+
+    def _check(self,scope):
+        from .private_data import validate_scope
+        validate_scope(scope)
+        if scope!=self.scope:
+            raise PermissionError('Private scope does not match')
+
+    def __getattr__(self,name):
+        if name not in self.METHODS:
+            raise AttributeError(name)
+        if name=='status':
+            def status(scope):
+                self._check(scope)
+                return self._service.status()
+            return status
+        async def read(scope,*args,**kwargs):
+            self._check(scope)
+            result=await getattr(self._service,name)(*args,**kwargs)
+            self._check(scope)
+            return result
+        return read
+
+    def cached_operator(self,scope,char_id):
+        """Read an existing observation only; never refresh or touch credentials."""
+        from copy import deepcopy
+        self._check(scope)
+        if (not isinstance(char_id,str) or not char_id or len(char_id)>80
+                or not char_id.replace('-','').replace('_','').isalnum()):
+            return None
+        # close() can run while a former request is finishing. A late result
+        # must not make a cleared service readable again.
+        if not self._service._session.get('cred'):
+            return None
+        value=self._service._operator_cache.get(char_id)
+        return deepcopy(value) if isinstance(value,dict) else None
+
+    def clear(self,scope):
+        self._check(scope)
+        service=self._service
+        service._cache=None
+        service._challenge_cache.clear()
+        service._operator_cache.clear()
+        service._tool_cache.clear()
+        service._last_attendance=None
+
+    def close(self):
+        self.clear(self.scope)
+        self._service._session={}
+        self._service.store.session={}

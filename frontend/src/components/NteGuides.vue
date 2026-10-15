@@ -6,7 +6,7 @@ import NteIcon from './NteIcon.vue'
 import NteGuideVisual from './NteGuideVisual.vue'
 import { nteRoleIcon } from '../nte-icons.js'
 
-const props = defineProps({ roles: { type: Array, default: () => [] } })
+const props = defineProps({ canMaintain: {type:Boolean,default:true}, roles: { type: Array, default: () => [] } })
 const catalog = ref(null), selected = ref('黑羽'), search = ref(''), ownedOnly = ref(false)
 const catalogLoading = ref(true), catalogError = ref(''), source = ref(null), sourceLoading = ref(false), sourceError = ref('')
 const page = ref(1), imageFailed = ref(false)
@@ -74,7 +74,7 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
           <p v-else-if="source?.stale" class="source-status">正在显示已保存的旧版攻略资料。</p>
           <p v-if="guide.status === 'original_only'" class="notice">文字推荐待整理。已定位到原图第 {{ guide.pages.join('、') }} 页，可查看该角色的五类配装信息。</p>
           <div v-if="guide.status === 'reviewed'" class="advice-grid"><article v-for="(section, index) in guide.sections" :key="section.key" class="advice-card"><header><span class="number">0{{ index + 1 }}</span><h4>{{ section.title }}</h4></header><ul v-if="section.items.length"><li v-for="(item, i) in section.items" :key="i"><NteGuideVisual :text="item" :section-key="section.key" :role-name="guide.name" /></li></ul><p v-else class="muted">暂无已整理的文字推荐</p><details v-if="section.note" class="section-note"><summary>适用条件与说明</summary><p>{{ section.note }}</p></details><button :disabled="sourceLoading || !source || !section.pages.some(n => n <= totalImages)" @click="showPage(section.pages[0])">查看对应原图 · 第 {{ section.pages.join('、') }} 页 ↗</button></article></div>
-          <section ref="sourcePanel" class="source-card" aria-label="攻略原图与来源"><header><div><h4>原图与来源</h4><a v-if="originalLink" :href="originalLink" target="_blank" rel="noopener noreferrer">{{ sourceMeta.title }} ↗</a></div><button :disabled="sourceLoading" @click="loadSource(true)">{{ sourceLoading ? '读取中…' : '刷新原帖' }}</button></header>
+          <section ref="sourcePanel" class="source-card" aria-label="攻略原图与来源"><header><div><h4>原图与来源</h4><a v-if="originalLink" :href="originalLink" target="_blank" rel="noopener noreferrer">{{ sourceMeta.title }} ↗</a></div><button v-if="canMaintain" :disabled="sourceLoading" @click="loadSource(true)">{{ sourceLoading ? '读取中…' : '刷新原帖' }}</button></header>
             <p class="muted">更新于 {{ date(source?.fetched_at) }}（北京时间）<span v-if="source?.published_at"> · 发布：{{ date(source.published_at) }}（北京时间）</span><span v-if="source?.edited_at"> · 编辑：{{ date(source.edited_at) }}（北京时间）</span></p>
             <p v-if="source?.refresh_deferred" class="muted">刚刚已尝试刷新，请稍后重试。</p>
             <template v-if="totalImages"><div class="image-toolbar"><span>原图第 {{ page }} / {{ totalImages }} 页</span><button v-for="n in totalImages" :key="n" :aria-pressed="page === n" :aria-label="`查看原图第${n}页`" @click="showPage(n)">{{ n }}</button><a v-if="currentImage" :href="currentImage" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">新窗口查看大图 ↗</a></div>

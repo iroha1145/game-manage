@@ -39,7 +39,7 @@ def flag(value):
 
 def value(value):
     if isinstance(value, dict):
-        return value.get("value") or value.get("key")
+        return value.get("value") if value.get("value") is not None else value.get("key")
     return value
 
 
@@ -80,12 +80,14 @@ def parse_user_id(data: dict) -> str:
 
 def _equipment(char: dict) -> list[dict]:
     out = []
+    labels = {'bodyEquip': '护甲', 'armEquip': '护手', 'firstAccessory': '配件一', 'secondAccessory': '配件二'}
     for slot in ("bodyEquip", "armEquip", "firstAccessory", "secondAccessory"):
         equipped = obj(char.get(slot))
         if not equipped:
             continue
         item = obj(equipped.get("equipData"))
-        out.append({"slot": slot, "id": str(equipped.get("equipId") or item.get("id") or ""),
+        out.append({"slot": slot, "slot_name": labels[slot], "slot_label": labels[slot],
+                    "id": str(equipped.get("equipId") or item.get("id") or ""),
                     "name": item.get("name"), "rarity": value(item.get("rarity")),
                     "level": value(item.get("level")), "icon_url": item.get("iconUrl")})
     return out
@@ -105,7 +107,8 @@ def parse_operator(char: dict) -> dict:
         skills.append({"id": skill_id, "name": skill.get("name"),
                        "level": number(obj(user_skills.get(skill_id)).get("level")),
                        "icon_url": skill.get("iconUrl")})
-    return {"id": str(char.get("id") or info.get("id") or ""), "name": info.get("name"),
+    return {"id": str(char.get("id") or info.get("id") or ""),
+            "char_id": str(info.get("id") or char.get("charId") or char.get("id") or ""), "name": info.get("name"),
             "level": number(char.get("level")), "rarity": value(info.get("rarity")),
             "potential": number(char.get("potentialLevel")), "evolve_phase": number(char.get("evolvePhase")),
             "profession": value(info.get("profession")), "property": value(info.get("property")),
@@ -130,15 +133,16 @@ def parse_card(detail: dict, *, fetched_at: str) -> dict:
     stamina = {"current": number(dungeon.get("curStamina")), "maximum": number(dungeon.get("maxStamina")),
                "expected_full_at": _utc_ts(dungeon.get("maxTs")), "updated_at": _utc_ts(detail.get("currentTs")) or fetched_at}
     progress = [
-        {"name": "每日活跃", "cur": number(daily.get("dailyActivation")), "total": number(daily.get("maxDailyActivation"))},
-        {"name": "每周任务", "cur": number(weekly.get("score")), "total": number(weekly.get("total"))},
-        {"name": "通行证", "cur": number(bp.get("curLevel")), "total": number(bp.get("maxLevel"))},
+        {"id": "daily", "name": "每日活跃", "cur": number(daily.get("dailyActivation")), "total": number(daily.get("maxDailyActivation"))},
+        {"id": "weekly", "name": "每周任务", "cur": number(weekly.get("score")), "total": number(weekly.get("total"))},
+        {"id": "battle_pass", "name": "通行证", "cur": number(bp.get("curLevel")), "total": number(bp.get("maxLevel"))},
     ]
     regions = []
     for domain in rows(detail.get("domain")):
         collections = [{"level_id": entry.get("levelId"),
                         "puzzle_count": number(entry.get("puzzleCount")),
                         "chest_count": number(entry.get("trchestCount")),
+                        "equipment_chest_count": number(entry.get("equipTrchestCount")),
                         "piece_count": number(entry.get("pieceCount")),
                         "blackbox_count": number(entry.get("blackboxCount"))}
                        for entry in rows(domain.get("collections"))]
@@ -150,30 +154,46 @@ def parse_card(detail: dict, *, fetched_at: str) -> dict:
                            "equipment_chests": obj(level.get("equipTrchestCount")),
                            "pieces": obj(level.get("pieceCount")),
                            "blackboxes": obj(level.get("blackboxCount"))})
-        settlements = [{"id": item.get("id"), "name": item.get("name"),
-                        "level": number(item.get("level")), "money": number(item.get("remainMoney")),
-                        "money_max": number(item.get("moneyMax"))}
-                       for item in rows(domain.get("settlements"))]
+        settlements = []
+        for item in rows(domain.get("settlements")):
+            officers = item.get('officerCharIds')
+            if officers is not None and (not isinstance(officers, list) or any(
+                    isinstance(identity, bool) or not isinstance(identity, (str, int)) for identity in officers)):
+                raise ValueError('expected officer ids')
+            settlements.append({"id": item.get("id"), "name": item.get("name"),
+                                "level": number(item.get("level")), "money": number(item.get("remainMoney")),
+                                "money_max": number(item.get("moneyMax")),
+                                "officer_char_ids": [str(identity) for identity in officers] if officers is not None else None})
         regions.append({"id": domain.get("domainId"), "name": domain.get("name"),
                         "level": number(domain.get("level")), "collections": collections,
                         "levels": levels, "settlements": settlements,
+                        "settlements_available": isinstance(domain.get("settlements"), list),
                         "money": obj(domain.get("moneyMgr"))})
     room_types = {0: '总控中枢', 1: '制造', 2: '种植', 4: '指挥', 5: '接待', 999997: '未解锁'}
     ship = [{"id": room.get("id"), "type": room.get("type"),
              'name': room.get('name') or room_types.get(room.get('type'), '舱室'), "level": number(room.get("level")),
+             "operators_available": isinstance(room.get("chars"), list),
              "operators": room.get("chars") if isinstance(room.get("chars"), list) else []}
             for room in rows(obj(detail.get("spaceShip")).get("rooms"))]
     achieve = obj(detail.get("achieve"))
-    return {"base": {"role_id": str(base.get("roleId") or ""), "name": base.get("name"),
+    payload = {"base": {"role_id": str(base.get("roleId") or ""), "name": base.get("name"),
                      "server_name": base.get("serverName"), "level": number(base.get("level")),
                      "world_level": number(base.get("worldLevel")), "avatar_url": base.get("avatarUrl"),
                      "main_mission": obj(base.get("mainMission")).get("description"),
-                     "char_count": number(base.get("charNum")), "weapon_count": number(base.get("weaponNum"))},
+                     "char_count": number(base.get("charNum")), "weapon_count": number(base.get("weaponNum")),
+                     "doc_count": number(base.get("docNum"))},
+            "observed_at": _utc_ts(detail.get("currentTs")),
+            "availability": {"operators": isinstance(detail.get("chars"), list),
+                             "regions": isinstance(detail.get("domain"), list),
+                             "ship": isinstance(obj(detail.get("spaceShip")).get("rooms"), list)},
             "stamina": stamina, "progress": progress,
             "operators": [parse_operator(char) for char in rows(detail.get("chars"))],
             "regions": regions, "ship": ship,
             "achievements": {"count": number(achieve.get("count")),
                              "medals": rows(achieve.get("achieveMedals"))}}
+    from game_assistant.endfield_reports import build_endfield_report
+    payload['report'] = build_endfield_report(payload, fetched_at=fetched_at)
+    return payload
 
 
 def parse_attendance(data: dict) -> dict:

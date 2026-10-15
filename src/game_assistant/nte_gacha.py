@@ -131,6 +131,13 @@ def _archive_rules(document):
 
 
 class GachaStore:
+    @classmethod
+    def for_scope(cls, scope, private_root, *, role_uid, server_id):
+        """Cloud factory: scope is mandatory and no local data is adopted."""
+        from game_assistant.private_data import scoped_ledger
+        return scoped_ledger(cls, 'nte', scope, private_root,
+                             role_uid=role_uid, server_id=server_id)
+
     def __init__(self, path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)

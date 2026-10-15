@@ -1,0 +1,38 @@
+[Unit]
+Description=Game Manage independent official QQ client
+After=network-online.target game-manage.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=game-manage-qq
+Group=game-manage-qq
+WorkingDirectory=/opt/game-manage-cloud/current
+EnvironmentFile=/etc/game-manage-qq/service.env
+ExecStart=/opt/game-manage-cloud/current/.venv/bin/python -m game_assistant.qq.runner --state-file /var/lib/game-manage-qq/state.db
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=45
+UMask=0077
+MemoryHigh=192M
+MemoryMax=256M
+TasksMax=64
+CPUQuota=50%
+OOMPolicy=stop
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/game-manage-qq
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=game-manage-qq
+LogNamespace=game-manage-cloud
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=100
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,6 @@
 <script setup>
+import { isCloudMode } from '../http-client.js'
+const cloudMode = isCloudMode()
 import { onMounted, ref, watch } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
 import { fieldLabels, list, stamp, value } from '../wuwa-display.js'
@@ -95,7 +97,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
         :disabled="busy"
         @click="backfill"
       >
-        回补历史
+        {{ cloudMode ? '回补本人快照' : '回补本地快照' }}
       </button>
     </header>
     <div class="wuwa-history-bar">

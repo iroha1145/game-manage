@@ -1,13 +1,23 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { isCloudMode } from '../http-client.js'
+const cloudMode = isCloudMode()
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { fetchedLabel } from '../time.js'
 import { exportRecords, getRecords, pityText, pullDate, rarityLabel } from '../endfield-gacha-api.js'
 import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
+import SummaryMetrics from './SummaryMetrics.vue'
 
 const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: String, default: '' } })
 const summary = computed(() => props.snap?.payload?.schema_version === 1 ? props.snap.payload : null)
+const report = computed(() => summary.value?.report?.schema_version === 1 ? summary.value.report : null)
+const reportMetrics = computed(() => [
+  { label: '已记录寻访', value: report.value?.total ?? summary.value?.total },
+  { label: '6★ 记录', value: report.value?.six_star },
+  { label: '5★ 记录', value: report.value?.five_star },
+  { label: '免费寻访', value: report.value?.free },
+])
 const pools = computed(() => Array.isArray(summary.value?.pools) ? summary.value.pools : [])
 const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 const poolOptions = computed(() => [{ value: '', label: '全部卡池' }, ...pools.value.map(pool => ({ value: pool.key, label: pool.label }))])
@@ -25,7 +35,7 @@ function split(pool) {
     { label: '4★', count: rest, series: 'var(--text-faint)' },
   ]
 }
-const sixPulls = item => item.pulls == null ? '?' : item.status === 'exact' ? `${item.pulls} 抽` : `≥${item.pulls} 抽`
+const sixPulls = item => item.pulls == null ? '未知' : item.status === 'exact' ? `${item.pulls} 抽` : item.status === 'lower_bound' ? `≥${item.pulls} 抽` : '未知'
 
 async function load(start = 0) {
   if (!props.accountId) return
@@ -42,21 +52,24 @@ async function load(start = 0) {
   }
 }
 // 逐条记录只在展开时读取本机账本。
-watch(() => [props.accountId, recordPool.value, opened.value], () => { records.value = []; total.value = 0; if (opened.value) load(0) })
+watch(() => [props.accountId, recordPool.value, opened.value], () => { ++generation; records.value = []; total.value = 0; offset.value = 0; busy.value = false; message.value = ''; if (opened.value) load(0) })
+onBeforeUnmount(() => { ++generation })
 const range = computed(() => total.value ? `${offset.value + 1}–${Math.min(offset.value + PAGE, total.value)} / ${total.value}` : '0 条')
 
 async function download() {
+  const request = ++generation, account = props.accountId
   busy.value = true; message.value = ''
   try {
     const data = await exportRecords()
+    if (request !== generation || account !== props.accountId) return
     const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url; link.download = `endfield-gacha-${props.accountId}.json`; link.click(); URL.revokeObjectURL(url)
     message.value = `已导出 ${data.records?.length || 0} 条记录。`
   } catch (error) {
-    message.value = error.message
+    if (request === generation) message.value = error.message
   } finally {
-    busy.value = false
+    if (request === generation) busy.value = false
   }
 }
 </script>
@@ -65,14 +78,19 @@ async function download() {
   <section class="cap-card endfield-gacha" aria-labelledby="endfield-gacha-title">
     <header class="cap-title">
       <h2 id="endfield-gacha-title">寻访记录</h2>
-      <InfoHint text="官方可查询约 90 天记录；同步后保存在本机，退出登录不会删除本机记录。" />
+      <InfoHint :text="cloudMode ? '官方记录有查询时限，云端档案保留已同步数据；撤销授权会禁止读取。' : '官方可查询约 90 天记录；同步后保存在本机，退出登录不会删除本机记录。'" />
       <span class="cap-meta"><template v-if="summary">共 <b>{{ summary.total }}</b> 抽<template v-if="fetchedAt"> · 同步于 {{ fetchedAt }}</template></template><button type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button></span>
     </header>
     <p v-if="!accountId" class="notice">登录终末地后，点「刷新数据」开始同步寻访记录。</p>
     <p v-else-if="!summary" class="notice">尚未同步寻访记录，点「刷新数据」开始同步。</p>
     <template v-else>
-      <p v-if="!summary.complete" class="notice warn" role="status">还有未同步完的记录，下次刷新会接着同步。</p>
-      <p v-if="!pools.length" class="empty">本机暂无寻访记录。</p>
+      <SummaryMetrics compact :metrics="reportMetrics" />
+      <div v-if="report" class="gacha-coverage"><span>已知记录缺口 <b>{{ report.gaps ?? '未知' }}</b></span><span>同步状态 <b>{{ report.pending === true ? '部分待同步' : report.pending === false ? '本轮同步完成' : '未知' }}</b></span><span>记录内准确区间均值 <b>{{ report.average_exact_pulls == null ? '未知' : `${report.average_exact_pulls} 抽` }}</b></span></div>
+      <p v-if="report?.average_exact_pulls != null" class="notice">均值仅来自当前展示历史中 {{ report.known_exact_intervals }} 个抽数准确的 6★ 区间，不代表完整生涯或未来出货。</p>
+      <p v-if="summary.complete === false" class="notice warn" role="status">还有未同步完的记录，下次刷新会接着同步。</p>
+      <p v-else-if="summary.complete !== true" class="notice warn" role="status">当前记录完整性未知，请留意各卡池的记录范围。</p>
+      <p v-else class="notice">当前可同步范围已读取；更早的历史仍以已保存记录为准。</p>
+      <p v-if="!pools.length" class="empty">{{ cloudMode ? '本人档案' : '本机' }}暂无寻访记录。</p>
       <div v-else class="pool-grid">
         <article v-for="pool in pools" :key="pool.key" class="pool-card">
           <header class="pool-head">
@@ -91,7 +109,7 @@ async function download() {
             <li class="plain">共 <b>{{ pool.total }}</b> 抽</li>
             <li v-if="pool.free" class="plain">免费 <b>{{ pool.free }}</b></li>
           </ul>
-          <ul v-if="pool.history.length" class="chip-list" :aria-label="`${pool.label}的 6★ 记录`">
+          <ul v-if="pool.history?.length" class="chip-list" :aria-label="`${pool.label}的 6★ 记录`">
             <li v-for="(item, index) in pool.history" :key="index" class="chip six" :title="`${item.pool_name || pool.label} · ${pullDate(item.obtained_at)}`">{{ item.name || '未知' }} <b>{{ sixPulls(item) }}</b></li>
           </ul>
         </article>
@@ -134,6 +152,8 @@ async function download() {
 .cap-meta .ui-button { margin-left: 4px; }
 .notice { margin: 0; color: var(--text-muted); font-size: 12px; }
 .notice.warn { color: var(--stale-text); }
+.gacha-coverage { display:flex;gap:10px 20px;flex-wrap:wrap;padding:12px 0;border-block:1px solid var(--border);font-size:12px;color:var(--text-muted); }
+.gacha-coverage b { margin-left:6px;color:var(--text);font-weight:500; }
 .pool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 8px; }
 .pool-card { display: grid; gap: 8px; align-content: start; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel-bg); }
 .pool-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }

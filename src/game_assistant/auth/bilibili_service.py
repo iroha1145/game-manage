@@ -283,7 +283,7 @@ class BilibiliLoginService:
             s.candidate_expires = min(s.expires, self.clock()+CANDIDATE_TTL)
         self._schedule_expiry()
         try:
-            extra = self.source.commit_verified_account(account)
+            extra = self._commit_verified_account(s, account)
         except BilibiliSaveBusy:
             s.state = 'pending_save'
             raise fail('COLLECTION_BUSY', 409, state='pending_save') from None
@@ -294,6 +294,9 @@ class BilibiliLoginService:
         self._validated = True
         self._retire(s, 'complete')
         return {'ok': True, 'state': 'complete', 'account': self.status(), **extra}
+
+    def _commit_verified_account(self, session, account):
+        return self.source.commit_verified_account(account)
 
     async def captcha(self, sid, *, is_disconnected=None):
         async def action(s):
