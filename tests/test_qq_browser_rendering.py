@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime
 from io import BytesIO
+from math import ceil
 import os
 from pathlib import Path
 import time
@@ -76,6 +77,17 @@ def browser():
     font=os.environ.get('QQ_RENDER_TEST_FONT')
     if not executable or not font:pytest.skip('Set QQ_RENDER_TEST_EXECUTABLE and QQ_RENDER_TEST_FONT for isolated real Chromium acceptance')
     return BrowserRenderer(executable_path=executable,font_path=font)
+
+
+async def out_of_bounds_rows(page,selector):
+    return await page.locator('.render-page').evaluate("""(host, selector) => {
+        const page = host.getBoundingClientRect();
+        return [...host.querySelectorAll(selector)].filter(row => {
+            const box = row.getBoundingClientRect();
+            return box.width <= 0 || box.height <= 0 || box.left < page.left - .01 ||
+                box.top < page.top - .01 || box.right > page.right + .01 || box.bottom > page.bottom + .01;
+        }).length;
+    }""",selector)
 
 
 def test_strict_snapshot_rejects_unknown_paths_credentials_and_unbounded_data():
@@ -263,12 +275,22 @@ async def test_real_shared_component_pngs_optional_images_and_no_account_api(kin
 async def test_real_shared_long_records_retain_first_and_last_rows_in_one_image(kind,tmp_path):
     renderer=browser()
     texts=[]
+    counts={}
+    bounds={}
+    outside={}
+    expected_counts={'nte_role':{'.role-card':20},'nte_gacha':{'.pull-row':40},
+        'wuwa_gacha':{'.wuwa-draws tbody tr':90,'.wuwa-gold-row':30},
+        'wuwa_role':{'.wuwa-skills > article':12,'.wuwa-chain':8}}[kind]
     original_close=renderer._bounded_close
     async def inspect_close(operation):
         if renderer._browser is not None and renderer._browser.contexts:
             page=renderer._browser.contexts[0].pages[0]
             if not page.is_closed() and renderer.last_state and renderer.last_state.get('state')=='ready':
                 texts.extend(await page.locator('.render-page').all_inner_texts())
+                bounds.update(await page.locator('.render-page').bounding_box())
+                for selector in expected_counts:
+                    counts[selector]=await page.locator('.render-page').locator(selector).count()
+                    outside[selector]=await out_of_bounds_rows(page,selector)
         return await original_close(operation)
     renderer._bounded_close=inspect_close
     if kind=='nte_role':
@@ -290,11 +312,22 @@ async def test_real_shared_long_records_retain_first_and_last_rows_in_one_image(
     try:
         image=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
         assert image.total_pages==1 and image.page==1
+        assert len(renderer.last_state['pages'])==1
+        geometry=renderer.last_state['pages'][0]
         with Image.open(BytesIO(image)) as picture:
-            assert picture.width==1080 and 2300<picture.height<16000
+            assert picture.size==(ceil(bounds['width']),ceil(bounds['height']))
+            assert geometry['width']==bounds['width'] and abs(geometry['height']-bounds['height'])<1
+            assert picture.width==1080 and 0<picture.height<=16000
+            assert picture.width*picture.height<=renderer.max_pixels
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+        assert counts==expected_counts
+        assert outside==dict.fromkeys(expected_counts,0)
         first,last={'nte_role':('完整角色 000','完整角色 019'),'nte_gacha':('完整抽卡 000','完整抽卡 039'),'wuwa_gacha':('完整五星 000','完整明细 059'),'wuwa_role':('完整技能 000','完整共鸣链 007')}[kind]
         assert first in '\n'.join(texts) and last in '\n'.join(texts)
+        prefixes={'nte_role':[('完整角色',20)],'nte_gacha':[('完整抽卡',40)],
+            'wuwa_gacha':[('完整五星',30),('完整明细',60)],'wuwa_role':[('完整技能',12),('完整共鸣链',8)]}[kind]
+        for prefix,count in prefixes:
+            assert all(f'{prefix} {index:03}' in '\n'.join(texts) for index in range(count))
         assert len(image)<=renderer.max_bytes and not renderer._browser.contexts
         suffix='jpg' if image.startswith(b'\xff\xd8') else 'png'
         (tmp_path/f'{kind}-long.{suffix}').write_bytes(image)
@@ -304,10 +337,22 @@ async def test_real_shared_long_records_retain_first_and_last_rows_in_one_image(
 @pytest.mark.parametrize('kind',['nte_role','nte_gacha'])
 async def test_real_shared_height_limit_rejects_whole_image_instead_of_returning_first_page(kind):
     renderer=browser()
+    observed={}
+    original_close=renderer._bounded_close
+    async def inspect_close(operation):
+        if renderer._browser is not None and renderer._browser.contexts and renderer.last_state and renderer.last_state.get('state')=='ready':
+            page=renderer._browser.contexts[0].pages[0]
+            observed['rows']=await page.locator('.render-page').locator('.role-card' if kind=='nte_role' else '.pull-row').count()
+            observed['outside']=await out_of_bounds_rows(page,'.role-card' if kind=='nte_role' else '.pull-row')
+            observed['text']=await page.locator('.render-page').inner_text()
+        return await original_close(operation)
+    renderer._bounded_close=inspect_close
     if kind=='nte_role':
+        renderer.max_pixels=1080*600
         row=QueryResult({'schema_version':1,'entries':[{'id':str(9000+i),'name':f'角色 {i:03}','level':80} for i in range(160)]},NOW.isoformat(),'ok',False)
         value=role_snapshot('nte',row,NOW)
     else:
+        assert renderer.max_pixels==16000000
         row=QueryResult({'schema_version':1,'pools':[{'name':'角色池','total_draws':6000,'s_count':400,'details':[{'name':f'抽卡 {i:03}','item_id':str(9000+i),'pity':15} for i in range(400)]}]},NOW.isoformat(),'ok',False)
         value=gacha_snapshot('nte',row,NOW)
     try:
@@ -316,6 +361,10 @@ async def test_real_shared_height_limit_rejects_whole_image_instead_of_returning
         assert len(renderer.last_state['pages'])==1
         assert renderer.last_state['pages'][0]['height']*1080>renderer.max_pixels
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+        count,prefix=(160,'角色') if kind=='nte_role' else (400,'抽卡')
+        assert observed['rows']==count
+        assert observed['outside']==0
+        assert all(f'{prefix} {index:03}' in observed['text'] for index in range(count))
         assert not renderer._browser.contexts
     finally:await renderer.aclose()
 
