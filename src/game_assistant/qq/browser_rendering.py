@@ -22,6 +22,7 @@ from .rendering import SummaryRenderer, RenderingUnavailable, RenderingPageUnava
 
 ORIGIN = 'https://render.invalid'
 KINDS = frozenset(('calendar', 'wuwa_role', 'nte_role', 'wuwa_gacha', 'nte_gacha','game_snapshot','notice'))
+UPLOAD_TARGET_BYTES = 256 * 1024
 
 
 def validate_snapshot(value):
@@ -262,12 +263,24 @@ class BrowserRenderer(SummaryRenderer):
                 if box['width']!=1080 or not 0<box['height']<=16000 or box['width']*box['height']>self.max_pixels:raise RenderingUnavailable('qq_image_pixel_limit')
                 target=page.locator('.render-page').nth(snapshot['page']-1)
                 png=await target.screenshot(type='png',animations='disabled')
-                if len(png)>self.max_bytes:
-                    # QQ accepts JPEG as well as PNG. Retain the whole browser
-                    # surface at its original dimensions, with readable text.
+                upload_target=min(UPLOAD_TARGET_BYTES,self.max_bytes)
+                if len(png)>upload_target:
+                    # Prefer smaller uploads even below the hard byte limit.
+                    # Every candidate retains the whole original browser surface;
+                    # missing the soft target never rejects an otherwise valid image.
                     for quality in (90,85,80):
-                        png=await target.screenshot(type='jpeg',quality=quality,animations='disabled')
-                        if len(png)<=self.max_bytes:break
+                        optional=len(png)<=self.max_bytes
+                        remaining=deadline-time.monotonic()
+                        # Keep time to validate and return an already usable image.
+                        if optional and remaining<=.1:break
+                        try:
+                            candidate=await asyncio.wait_for(target.screenshot(type='jpeg',quality=quality,animations='disabled'),
+                                timeout=max(.001,remaining-(.1 if optional else 0)))
+                        except Exception:
+                            if not optional:raise
+                            break
+                        if len(candidate)<len(png):png=candidate
+                        if len(png)<=upload_target:break
                 with Image.open(BytesIO(png)) as image:
                     if image.width!=box['width'] or image.height>16000 or image.height*image.width>self.max_pixels:raise RenderingUnavailable('qq_image_pixel_limit')
                 if len(png)>self.max_bytes:raise RenderingUnavailable('qq_image_size_limit')

@@ -84,12 +84,12 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
       <section v-if="view === 'operators'" v-show="!operatorDetailId" class="ef-report"><header><div><p class="ef-kicker">01 / OPERATORS</p><h2>全员练度</h2></div><span class="ef-note">显示 {{ selected.length }} / {{ operators.length }} 名</span></header>
         <SummaryMetrics compact :metrics="trainingMetrics" />
         <div class="ef-distribution"><span v-for="(count,key) in training.summary?.rarity_counts" :key="`r${key}`">{{ key }}★ <b>{{ count }}</b></span><span v-for="(count,key) in training.summary?.phase_counts" :key="`p${key}`">精英阶段 {{ key }} <b>{{ count }}</b></span></div>
+        <p v-if="imageMode" class="ef-note">武器、装备、技能与战术道具详情：发送「终末地 角色 干员名」，按精确名称查看单干员配装。</p>
         <div v-if="!imageMode" class="ef-filters"><label>查找干员<input :value="search" @input="search = $event.target.value" type="search" placeholder="姓名或编号" /></label><label>稀有度<select v-model="rarity"><option value="">全部稀有度</option><option v-for="value in rarities" :key="value" :value="String(value)">{{ value }}★</option></select></label><label>职业<select v-model="profession"><option value="">全部职业</option><option v-for="value in professions" :key="value" :value="value">{{ value }}</option></select></label><label>排序<select v-model="sort"><option value="level">等级从高到低</option><option value="rarity">稀有度从高到低</option><option value="potential">潜能从高到低</option><option value="name">姓名</option></select></label></div>
         <p v-if="!selected.length" class="ef-empty">{{ operators.length ? '没有匹配的干员，可调整筛选。' : '尚无干员资料。' }}</p>
         <div v-else class="ef-roster"><article v-for="(operator,index) in selected" :key="operator.id || index" class="ef-operator">
           <div class="ef-portrait"><EndfieldArtwork role :operator-id="operator.char_id || operator.id" :src="operator.avatar_url" :name="operator.name || '干员'" /><small>{{ display(operator.rarity) }}★</small></div>
           <div class="ef-operator-copy"><h3>{{ display(operator.name) }}</h3><p class="ef-operator-level">Lv. {{ display(operator.level) }} <span>潜能 {{ display(operator.potential) }}</span></p><p>精英阶段 {{ display(operator.evolve_phase ?? operator.phase) }}</p><p class="ef-note">{{ named(operator.profession) }} · {{ named(operator.property) }}</p></div>
-          <EndfieldLoadout v-if="imageMode && (operator.weapon || rows(operator.equipment).length || rows(operator.skills).length)" :operator="operator" />
           <button v-if="!imageMode" type="button" class="ui-button" :disabled="operatorBusy && operatorDetailId === String(operator.id) || !operator.id" :aria-expanded="operatorDetailId === String(operator.id)" @click="inspect(operator.id,$event)">查看配装</button>
         </article></div>
       </section>
@@ -162,7 +162,6 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 .ef-portrait { height:134px; position:relative; display:grid; place-items:center; background:linear-gradient(150deg,var(--accent-soft),transparent); border-bottom:1px solid var(--border); overflow:hidden; }
 .ef-portrait>.endfield-artwork { width:100%; height:100%; border:0; background:transparent; font-size:46px; }
 .ef-portrait small { position:absolute; right:8px; top:8px; padding:3px 6px; color:var(--game-endfield); background:var(--card-bg); font-family:var(--font-mono); font-size:11px; }
-.ef-operator:has(> .ef-loadout) { grid-column:1/-1; }
 .ef-operator-copy { padding:14px 14px 0; flex:1; }
 .ef-operator h3 { font-size:16px; line-height:1.4; overflow-wrap:anywhere; }
 .ef-operator p { font-size:12px; margin-top:7px; }
@@ -244,8 +243,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
   .ef-identity dl { width:100%; margin-left:0; border-top:1px solid var(--border); padding-top:14px; gap:30px; }
   .ef-identity dd { font-size:22px; }
   .ef-portrait { height:110px; }
-  .ef-operator:has(> .ef-loadout) { grid-column:1/-1; }
-.ef-operator-copy { padding:12px 10px 0; }
+  .ef-operator-copy { padding:12px 10px 0; }
   .ef-operator h3 { font-size:14px; }
   .ef-operator p { font-size:11px; }
   .ef-operator button { margin:12px 10px; min-height:40px; font-size:11px; }
