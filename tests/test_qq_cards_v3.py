@@ -74,6 +74,32 @@ def test_v3_calendar_draws_shared_axis_today_and_sources_without_network(monkeyp
     assert '日期待确认' in drawn
 
 
+@pytest.mark.parametrize('start,end,today,heading', [
+    ('2026-01-01','2026-02-01','2026-01-14','2026年01月'),
+    ('2026-10-01','2026-11-01','2026-10-14','2026年10月'),
+])
+def test_v3_calendar_month_heading_does_not_depend_on_unicode_strftime(monkeypatch,start,end,today,heading):
+    from datetime import date
+    from game_assistant.qq import card_rendering_v3
+    class AsciiFormatDate(date):
+        def strftime(self,pattern):
+            if not pattern.isascii():
+                index=next(i for i,char in enumerate(pattern) if not char.isascii())
+                raise UnicodeEncodeError('locale',pattern,index,index+1,'unsupported format character')
+            return super().strftime(pattern)
+    monkeypatch.setattr(card_rendering_v3,'date',AsciiFormatDate)
+    drawn=[];original=ImageDraw.ImageDraw.text
+    def capture(self,position,value,*args,**kwargs):
+        drawn.append(value)
+        return original(self,position,value,*args,**kwargs)
+    monkeypatch.setattr(ImageDraw.ImageDraw,'text',capture)
+    value=calendar();value['timeline'].update(start=start,end=end,today=today)
+    data=render_card(value,font=font())
+    assert Image.open(BytesIO(data)).width==1080
+    assert any(heading in text for text in drawn)
+    assert any('今天 '+today[5:] in text for text in drawn)
+
+
 def gacha():
     return dict(version=3,kind='summary',game='nte',title='全卡池抽卡',sections=[dict(title='角色池',layout='gacha',rows=[
         dict(title='合成角色',fields=[dict(label='获取时间',value='2026-10-14 10:00')],gacha=dict(

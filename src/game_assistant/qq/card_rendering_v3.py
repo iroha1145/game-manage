@@ -119,7 +119,7 @@ class MobileLayout(_Layout):
     def axis(self, axis, x, y, width):
         start=date.fromisoformat(axis['start']);end=date.fromisoformat(axis['end'])
         days=(end-start).days
-        self.text(start.strftime('%Y年%m月')+'  ·  北京时间',x,y,width,26,self.muted)
+        self.text(f'{start.year:04d}年{start.month:02d}月  ·  北京时间',x,y,width,26,self.muted)
         y+=42
         for offset in range(days):
             left=x+width*offset/days
