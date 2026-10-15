@@ -8,6 +8,7 @@ from collections import OrderedDict
 import hashlib
 from io import BytesIO
 import json
+import logging
 import re
 from pathlib import Path
 import threading
@@ -21,6 +22,17 @@ from .cards import validate_card_document, card_to_text, image_references
 from . import card_rendering
 
 TEMPLATE_VERSION = 'qq-unified-3-endfield-6'
+logger = logging.getLogger(__name__)
+# Exact codes only: never put exception text, scopes or rendered input in logs.
+RENDER_DIAGNOSTIC_CODES = frozenset('''
+qq_browser_build_unavailable qq_browser_cleanup_failed qq_browser_cleanup_unconfirmed
+qq_browser_data_limit qq_browser_disabled qq_browser_invalid_snapshot qq_browser_invalidated
+qq_browser_not_ready qq_browser_page_limit qq_browser_private_field
+qq_browser_runtime_unavailable qq_browser_selected_role_unavailable
+qq_browser_shared_content_incomplete qq_browser_shared_content_unavailable qq_browser_unsupported_panel
+qq_image_cjk_font_unavailable qq_image_pixel_limit qq_image_safe_summary_required
+qq_image_size_limit qq_image_summary_too_long qq_image_text_card_mismatch qq_image_time_limit
+'''.split())
 
 
 class RenderingUnavailable(Exception):
@@ -207,7 +219,11 @@ the HTTP request never causes a second thread to render concurrently.
         self.tasks = set()
 
     async def render(self, scope, result, *, budget_seconds):
-        if budget_seconds <= 0 or self.pending >= self.queue_limit:
+        if budget_seconds <= 0:
+            logger.warning('QQ render fallback: qq_render_budget_exhausted')
+            return None
+        if self.pending >= self.queue_limit:
+            logger.warning('QQ render fallback: qq_render_queue_full')
             return None
         expires = time.monotonic() + min(budget_seconds, 10)
         self.pending += 1
@@ -215,6 +231,7 @@ the HTTP request never causes a second thread to render concurrently.
             try:
                 async with self.lock:
                     if time.monotonic() >= expires:
+                        logger.warning('QQ render fallback: qq_render_queue_expired')
                         return None
                     try:
                         if hasattr(self.renderer, 'render_summary_async'):
@@ -223,8 +240,14 @@ the HTTP request never causes a second thread to render concurrently.
                     except RenderingPageUnavailable as error:
                         return error
                     except RenderingUnavailable as error:
+                        code = error.args[0] if len(error.args) == 1 and type(error.args[0]) is str else None
+                        logger.warning('QQ render fallback: %s', code if code in RENDER_DIAGNOSTIC_CODES else 'qq_render_unavailable')
                         return error if str(error) in ('qq_image_size_limit','qq_image_pixel_limit') else None
+                    except asyncio.TimeoutError:
+                        logger.warning('QQ render fallback: qq_render_timeout')
+                        return None
                     except Exception:
+                        logger.warning('QQ render fallback: qq_render_exception')
                         return None
             finally:
                 self.pending -= 1
@@ -234,6 +257,7 @@ the HTTP request never causes a second thread to render concurrently.
         try:
             return await asyncio.wait_for(asyncio.shield(task), timeout=max(0, expires - time.monotonic()))
         except asyncio.TimeoutError:
+            logger.warning('QQ render fallback: qq_render_deadline')
             return None
 
     async def aclose(self):

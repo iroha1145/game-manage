@@ -21,6 +21,7 @@ from .transport import instant, utcnow
 API_BASE='https://api.bot.qq.com'
 SDK_VERSION='1.2.2'
 MAX_REPLY_PIXELS = 16_000_000
+logger=logging.getLogger(__name__)
 BINDING_ERRORS = {
     'qq_link_code_invalid':'绑定码无效，请在看板重新生成，再发送「绑定 新绑定码」。',
     'qq_link_code_expired':'绑定码已过期，请在看板重新生成，再发送「绑定 新绑定码」。',
@@ -58,6 +59,27 @@ class QqClientError(Exception):
 class QqReply:
     text: str
     image: bytes | None = None
+
+
+async def _log_upload_response(response):
+    """Observe the official upload response without exposing remote text or IDs."""
+    request=response.request
+    url=request.url
+    if (request.method!='POST' or url.scheme!='https' or url.host!='api.bot.qq.com'
+            or url.port not in (None,443)
+            or not re.fullmatch(r'/v2/(?:groups|users)/[A-Za-z0-9_-]{1,256}/files',url.path)):
+        return
+    status=response.status_code
+    if type(status) is not int or not 100<=status<=599:return
+    # AsyncClient.request already reads this body before returning it to the SDK.
+    # aread caches the same bytes; neither the response nor SDK JSON is replaced.
+    await response.aread()
+    try:data=response.json()
+    except (ValueError,UnicodeError):data=None
+    code=data.get('code') if isinstance(data,dict) else None
+    safe_code=code if type(code) is int and 0<=code<=2**31-1 else 'unavailable'
+    logger.log(logging.WARNING if status>=400 else logging.INFO,
+        'QQ image upload response: http_status=%d api_code=%s',status,safe_code)
 
 
 def load_sdk():
@@ -161,7 +183,7 @@ class OfficialQqClient:
         self.sdk=sdk or load_sdk()
         self.gate,self.dispatcher=gate,dispatcher
         self.api=self.sdk.QQApiClient(app_id,app_secret,log_tag='game-assistant')
-        self.http=httpx.AsyncClient(timeout=20,trust_env=False)
+        self.http=httpx.AsyncClient(timeout=20,trust_env=False,event_hooks={'response':[_log_upload_response]})
         self.api.setup(self.http)
         self.session=[None,None]
         self.ws=None
@@ -198,7 +220,11 @@ class OfficialQqClient:
                 {'file_type':1,'file_data':base64.b64encode(image).decode('ascii'),'srv_send_msg':False}),timeout=min(20,remaining-5))
             file_info=uploaded.get('file_info') if isinstance(uploaded,dict) else None
             if not isinstance(file_info,str) or not file_info or len(file_info)>16384:raise ValueError()
-        except Exception:
+        except asyncio.TimeoutError:
+            raise ImagePreparationFailed('qq_image_upload_timeout') from None
+        except Exception as error:
+            if isinstance(error,httpx.TimeoutException) or isinstance(error.__cause__,(TimeoutError,httpx.TimeoutException)):
+                raise ImagePreparationFailed('qq_image_upload_timeout') from None
             raise ImagePreparationFailed('qq_image_upload_failed') from None
         remaining=(instant(message.reply_deadline)-self.now()).total_seconds()
         if remaining<=0:raise ImagePreparationFailed('qq_image_deadline')

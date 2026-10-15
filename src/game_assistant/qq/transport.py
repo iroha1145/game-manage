@@ -15,6 +15,7 @@ from .rendering import ImagePreparationFailed
 
 logger=logging.getLogger(__name__)
 IMAGE_FALLBACK_NOTICE='图片暂不可用，当前为文字摘要；完整内容请到网站查看。'
+IMAGE_PREPARATION_CODES=frozenset(('qq_image_invalid','qq_image_deadline','qq_image_upload_timeout','qq_image_upload_failed'))
 
 
 def image_fallback_text(text):
@@ -134,7 +135,9 @@ class BotDispatcher:
                 if image is not None:
                     try:
                         platform_id=await self.sender.send_image(message,image,1)
-                    except ImagePreparationFailed:
+                    except ImagePreparationFailed as error:
+                        code=error.args[0] if len(error.args)==1 and type(error.args[0]) is str else None
+                        logger.warning('QQ image preparation fallback: %s',code if code in IMAGE_PREPARATION_CODES else 'qq_image_preparation_failed')
                         if instant(message.reply_deadline)<=self.now():
                             self.state.update(message,'expired');return
                         text=image_fallback_text(text)
