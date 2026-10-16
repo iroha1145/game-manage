@@ -21,6 +21,7 @@ export class HttpError extends Error {
   constructor(status, code = '', retryAfter = 0) {
     super(({401:'网站会话已失效，请重新登录',403:'操作验证失效，请刷新页面',404:'当前授权没有这项数据',409:'账号状态已变化，请重试',429:'请求过于频繁，请稍后重试',422:'参数无效，请检查输入',503:'来源暂时不可用，保留已有数据'})[status] || '请求失败，请稍后重试')
     this.name = 'HttpError'; this.status = status; this.code = code; this.retryAfter = retryAfter
+    if (status === 401 && code === 'auth_expired') this.message = '游戏授权不可用，请到账号设置重新登录'
   }
 }
 export async function obtainCsrf(force = false) {
@@ -95,7 +96,15 @@ export async function requestJson(path, options = {}) {
       throw error instanceof TypeError ? new TypeError('无法连接服务，请稍后重试') : error
     }
     if (!logout && current !== epoch) throw cancelled()
-    if (cloud && result.status === 401) { invalidateSession(); throw new HttpError(401) }
+    if (cloud && result.status === 401) {
+      // An expired game authorization also answers 401 (Skland passport: error_code auth_expired; Wuwa detail reads:
+      // detail private_query_failed). Only a website-session 401 ends the site session, and so does any 401 that is
+      // unreadable or not recognised.
+      let body = null
+      try { body = await result.clone().json() } catch { /* unreadable: treated as a website-session 401 */ }
+      if (!logout && current !== epoch) throw cancelled()
+      if (body?.error_code !== 'auth_expired' && body?.detail !== 'private_query_failed') { invalidateSession(); throw new HttpError(401) }
+    }
     // Legacy wrappers retain their existing error/response validation, while all
     // transports share the same headers, route boundary and invalidation engine.
     if (returnResponse) {

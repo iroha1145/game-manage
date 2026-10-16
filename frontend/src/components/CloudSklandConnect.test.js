@@ -61,6 +61,15 @@ test('changed source authorization is distinguished from a role mismatch without
   assert.doesNotMatch(content(root), /未能匹配|SECRET/)
 })
 
+test('an expired Hypergryph authorization is reported as such and does not sign the user out of the site', async t => {
+  const { root } = await setup(t, path => path.endsWith('/skland/passport') ? new Response(JSON.stringify({ error_code: 'auth_expired', detail: '鹰角授权已失效，请重新登录' }), { status: 401 }) : null)
+  await chooseSource(root)
+  await submit(root, '通过鹰角授权连接森空岛'); await tick(); await tick()
+  assert.match(content(root), /游戏授权不可用，请到账号设置重新登录；已有授权已保留/)
+  assert.doesNotMatch(content(root), /网站登录|网站会话已失效/)
+  assert.ok(button(root, '一键连接森空岛档案'), 'the account page is still shown')
+})
+
 test('successful connection with a failed account-list refresh retains the previous authorization list', async t => {
   let connected = false
   const { root } = await setup(t, path => {

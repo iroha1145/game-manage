@@ -6,6 +6,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { logoutSite } from './identity-api.js'
 import { createAuthSession, getAuthStatus } from './auth-api.js'
 import { wuwaRequest } from './wuwa-api.js'
+import { connectCloudSklandPassport } from './accounts-api.js'
 
 const json = value => new Response(JSON.stringify(value))
 test('csrf added to every mutation and stable across authenticated writes', async t => {
@@ -41,6 +42,27 @@ test('401 revocation invalidates private state and blocks cloud legacy routes be
   assert.equal(cleared, 1)
   await assert.rejects(requestJson('/api/lol/collect', { method: 'POST' }), /云端/)
   assert.equal(fetched, 1)
+})
+test('an expired game authorization answers 401 without ending the website session; any other 401 still does', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  let cleared = 0, reply
+  const stop = subscribeSessionInvalidation(() => cleared++); t.after(stop)
+  t.mock.method(globalThis, 'fetch', async path => path.endsWith('/csrf') ? json({ csrf_token: 'csrf' }) : new Response(reply, { status: 401 }))
+  reply = JSON.stringify({ error_code: 'auth_expired', detail: '鹰角授权已失效，请重新登录' })
+  const passport = await connectCloudSklandPassport('a', 'r').catch(error => error)
+  assert.equal(cleared, 0, 'an expired Hypergryph authorization ended the website session')
+  assert.equal(passport.status, 401); assert.equal(passport.code, 'auth_expired')
+  assert.equal(passport.message, '游戏授权不可用，请到账号设置重新登录')
+  setAccountScope({ account_id: 'a', role_id: 'r', provider: 'kuro' })
+  reply = JSON.stringify({ detail: 'private_query_failed' })
+  await assert.rejects(wuwaRequest('roles/1'), /请重新登录鸣潮账号/)
+  assert.equal(cleared, 0, 'an expired Kuro authorization ended the website session')
+  for (const body of [{ detail: 'authentication_required' }, {}, { error_code: 'something_new' }, { detail: 'private_query_failed_later' }, '<html>', '']) {
+    const before = cleared; reply = typeof body === 'string' ? body : JSON.stringify(body)
+    const failure = await requestJson('/api/accounts').catch(error => error)
+    assert.equal(failure.status, 401); assert.equal(failure.message, '网站会话已失效，请重新登录')
+    assert.equal(cleared, before + 1, `a website-session or unrecognised 401 (${reply || 'empty body'}) must end the session`)
+  }
 })
 test('canonical community auth and role detail use owned cloud routes with CSRF', async t => {
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
