@@ -8,8 +8,8 @@ import os
 from pathlib import Path
 import re
 import sqlite3
-import stat
 
+from game_assistant.paths import through_link
 from .models import InboundMessage, QqIdentity
 from .rendering import ImagePreparationFailed
 
@@ -75,9 +75,7 @@ class BotState:
     """Independent bot state: hashed keys and delivery outcomes, never reply text."""
     def __init__(self,path):
         path=Path(path).absolute()
-        for item in (path,*path.parents):
-            if item.is_symlink() or (item.exists() and getattr(item.lstat(),'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0x400)):
-                raise ValueError('A dedicated bot state path without links is required')
+        if through_link(path):raise ValueError('A dedicated bot state path without links is required')
         path.parent.mkdir(parents=True,exist_ok=True)
         self.connection=sqlite3.connect(path)
         tables={row[0] for row in self.connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
