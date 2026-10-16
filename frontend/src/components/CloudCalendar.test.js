@@ -60,14 +60,14 @@ test('calendar filtering during cache reads keeps the selection and does not rep
   const { root, calls } = await fixture(t, path => new Promise(resolve => finish.push(() => resolve(response(events(`${path.split('/')[4]}加载活动`))))))
   await openCalendar(root)
   choose(root, '筛选游戏', 'nte'); await tick()
-  const read = button(root, '读取公共活动')
+  const read = button(root, '刷新活动')
   assert.equal(read.props.disabled, true)
   await read.props.onClick(); await tick()
   assert.equal(calls.filter(call => call.path.startsWith('/api/public/')).length, 3)
   finish.forEach(resolve => resolve()); await tick(); await tick()
   assert.match(content(root), /nte加载活动/)
   assert.doesNotMatch(content(root), /wuthering_waves加载活动|endfield加载活动/)
-  assert.equal(button(root, '读取公共活动').props.disabled, false)
+  assert.equal(button(root, '刷新活动').props.disabled, false)
 })
 
 test('partial calendar read failure retains that game while successful games update independently', async t => {
@@ -78,7 +78,7 @@ test('partial calendar read failure retains that game while successful games upd
     return response(events(`${game}第${round}轮活动`))
   })
   await openCalendar(root); round = 2
-  await button(root, '读取公共活动').props.onClick(); await tick()
+  await button(root, '刷新活动').props.onClick(); await tick()
   assert.match(content(root), /wuthering_waves第2轮活动/)
   assert.match(content(root), /endfield第2轮活动/)
   assert.match(content(root), /nte第1轮活动/)
@@ -86,7 +86,7 @@ test('partial calendar read failure retains that game while successful games upd
   choose(root, '筛选游戏', 'endfield'); await tick()
   assert.doesNotMatch(content(root), /活动读取失败/)
   choose(root, '筛选游戏', 'nte'); await tick()
-  round = 3; await button(root, '读取公共活动').props.onClick(); await tick()
+  round = 3; await button(root, '刷新活动').props.onClick(); await tick()
   assert.match(content(root), /nte第3轮活动/)
   assert.doesNotMatch(content(root), /活动读取失败|wuthering_waves第3轮活动/)
 })
@@ -109,8 +109,8 @@ test('logout clears calendar cache and ignores late public results in the next a
   const finish = []
   const { root } = await fixture(t, path => delayed ? new Promise(resolve => finish.push(() => resolve(response(events('退出前迟到活动'))))) : response(events(`${owner}会话活动`)), () => owner)
   await openCalendar(root); assert.match(content(root), /A会话活动/)
-  delayed = true; const pending = button(root, '读取公共活动').props.onClick(); await tick()
-  await button(root, '退出网站').props.onClick(); await tick()
+  delayed = true; const pending = button(root, '刷新活动').props.onClick(); await tick()
+  await button(root, '退出登录').props.onClick(); await tick()
   assert.match(content(root), /网站登录/); assert.doesNotMatch(content(root), /A会话活动/)
   owner = 'B'; delayed = false
   // Re-authenticate through the real login form with synthetic credentials only.
@@ -131,11 +131,11 @@ test('changing authenticated user discards cached and delayed calendar state', a
   const finish = []
   const { root } = await fixture(t, path => delayed ? new Promise(resolve => finish.push(() => resolve(response(events('换用户前迟到活动'))))) : response(events(`${owner}用户活动`)), () => owner)
   await openCalendar(root); assert.match(content(root), /A用户活动/)
-  delayed = true; const pending = button(root, '读取公共活动').props.onClick(); await tick()
+  delayed = true; const pending = button(root, '刷新活动').props.onClick(); await tick()
   owner = 'B'; delayed = false; t.mock.timers.tick(60000); await tick(); await tick()
   finish.forEach(resolve => resolve()); await pending; await tick()
   assert.doesNotMatch(content(root), /A用户活动|换用户前迟到活动/)
-  await button(root, '读取公共活动').props.onClick(); await tick()
+  await button(root, '刷新活动').props.onClick(); await tick()
   assert.match(content(root), /B用户活动/)
 })
 

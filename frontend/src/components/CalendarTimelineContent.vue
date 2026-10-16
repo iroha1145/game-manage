@@ -35,7 +35,7 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
   <div class="calendar-content" :class="{ 'image-mode': mode === 'image' }">
 <div v-if="range" class="timeline-scroll" :tabindex="mode === 'image' ? undefined : 0" role="region" aria-label="活动日期横轴，可横向和纵向滚动" :style="{ '--day-count': range.days.length, '--timeline-min': `${184 + range.days.length * (rangeMode === 'fortnight' ? 39 : 26)}px` }">
         <div :key="range.start" class="timeline-canvas t-panel">
-          <div class="timeline-header" data-render-block><div class="timeline-label header-label"><span>游戏</span><small>{{ rangeMode === 'month' ? '当月时间轴' : rangeMode === 'rolling' ? '近 30 天时间轴' : rangeMode === 'version' ? '版本活动时间轴' : '14 天时间轴' }}</small></div><div class="date-track"><div v-for="day in range.days" :key="day.timestamp" class="date-cell" :class="{ weekend: day.weekend, 'is-today': day.timestamp === today, 'is-month-start': day.day === 1 }" :title="`${day.month} 月 ${day.day} 日`"><small>{{ day.weekday }}</small><strong><template v-if="day.day===1 && mode==='image'">{{ day.month }}/<br>1</template><template v-else>{{ day.day === 1 ? `${day.month}/1` : day.day }}</template></strong><span v-if="day.timestamp === today" class="day-today">今天</span></div></div></div>
+          <div class="timeline-header" data-render-block><div class="timeline-label header-label"><span>游戏</span><small v-if="mode === 'image'">{{ rangeMode === 'month' ? '当月时间轴' : rangeMode === 'rolling' ? '近 30 天时间轴' : rangeMode === 'version' ? '版本活动时间轴' : '14 天时间轴' }}</small></div><div class="date-track"><div v-for="day in range.days" :key="day.timestamp" class="date-cell" :class="{ weekend: day.weekend, 'is-today': day.timestamp === today, 'is-month-start': day.day === 1 }" :title="`${day.month} 月 ${day.day} 日`"><small>{{ day.weekday }}</small><strong><template v-if="day.day===1 && mode==='image'">{{ day.month }}/<br>1</template><template v-else>{{ day.day === 1 ? `${day.month}/1` : day.day }}</template></strong><span v-if="day.timestamp === today" class="day-today">今天</span></div></div></div>
           <template v-if="groups.length">
             <div v-for="group in groups" :key="group.key" class="timeline-group" data-render-block :style="{ '--game-accent': gameAccent(group.gameId) }">
               <div class="timeline-label group-label"><GameIcon class="game-monogram" :game-id="group.gameId" :name="group.gameName" /><div><strong>{{ group.gameName }}</strong><small>{{ group.events.length }} 项活动</small></div></div>
@@ -51,7 +51,7 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
               </div>
             </div>
           </template>
-          <div v-else class="calendar-empty timeline-empty"><span aria-hidden="true">◇</span><strong>{{ events.length ? '当前范围没有可定位的活动' : emptyTitle }}</strong><p>{{ events.length ? '可切换时间范围，或查看下方未确定日期的活动。' : '采集到的活动公告将在这里按真实日期展示。' }}</p></div>
+          <div v-else class="calendar-empty timeline-empty"><strong>{{ events.length ? '当前范围没有可定位的活动' : emptyTitle }}</strong></div>
         </div>
       </div>
     <p v-if="!range && !events.length" class="calendar-empty">{{ emptyTitle }}</p>
@@ -119,7 +119,6 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .point-label-left { left:0; transform:translateX(calc(-100% - 20px)); }
 .calendar-empty { padding: 42px 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
 .timeline-empty { display: grid; gap: 13px; justify-items: center; min-height: 245px; align-content: center; }
-.timeline-empty > span { font-size: 27px; color: var(--accent); opacity: .7; }
 .timeline-empty strong { color: var(--text); font-size: 14px; font-weight: 500; }
 .calendar-unplaced { border: 1px solid var(--border); padding: 20px; border-radius: var(--radius-card); background: var(--card-bg); }
 .unplaced-heading { display: flex; gap: 16px; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; }

@@ -105,8 +105,8 @@ async function closeDetail() {
 <template>
   <div class="calendar-page">
     <header class="page-heading">
-      <div class="page-heading-copy"><h1>活动日历</h1><p class="page-description">查看各游戏的活动安排与截止时间。</p></div>
-      <div class="page-meta calendar-timezone"><AppIcon name="clock" :size="14" /> 北京时间 <strong>UTC+8</strong></div>
+      <div class="page-heading-copy"><h1>活动日历</h1></div>
+      <div class="page-meta calendar-timezone"><AppIcon name="clock" :size="14" /> 北京时间</div>
     </header>
 
     <section ref="boardElement" class="calendar-board" aria-label="游戏活动时间轴" :aria-busy="loading" :style="{'--calendar-top':`${boardTop}px`}">
@@ -127,11 +127,10 @@ async function closeDetail() {
       <p v-if="missingGames.length && !loading" class="calendar-missing" role="status">{{ missingGames.join('、') }} · 尚未取得活动，请稍后刷新。</p>
       <p v-if="neverGames.length && !loading" class="calendar-missing" role="status">{{ neverGames.join('、') }} · 等待活动更新。</p>
       <details v-if="showSourceStatus || staleGames.length || failedReads.length || partialCollections.length || versionCalendars.length" class="calendar-source-states"><summary>数据来源详情</summary><p v-if="staleGames.length" class="calendar-stale">数据可能过期 · {{ staleGames.join('、') }}</p><p v-for="failure in partialCollections" :key="failure.id">{{ failure.name }} · 部分来源不可用，显示可用来源数据。</p><p v-for="failure in failedReads" :key="failure.id">{{ failure.name }}：{{ failure.error }}</p><div v-if="showSourceStatus" v-for="game in filteredGames" :key="game.game_id"><strong>{{ game.display_name }}</strong><CloudSnapshotStatus :snapshots="snapshots[game.game_id] || {}" :capabilities="['events']" /></div><VersionCalendarMetadata :calendars="versionCalendars" /></details>
-      <p v-if="loading && !events.length" class="calendar-empty" role="status">正在读取活动…</p>
+      <p v-if="loading && !events.length" class="calendar-empty" role="status">加载中…</p>
 
       <VersionCalendarContent v-else-if="mode === 'version'" :calendars="versionCalendars" :as-of="now" :selected-id="selectedId" :empty-title="emptyTitle" :show-source-details="false" @select="selectEvent" />
       <CalendarTimelineContent v-else :events="events" :range="range" :as-of="now" :range-mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="selectEvent" />
-      <div class="calendar-footer"><span>北京时间 UTC+8</span><span>↔ 可横向滚动</span></div>
     </section>
 
 
@@ -139,10 +138,10 @@ async function closeDetail() {
     <section v-if="selected" ref="detailElement" class="calendar-detail t-panel" aria-labelledby="calendar-detail-title" tabindex="-1" :style="{ '--game-accent': gameAccent(selected.gameId) }" @keydown.esc.stop="closeDetail">
       <div class="detail-heading"><div><p class="eyebrow">{{ selected.gameName }} / {{ selected.category }}</p><h2 id="calendar-detail-title">{{ selected.name || '未命名活动' }}</h2></div><button type="button" class="detail-close" aria-label="关闭活动详情" @click="closeDetail"><AppIcon name="close" :size="16" /></button></div>
       <div class="detail-status"><span>{{ selected.status }}</span><span v-if="selected.geometry.reason">{{ selected.geometry.reason }}</span><span v-if="selected.stale" class="calendar-stale">数据可能过期</span></div>
-      <dl><div><dt>开始时间 · 北京时间</dt><dd>{{ calendarBoundary(selected, 'start') }}</dd><small v-if="selected.geometry.approximateStart">仅知开始日期 {{ selected.start_date }}，具体时刻未知</small><small v-if="selected.start_at && selected.geometry.start === null">原始值：{{ selected.start_at }}</small></div><div><dt>截止时间 · 北京时间</dt><dd>{{ calendarBoundary(selected, 'end') }}</dd><small v-if="selected.end_at && selected.geometry.end === null">原始值：{{ selected.end_at }}</small><small v-if="selected.end_at && selected.end_precision === 'version_end'">{{ selected.end_text }}，时刻取自下个版本的维护预告</small></div><div><dt>来源标题</dt><dd>{{ selected.source_name ? selected.source_name + ' · ' : '' }}{{ selected.source_title || '未提供' }}</dd></div><div><dt>快照抓取时间 · 北京时间</dt><dd>{{ formatBeijingDateTime(selected.fetchedAt) }}</dd></div></dl>
+      <dl><div><dt>开始时间</dt><dd>{{ calendarBoundary(selected, 'start') }}</dd><small v-if="selected.geometry.approximateStart">仅知开始日期 {{ selected.start_date }}，具体时刻未知</small><small v-if="selected.start_at && selected.geometry.start === null">原始值：{{ selected.start_at }}</small></div><div><dt>截止时间</dt><dd>{{ calendarBoundary(selected, 'end') }}</dd><small v-if="selected.end_at && selected.geometry.end === null">原始值：{{ selected.end_at }}</small><small v-if="selected.end_at && selected.end_precision === 'version_end'">{{ selected.end_text }}，时刻取自下个版本的维护预告</small></div><div><dt>来源标题</dt><dd>{{ selected.source_name ? selected.source_name + ' · ' : '' }}{{ selected.source_title || '未提供' }}</dd></div><div><dt>数据更新时间</dt><dd>{{ formatBeijingDateTime(selected.fetchedAt) }}</dd></div></dl>
       <p v-if="selected.source_note" class="source-id">{{ selected.source_note }}</p>
-      <p v-if="selected.geometry.clippedStart || selected.geometry.clippedEnd" class="clipping-note">时间条已按当前显示范围裁剪{{ selected.geometry.clippedStart ? '左侧' : '' }}{{ selected.geometry.clippedStart && selected.geometry.clippedEnd ? '和' : '' }}{{ selected.geometry.clippedEnd ? '右侧' : '' }}；以上为完整起止时间。</p>
-      <p v-if="selected.source_post_id" class="source-id">来源标识：{{ selected.source_post_id }}</p><a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer" class="source-link">查看原始公告 ↗</a>
+      <p v-if="selected.geometry.clippedStart || selected.geometry.clippedEnd" class="clipping-note">时间条已按显示范围裁剪{{ selected.geometry.clippedStart ? '左侧' : '' }}{{ selected.geometry.clippedStart && selected.geometry.clippedEnd ? '和' : '' }}{{ selected.geometry.clippedEnd ? '右侧' : '' }}；以上为完整起止时间。</p>
+      <a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer" class="source-link">查看原始公告 ↗</a>
     </section>
   </div>
 </template>
@@ -151,7 +150,6 @@ async function closeDetail() {
 .calendar-page { min-width: 0; display: grid; gap: 20px; color: var(--text); }
 .calendar-page > .page-heading { margin-bottom: 0; }
 .calendar-timezone { gap: 6px; white-space: nowrap; }
-.calendar-timezone strong { color: var(--text); font-size: 13px; font-weight: 500; }
 .calendar-board { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: visible; min-width: 0; display:flex; flex-direction:column; min-height:max(460px,calc(100dvh - var(--calendar-top) - 24px)); }
 .calendar-board > .version-calendars { flex:none; }
 .calendar-board :deep(.calendar-content:not(.image-mode)) { flex:none; min-height:320px; max-height:max(320px,calc(100dvh - var(--calendar-top) - 180px)); overflow:auto; }
@@ -184,7 +182,6 @@ async function closeDetail() {
 .calendar-source-states > div { margin-top:10px; }
 .calendar-read-error { background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger); }
 .calendar-missing { color: var(--text-muted); border: 1px dashed var(--border-strong); }
-.calendar-footer { padding: 12px 20px; display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-faint); }
 .calendar-detail { background: var(--card-bg); border: 1px solid color-mix(in srgb, var(--game-accent) 38%, var(--border)); border-radius: var(--radius-card); padding: 24px; scroll-margin: 80px; }
 .detail-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
 .detail-heading h2 { margin-top: 4px; font-size: 20px; font-weight: 500; line-height: 1.4; }
@@ -208,7 +205,6 @@ async function closeDetail() {
   .today-button { margin-left: auto; }
   .calendar-filters { justify-content: space-between; width: 100%; }
   .calendar-meta { padding: 0 16px 16px; flex-direction: column; }
-  .calendar-footer { padding: 12px 16px; flex-direction: column; }
   .calendar-detail { padding: 18px; }
   .calendar-detail dl { grid-template-columns: 1fr; }
 }

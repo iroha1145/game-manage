@@ -25,7 +25,7 @@ export class HttpError extends Error {
   constructor(status, code = '', retryAfter = 0) {
     super(({401:'网站会话已失效，请重新登录',403:'操作验证失效，请刷新页面',404:'当前授权没有这项数据',409:'账号状态已变化，请重试',429:'请求过于频繁，请稍后重试',422:'参数无效，请检查输入',503:'来源暂时不可用，保留已有数据'})[status] || '请求失败，请稍后重试')
     this.name = 'HttpError'; this.status = status; this.code = code; this.retryAfter = retryAfter
-    if (status === 401 && code === 'auth_expired') this.message = '游戏授权不可用，请到账号设置重新登录'
+    if (status === 401 && code === 'auth_expired') this.message = '游戏授权不可用，请到「账号与授权」重新登录'
   }
 }
 export async function obtainCsrf(force = false) {

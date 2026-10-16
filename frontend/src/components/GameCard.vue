@@ -123,7 +123,6 @@ function capProps(cap) {
         <NteModuleCard v-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
           <component :is="capComponent(cap)" v-bind="{...capProps(cap),...(cap==='roles' ? {focusCharacterId:nteFocusId,detailMode:!!nteFocusId,onGuide:openNteGuide} : {})}" />
         </NteModuleCard>
-        <div v-else class="cap-card cap-coming">敬请期待</div>
       </template>
       <AnnouncementList v-if="['all', 'news'].includes(activeSection) && game.capabilities.some(cap => ['announcement', 'news'].includes(cap))" class="detail-articles" :game-id="game.game_id" :snap="externalSnapshots.news?.payload ? externalSnapshots.news : externalSnapshots.announcement" />
     </div>
@@ -162,9 +161,4 @@ function capProps(cap) {
 .detail-navigation { display:flex; justify-content:space-between; gap:10px 16px; align-items:center; margin:0 0 16px; flex-wrap:wrap; }
 @media(max-width:950px) { .cap-list { grid-template-columns:1fr; } }
 @media(max-width:600px) { .card-head { margin-bottom:16px; gap:12px; }.game-heading { gap:10px; flex-basis:100%; }.game-name { font-size:22px; line-height:28px; }.detail-monogram { width:36px; height:36px; font-size:20px; }.detail-tabs button { padding:4px 9px; } }
-
-.cap-coming {
-  color: var(--text-muted);
-  text-align: center;
-}
 </style>

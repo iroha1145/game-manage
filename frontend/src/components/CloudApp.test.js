@@ -43,7 +43,7 @@ test('minute session check defers during an accepted refresh and resumes after s
   assert.equal(identityReads, 1, 'minute check must not invalidate active short tracking')
   assert.match(content(root), /刷新已排队/)
   t.mock.timers.tick(2000); await tick()
-  assert.match(content(root), /定时交互新快照/); assert.doesNotMatch(content(root), /刷新已排队|刷新状态待确认/)
+  assert.match(content(root), /定时交互新快照/); assert.doesNotMatch(content(root), /刷新已排队|刷新结果未确认/)
   assert.equal(reads, 4); assert.equal(posts, 1)
   t.mock.timers.tick(58000); await tick(); await tick()
   assert.equal(identityReads, 2, 'normal session checks resume on the next minute')
@@ -160,7 +160,7 @@ test('the sessions page lists the sessions after a reload on it and asks once pe
   assert.match(content(root), /会话 1/)
   // A button changes the page and then the hash; the browser reports the new hash with a hashchange event after that.
   const open = async name => { const changed = new Promise(resolve => browser.addEventListener('hashchange', resolve, { once: true })); nodes(root, 'button').find(n => content(n) === name).props.onClick(); await changed; for (let i = 0; i < 4; i++) await tick() }
-  await open('本人游戏看板'); await open('网站会话')
+  await open('今日总览'); await open('网站会话')
   assert.equal(listed(), 2, 'opening the page by its navigation button must ask once per visit')
 })
 
@@ -181,7 +181,7 @@ test('logging in again after a logout on the sessions page asks for the list onc
       : path === '/api/identity/sessions' ? { sessions: [{ session_id: 's1', created_at: '2026-10-16T14:02:00Z', expires_at: '2026-10-23T14:02:00Z' }] } : { state: 'never', payload: null }))
   })
   const root = mount(t, CloudApp); for (let i = 0; i < 6; i++) await tick()
-  await nodes(root, 'button').find(n => content(n) === '退出网站').props.onClick(); for (let i = 0; i < 6; i++) await tick()
+  await nodes(root, 'button').find(n => content(n) === '退出登录').props.onClick(); for (let i = 0; i < 6; i++) await tick()
   assert.match(content(root), /网站登录/); assert.equal(browser.location.hash, '#/sessions', 'a logout leaves the address alone')
   const inputs = nodes(root, 'input'), before = listed()
   inputs.find(x => x.props.name === 'username').props['onUpdate:modelValue']('alice')

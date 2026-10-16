@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import { DAY_MS, parseBeijingTime, safeUrl } from './calendar.js'
 import { createEsportsBrowseState } from './esports.js'
+import { capabilityLabel } from './cloud-display.js'
 
 const PUBLIC_CAPS = new Set(['events', 'announcement', 'news', 'teams', 'esports'])
 export const GAME_STYLE = {
@@ -117,7 +118,7 @@ export function createDashboard(api) {
 
   function renderRefreshErrors(id) {
     const failed = Object.entries(refreshResults.get(id) || {}).filter(([, r]) => r?.ok !== true && !['offline', 'unconfigured', 'account_changed'].includes(r?.error_kind))
-    state.refreshErrors[id] = failed.map(([cap, r]) => `${cap}：${r?.error || '拉取失败'}`).join('；')
+    state.refreshErrors[id] = failed.map(([cap, r]) => `${capabilityLabel(cap)}：${r?.error || '更新失败'}`).join('；')
   }
 
   function reconcileRefreshErrors(id, status) {

@@ -78,7 +78,7 @@ export const challengeGuides = [
     "version": "3.4",
     "format": "图文攻略",
     "scope": "新手高难副本入门",
-    "summary": "介绍全息、逆境深塔等高难挑战的机制差异、增益与培养思路；后续版本规则可能变化。",
+    "summary": "介绍全息、逆境深塔等高难挑战的机制差异、增益与培养思路。",
     "url": "https://www.kurobbs.com/forum/post/1514714705469607936"
   },
   {

@@ -116,12 +116,12 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 @media(pointer:coarse) { .segmented>button { min-height:40px; } }
 /* Phones: one scrolling row instead of a wrapped block (Option Pro rail). */
 @media(max-width:600px) { .segmented { flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; }.segmented::-webkit-scrollbar { display:none; }.segmented>button { flex-shrink:0; } }
-.eyebrow { font-size:12px; line-height:18px; font-weight:500; color:var(--text-muted); }.page-description { font-size:13px; line-height:20px; color:var(--text-muted); }.muted { color:var(--text-muted); }.small { font-size:12px; }
+.eyebrow { font-size:12px; line-height:18px; font-weight:500; color:var(--text-muted); }.muted { color:var(--text-muted); }.small { font-size:12px; }
 .section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }.section-heading h2 { font-size:16px; line-height:24px; font-weight:500; color:var(--text); }.count-label { margin-left:6px; color:var(--text-faint); font-size:13px; font-weight:400; }
 /* Page headings share the same compact title and metadata rhythm. */
 .page-heading { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 24px; margin-bottom:24px; }
 .page-heading-copy { min-width:0; flex:1 1 288px; }
-.page-heading h1 { font-size:24px; line-height:32px; font-weight:600; color:var(--text); }.page-heading .page-description { margin-top:4px; }
+.page-heading h1 { font-size:24px; line-height:32px; font-weight:600; color:var(--text); }
 .page-meta { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding-bottom:4px; color:var(--text-muted); font-size:13px; }
 .empty-page { padding:34px 16px; color:var(--text-muted); text-align:center; font-size:14px; }.empty-page button { margin-top:15px; }
 .inline-warning { color:var(--stale-text); font-size:13px; background:var(--stale-bg); border:1px solid color-mix(in srgb, var(--stale-text) 22%, transparent); border-radius:var(--radius-well); padding:10px 14px; margin-top:12px; overflow-wrap:anywhere; animation:t-rise var(--duration-medium) var(--ease-smooth-out) backwards; }
@@ -161,7 +161,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .badge { display:inline-block; padding:1px 7px; border-radius:var(--radius-chip); font-size:12px; line-height:20px; white-space:nowrap; font-weight:500; }.badge-danger { color:var(--danger); background:var(--danger-bg); }.badge-stale { color:var(--stale-text); background:var(--stale-bg); }
 /* Accounts page tweaks to LoginPanel; .workspace-main outranks its scoped rules. */
 .workspace-main .accounts-page .login-panel { padding:24px; }.workspace-main .accounts-page .panel-header { padding-bottom:16px; border-bottom:1px solid var(--border); }.workspace-main .accounts-page .accounts { gap:16px; margin-top:20px; }.workspace-main .accounts-page .account-row { padding:18px 20px; background:var(--panel-bg); }.workspace-main .accounts-page .account-info>strong { font-size:16px; font-weight:500; }.workspace-main .accounts-page .account-info .nickname { flex-basis:100%; font-size:13px; margin-top:4px; color:var(--text-muted); }.workspace-main .accounts-page .login-form { margin-top:24px; padding-top:22px; }
-.connection-note { display:flex; align-items:flex-start; gap:14px; color:var(--text-muted); padding:24px 4px; max-width:750px; }.connection-note svg { flex-shrink:0; color:var(--accent); }.connection-note h2 { font-weight:500; font-size:15px; color:var(--text); margin-bottom:8px; }.connection-note p { font-size:13px; line-height:1.8; margin-bottom:6px; }
+.connection-note { display:flex; align-items:center; gap:8px; color:var(--text-muted); padding:16px 4px; max-width:750px; }.connection-note svg { flex-shrink:0; }.connection-note p { font-size:13px; line-height:1.6; }
 /* ── Density kit ──────────────────────────────────────────────────────
    Shared pieces that replace prose and label/value stacks with compact,
    scannable data: header meta, ⓘ hints, key-value grids, one-line bar rows,

@@ -80,7 +80,7 @@ test('an expired game authorization answers 401 without ending the website sessi
   const passport = await connectCloudSklandPassport('a', 'r').catch(error => error)
   assert.equal(cleared, 0, 'an expired Hypergryph authorization ended the website session')
   assert.equal(passport.status, 401); assert.equal(passport.code, 'auth_expired')
-  assert.equal(passport.message, '游戏授权不可用，请到账号设置重新登录')
+  assert.equal(passport.message, '游戏授权不可用，请到「账号与授权」重新登录')
   setAccountScope({ account_id: 'a', role_id: 'r', provider: 'kuro' })
   reply = JSON.stringify({ detail: 'private_query_failed' })
   await assert.rejects(wuwaRequest('roles/1'), /请重新登录鸣潮账号/)
