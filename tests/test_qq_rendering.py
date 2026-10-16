@@ -345,6 +345,10 @@ def test_cloud_shutdown_drains_pending_render_and_removes_listener(tmp_path):
     with TestClient(app, base_url='https://cloud.example') as client:
         service = app.state.qq_query
         queue = service.render_queue
+        # CI runs the backend tests before building the frontend; the render must not depend on that build.
+        (tmp_path / 'dist').mkdir()
+        (tmp_path / 'dist/render.html').write_text('<!doctype html>')
+        queue.renderer.dist = tmp_path / 'dist'
         original_font = queue.renderer._font
         def slow_font():
             time.sleep(0.25)
