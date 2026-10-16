@@ -112,6 +112,10 @@ def _optional_object(data: dict, key: str) -> dict:
     return {} if data.get(key) is None else _object(data[key])
 
 
+def _optional_rows(data: dict, key: str) -> list[dict]:
+    return [] if data.get(key) is None else _rows(data[key])
+
+
 def parse_account(raw: Any, expected_role_id: str = "") -> NteAccount:
     data, role_id = _home(raw, expected_role_id)
     achievement = _optional_object(data, "achieveProgress")
@@ -178,13 +182,13 @@ def _skills(value: Any) -> list[NteSkill]:
     return [NteSkill(id=_optional_id(row.get('id')), type=_text(row.get('type')),
         name=_plain(row.get('name')), level=_count(row.get('level')),
         items=[NteSkillItem(title=_plain(p.get('title')), desc=_plain(p.get('desc')))
-               for p in _rows(row.get('items', []))]) for row in _rows(value)]
+               for p in _optional_rows(row, 'items')]) for row in _rows(value)]
 
 
 def _equipped(value):
     return [NteEquippedItem(id=_optional_id(p.get('id')), name=_plain(p.get('name')),
-        level=_count(p.get('lev')), main_properties=_properties(p.get('mainProperties', [])),
-        properties=_properties(p.get('properties', []))) for p in _rows(value)]
+        level=_count(p.get('lev')), main_properties=_properties(_optional_rows(p, 'mainProperties')),
+        properties=_properties(_optional_rows(p, 'properties'))) for p in _rows(value)]
 
 
 def parse_roles(raw: Any) -> NteRoles:
@@ -199,15 +203,15 @@ def parse_roles(raw: Any) -> NteRoles:
             breakthrough_level=_count(fork.get('blev')), group_type=_text(fork.get('groupType')),
             description=_plain(fork.get('des')), buff_name=_plain(fork.get('buffName')),
             buff_description=_plain(fork.get('buffDes')), lbd=fork.get('lbd'),
-            properties=_properties(fork.get('properties', [])),
+            properties=_properties(_optional_rows(fork, 'properties')),
         ) if fork else None
-        properties = _properties(row.get('properties', []))
+        properties = _properties(_optional_rows(row, 'properties'))
         suit = _optional_object(row, 'suit')
         normalized_suit = NteSuit(id=_optional_id(suit.get('id')), name=_plain(suit.get('name')),
             description_two=_plain(suit.get('des2')), description_four=_plain(suit.get('des4')),
             conditions=suit.get('suitCondition'), activation_count=_count(suit.get('suitActivateNum')),
-            core=_equipped(suit.get('core', [])), pie=_equipped(suit.get('pie', []))) if suit else None
-        effects = row.get('awakenEffect', [])
+            core=_equipped(_optional_rows(suit, 'core')), pie=_equipped(_optional_rows(suit, 'pie'))) if suit else None
+        effects = row.get('awakenEffect') if row.get('awakenEffect') is not None else []
         if not isinstance(effects, list) or any(not isinstance(p, str) for p in effects): raise ValueError(_ERROR)
         icon = ("https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/detail/"
                 f"{role_id}.png") if re.fullmatch(r"[A-Za-z0-9_-]+", role_id) else None
@@ -216,7 +220,7 @@ def parse_roles(raw: Any) -> NteRoles:
             quality=_label(row.get("quality"), _QUALITY), element=_label(row.get("elementType"), _ELEMENT),
             awaken_level=_count(row.get("awakenLev")), mix_level=_count(row.get("slev")),
             affinity_exp=_count(row.get("likeabilitylev")), icon_url=icon, weapon=weapon,
-            properties=properties, skills=_skills(row.get("skills", [])), city_skills=_skills(row.get("citySkills", [])),
+            properties=properties, skills=_skills(_optional_rows(row, 'skills')), city_skills=_skills(_optional_rows(row, 'citySkills')),
             group_type=_text(row.get('groupType')), awaken_effects=[_plain(p) or '' for p in effects], suit=normalized_suit,
         ))
     return NteRoles(entries=entries)
