@@ -150,3 +150,24 @@ async def test_real_large_calendar_uses_smaller_browser_jpeg_with_complete_geome
         assert not renderer._browser.contexts
     finally:
         await renderer.aclose()
+
+
+async def test_another_accounts_change_mid_render_still_returns_the_image(monkeypatch):
+    # Any account change bumps the renderer's shared generation. The query service
+    # re-checks this user's binding and grants after rendering, so the image is kept
+    # for this reply; only caching it would be unsafe.
+    renderer, context, result, calls, outputs = renderer_boundary(monkeypatch, {'png': 200})
+    renderer.cache_entries = 16
+    page = context.new_page.return_value
+    evaluate = page.evaluate
+    async def evaluate_while_another_account_changes(expression, input=None):
+        state = await evaluate(expression, input)
+        if input is None:
+            renderer.invalidate_account('another-user')
+        return state
+    page.evaluate = evaluate_while_another_account_changes
+    image = await renderer.render_summary_async(AccountScope('u', 'a', 'r'), result, budget_seconds=10)
+    assert image == outputs['png'] and len(renderer.cache) == 0
+    page.evaluate = evaluate
+    await renderer.render_summary_async(AccountScope('u', 'a', 'r'), result, budget_seconds=10)
+    assert len(renderer.cache) == 1

@@ -1,6 +1,5 @@
 import json
 import sqlite3
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -163,6 +162,28 @@ def test_static_ui_never_serves_api_or_symlink_data(tmp_path):
     (dist / 'index.html').write_text('<html>local</html>')
     with pytest.raises(ValueError, match='cloud build'):
         install_cloud_ui(app, dist)
+
+
+def test_static_ui_lets_browsers_keep_only_hashed_build_files(tmp_path):
+    from game_assistant.cloud_web_ui import install_cloud_ui
+    _, _, _, config = fixture(tmp_path)
+    app = build_app(load_runtime(config), start_scheduler=False)
+    dist = tmp_path / 'dist'
+    (dist / 'assets').mkdir(parents=True)
+    (dist / 'index.html').write_text('<html data-service-mode="cloud">cloud</html>')
+    (dist / 'assets/main-Ab12Cd34.js').write_text('safe')
+    install_cloud_ui(app, dist)
+    lookups = []
+    authenticate = app.state.identity.authenticate
+    app.state.identity.authenticate = lambda token: lookups.append(token) or authenticate(token)
+    with TestClient(app, base_url='https://localhost:8443') as client:
+        asset = client.get('/assets/main-Ab12Cd34.js')
+        assert asset.headers['cache-control'] == 'public, max-age=31536000, immutable' and 'pragma' not in asset.headers
+        assert lookups == []
+        for path in ('/', '/index.html', '/api/health'):
+            assert client.get(path).headers['cache-control'] == 'no-store'
+        (dist / 'assets/main-Ab12Cd34.js').unlink()
+        assert client.get('/assets/main-Ab12Cd34.js').headers['cache-control'] == 'no-store'
 
 
 def test_backup_rejects_unknown_private_file(tmp_path):

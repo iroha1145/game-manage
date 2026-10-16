@@ -5,18 +5,16 @@ import logging
 import os
 from pathlib import Path
 import re
-import stat
 
 from .client import InternalQqClient, OfficialQqClient, QqClientError, load_sdk
 from .transport import BotDispatcher, BotState, EventGate
 from game_assistant.config import Settings
+from game_assistant.paths import through_link
 
 
 def private_file(path):
     path=Path(path).absolute()
-    for item in (path,*path.parents):
-        if item.is_symlink() or (item.exists() and getattr(item.lstat(),'st_file_attributes',0)&getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0x400)):
-            raise QqClientError('qq_config_symlink_rejected')
+    if through_link(path):raise QqClientError('qq_config_symlink_rejected')
     if not path.is_file():raise QqClientError('qq_config_file_missing')
     if os.name!='nt' and path.stat().st_mode&0o077:raise QqClientError('qq_config_permissions')
     return path

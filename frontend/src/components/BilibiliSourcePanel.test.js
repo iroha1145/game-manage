@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { nextTick } from 'vue'
+import { h, nextTick, reactive } from 'vue'
 import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
 
 const Panel = await loadVue(new URL('./BilibiliSourcePanel.vue', import.meta.url))
@@ -92,6 +92,30 @@ test('a non-JSON error page is replaced by the fixed failure text', async (t) =>
   assert.doesNotMatch(content(root), /Unexpected token/)
 })
 
+test('a stopped local service shows Chinese text instead of the raw fetch error', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  serve(t, async (path, options) => {
+    if (options?.method === 'POST') throw new TypeError('Failed to fetch')
+    return { ok: true, json: async () => status() }
+  })
+  const root = mount(t, Panel, {})
+  await flush()
+  await collect(root); await flush()
+  assert.match(content(root), /无法连接服务，请稍后重试/)
+  assert.doesNotMatch(content(root), /Failed to fetch/)
+})
+
+test('an HTTP error keeps the detail the server sent', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  serve(t, async (path, options) => options?.method === 'POST'
+    ? { ok: false, status: 409, json: async () => ({ detail: '正在同步中，请稍候' }) }
+    : { ok: true, json: async () => status() })
+  const root = mount(t, Panel, {})
+  await flush()
+  await collect(root); await flush()
+  assert.match(content(root), /正在同步中，请稍候/)
+})
+
 test('a collection that finishes while two reads overlap emits collected once', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   let reads = 0, audits = 0, collected = 0, releaseRead, releaseAudit
@@ -133,4 +157,59 @@ test('the source panel defaults to more information and retains every mobile gam
   const text = content(root)
   for (const name of ['鸣潮', '异环', '终末地']) assert.match(text, new RegExp(`${name} · UID`))
   assert.doesNotMatch(text, /endfield · UID/)
+})
+
+// App.vue keeps one panel across the overview and the game pages, so a host with a changeable gameId stands in for its route.
+const twoGames = () => ({ login: { configured: false }, sources: ['wuthering_waves', 'nte'].map((game_id, index) => (
+  { game_id, uid: String(index + 1), status: 'ok', message: '', history_complete: true, total: 1, accepted: 1, running: false })) })
+const auditPage = (id, title) => ({ rows: [{ id, title, decision: 'accepted', reason_text: '游戏内通知', body: '', url: `https://t.bilibili.com/${id}`, published_at: '2026-10-01T00:00:00Z' }] })
+const answer = body => ({ ok: true, json: async () => body })
+function mountOnGame(t, gameId = '') {
+  const props = reactive({ gameId })
+  return { props, root: mount(t, { setup: () => () => h(Panel, props) }, {}) }
+}
+const viewAudit = (root, index) => nodes(root, 'button').filter(n => content(n) === '查看筛选记录')[index].props.onClick()
+const auditOpen = root => nodes(root, 'div').some(n => n.props.class === 'bili-audit')
+
+test('switching to another game clears the audit list of the previous one', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  serve(t, async path => answer(path.endsWith('/wuthering_waves/audit') ? auditPage('w1', '鸣潮版本公告')
+    : path.endsWith('/nte/audit') ? auditPage('n1', '异环测试动态') : twoGames()))
+  const { props, root } = mountOnGame(t)
+  await flush()
+  await viewAudit(root, 0); await flush()
+  assert.match(content(root), /鸣潮版本公告/)
+  props.gameId = 'nte'; await nextTick()
+  assert.equal(auditOpen(root), false)
+  assert.doesNotMatch(content(root), /鸣潮版本公告/)
+  await viewAudit(root, 0); await flush()
+  assert.match(content(root), /异环测试动态/)
+  assert.doesNotMatch(content(root), /鸣潮版本公告/)
+})
+
+test('moving to the page of the game whose audit list is open keeps that list', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  serve(t, async path => answer(path.endsWith('/audit') ? auditPage('w1', '鸣潮版本公告') : twoGames()))
+  const { props, root } = mountOnGame(t)
+  await flush()
+  await viewAudit(root, 0); await flush()
+  props.gameId = 'wuthering_waves'; await nextTick()
+  assert.equal(auditOpen(root), true)
+  assert.match(content(root), /鸣潮版本公告/)
+})
+
+test('an audit answer that arrives after switching games is not shown on the new game', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let release
+  serve(t, async path => {
+    if (path.endsWith('/wuthering_waves/audit')) await new Promise(resolve => (release = resolve))
+    return answer(path.endsWith('/audit') ? auditPage('w1', '鸣潮版本公告') : twoGames())
+  })
+  const { props, root } = mountOnGame(t)
+  await flush()
+  const pending = viewAudit(root, 0)
+  props.gameId = 'nte'; await nextTick()
+  release(); await pending; await flush()
+  assert.equal(auditOpen(root), false)
+  assert.doesNotMatch(content(root), /鸣潮版本公告/)
 })

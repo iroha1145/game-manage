@@ -21,7 +21,13 @@ test('NTE detail is mounted only after opening and disposed on close/account swi
 })
 
 test('unknown, zero and failure states stay visible in summary without opening dialog',t=>{
-  const root=mount(t,Module,{capability:'stamina',snap:{stale:true,error:'上游暂不可用',payload:{schema_version:1,current:0,maximum:320,city_current:null,city_maximum:100}}})
+  const root=mount(t,Module,{capability:'stamina',snap:{stale:true,poll_status:{state:'error',error:'上游暂不可用',error_kind:'source_error'},payload:{schema_version:1,current:0,maximum:320,city_current:null,city_maximum:100}}})
   assert.match(content(root),/0 \/ 320/);assert.match(content(root),/未知 \/ 100/)
   assert.match(content(root),/暂时无法读取.*重试/);assert.match(content(root),/旧数据/)
+})
+
+test('a successful poll shows no failure line on the card',t=>{
+  const root=mount(t,Module,{capability:'stamina',snap:{stale:false,poll_status:{state:'ok',error:null,error_kind:null},payload:{schema_version:1,current:10,maximum:320,city_current:null,city_maximum:100}}})
+  assert.match(content(root),/10 \/ 320/)
+  assert.ok(!nodes(root,'p').some(n=>n.props.class==='module-error'))
 })

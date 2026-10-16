@@ -199,6 +199,19 @@ async def test_multi_scope_overview_rechecks_every_authorization_after_async_ren
     assert 'image' not in reply and 'PRIVATE' not in reply['text'] and '变更' in reply['text']
 
 
+async def test_image_reply_keeps_the_full_text_for_a_failed_delivery():
+    # The bot sends only the image; this text is what members get if the upload fails.
+    from game_assistant.qq.rendering import RenderedImage
+    query = CachedQuery()
+    query.add('nte', 'tajiduo', 'n', {'roles': {'entries': [{'name': '娜娜莉', 'level': 70}, {'name': '白藏', 'level': 60}]}})
+    class Queue:
+        renderer = SimpleNamespace(invalidate_account=lambda *args: None)
+        async def render(self, scope, result, **kwargs):
+            return RenderedImage(b'png', page=1, total_pages=1)
+    reply = await service(query, queue=Queue()).query_reply(IDENTITY, 'roles', 'nte', image_requested=True, budget_seconds=5)
+    assert 'image' in reply and '娜娜莉' in reply['text'] and '白藏' in reply['text']
+
+
 async def test_new_parser_fields_propagate_through_internal_http_client():
     from datetime import datetime, timedelta, timezone
     from game_assistant.qq.client import InternalQqClient

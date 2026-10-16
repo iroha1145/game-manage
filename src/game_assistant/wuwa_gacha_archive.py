@@ -334,10 +334,12 @@ class ArchiveMixin:
         if data['aggregates'] and not result['total']:
             result['state']='aggregate_only'
         rules={r['pool']:r for r in data['rules']}
+        # Segments list their draw keys; sets keep the per-record checks below linear.
+        segment_ids={id(s):frozenset(s['draw_ids']) for s in segments}
         for pool in result['pools']:
             rows=[(k,r) for p,k,r in all_rows if p==pool['pool']]
             rule=rules.get(pool['pool'])
-            candidates=[s for s in segments if s['pool']==pool['pool'] and rows[0][0] in s['draw_ids']]
+            candidates=[s for s in segments if s['pool']==pool['pool'] and rows[0][0] in segment_ids[id(s)]]
             segment=max(candidates,key=lambda s:s['imported_at']) if candidates else None
             missing=[]
             pity=dict(status='unknown',count=None,hard_pity_remaining=None,up_guarantee='unknown',
@@ -348,12 +350,13 @@ class ArchiveMixin:
             if not segment or not segment['latest_confirmed']: missing.append('latest_records_confirmation')
             if not segment or not segment['continuity_confirmed']: missing.append('continuous_records_confirmation')
             if segment and segment['warnings']: missing.append('resolve_source_warnings')
-            selected=[(k,r) for k,r in rows if segment and k in segment['draw_ids']]
+            ids=segment_ids[id(segment)] if segment else frozenset()
+            selected=[(k,r) for k,r in rows if k in ids]
             if len({datetime.fromisoformat(r['time']).utcoffset() for _,r in selected})>1:
                 missing.append('source_time_basis_mixed')
             if selected:
-                last=max(i for i,(k,_) in enumerate(rows) if k in segment['draw_ids'])
-                if any(k not in segment['draw_ids'] for k,_ in rows[:last+1]): missing.append('known_records_missing_from_segment')
+                last=max(i for i,(k,_) in enumerate(rows) if k in ids)
+                if any(k not in ids for k,_ in rows[:last+1]): missing.append('known_records_missing_from_segment')
             if not missing:
                 count=0;reset=False
                 timestamp_rarities={}

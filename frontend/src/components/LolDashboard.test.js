@@ -225,3 +225,30 @@ test('same-account snapshot revisions reload analysis and preserve prior data on
   assert.equal(reads, 4)
   assert.match(content(root), /账号甲版本4/)
 })
+
+test('a snapshot refresh keeps the open match detail; a filter change closes it', async t => {
+  const snaps = ref({ account: { payload: { extra: { puuid: 'account-a' } }, fetched_at: 'a1' }, match: { fetched_at: 'm1' }, stats: { fetched_at: 's1' } })
+  t.mock.method(globalThis, 'fetch', async url => response(url.includes('/matches/') ? { payload: { teams: [{ team_id: 100, win: true, participants: [{ champion_name: '详情英雄', kills: 1, deaths: 0, assists: 2 }] }] } } : data()))
+  const root = mount(t, { setup: () => () => h(LolDashboard, { snaps: snaps.value }) }, {})
+  await flush(); button(root, '对局记录').props.onClick(); await flush()
+  button(root, '查看详情').props.onClick(); await flush()
+  assert.match(content(root), /详情英雄/)
+  snaps.value.match.fetched_at = 'm2'; await flush()
+  assert.match(content(root), /详情英雄/, 'the hourly snapshot refresh must not collapse the open detail')
+  const days = nodes(root, 'select').find(n => content(n.parent).includes('时间'))
+  days.props.onChange({ target: { value: '30' } }); await flush()
+  assert.doesNotMatch(content(root), /详情英雄/)
+})
+
+test('the recent-match snapshot gets champion names and record chips from the stats snapshot', async t => {
+  // The pre-archive snapshot list is shown while the local archive is still empty.
+  t.mock.method(globalThis, 'fetch', async () => response({ ...data(), overview: { games: 0 }, coverage: { archived_games: 0 }, matches: [] }))
+  const snaps = {
+    match: { fetched_at: '2026-10-16T04:00:00Z', payload: [{ match_id: 'g1', champion_id: 7, champion_name: null, win: true, kills: 9, deaths: 1, assists: 5, start_at: '2026-10-15 20:00' }] },
+    stats: { fetched_at: '2026-10-16T04:00:00Z', payload: { top_champions: [{ champion_id: 7, champion_name: '诡术妖姬' }], records: [{ match_id: 'g1', label: '单场最多击杀' }] } },
+  }
+  const root = mount(t, LolDashboard, { snaps })
+  await flush(); button(root, '对局记录').props.onClick(); await flush()
+  assert.match(content(root), /诡术妖姬/)
+  assert.match(content(root), /最多击杀/)
+})

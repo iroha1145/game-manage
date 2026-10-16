@@ -2,31 +2,25 @@
 import { computed, ref } from 'vue'
 import { gameStyle } from '../dashboard.js'
 import { vGlide } from '../motion.js'
+import { lazyPage } from '../lazy-page.js'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
 import SourceStatusPanel from './SourceStatusPanel.vue'
-import AccountCard from './AccountCard.vue'
 import AnnouncementList from './AnnouncementList.vue'
-import CalabashCard from './CalabashCard.vue'
-import ExplorationCard from './ExplorationCard.vue'
-import MatchList from './MatchList.vue'
 import NteDataCard from './NteDataCard.vue'
 import NteAssetsPanel from './NteAssetsPanel.vue'
 import NteRolesPanel from './NteRolesPanel.vue'
 import NteGachaPanel from './NteGachaPanel.vue'
-import EndfieldGachaPanel from './EndfieldGachaPanel.vue'
 import EndfieldDashboard from './EndfieldDashboard.vue'
-import ProgressCard from './ProgressCard.vue'
-import StaminaCard from './StaminaCard.vue'
-import StatsCard from './StatsCard.vue'
 import WuwaDashboard from './WuwaDashboard.vue'
-import LolDashboard from './LolDashboard.vue'
 import NteGuides from './NteGuides.vue'
 import NteModuleCard from './NteModuleCard.vue'
 
+// Only the local workbench shows League of Legends; the cloud never loads this dashboard or its esports tables.
+const LolDashboard = lazyPage(() => import('./LolDashboard.vue'))
+
 const props = defineProps({
   cloudAccount: Object,
-  authAccount: Object,
   authAccount: Object,
   cloudRole: String,
   cloudScope: Object,
@@ -50,12 +44,11 @@ function openNteRole(id){nteFocusId.value=id;nteGuideId.value='';activeSection.v
 const style = computed(() => gameStyle(props.game.game_id))
 const groups = computed(() => [
   { id: 'all', label: '全部', caps: props.game.capabilities },
-  { id: 'overview', label: '概览', caps: ['account', 'stamina', 'progress', 'stats', 'record'] },
+  { id: 'overview', label: '概览', caps: ['account', 'stamina', 'progress', 'record'] },
   { id: 'characters', label: '角色与探索', caps: ['roles', 'exploration', 'calabash'] },
   { id: 'assets', label: '房产与载具', caps: ['realestate', 'vehicles'] },
   { id: 'teams', label: '官方配队', caps: ['teams'] },
   { id: 'guides', label: '角色攻略', caps: ['guides'] },
-  { id: 'matches', label: '近期对局', caps: ['match'] },
   { id: 'gacha', label: '抽卡统计', caps: ['gacha'] },
   { id: 'news', label: '公告与资讯', caps: ['announcement', 'news'] },
 ].filter(group => group.id === 'guides' ? props.game.game_id === 'nte' : group.caps.some(cap => cap !== 'events' && props.game.capabilities.includes(cap))))
@@ -70,25 +63,14 @@ const visibleCaps = computed(() => {
   return caps.map((cap, index) => ({ cap, index })).sort((a, b) => rank(a.cap) - rank(b.cap) || a.index - b.index).map(item => item.cap)
 })
 
-const CAP_COMPONENTS = {
-  stamina: StaminaCard,
-  account: AccountCard,
-  progress: ProgressCard,
-  announcement: AnnouncementList,
-  news: AnnouncementList,
-  match: MatchList,
-  stats: StatsCard,
-  exploration: ExplorationCard,
-  calabash: CalabashCard,
-}
-
+// Wuwa, LoL and Endfield have their own dashboards; this grid only serves NTE.
 function capComponent(cap) {
-  if (props.game.game_id === 'nte' && ['realestate', 'vehicles', 'teams'].includes(cap)) return NteAssetsPanel
-  if (props.game.game_id === 'nte' && cap === 'roles') return NteRolesPanel
-  if (props.game.game_id === 'nte' && cap === 'gacha') return NteGachaPanel
-  if (props.game.game_id === 'endfield' && cap === 'gacha') return EndfieldGachaPanel
-  if (props.game.game_id === 'nte' && ['account', 'stamina', 'progress', 'exploration', 'record'].includes(cap)) return NteDataCard
-  return CAP_COMPONENTS[cap] || null
+  if (props.game.game_id !== 'nte') return null
+  if (['realestate', 'vehicles', 'teams'].includes(cap)) return NteAssetsPanel
+  if (cap === 'roles') return NteRolesPanel
+  if (cap === 'gacha') return NteGachaPanel
+  if (['account', 'stamina', 'progress', 'exploration', 'record'].includes(cap)) return NteDataCard
+  return null
 }
 
 // Each panel gets only the props it declares; anything else would land on its
@@ -101,7 +83,6 @@ function capProps(cap) {
     capability: cap,
     accountId: cap === 'roles' && props.cloudScope ? props.cloudScope : props.cloudScope ? `${props.cloudScope.account_id}:${props.cloudScope.role_id}` : ['nte', 'endfield'].includes(props.game.game_id) ? snaps.account?.payload?.role_id || '' : '',
     roles: snaps.roles?.payload?.entries || [],
-    stats: snaps.stats?.payload ?? null,
   }
   const declared = capComponent(cap)?.props ?? {}
   return Object.fromEntries(Object.entries(offered).filter(([key]) => key in declared))
@@ -138,17 +119,10 @@ function capProps(cap) {
     <EndfieldDashboard v-else-if="game.game_id === 'endfield'" :snaps="externalSnapshots" :configured="game.credentials_configured" :auth-account="authAccount" :refreshing="externalRefreshing" :initial-section="initialSection" :cloud-account="cloudAccount" :cloud-role="cloudRole" :is-admin="isAdmin" @calendar="emit('calendar')" @refresh="emit('refresh')" />
     <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" :can-maintain="!cloudAccount || isAdmin" :character-id="nteGuideId" @role="openNteRole" /></NteModuleCard>
     <div v-else class="cap-list">
-      <template v-for="(cap, index) in visibleCaps" :key="cap">
-        <NteModuleCard v-if="game.game_id === 'nte' && capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
+      <template v-for="cap in visibleCaps" :key="cap">
+        <NteModuleCard v-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
           <component :is="capComponent(cap)" v-bind="{...capProps(cap),...(cap==='roles' ? {focusCharacterId:nteFocusId,detailMode:!!nteFocusId,onGuide:openNteGuide} : {})}" />
         </NteModuleCard>
-        <component
-          :is="capComponent(cap)"
-          v-else-if="capComponent(cap)"
-          v-bind="capProps(cap)"
-          :class="['detail-cap', 't-item', `detail-cap-${cap}`]"
-          :style="{ '--i': index }"
-        />
         <div v-else class="cap-card cap-coming">敬请期待</div>
       </template>
       <AnnouncementList v-if="['all', 'news'].includes(activeSection) && game.capabilities.some(cap => ['announcement', 'news'].includes(cap))" class="detail-articles" :game-id="game.game_id" :snap="externalSnapshots.news?.payload ? externalSnapshots.news : externalSnapshots.announcement" />
@@ -158,7 +132,7 @@ function capProps(cap) {
 
 <style scoped>
 .detail-articles{grid-column:1/-1}
-.detail-cap-realestate, .detail-cap-vehicles, .detail-cap-teams, .detail-cap-roles, .detail-cap-gacha, .detail-cap-match, .detail-cap-exploration { grid-column: 1 / -1; }
+.detail-cap-realestate, .detail-cap-vehicles, .detail-cap-teams, .detail-cap-roles, .detail-cap-gacha, .detail-cap-exploration { grid-column: 1 / -1; }
 .game-card {
   min-width: 0;
 }
@@ -186,8 +160,6 @@ function capProps(cap) {
   align-items: start;
 }
 .detail-navigation { display:flex; justify-content:space-between; gap:10px 16px; align-items:center; margin:0 0 16px; flex-wrap:wrap; }
-/* 英雄联盟 has one short identity card and one wide stats card: stack them full width. */
-.game-league_of_legends .detail-cap-account,.game-league_of_legends .detail-cap-stats { grid-column:1/-1; }
 @media(max-width:950px) { .cap-list { grid-template-columns:1fr; } }
 @media(max-width:600px) { .card-head { padding-bottom:16px; margin-bottom:16px; gap:12px; }.game-heading { gap:10px; flex-basis:100%; }.game-name { font-size:22px; line-height:28px; }.detail-monogram { width:36px; height:36px; font-size:20px; }.detail-tabs button { padding:4px 9px; } }
 

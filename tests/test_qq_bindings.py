@@ -139,6 +139,18 @@ def test_replay_payload_conflicts_charge_durably(service):
     with pytest.raises(QqBindingError) as exc:service.redeem_link_code(ID,'changed','message')
     assert exc.value.status_code==429
 
+def test_replaying_a_used_code_does_not_use_up_the_owner_quota(service):
+    # A used code stays visible in the group chat; another member resending it
+    # must only spend their own attempts, not lock the owner out of a new code.
+    code=service.create_link_code(A)['code']
+    service.redeem_link_code(ID,code,'message')
+    other=QqIdentity('app','group','group-1','sender-2')
+    for i in range(4):
+        with pytest.raises(QqBindingError) as exc:service.redeem_link_code(other,code,f'replay-{i}')
+        assert exc.value.code=='qq_link_code_used'
+    fresh=service.create_link_code(A)['code']
+    assert service.redeem_link_code(QqIdentity('app','c2c',None,'sender-1'),fresh,'fresh')['status']=='linked'
+
 @pytest.mark.parametrize('disabled_at',['','disabled'])
 def test_non_null_disabled_owner_never_links(service,disabled_at):
     code=service.create_link_code(A)['code']

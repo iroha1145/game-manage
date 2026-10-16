@@ -13,6 +13,8 @@ const summary = computed(() => {
   if (faults.value) return `${faults.value} 项需要关注`
   const offline = rows.value.filter(row => row.state === 'offline')
   if (offline.length) return offline.some(row => row.retained) ? '客户端离线 · 保留旧数据' : '客户端离线 · 暂无已保存的数据'
+  const unconfigured = rows.value.filter(row => row.state === 'unconfigured').length
+  if (unconfigured) return `${unconfigured} 项未配置`
   const pending = rows.value.filter(row => !row.state || row.state === 'never').length
   return pending ? `${pending} 项尚未同步` : '各项状态已更新'
 })
@@ -32,7 +34,8 @@ function dismiss(event) {
 }
 function closeOnMove(event) {
   const el = panel.value
-  if (el?.open && !el.querySelector('.source-body')?.contains(event.target)) el.open = false
+  // A resize targets the window, which is not a Node and would make contains() throw.
+  if (el?.open && (event.type === 'resize' || !el.querySelector('.source-body')?.contains(event.target))) el.open = false
 }
 function listen(on) {
   if (typeof window === 'undefined') return

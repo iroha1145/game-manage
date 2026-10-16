@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
 import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { configureHttpClient } from '../http-client.js'
 
 const component = (name) => loadVue(new URL(`./${name}.vue`, import.meta.url))
 const tick = async () => {
@@ -439,6 +440,17 @@ test('gacha loads only local archive; explicit import clears secret and displays
   await click(root, '确认导入链接预览')
   assert.match(content(root), /未获得记录/)
 })
+test('the gacha import says where the records are kept: this machine locally, the personal space in the cloud', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => reply({ ...identity, total: 0, items: [], gold: [], gold_total: 0, pools: [], state: 'need_import', coverage: { complete: false } }))
+  t.after(() => configureHttpClient({ mode: 'local' }))
+  for (const [mode, kept, other] of [['local', /记录保存在本机/, /本人空间/], ['cloud', /记录保存在本人空间/, /本机/]]) {
+    configureHttpClient({ mode })
+    const root = mount(t, await component('WuwaGacha'), { accountKey: 'account:server' })
+    await tick()
+    assert.match(content(root), kept)
+    assert.doesNotMatch(content(root), other)
+  }
+})
 test('history exposes archive origin, first observation, paged seasons and no invented backfill', async (t) => {
   const calls = []
   t.mock.method(globalThis, 'fetch', async (url, options) => {
@@ -788,4 +800,38 @@ test('resource responses cannot roll back a newer period selection', async (t) =
   await tick()
   assert.match(content(root), /贝币 22/)
   assert.doesNotMatch(content(root), /贝币 11/)
+})
+
+test('a chosen resource period survives polling; a newer fetch replaces only the current period', async (t) => {
+  const reports = {
+    'week/7': { kind: 'week', period: '7', data: { total_coin: 7, total_star: 8 } },
+    'month/202610': { kind: 'month', period: '202610', data: { total_coin: 111, total_star: 222 } },
+  }
+  t.mock.method(globalThis, 'fetch', async (url) => ({
+    ok: true,
+    json: async () => ({ payload: { ...identity, ...reports[url.split('/resources/')[1]] } }),
+  }))
+  const resources = (fetched_at, coin) => ({
+    fetched_at, stale: false,
+    payload: {
+      periods: { week: [{ period: '7', title: '九月第二周' }], month: [{ period: '202610', title: '十月' }], version: [] },
+      current: { kind: 'month', period: '202610', state: 'ok', data: { total_coin: coin, total_star: 222 } },
+    },
+  })
+  const coin = (root) => content(root).match(/贝币 (\S+)/)?.[1]
+  const props = reactive({ accountKey: 'account:server', snap: resources('2026-10-16T04:00:00Z', 111) })
+  const root = mount(t, await component('WuwaResources'), props)
+  await tick()
+  await click(root, '九月第二周')
+  assert.equal(coin(root), '7')
+  props.snap = resources('2026-10-16T04:00:00Z', 111) // the 60-second re-read: same data, new object
+  await tick()
+  assert.equal(coin(root), '7')
+  props.snap = resources('2026-10-16T05:00:00Z', 333) // a newer fetch of another period
+  await tick()
+  assert.equal(coin(root), '7')
+  await click(root, '十月')
+  props.snap = resources('2026-10-16T06:00:00Z', 444) // the period on display was fetched again
+  await tick()
+  assert.equal(coin(root), '444')
 })

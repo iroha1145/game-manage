@@ -91,8 +91,6 @@ function receiveGuide(value) {
 .guide-card:last-child { grid-column: 1 / -1; }
 .guide-card h4 { margin: 0; color: var(--text); font-size: 15px; }
 .guide-number { color: var(--accent); font-size: 12px; font-variant-numeric: tabular-nums; }
-.guide-state { margin-left: auto; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
-.guide-incomplete .guide-state { color: var(--stale-text); }
 .guide-advice { line-height: 1.9; font-size: 14px; color: var(--text); overflow-wrap: anywhere; margin: 14px 0; }
 .guide-note { color: var(--stale-text); line-height: 1.7; font-size: 12px; }
 .guide-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border); margin-top: auto; font-size: 12px; color: var(--text-muted); }

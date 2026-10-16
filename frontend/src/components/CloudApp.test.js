@@ -98,6 +98,147 @@ for (const [width, user] of [[390, 'A'], [1440, 'B']]) {
     assert.ok(paths.every(path => /^\/api\/(identity|accounts|public)(\/|$)/.test(path)))
   })
 }
+test('reloading on the accounts page keeps the first reads of its panels when the account list selects an authorization', async t => {
+  const browser = new Window({ width: 1440, height: 900 }), originalWindow = globalThis.window
+  browser.location.hash = '#/accounts'
+  globalThis.window = browser; t.after(() => { globalThis.window = originalWindow; browser.happyDOM.abort() })
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const account = { account_id: 'a1', provider: 'kuro', game: 'wuthering_waves', state: 'active', capabilities: [], roles: [{ role_id: 'r1', display_name: '角色甲', is_default: true }] }
+  const link = { link_id: 'l1', identity: { scene: 'group', group_openid: 'fixture-group', sender_openid: 'fixture-sender' } }
+  const answers = [], requests = []
+  t.mock.method(globalThis, 'fetch', (path, options = {}) => new Promise((resolve, reject) => {
+    requests.push(path)
+    const data = path === '/api/identity/me' ? { user_id: 'u1', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [account] } : path === '/api/qq/link-attempts' ? { links: [link] } : { state: 'never', payload: null }
+    answers.push(() => resolve(new Response(JSON.stringify(data))))
+    options.signal?.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+  }))
+  const root = mount(t, CloudApp)
+  // A real network answers in request order, one event-loop turn apart.
+  for (let i = 0; i < 40 && (answers.length || i < 3); i++) { answers.shift()?.(); await tick() }
+  for (let i = 0; i < 4; i++) await tick()
+  assert.ok(requests.includes('/api/qq/link-attempts'))
+  assert.match(content(root), /已关联 · 群聊/)
+  assert.deepEqual(nodes(root, 'p').filter(n => n.props.role === 'alert').map(content), [])
+  assert.match(content(nodes(root, 'section').find(n => String(n.props.class).includes('login-panel'))), /角色甲/)
+})
+test('after the cookie switches to another user, the account panels start over instead of showing the previous user', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const rows = { A: [{ account_id: 'a1', provider: 'kuro', game: 'wuthering_waves', state: 'active', capabilities: [], roles: [{ role_id: 'r1', display_name: '甲的昵称', is_default: true }] }],
+    B: [{ account_id: 'b1', provider: 'tajiduo', game: 'nte', state: 'active', capabilities: [], roles: [{ role_id: 'r2', display_name: '乙的昵称', is_default: true }] }] }
+  let who = 'A'
+  t.mock.method(globalThis, 'fetch', async path => new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: who, is_admin: false }
+    : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: rows[who] } : { state: 'never', payload: null })))
+  const root = mount(t, CloudApp); await tick(); await tick()
+  t.mock.timers.tick(30000); await tick()
+  nodes(root, 'button').find(n => content(n) === '账号与授权').props.onClick(); await tick(); await tick()
+  const panel = label => nodes(root, 'section').find(n => n.props['aria-label'] === label || String(n.props.class).includes(label))
+  const login = panel('login-panel'), settings = panel('本人游戏授权')
+  assert.match(content(login), /甲的昵称/)
+  nodes(login, 'button').find(n => content(n) === '登录').props.onClick(); await tick()
+  assert.ok(nodes(login, 'input').some(n => n.props.id === 'community-mobile'), "user A's login form is open")
+  // Another tab signs in as B; this tab notices at its minute check and swaps the user in one synchronous step.
+  who = 'B'; t.mock.timers.tick(30000); for (let i = 0; i < 6; i++) await tick()
+  assert.match(content(root), /乙的昵称/)
+  assert.doesNotMatch(content(panel('login-panel')), /甲的昵称/, "user A's nickname is still shown to user B")
+  assert.ok(!nodes(panel('login-panel'), 'input').some(n => n.props.id === 'community-mobile'), "user A's login form is still open for user B")
+  assert.notEqual(panel('login-panel'), login, 'the community-login panel was patched, not mounted again')
+  assert.notEqual(panel('本人游戏授权'), settings, 'the authorization list was patched, not mounted again')
+})
+test('the sessions page lists the sessions after a reload on it and asks once per visit', async t => {
+  const browser = new Window({ width: 1440, height: 900, url: 'https://cloud.example.test/#/sessions' }), originalWindow = globalThis.window
+  globalThis.window = browser; t.after(() => { globalThis.window = originalWindow; browser.happyDOM.abort() })
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = [], listed = () => calls.filter(path => path === '/api/identity/sessions').length
+  t.mock.method(globalThis, 'fetch', async path => {
+    calls.push(path)
+    return new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] }
+      : path === '/api/identity/sessions' ? { sessions: [{ session_id: 's1', created_at: '2026-10-16T14:02:00Z', expires_at: '2026-10-23T14:02:00Z' }] } : { state: 'never', payload: null }))
+  })
+  const root = mount(t, CloudApp); for (let i = 0; i < 6; i++) await tick()
+  assert.equal(listed(), 1, 'a reload on #/sessions never asked for the session list')
+  assert.match(content(root), /会话 1/)
+  // A button changes the page and then the hash; the browser reports the new hash with a hashchange event after that.
+  const open = async name => { const changed = new Promise(resolve => browser.addEventListener('hashchange', resolve, { once: true })); nodes(root, 'button').find(n => content(n) === name).props.onClick(); await changed; for (let i = 0; i < 4; i++) await tick() }
+  await open('本人游戏看板'); await open('网站会话')
+  assert.equal(listed(), 2, 'opening the page by its navigation button must ask once per visit')
+})
+
+test('logging in again after a logout on the sessions page asks for the list once', async t => {
+  const browser = new Window({ width: 1440, height: 900, url: 'https://cloud.example.test/#/sessions' }), originalWindow = globalThis.window
+  const previousDocument = globalThis.Document, previousShadowRoot = globalThis.ShadowRoot
+  globalThis.window = browser; globalThis.Document = class {}; globalThis.ShadowRoot = class {}
+  t.after(() => { globalThis.window = originalWindow; globalThis.Document = previousDocument; globalThis.ShadowRoot = previousShadowRoot; browser.happyDOM.abort() })
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  let signedIn = true
+  const calls = [], listed = () => calls.filter(path => path === '/api/identity/sessions').length
+  t.mock.method(globalThis, 'fetch', async path => {
+    calls.push(path)
+    if (path === '/api/identity/login') signedIn = true
+    if (path === '/api/identity/logout') signedIn = false
+    if (path === '/api/identity/me' && !signedIn) return new Response('{"detail":"authentication_required"}', { status: 401 })
+    return new Response(JSON.stringify(path === '/api/identity/me' || path === '/api/identity/login' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] }
+      : path === '/api/identity/sessions' ? { sessions: [{ session_id: 's1', created_at: '2026-10-16T14:02:00Z', expires_at: '2026-10-23T14:02:00Z' }] } : { state: 'never', payload: null }))
+  })
+  const root = mount(t, CloudApp); for (let i = 0; i < 6; i++) await tick()
+  await nodes(root, 'button').find(n => content(n) === '退出网站').props.onClick(); for (let i = 0; i < 6; i++) await tick()
+  assert.match(content(root), /网站登录/); assert.equal(browser.location.hash, '#/sessions', 'a logout leaves the address alone')
+  const inputs = nodes(root, 'input'), before = listed()
+  inputs.find(x => x.props.name === 'username').props['onUpdate:modelValue']('alice')
+  inputs.find(x => x.props.name === 'password').props['onUpdate:modelValue']('sample-password')
+  await nodes(root, 'form')[0].props.onSubmit({ preventDefault() {} }); for (let i = 0; i < 8; i++) await tick()
+  assert.equal(listed() - before, 1, 'the session list was asked for twice after logging in again')
+  assert.match(content(root), /会话 1/)
+})
+test('logging in while the address names the sessions page lists the sessions too', async t => {
+  const browser = new Window({ width: 1440, height: 900, url: 'https://cloud.example.test/#/sessions' }), originalWindow = globalThis.window
+  const previousDocument = globalThis.Document, previousShadowRoot = globalThis.ShadowRoot
+  globalThis.window = browser; globalThis.Document = class {}; globalThis.ShadowRoot = class {}
+  t.after(() => { globalThis.window = originalWindow; globalThis.Document = previousDocument; globalThis.ShadowRoot = previousShadowRoot; browser.happyDOM.abort() })
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  let signedIn = false
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (path, options = {}) => {
+    calls.push(path)
+    if (path === '/api/identity/login') signedIn = true
+    if (path === '/api/identity/me' && !signedIn) return new Response('{"detail":"authentication_required"}', { status: 401 })
+    return new Response(JSON.stringify(path === '/api/identity/me' || path === '/api/identity/login' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] }
+      : path === '/api/identity/sessions' ? { sessions: [{ session_id: 's1', created_at: '2026-10-16T14:02:00Z', expires_at: '2026-10-23T14:02:00Z' }] } : { state: 'never', payload: null }))
+  })
+  const root = mount(t, CloudApp); for (let i = 0; i < 4; i++) await tick()
+  assert.match(content(root), /网站登录/)
+  const inputs = nodes(root, 'input')
+  inputs.find(x => x.props.name === 'username').props['onUpdate:modelValue']('alice')
+  inputs.find(x => x.props.name === 'password').props['onUpdate:modelValue']('sample-password')
+  await nodes(root, 'form')[0].props.onSubmit({ preventDefault() {} }); for (let i = 0; i < 6; i++) await tick()
+  assert.equal(calls.filter(path => path === '/api/identity/sessions').length, 1, 'the session list was not asked for after the login')
+  assert.match(content(root), /会话 1/)
+})
+test('the sessions page shows when a session was created and expires in Beijing time', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', async path => new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] }
+    : path === '/api/identity/sessions' ? { sessions: [{ session_id: 's1', created_at: '2026-10-16T14:02:00.123456Z', expires_at: '2026-10-23T14:02:00.123456Z' }] } : { state: 'never', payload: null })))
+  const root = mount(t, CloudApp); await tick(); await tick()
+  nodes(root, 'button').find(n => content(n) === '网站会话').props.onClick(); await tick(); await tick()
+  assert.equal(content(nodes(root, 'article')[0]), '会话 1 · 创建 2026-10-16 22:02 · 过期 2026-10-23 22:02 撤销此会话')
+})
+test('a failed public read stays on its snapshot and is not left as an unhandled rejection', async t => {
+  const unhandled = [], record = reason => unhandled.push(reason)
+  process.on('unhandledRejection', record); t.after(() => process.off('unhandledRejection', record))
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async path => {
+    calls.push(path)
+    if (path.startsWith('/api/public/')) return new Response('{}', { status: 503 })
+    return new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' }
+      : path === '/api/accounts' ? { accounts: [{ account_id: 'a', provider: 'kuro', game: 'wuthering_waves', state: 'active', capabilities: [], roles: [{ role_id: 'r', is_default: true }] }] } : { state: 'never', payload: null }))
+  })
+  const root = mount(t, CloudApp); await tick(); await tick()
+  nodes(root, 'button').find(n => content(n).includes('授权 1')).props.onClick(); for (let i = 0; i < 4; i++) await tick()
+  assert.ok(calls.includes('/api/public/games/wuthering_waves/news'), 'the game page asked for the public news')
+  assert.deepEqual(unhandled, [])
+  assert.match(content(root), /鸣潮 · 库街区/)
+})
 test('cloud public events render the real calendar with unknown dates and source details', async t => {
   configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
   const calls=[]

@@ -17,8 +17,8 @@ test('map filters are encoded and role selection sends both identifiers', async 
   assert.equal(calls[2].options.headers['X-Game-Assistant'], '1')
   await getMapMark('map 1', 'point/2')
   assert.equal(calls[3].url, '/api/endfield/map/marks/point%2F2?map_id=map%201')
-  await getSklandTools('rules', 'char/1')
-  assert.equal(calls[4].url, '/api/endfield/skland/tools?kind=rules&char_id=char%2F1')
+  await getSklandTools('rules')
+  assert.equal(calls[4].url, '/api/endfield/skland/tools?kind=rules')
   await getSklandOperator('char/1')
   assert.equal(calls[5].url, '/api/endfield/skland/operators/char%2F1')
 })
@@ -26,4 +26,23 @@ test('map filters are encoded and role selection sends both identifiers', async 
 test('external links allow only ordinary HTTPS URLs', () => {
   assert.equal(safeExternalUrl('https://example.com/map'), 'https://example.com/map')
   for (const url of ['javascript:alert(1)', 'http://example.com', 'https://user:pass@example.com']) assert.equal(safeExternalUrl(url), null)
+})
+
+test('a 422 with a list of details gets a fixed message and other failures keep their own text', async t => {
+  let reply
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: false, status: reply[0], json: async () => reply[1] }))
+  const messageFor = async (...next) => { reply = next; try { await saveBlueprint({ name: '工厂', code: 'SECRET', notes: '' }) } catch (error) { return error.message } }
+  const listed = [{ type: 'value_error', loc: ['body', 'code'], msg: 'Value error, 内容包含无法显示的字符', input: 'SECRET', ctx: { error: {} } }]
+  assert.equal(await messageFor(422, { detail: listed }), '输入内容格式不正确，请检查名称、分享码和备注。')
+  assert.equal(await messageFor(422, { detail: '这条蓝图收藏不存在' }), '这条蓝图收藏不存在')
+  assert.equal(await messageFor(500, { detail: listed }), '请求未完成，请稍后重试。')
+})
+
+test('a machine code answered by the cloud service is replaced by fixed Chinese text', async t => {
+  let reply
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: false, status: reply[0], json: async () => reply[1] }))
+  const messageFor = async (...next) => { reply = next; try { await saveBlueprint({ name: '工厂', code: 'SECRET', notes: '' }) } catch (error) { return error.message } }
+  assert.equal(await messageFor(422, { detail: 'invalid_input' }), '输入内容格式不正确，请检查名称、分享码和备注。')
+  assert.equal(await messageFor(404, { detail: 'private_item_not_found' }), '请求未完成，请稍后重试。')
+  assert.equal(await messageFor(502, { error: 'skland_query_failed' }), '请求未完成，请稍后重试。')
 })

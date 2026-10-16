@@ -65,8 +65,8 @@ def test_local_equipped_reads_wrapped_archive_without_touching_source_time(tmp_p
     app.state.registry=SimpleNamespace(get=lambda game:adapter)
     app.state.auth=SimpleNamespace(account_generation=lambda game:1)
     reads=[]
-    def read(account,server,kind,limit):
-        reads.append((account,server,kind,limit))
+    def read(account,server,kind,limit,subject=None):
+        reads.append((account,server,kind,limit,subject))
         return {'items':[dict(payload=wrapper(),observed_at=OBSERVED,source_at=OBSERVED)]}
     app.state.store=SimpleNamespace(wuwa_history=SimpleNamespace(read=read))
     store=install_assessment_routes(app)
@@ -75,7 +75,7 @@ def test_local_equipped_reads_wrapped_archive_without_touching_source_time(tmp_p
         assert response.status_code==200
         assert len(response.json()['configuration']['items'])==5
         assert response.json()['configuration']['observed_at']==OBSERVED
-        assert reads[0][:2]==('private-account-uid','private-server')
+        assert reads[0][:2]==('private-account-uid','private-server') and reads[0][4]=='c1'
     finally:store.close()
 
 

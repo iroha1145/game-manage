@@ -48,6 +48,9 @@ class Client:
     async def card(self, cred, token, role, server, user, *args):
         return {'base': {'roleId': role, 'name': 'Player'}}
 
+    async def tool(self, kind, cred, token, device_id=''):
+        return {'chars': [{'id': 'c1', 'name': '干员'}]}
+
 
 class Passport:
     async def __aenter__(self):
@@ -386,6 +389,25 @@ async def test_private_http_read_accepts_own_renewal_and_rejects_revocation(clou
         response = await client.get(path)
         assert response.status_code == 404 and 'Player' not in response.text
     private.close()
+
+
+async def test_private_http_official_tools_route_reads_the_catalog(cloud, tmp_path):
+    import httpx
+    from fastapi import FastAPI
+    from types import SimpleNamespace
+    from game_assistant.private_routes import PrivateRoutes, _install_skland
+    from game_assistant.identity.dependencies import require_user
+    db, store, accounts, login = cloud
+    sk = await connect(login, parent(accounts))
+    app = FastAPI()
+    app.dependency_overrides[require_user] = lambda: P
+    private = PrivateRoutes(accounts, SimpleNamespace(login=login), tmp_path)
+    _install_skland(private, app)
+    path = f"/api/accounts/{sk['account_id']}/roles/{sk['role_id']}/endfield/skland/tools"
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='https://cloud.example') as client:
+        response = await client.get(path, params={'kind': 'characters'})
+    private.close()
+    assert response.status_code == 200 and response.json()['payload']['chars'][0]['name'] == '干员'
 
 
 async def test_scheduler_and_qq_use_same_verified_snapshot_and_revoke_blocks_it(cloud, tmp_path):

@@ -38,6 +38,24 @@ def parse_ms_or_iso(*vals) -> datetime | None:
     return None
 
 
+def nearest_year(month, day, hour=0, minute=0, second=0, *, near):
+    """A date written without a year, placed in the year nearest `near` (the notice's publish time).
+
+    A December notice about "1月7日" means next January; a January notice about
+    "12月28日" means last December.
+    """
+    year = near.astimezone(BEIJING_TZ).year
+    candidates = []
+    for guess in (year - 1, year, year + 1):
+        try:
+            candidates.append(datetime(guess, month, day, hour, minute, second, tzinfo=BEIJING_TZ))
+        except ValueError:
+            pass
+    if not candidates:
+        raise ValueError('no such date')
+    return min(candidates, key=lambda value: abs(value - near))
+
+
 # 手填条目（config [[nte_events]]）的时间写法："YYYY-MM-DD HH:MM"
 MANUAL_DT_FMT = "%Y-%m-%d %H:%M"
 
@@ -144,15 +162,6 @@ def parse_events_from_lines(lines: list[str], source_post_id: str | None = None,
     return events
 
 
-def _post_ts(value) -> int:
-    # 列表时间的强弱比较用：毫秒整数/纯数字字符串优先，其余按 0（保序回退）
-    if isinstance(value, int):
-        return value
-    if isinstance(value, str) and value.isdigit():
-        return int(value)
-    return 0
-
-
 def _manual_dt(value) -> datetime | None:
     # "YYYY-MM-DD HH:MM" 字符串 → aware UTC+8；空值 → None
     if value is None or str(value).strip() == "":
@@ -198,28 +207,3 @@ def parse_manual_events(entries) -> list[GameEvent]:
             name=name, category=item.get("category") or None,
             start_at=start, end_at=end, source_title="手动配置"))
     return events
-
-
-def find_version_post(posts: list[dict], title_keys,
-                      title_key: str = "postTitle",
-                      time_key: str = "publishTime") -> dict | None:
-    """帖子列表 → 版本公告帖（标题含任一关键词，取发布时间最新），无则 None。
-
-    title_keys 传可迭代的关键词（也兼容单个字符串）；鸣潮传 title_key="postTitle"/
-    time_key="publishTime"，异环传 "subject"/"createTime"。
-    """
-    if isinstance(title_keys, str):
-        title_keys = (title_keys,)
-    pattern = re.compile("|".join(re.escape(k) for k in title_keys))
-    best: dict | None = None
-    best_ts = -1
-    for it in posts or []:
-        if not isinstance(it, dict):
-            continue
-        title = str(it.get(title_key) or "")
-        if not pattern.search(title):
-            continue
-        ts = _post_ts(it.get(time_key))
-        if ts > best_ts:
-            best, best_ts = it, ts
-    return best

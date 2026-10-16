@@ -37,10 +37,18 @@ const selected = computed(() =>
       String(p.period) === String(current.value?.period),
   ),
 )
+// Polling hands over a new snapshot object every minute. Only a newer fetch of
+// the period on display makes the loaded report stale; another chosen period stays.
 watch(
-  () => props.snap,
+  () => props.snap?.fetched_at,
   () => {
-    if (!pending.value) report.value = null
+    const fresh = props.snap?.payload?.current
+    if (
+      !pending.value &&
+      report.value?.kind === fresh?.kind &&
+      String(report.value?.period) === String(fresh?.period)
+    )
+      report.value = null
   },
 )
 async function select(period) {

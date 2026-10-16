@@ -87,7 +87,10 @@ class QqBindingService:
             if replay:return replay
             subject=json.dumps([identity.app_id,identity.sender_openid],separators=(',',':'))
             allowed=self._charge(db,'sender',subject,now)
-            row=db.execute('SELECT user_id FROM qq_link_codes WHERE code_hash=?',(code_hash,)).fetchone()
+            # Only a still redeemable code spends its owner's attempts: a used code
+            # stays readable in the group, and resending it must not lock the owner out.
+            row=db.execute('SELECT user_id FROM qq_link_codes WHERE code_hash=? AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at>?',
+                           (code_hash,timestamp(now))).fetchone()
             if allowed and row:allowed=self._charge(db,'web-attempt',row['user_id'],now)
         if not allowed:raise QqBindingError('qq_rate_limited',429)
         if replay_error:raise replay_error

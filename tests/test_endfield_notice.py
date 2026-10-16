@@ -205,6 +205,35 @@ def test_phases_joined_by_ji_are_separate_events():
     assert [(e['phase'], e['end_at']) for e in events] == [(1, '2026-03-29T04:00:00+08:00'), (2, '2026-04-17T04:00:00+08:00')]
 
 
+def test_a_time_that_does_not_exist_leaves_out_only_that_time():
+    body = ("「雪凇幽梦」版本更新说明\n■ 更新维护时间\n2026/09/02 06:00 - 2026/09/02 12:00（UTC+8）\n■ 全新寻访及申领\n"
+            "1.「冬猎」特许寻访\n· 开放时间：2026/09/02 12:00 - 2026/09/30 24:00（服务器时间）\n■ 全新活动\n"
+            "1.「雾隐冬梦深林中」叙事活动\n· 活动时间：2026/09/09 12:00 - 2026/09/16 12:00（服务器时间）\n"
+            "2.「理智补给」限时活动\n· 活动时间：2026/09/17 04:00 - 2026/09/24 04:00 及 2026/10/08 04:00 - 2026/09/31 04:00（服务器时间）")
+    calendar = calendar_from_posts([post(body, '1', '2026-09-02T04:00:00+00:00')], 'endfield',
+                                   datetime(2026, 9, 10, tzinfo=timezone.utc))
+    events = by_name(calendar['events'])
+    assert calendar['version'] == '雪凇幽梦'
+    assert set(events) == {('雾隐冬梦深林中', None), ('理智补给', None)}  # 24:00 的「冬猎」不进日历
+    assert events[('理智补给', None)]['end_at'] == '2026-09-24T04:00:00+08:00'  # 同一行里写对的那段保留
+
+
+def test_a_maintenance_time_that_does_not_exist_falls_back_to_the_publish_time():
+    body = ("「雪凇幽梦」版本更新说明\n■ 更新维护时间\n2026/09/02 06:00 - 2026/09/02 24:00（UTC+8）\n■ 全新活动\n"
+            "1.「雾隐冬梦深林中」叙事活动\n· 活动时间：2026/09/09 12:00 - 2026/09/16 12:00（服务器时间）")
+    calendar = calendar_from_posts([post(body, '1', '2026-09-02T04:00:00+00:00')], 'endfield',
+                                   datetime(2026, 9, 10, tzinfo=timezone.utc))
+    assert calendar['version'] == '雪凇幽梦'
+    assert [e['name'] for e in calendar['events']] == ['雾隐冬梦深林中']
+
+
+def test_a_planned_maintenance_that_does_not_exist_does_not_end_the_current_version():
+    notes = post(CHUNXIAO, '1', '2026-04-17T04:00:00+00:00')
+    notice = post(NEXT_NOTICE.replace('6月5日', '6月31日'), '2', '2026-06-01T04:00:00+00:00')
+    events = by_name(calendar_from_posts([notice, notes], 'endfield', datetime(2026, 6, 2, tzinfo=timezone.utc))['events'])
+    assert events[('辉光庆典', None)]['end_at'] is None
+
+
 def dynamic(text, id='9'):
     return {'id_str': id, 'type': 'DYNAMIC_TYPE_WORD', 'modules': {
         'module_author': {'mid': 1265652806, 'name': '明日方舟终末地', 'pub_ts': 1788321600},

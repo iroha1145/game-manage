@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createRenderer, nextTick } from 'vue'
 import { compileScript, parse } from 'vue/compiler-sfc'
 import { configureHttpClient } from '../http-client.js'
+import { loadVue, mount as mountView, nodes, content } from '../test-utils/vue.js'
 
 // Run the real Vue setup/lifecycle without introducing a browser test dependency.
 const { descriptor } = parse(readFileSync(new URL('./LoginPanel.vue', import.meta.url), 'utf8'))
@@ -67,6 +68,30 @@ test('Endfield connection hint offers an explicit cloud button after login and p
   const local = mount(t).vm
   local.selectGame('endfield')
   assert.match(local.endfieldConnectionHint, /一键连接森空岛/)
+})
+
+test('a cancelled cloud status read leaves no error text on the panel', async t => {
+  configureHttpClient({ mode: 'cloud' })
+  t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', async () => { throw new DOMException('会话或角色已变化', 'AbortError') })
+  const { vm } = mount(t)
+  await vm.refreshStatus()
+  assert.equal(vm.statusError, '')
+  assert.equal(vm.statusLoading, false)
+})
+
+test('cloud accounts show the state the server reports instead of 状态未知', async (t) => {
+  configureHttpClient({ mode: 'cloud' })
+  t.after(() => configureHttpClient({ mode: 'local' }))
+  const row = (provider, game, state) => ({ account_id: provider, provider, game, state, capabilities: [], roles: [{ role_id: 'r', display_name: `昵称${provider}`, is_default: true }] })
+  t.mock.method(globalThis, 'fetch', async (path) => new Response(JSON.stringify(path === '/api/accounts'
+    ? { accounts: [row('kuro', 'wuthering_waves', 'active'), row('tajiduo', 'nte', 'revoked'), row('hypergryph', 'endfield', 'expired')] } : { csrf_token: 'fixture' })))
+  const root = mountView(t, await loadVue(new URL('./LoginPanel.vue', import.meta.url)))
+  for (let i = 0; i < 3; i++) await nextTick()
+  await new Promise((resolve) => setImmediate(resolve)); await nextTick()
+  const chips = nodes(root, 'div').filter((n) => String(n.props.class) === 'account-row').map((n) => [content(n).split(' ')[0], nodes(n, 'span').find((s) => String(s.props.class).includes('state'))])
+  assert.deepEqual(chips.map(([game, chip]) => [game, content(chip)]), [['鸣潮', '已授权'], ['异环', '授权已撤销'], ['终末地', '登录已失效']])
+  assert.deepEqual(chips.map(([, chip]) => String(chip.props.class)), ['state active', 'state revoked', 'state expired'])
 })
 
 test('NTE sends SMS only on explicit action and reuses the session until the phone changes', async (t) => {

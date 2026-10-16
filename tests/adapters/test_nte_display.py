@@ -92,6 +92,24 @@ async def test_gacha_names_use_current_account_roles():
 
 
 @respx.mock
+async def test_gacha_null_names_fall_back_to_the_id_label_not_the_word_none():
+    # 角色或弧盘名称为 null 时与缺名一样走"角色/弧盘 <id>"，不能被 str() 成 "None"
+    respx.get(BASE + '/apihub/awapi/yh/characters').respond(200, json={'code': 0, 'data': [
+        {'id': '1019', 'name': None, 'alev': 50},
+        {'id': '1020', 'name': '测试角色乙', 'alev': 40, 'fork': {'id': 'fork_test', 'name': None}}]})
+    respx.get(BASE + '/apihub/awapi/yh/gacha').respond(200, json={'code': 0, 'data': {'gachaDetails': [
+        {'tab': '限定卡池', 'details': [
+            {'charid': '1019', 'rareCount': 30, 'timeStamp': 1789380000000},
+            {'charid': 'fork_test', 'rareCount': 20, 'timeStamp': 1789380000000},
+            {'charid': '1020', 'rareCount': 10, 'timeStamp': 1789380000000}]}]}})
+    result = await adapter().fetch(Capability.GACHA)
+    assert result.ok
+    # 同账号里有名字的角色照常解析，不受 null 名称影响
+    assert [d.name for d in result.payload.pools[0].details] == [
+        '角色/弧盘 1019', '角色/弧盘 fork_test', '测试角色乙']
+
+
+@respx.mock
 async def test_record_uses_community_uid_and_filters_other_games():
     respx.get(BASE + '/usercenter/api/getUserFullInfo').respond(200, json={
         'code': 0, 'data': {'user': {'uid': 900001}}})
@@ -129,3 +147,9 @@ async def test_gacha_name_lookup_network_failure_can_use_ids():
     result = await adapter().fetch(Capability.GACHA)
     assert result.ok
     assert '1019' in result.payload.pools[0].details[0].name
+
+
+def test_role_text_with_a_bare_ampersand_is_kept():
+    from game_assistant.adapters.neverness.parse import _plain
+    assert _plain('攻击&防御') == '攻击&防御'
+    assert _plain('<p>攻击&amp;防御</p>') == '攻击&防御'

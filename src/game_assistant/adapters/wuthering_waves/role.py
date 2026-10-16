@@ -40,8 +40,9 @@ def parse_widget_energy(raw: dict, now: datetime) -> StaminaInfo:
     6 分钟/点公式推算，不使用 refreshTimeStamp。
     """
     energy = (_data(raw) or {}).get("energyData") or {}
-    current = _int_or_none(energy.get("cur")) or 0
-    maximum = _int_or_none(energy.get("total")) or 0
+    current, maximum = _int_or_none(energy.get("cur")), _int_or_none(energy.get("total"))
+    if current is None or maximum is None or current < 0 or maximum <= 0:
+        raise ValueError('小组件未返回有效体力')  # 缺失不能变成 0/0 成功值
     expected_full_at = None
     if maximum > current:
         expected_full_at = now + timedelta(

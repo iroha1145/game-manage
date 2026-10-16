@@ -47,3 +47,25 @@ async def test_routes_security_preview_commit_and_actual_size(tmp_path):
         assert (await client.get('/api/nte/gacha/records')).json()['total'] == 0
         settings.nte_role_id = ''
         assert (await client.get('/api/nte/gacha/summary')).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_wrongly_typed_json_values_are_client_errors_not_server_errors(tmp_path):
+    app = FastAPI()
+    settings = Settings(db_path=str(tmp_path/'a.db'), nte_role_id='77')
+    app.state.settings = settings
+    install_nte_gacha_routes(app, settings)
+    # An escaping exception would be a 500 response here, not a test traceback.
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url='http://testserver') as client:
+        banner = document()
+        banner['banner']['id'] = ['Lottery_LimitedCharacter']
+        preview = await client.post('/api/nte/gacha/preview', json={'document': banner})
+        assert preview.status_code == 422
+        rule = dict(pool_id={'id': 'Lottery_LimitedCharacter'}, s_hard_pity=90,
+                    reset_reward_type='character', source_note='n', confirmed=True)
+        assert (await client.post('/api/nte/gacha/rules', json=rule)).status_code == 422
+        body = {'document': document(), 'preview_id': 'é'}
+        changed = await client.post('/api/nte/gacha/import', json=body)
+        assert changed.status_code == 409
+        assert (await client.post('/api/nte/gacha/preview', json={'document': document()})).status_code == 200

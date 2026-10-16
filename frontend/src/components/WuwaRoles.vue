@@ -101,7 +101,8 @@ function close() {
         aria-label="搜索角色"
         placeholder="名称、别名、拼音或首字母"
         :value="search"
-        @input="search = $event.target.value"
+        @input="$event.isComposing || (search = $event.target.value)"
+        @compositionend="search = $event.target.value"
       /><MenuSelect
         v-model="attribute"
         label="属性"

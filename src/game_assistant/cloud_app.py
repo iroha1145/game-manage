@@ -1,6 +1,7 @@
 """Explicit, fail-closed cloud entrypoint, independent of the local API app.
 
-Run with: uvicorn game_assistant.cloud_app:cloud --factory --host 127.0.0.1
+Run with: python -m game_assistant.cloud_runtime --config <cloud.toml>, which checks the
+runtime configuration before building this app (see docs/cloud-operations.md).
 Only loopback reverse proxies may supply a single X-Forwarded-For address.
 """
 
@@ -70,10 +71,13 @@ class CloudBoundary:
                 await self.app(scope, receive, send)
             return
         request = Request(scope)
+        static = False
         async def secured_send(message):
             if message['type'] == 'http.response.start':
-                message['headers'] = list(message.get('headers', [])) + [
-                    (b'cache-control', b'no-store'), (b'pragma', b'no-cache'),
+                # Build files are named by content hash, so one name never changes meaning.
+                cache = ([(b'cache-control', b'public, max-age=31536000, immutable')] if static and message['status'] == 200
+                         else [(b'cache-control', b'no-store'), (b'pragma', b'no-cache')])
+                message['headers'] = list(message.get('headers', [])) + cache + [
                     (b'referrer-policy', b'no-referrer'), (b'x-content-type-options', b'nosniff')]
             await send(message)
         async def reject(code, status):
@@ -95,8 +99,9 @@ class CloudBoundary:
                 break
         if access is None:
             return await reject('route_not_available', 404)
+        static = access == 'public' and scope['method'] in ('GET', 'HEAD') and scope['path'].startswith('/assets/')
         service = self.owner.state.identity
-        session = None if access == 'service' else service.authenticate(request.cookies.get('__Host-ga_session'))
+        session = None if access == 'service' or static else service.authenticate(request.cookies.get('__Host-ga_session'))
         scope.setdefault('state', {})['identity_session'] = session
         try:
             if access == 'service':
@@ -282,8 +287,6 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
     app.state.identity = IdentityService(IdentityStore(settings.cloud_db_path), settings)
     app.state.cloud_route_policy = []
     app.state.service_authenticator = None
-    # Task 6 installs the scoped scheduler. Never start the legacy local scheduler.
-    app.state.start_scheduler = start_scheduler
 
     @app.exception_handler(IdentityError)
     async def identity_error(request, error):
@@ -352,7 +355,3 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
     allow_cloud_route(app, '/api/identity/sessions/{session_id}', ['DELETE'])
     app.add_middleware(CloudBoundary, owner=app, settings=settings)
     return app
-
-
-def cloud():
-    return create_cloud_app(Settings.load())

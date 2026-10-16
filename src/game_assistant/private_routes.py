@@ -443,8 +443,8 @@ def _install_skland(bundle,app):
         return await read(scope,'read_challenges',kind,season_id=season_id,contract_id=contract_id,record_id=record_id)
 
     @router.get('/tools')
-    async def tools(kind:str,char_id:str|None=None,scope=Depends(owner)):
-        return await read(scope,'read_tool',kind,char_id=char_id)
+    async def tools(kind:str,scope=Depends(owner)):
+        return await read(scope,'read_tool',kind)
 
     bundle.include(app,router)
 

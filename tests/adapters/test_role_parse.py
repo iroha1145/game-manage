@@ -1,6 +1,8 @@
 import json
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from game_assistant.adapters.wuthering_waves.role import (
     parse_role_list, parse_widget_energy,
 )
@@ -60,3 +62,27 @@ def test_widget_energy_data_as_json_string():
     st = parse_widget_energy(raw, NOW)
     assert st.current == 180 and st.maximum == 240
     assert st.expected_full_at == NOW + timedelta(minutes=60 * 6)
+
+
+@pytest.mark.parametrize("data", [
+    {},
+    {"energyData": None, "hasSignIn": True},
+    {"energyData": {}},
+    {"energyData": {"cur": "n/a", "total": "n/a"}},
+    {"energyData": {"cur": 10}},
+    {"energyData": {"total": 240}},
+    {"energyData": {"cur": 0, "total": 0}},
+    {"energyData": {"cur": 10, "total": -1}},
+    {"energyData": {"cur": -1, "total": 240}},
+])
+def test_widget_energy_without_valid_values_is_not_fabricated_zero(data):
+    # 缺字段/非数字/上限非正不能变成 0/0 成功值（roleBox 路径同样抛 ValueError）
+    with pytest.raises(ValueError):
+        parse_widget_energy({"code": 200, "data": data}, NOW)
+
+
+def test_widget_energy_keeps_a_true_zero():
+    raw = {"code": 200, "data": {"energyData": {"cur": 0, "total": 240}}}
+    st = parse_widget_energy(raw, NOW)
+    assert (st.current, st.maximum) == (0, 240)
+    assert st.expected_full_at == NOW + timedelta(minutes=240 * 6)

@@ -8,6 +8,7 @@ from io import BytesIO
 import hashlib
 import json
 import mimetypes
+import os
 import re
 from pathlib import Path
 import sys
@@ -101,6 +102,7 @@ class BrowserRenderer(SummaryRenderer):
         self.last_state=None
         self.cleanup_seconds=2
         self.disabled_reason=None
+        self._memo={}
 
     async def _bounded_close(self, operation):
         task=asyncio.create_task(operation)
@@ -147,15 +149,46 @@ class BrowserRenderer(SummaryRenderer):
                 self.disabled_reason='qq_browser_cleanup_unconfirmed'
         if runtime is not None:await self._bounded_close(runtime.stop())
 
+    def _unchanged(self, name, paths, compute):
+        """compute() again only when a file's size, mtime, inode or type (lstat) changes.
+
+        Hashing the build and the CJK font on every render blocked the API's event loop
+        for tens of milliseconds; any replacement, including one by a link, still re-runs it.
+        """
+        signature=[]
+        for path in paths:
+            try:
+                info=os.lstat(path)
+                signature.append((str(path),info.st_size,info.st_mtime_ns,info.st_ino,info.st_mode))
+            except OSError:
+                signature.append((str(path),None))
+        cached=self._memo.get(name)
+        if cached and cached[0]==signature:return cached[1]
+        value=compute()
+        self._memo[name]=(signature,value)
+        return value
+
     def _build(self):
         if not (self.dist/'render.html').is_file():raise RenderingUnavailable('qq_browser_build_unavailable')
         files = [self.dist/'render.html', *sorted((self.dist/'assets').glob('*')),self.dist/'render-font.woff2',self.dist/'render-font.json']
-        digest=hashlib.sha256()
-        for path in files:
-            if path.is_file():digest.update(path.name.encode());digest.update(path.read_bytes())
-        return digest.hexdigest()
+        def digest_files():
+            digest=hashlib.sha256()
+            for path in files:
+                if path.is_file():digest.update(path.name.encode());digest.update(path.read_bytes())
+            return digest.hexdigest()
+        return self._unchanged('build',files,digest_files)
+
+    def _check_font(self):
+        def check():
+            self._font()  # Actual CJK glyph validation, not fonts.check() fallback.
+            return True
+        self._unchanged('font_check',[Path(self.font_path)],check)
 
     def _font_resource(self):
+        return self._unchanged('font_resource',[Path(self.font_path),self.dist/'render-font.woff2',self.dist/'render-font.json'],
+                               self._verified_font_resource)
+
+    def _verified_font_resource(self):
         """Use only a prepared complete-font sidecar bound to the original.
 
         Missing/stale/unsafe preparation always retains the configured font;
@@ -197,7 +230,7 @@ class BrowserRenderer(SummaryRenderer):
     def cache_key(self, scope, result):
         base=super().cache_key(scope,result)
         font=Path(self.font_path)
-        font_hash=hashlib.sha256(font.read_bytes()).hexdigest() if font.is_file() else 'missing'
+        font_hash=self._unchanged('font_hash',[font],lambda:hashlib.sha256(font.read_bytes()).hexdigest() if font.is_file() else 'missing')
         return hashlib.sha256(json.dumps([base,self._build(),font_hash,'shared-vue-v1']).encode()).hexdigest()
 
     async def render_summary_async(self, scope, result, *, budget_seconds):
@@ -208,7 +241,7 @@ class BrowserRenderer(SummaryRenderer):
             return await asyncio.to_thread(self.render_summary,scope,result)
         if not self.enabled:raise RenderingUnavailable(self.disabled_reason or 'qq_browser_disabled')
         snapshot=validate_snapshot(snapshot)
-        self._font()  # Actual CJK glyph validation, not fonts.check() fallback.
+        self._check_font()
         key=self.cache_key(scope,result)
         with self.lock:
             cached=self.cache.get(key)
@@ -240,10 +273,9 @@ class BrowserRenderer(SummaryRenderer):
                     # Only audited anonymous image URLs resolve to sanitized in-memory PNGs.
                     safe=safe_public_url(url)
                     if safe and self.asset_cache is not None and request.request.resource_type=='image':
-                        image=self.asset_cache.get_image(self.asset_cache.register_url(safe))
-                        if image is not None:
-                            output=BytesIO();image.save(output,'PNG')
-                            return await request.fulfill(body=output.getvalue(),content_type='image/png')
+                        png=self.asset_cache.get_png(self.asset_cache.register_url(safe))
+                        if png is not None:
+                            return await request.fulfill(body=png,content_type='image/png')
                     if request.request.resource_type!='image':forbidden.append('external_or_unexpected_resource')
                     await request.abort()
                 await context.route('**/*',route)
@@ -286,8 +318,9 @@ class BrowserRenderer(SummaryRenderer):
                 if len(png)>self.max_bytes:raise RenderingUnavailable('qq_image_size_limit')
                 png=RenderedImage(png,page=snapshot['page'],total_pages=len(pages))
                 with self.lock:
-                    if self.generation!=generation:raise RenderingUnavailable('qq_browser_invalidated')
-                    if self.cache_entries:
+                    # Any account change bumps the shared generation. The caller re-checks this
+                    # user's binding and grants after rendering, so the image is returned, not cached.
+                    if self.generation==generation and self.cache_entries:
                         owner=(scope.user_id,frozenset([scope.account_id]+[s['account_id'] for s in result.payload.get('scopes',[])]))
                         self.cache[key]=(owner,time.monotonic()+self.cache_ttl,png)
                         while len(self.cache)>self.cache_entries:self.cache.popitem(last=False)

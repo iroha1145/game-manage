@@ -1,4 +1,3 @@
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +12,14 @@ from tests.test_account_queries import query_fixture
 
 NOW = datetime(2026, 10, 14, 8, tzinfo=timezone.utc)
 SCOPE = AccountScope('u', 'a', 'r')
+
+
+def test_stamina_pushed_over_the_cap_still_counts_as_full():
+    # Items can lift stamina above its maximum; the local reminder always treated that as full.
+    rule = ReminderRule(enabled=True, threshold_percent=90, notify_full=True)
+    value = dict(current=260, maximum=240, updated_at=NOW.isoformat())
+    assert [r['rule'] for r in stamina_candidates(value, rule, NOW)] == ['full']
+    assert stamina_candidates(dict(value, current=-1), rule, NOW) == []
 
 
 def test_threshold_edges_unknown_real_zero_and_stale_reading():

@@ -10,11 +10,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from game_assistant.api import create_app
-from game_assistant.auth.service import LoginService
 from game_assistant.auth.store import CredentialStore, CredentialStoreError
 from game_assistant.adapters.endfield.hypergryph import EXPIRED_MESSAGE, EndfieldError
 from game_assistant.adapters.endfield.skland_client import PASSPORT_REJECTED, SklandClient, SklandError, sign_request
-from game_assistant.adapters.endfield.skland_parse import parse_card, parse_challenge
+from game_assistant.adapters.endfield.skland_parse import parse_card
 from game_assistant.config import Settings
 from game_assistant.endfield_skland import (
     PASSPORT_CHANGED, PASSPORT_EXPIRED, EndfieldSklandService, credential_path,
@@ -99,8 +98,8 @@ class FakeClient:
             return {"indieHardGroups": [{"id": "i1", "name": "丰碑", "dungeonGroups": []}]}
         return {"status": {"id": "c1", "highest": 10}, "history": {"records": [{"id": "r1", "isPass": True}]}}
 
-    async def tool(self, kind, cred, token, role_id, server_id, device_id="", *, char_id=None):
-        self.calls.append(("tool", kind, role_id, char_id))
+    async def tool(self, kind, cred, token, device_id=""):
+        self.calls.append(("tool", kind))
         return {"chars": [{"id": "c1", "token": "must-not-leak"}], "cred": "must-not-leak"}
 
 
@@ -246,7 +245,7 @@ async def test_fixed_tool_routes_and_redaction(tmp_path):
     payload = (await service.read_tool("characters"))["payload"]
     assert payload == {"chars": [{"id": "c1"}]}
     assert not (await service.read_tool("arbitrary-path"))["supported"]
-    assert not (await service.read_tool("rules", char_id="../etc"))["supported"]
+    assert not (await service.read_tool("rules"))["supported"]
 
 
 async def test_corrupt_store_and_save_failure_do_not_break_service(tmp_path):
@@ -321,6 +320,9 @@ async def test_routes_do_not_echo_invalid_secret(tmp_path):
         assert "SECRET" not in response.text
         response = await client.post("/api/endfield/skland/connect", content='{"cred":"' + 'X' * 17000 + '"}')
         assert response.status_code == 413
+        # Within the 16 KiB limit, yet deeper than Python 3.11's JSON decoder allows.
+        response = await client.post("/api/endfield/skland/connect", content='[' * 8000 + ']' * 8000)
+        assert response.status_code == 400
         assert (await client.get("/api/endfield/skland/card")).status_code == 409
 
 
@@ -619,3 +621,22 @@ def test_installer_follows_login_service_and_passport_route_is_protected(tmp_pat
     assert client.get("/api/endfield/skland/status").json()["passport_available"] is False
     settings.endfield_hg_token, settings.endfield_uid, settings.endfield_role_id = "hg", "uid", "r1"
     assert client.get("/api/endfield/skland/status").json()["passport_available"] is True
+
+
+def test_disconnect_reports_a_failed_credential_save(tmp_path):
+    settings = Settings(db_path=str(tmp_path / "db"))
+    app = create_app(registry=FakeRegistry(DummyAdapter()), store=SnapshotStore(settings.db_path),
+                     settings=settings, start_scheduler=False)
+    service = app.state.endfield_skland
+    service.client = FakeClient()
+    client = TestClient(app, base_url="http://127.0.0.1:8010", raise_server_exceptions=False)
+    headers = {"X-Game-Assistant": "1"}
+    assert client.post("/api/endfield/skland/connect", headers=headers, json={"cred": "account-one"}).status_code == 200
+
+    def locked(_value):
+        raise CredentialStoreError("locked")
+    service.store.save = locked
+    response = client.delete("/api/endfield/skland/connection", headers=headers)
+    assert response.status_code == 400
+    assert response.json() == {"detail": "本机森空岛凭据保存失败，原连接已保留"}
+    assert client.get("/api/endfield/skland/status").json()["connected"] is True

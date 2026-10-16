@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-import pytest
 from fastapi import HTTPException
 from game_assistant.assessment_routes import install_assessment_routes
 from game_assistant.accounts.models import AccountScope
@@ -70,6 +68,17 @@ def test_equipped_normalization_keeps_unknown_and_percentage_units():
     assert len({i.id for i in repeated.items})==2 and all(i.source_id=='same' for i in repeated.items)
 
 
+def test_equipped_reading_skips_empty_slots_and_missing_lists():
+    # Sources leave unequipped slots as null (the dashboard and QQ already drop them).
+    from game_assistant.assessment_equipped import equipped_configuration
+    echo={'main_props':[{'attribute_name':'攻击','attribute_value':'10%'}],'sub_props':[None]}
+    w=equipped_configuration('wuthering_waves','c1',{'role':{'role_id':'c1'},'phantom_data':{'equip_phantom_list':[None,echo]}})
+    assert [(i.id,len(i.stats)) for i in w.items]==[('echo:1:unknown',1)]
+    assert equipped_configuration('wuthering_waves','c1',{'role':{'role_id':'c1'},'phantom_data':{'equip_phantom_list':None}}).items==[]
+    n=equipped_configuration('nte','c1',{'entries':[{'id':'c1','suit':{'core':[None,{'id':'i','properties':None}],'pie':None}}]})
+    assert [(i.id,i.stats) for i in n.items]==[('core:1:i',[])]
+
+
 def test_projection_uses_current_scope_model_and_strips_unrelated_private_data(tmp_path):
     from game_assistant.assessment_store import AssessmentStore
     from game_assistant.assessment_projection import with_assessment
@@ -89,3 +98,46 @@ def test_projection_uses_current_scope_model_and_strips_unrelated_private_data(t
     assert projected['display_data']['detail']['assessment']['value'] is None
     assert 'token' not in projected['display_data']['detail']
     store.close()
+
+
+def test_nte_model_whose_weights_do_not_fit_its_catalog_is_refused(identity,tmp_path):
+    # Saved, such a model would make every later NTE score unscorable (INVALID_WEIGHT).
+    from tests.test_personal_assessment import nte_model
+    class NteAccounts(Accounts):
+        def describe(self,scope): return dict(game='nte',version=1)
+    client=identity[3]; store=install_assessment_routes(client.app,NteAccounts(),tmp_path/'private')
+    register(identity)
+    path='/api/accounts/owned/roles/role/assessment/nte/c1/model'
+    good=nte_model().model_dump(mode='json')
+    main_weight_on_a_sub_only_row=dict(good,nte_profile=dict(good['nte_profile'],mainstat_weights={'attack':'1'}))
+    assert write(client,path,main_weight_on_a_sub_only_row,method='put').status_code==422
+    assert write(client,path,good,method='put').status_code==200
+    store.close()
+
+
+def test_local_equipped_finds_the_character_behind_newer_rows_of_others(tmp_path):
+    # Reading only the account's newest 100 detail rows lost a character once another changed 100 times.
+    import sqlite3, threading
+    from types import SimpleNamespace
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from game_assistant.wuwa_history import WuwaHistory
+    history=WuwaHistory(sqlite3.connect(':memory:',check_same_thread=False),threading.Lock())
+    def detail(character,level=90):
+        echo=dict(phantom_prop={'id':'res'},main_props=[dict(attribute_name='攻击',attribute_value='10%')],sub_props=[])
+        return dict(schema_version=1,role_id='uid-w',server_id='srv',character_id=character,
+            provenance={'endpoint':'getRoleDetail','fetched_at':'2026-10-14T00:00:00Z'},
+            data={'role':{'role_id':character,'level':level},'phantom_data':{'equip_phantom_list':[echo]}})
+    history.capture('role_detail',detail('c1'),expected=('uid-w','srv'))
+    for level in range(100):history.capture('role_detail',detail('c2',level),expected=('uid-w','srv'))
+    app=FastAPI()
+    app.state.settings=SimpleNamespace(db_path=str(tmp_path/'local.db'))
+    adapter=SimpleNamespace(credentials_configured=True,_settings=SimpleNamespace(nte_role_id='uid-n',wuwa_role_id='uid-w',wuwa_server_id='srv'))
+    app.state.registry=SimpleNamespace(get=lambda game:adapter)
+    app.state.auth=SimpleNamespace(account_generation=lambda game:1)
+    app.state.store=SimpleNamespace(wuwa_history=history)
+    store=install_assessment_routes(app)
+    try:
+        body=TestClient(app).get('/api/assessment/wuthering_waves/c1/equipped').json()
+        assert len(body['configuration']['items'])==1
+    finally:store.close()

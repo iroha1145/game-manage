@@ -7,28 +7,6 @@ from starlette.responses import JSONResponse
 from .bilibili_service import BilibiliLoginError
 
 PREFIX = '/api/auth/bilibili-source/login'
-LEGACY = '/api/auth/bilibili-source/credentials'
-
-class BilibiliBodyLimitMiddleware:
-    def __init__(self, app, max_bytes=16384): self.app, self.max_bytes = app, max_bytes
-    async def __call__(self, scope, receive, send):
-        if scope['type'] != 'http' or not (scope['path'].startswith(PREFIX+'/') or scope['path'] == LEGACY):
-            return await self.app(scope, receive, send)
-        messages, total = [], 0
-        while True:
-            message = await receive()
-            if message['type'] == 'http.disconnect': return
-            total += len(message.get('body', b''))
-            if total > self.max_bytes:
-                response = JSONResponse({'detail':'登录请求过大'}, status_code=413,
-                    headers={'Cache-Control':'no-store','Pragma':'no-cache','Referrer-Policy':'no-referrer'})
-                return await response(scope, receive, send)
-            messages.append(message)
-            if not message.get('more_body', False): break
-        async def replay():
-            if messages: return messages.pop(0)
-            return await receive()
-        return await self.app(scope, replay, send)
 
 class StrictBody(BaseModel):
     model_config = ConfigDict(extra='forbid', validate_default=True)
@@ -65,7 +43,6 @@ class CookieBody(StrictBody):
     def values(self): return {k:v.get_secret_value() for k,v in self.model_dump().items()}
 
 def install_bilibili_auth_routes(app, service):
-    app.add_middleware(BilibiliBodyLimitMiddleware)
     @app.exception_handler(BilibiliLoginError)
     async def login_error(request, error):
         body = {'detail':error.detail,'error_code':error.error_code}

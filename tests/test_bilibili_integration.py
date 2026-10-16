@@ -143,3 +143,28 @@ def test_endfield_keeps_official_priority_and_adds_bilibili_community_articles(t
         assert result['payload'][0]['source'] == 'official'
         assert result['payload'][1]['source'] == 'bilibili'
         assert result['payload'][1]['decision'] == 'excluded'
+
+
+def test_endfield_notice_with_a_time_that_does_not_exist_keeps_status_and_events_readable(tmp_path):
+    from game_assistant.adapters.endfield.adapter import EndfieldAdapter
+    from game_assistant.sources.bilibili import classify_dynamic
+    uid = '1265652806'
+    settings = Settings(db_path=str(tmp_path / 'endfield.db'), bilibili_sources={'endfield': uid})
+    app = create_app(registry=FakeRegistry(EndfieldAdapter(settings)), store=SnapshotStore(settings.db_path),
+                     settings=settings, start_scheduler=False)
+    now = datetime.now(timezone.utc)
+    published = now - timedelta(days=3)
+    day = (published + timedelta(hours=8)).strftime('%Y/%m/%d')
+    text = (f'「雪凇幽梦」版本更新说明\n■ 更新维护时间\n{day} 06:00 - {day} 12:00（UTC+8）\n'
+            f'1.「冬猎」特许寻访\n· 开放时间：{day} 12:00 - {day} 24:00（服务器时间）\n'
+            f'2.「雪降深林」引入活动\n· 活动时间：{day} 12:00 - {day} 23:59（服务器时间）')
+    item = post(text, published=int(published.timestamp()))
+    item['modules']['module_author']['mid'] = int(uid)
+    row = classify_dynamic(item, uid, now)
+    assert row['decision'] == 'accepted'
+    app.state.bilibili.store.save_rows('endfield', uid, [row])
+    with TestClient(app, base_url='http://127.0.0.1:8010', raise_server_exceptions=False) as client:
+        assert client.get('/api/status').status_code == 200
+        events = client.get('/api/games/endfield/snapshot/events')
+        assert events.status_code == 200
+        assert [e['name'] for e in events.json()['payload']] == ['雪降深林']

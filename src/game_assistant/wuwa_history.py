@@ -113,14 +113,18 @@ class WuwaHistory:
                 source_at=tower.get('fetched_at'), observed_at=observed_at)
         return 0
 
-    def read(self, account, server, kind, limit=100, offset=0):
+    def read(self, account, server, kind, limit=100, offset=0, subject=None):
+        """Newest observations first; `subject` narrows them to one character (role_detail) or role."""
         limit, offset = min(max(int(limit), 1), 500), max(int(offset), 0)
         scope = (account, server, kind)
+        where, values = 'account=? AND server=? AND kind=?', scope
+        if subject is not None:
+            where, values = where + ' AND subject=?', (*scope, str(subject))
         with self.lock:
             total, start = self.conn.execute('SELECT COUNT(*),MIN(archived_at) FROM wuwa_history '
-                'WHERE account=? AND server=? AND kind=?', scope).fetchone()
+                'WHERE ' + where, values).fetchone()
             rows = self.conn.execute('SELECT id,subject,season,payload,source,source_at,observed_at,archived_at FROM wuwa_history '
-                'WHERE account=? AND server=? AND kind=? ORDER BY id DESC LIMIT ? OFFSET ?', (*scope, limit, offset)).fetchall()
+                'WHERE ' + where + ' ORDER BY id DESC LIMIT ? OFFSET ?', (*values, limit, offset)).fetchall()
             items = []
             for row in rows:
                 id_, subject, season, raw, source, source_at, observed, archived = row

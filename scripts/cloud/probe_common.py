@@ -11,7 +11,6 @@ import logging
 import os
 from pathlib import Path
 import re
-import stat
 import subprocess
 import sys
 import time
@@ -87,11 +86,10 @@ def owner_only(path: Path, directory=False):
 
 
 def safe_path(path):
+    from game_assistant.paths import through_link
     path = Path(path).absolute()
-    for parent in (path, *path.parents):
-        if parent.is_symlink() or (parent.exists() and getattr(parent.lstat(), 'st_file_attributes', 0)
-                                  & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400)):
-            raise ValueError('symlink or junction not allowed')
+    if through_link(path):
+        raise ValueError('symlink or junction not allowed')
     if not path.name.endswith('.credentials.json'):
         raise ValueError('use ignored credentials filename')
     # Only this deliberately named private directory can have its DACL replaced.

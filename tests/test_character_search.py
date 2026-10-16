@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from game_assistant.character_search import search_characters, resolve_character, catalog_entries
+from game_assistant.character_search import search_characters, resolve_character
 from game_assistant.qq import presentation as view
 from game_assistant.accounts.models import QueryResult
 from tests.test_qq_unified_queries import CachedQuery, IDENTITY, service

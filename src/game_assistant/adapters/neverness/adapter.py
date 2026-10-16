@@ -45,7 +45,7 @@ def _parse_notice_events(post, detail, version):
         # publication year is required; never substitute collection time.
         source_url = GET_POST_FULL + '?' + urlencode({'postId': post_id})
         notice = {'id':post_id, 'title':title, 'body':'\n'.join(lines), 'decision':'accepted',
-                  'published_at':published.isoformat(), 'url':source_url,
+                  'published_at':published.isoformat() if published else None, 'url':source_url,
                   'source':'community', 'source_name':'塔吉多官方公告'}
         events = [NteCalendarEvent(**{**row, 'source':'community', 'source_name':'塔吉多官方公告',
             'source_title':title, 'published_at':published})
@@ -100,7 +100,7 @@ class NteAdapter(BaseGameAdapter):
             return FetchResult(ok=False, error=e.message, error_kind='unconfigured')
         except TajiduoError as e:
             return FetchResult(ok=False, error=e.message, error_code=e.status_code,
-                error_kind='auth_expired' if e.status_code in (401, 402, 403) else 'source_error')
+                error_kind='auth_expired' if e.expired else 'source_error')
         except ValueError:
             return FetchResult(ok=False, error='塔吉多数据格式已变化或角色不匹配，保留上次成功数据',
                                error_kind='invalid_data')
@@ -365,7 +365,8 @@ class NteAdapter(BaseGameAdapter):
                 try:
                     characters = self._data(await self._characters(client, role_id))
                     for character in characters:
-                        names[str(character['id'])] = str(character['name'])
+                        if character['name']:  # null 名称不进映射，由解析器给 id 标签
+                            names[str(character['id'])] = str(character['name'])
                         weapon = character.get('fork')
                         if isinstance(weapon, dict) and weapon.get('id') and weapon.get('name'):
                             names[str(weapon['id'])] = str(weapon['name'])

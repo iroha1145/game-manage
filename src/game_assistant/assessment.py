@@ -4,7 +4,7 @@ from fractions import Fraction
 from typing import Literal
 from pydantic import Field, model_validator
 from .assessment_contracts import Contract, Identifier, FiniteDecimal, WeightProfile
-from .assessment_nte_math import ScoringSpec, ScoreInput, StatInput, score_item, number
+from .assessment_nte_math import InventoryError, ScoringSpec, ScoreInput, StatInput, score_item, number
 import hashlib
 
 Game = Literal['nte','wuthering_waves']
@@ -94,7 +94,9 @@ def _assess_core(configuration: Configuration, model: AssessmentModel):
     for item in configuration.items:
         if model.game=='nte':
             if item.nte is None: return unavailable('MISSING_EXPLICIT_NTE_INPUT')
-            result=score_item(item.nte,model.nte_profile,model.nte_spec)
+            # A malformed number makes this item unscorable, as INVALID_VALUE does for Wuwa below.
+            try: result=score_item(item.nte,model.nte_profile,model.nte_spec)
+            except InventoryError as error: return unavailable(error.code)
             if result.status!='scored': return unavailable(result.reason,result.status)
             for contribution in result.contributions:
                 exact=contribution.exact_fraction
@@ -143,7 +145,8 @@ def assess(configuration: Configuration,model: AssessmentModel):
         score=_assess_core(single,model)
         items.append({'item_id':item.id,**score})
         if score['status']=='scored':known+=Fraction(int(score['exact_fraction']['numerator']),int(score['exact_fraction']['denominator']))
-    has_known=any(i['status']=='scored' for i in items)
+    # A duplicated item id rejects the whole set; adding up its items would count that item twice.
+    has_known=result['reason']!='DUPLICATE_ITEM' and any(i['status']=='scored' for i in items)
     partial=(True if has_known else None) if result['status']=='unscorable' else False if result['status']=='scored' else None
     return {**result,'item_results':items,'partial':partial,'partial_known_total':_rounded(known) if partial else None}
 

@@ -15,7 +15,7 @@ from game_assistant.accounts.models import AccountScope, QueryResult
 from .bindings import QqBindingError
 from .commands import GAME_NAMES, PAGED_COMMANDS, MAX_PAGE, safe_text
 from .internal_routes import IdentityBody
-from .rendering import RenderQueue, SummaryRenderer, RenderingPageUnavailable, RenderingUnavailable
+from .rendering import RenderQueue, RenderingPageUnavailable, RenderingUnavailable
 from .cards import card_to_text
 from . import presentation as view
 from . import render_snapshot as shared_view
@@ -398,7 +398,6 @@ class QqQueryService:
                         stamina=self._snapshot(row,scope,'stamina',context,read_cache)
                         if stamina is not None:
                             self._panel(context,row,'stamina',stamina)
-                            data=view.obj(stamina.payload)
                             fields+=view.capability_section(row['game'],row['provider'],'stamina',stamina,self.asset_cache)['fields']
                             fields.append(view.time_field('体力更新时间',stamina.fetched_at))
                             if stamina.state not in ('ok','success'):fields.append(view.field('体力状态',view.metadata(stamina)[0]['value']))
@@ -576,13 +575,9 @@ class QqQueryService:
                 content='完整日历长图' if command=='calendar' else '完整图片'
                 return {'text':content+'超出 QQ 图片尺寸或大小限制，未截断；请到看板查看。'}
             return self._text_fallback(context['card'])
-        if png is not None:
-            if hasattr(png,'total_pages'):
-                if png.total_pages==1:response['text']=safe_text(context['render_snapshot']['title'])
-                else:response['text']=safe_text(f"{context['render_snapshot']['title']} · 第 {png.page} / {png.total_pages} 页\n"+
-                    (f"下一页：{context['render_snapshot']['next_command']} {png.page+1}" if png.page<png.total_pages else '已到末页。'))
-            response['image']=base64.b64encode(png).decode('ascii')
-        else:return self._text_fallback(context['card'])
+        if png is None:return self._text_fallback(context['card'])
+        # The bot sends only the image; the full card text is what it falls back to if delivery fails.
+        response['image']=base64.b64encode(png).decode('ascii')
         return response
 
     def _text_fallback(self,card):

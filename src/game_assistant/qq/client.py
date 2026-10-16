@@ -33,6 +33,12 @@ BINDING_ERRORS = {
     'qq_link_revoked':'此关联已解除，请在看板重新生成绑定码。',
     'qq_message_replay_invalid':'绑定消息无效，请在看板重新生成绑定码后重新发送。',
 }
+# Fixed refusals of the operator's group policy (group_settings.py); any other detail stays generic.
+GROUP_POLICY_ERRORS = {
+    'group_game_disabled':'本群未开放这款游戏的查询。',
+    'group_select_allowed_game':'本群只开放了部分游戏，请在指令前写明要查的游戏。',
+    'group_rate_limited':'本群查询过于频繁，请一分钟后再试。',
+}
 
 
 def valid_reply_image(data, *, max_bytes, max_pixels=MAX_REPLY_PIXELS):
@@ -131,9 +137,9 @@ class InternalQqClient:
             if self.internal_host is not None:headers['Host']=self.internal_host
             response=await self.http.post(self.base_url+path,json=body,headers=headers)
             if response.status_code!=200:
-                if path=='/internal/qq/link-redemptions':
-                    error=response.json().get('detail')
-                    if error in BINDING_ERRORS:raise QqClientError(error)
+                known=BINDING_ERRORS if path=='/internal/qq/link-redemptions' else GROUP_POLICY_ERRORS
+                error=response.json().get('detail')
+                if error in known:raise QqClientError(error)
                 raise QqClientError('qq_internal_request_failed')
             data=response.json()
             if not isinstance(data,dict):raise ValueError()
@@ -160,7 +166,11 @@ class InternalQqClient:
         if command.page!=1:body['page']=command.page
         if self.images_enabled:
             body.update(image_requested=True,render_budget_seconds=max(0,min(10,(instant(message.reply_deadline)-utcnow()).total_seconds()-15)))
-        result=await self.post('/internal/qq/query',body)
+        try:
+            result=await self.post('/internal/qq/query',body)
+        except QqClientError as error:
+            if str(error) in GROUP_POLICY_ERRORS:return GROUP_POLICY_ERRORS[str(error)]
+            raise
         if not isinstance(result.get('text'),str) or len(result['text'])>2500:
             raise QqClientError('qq_query_response_invalid')
         if self.images_enabled and isinstance(result.get('image'),str):

@@ -3,7 +3,6 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-import pytest
 
 from tests.adapters.test_lol_esports_parse import sample
 from game_assistant.adapters.league_of_legends.esports_client import EsportsSourceError

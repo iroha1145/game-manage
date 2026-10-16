@@ -200,7 +200,7 @@ class LoginService:
             try:
                 await self.providers[game].send_sms(session['context'], mobile, captcha)
             except AuthError as error:
-                raise LoginError(error.message) from None
+                raise LoginError(error.message, 429 if error.code == 429 else 400) from None
             except Exception as exc:
                 logger.warning("短信发送失败 (%s)", type(exc).__name__, extra={'game': game})
                 raise LoginError('短信发送失败，请稍后重试', 502) from None
@@ -249,7 +249,7 @@ class LoginService:
             try:
                 account = await self.providers[game].login(session['context'], mobile, code)
             except AuthError as error:
-                raise LoginError(error.message) from None
+                raise LoginError(error.message, 429 if error.code == 429 else 400) from None
             except Exception as exc:
                 logger.warning("登录失败 (%s)", type(exc).__name__, extra={'game': game})
                 raise LoginError('登录失败，请检查网络后重试', 502) from None
@@ -514,7 +514,7 @@ class ScopedLoginService:
 
     async def _exchange_skland(self, credentials, role_id, server_id):
         from game_assistant.adapters.endfield.hypergryph import HypergryphClient, EndfieldError
-        from game_assistant.adapters.endfield.skland_client import SklandClient, SklandError
+        from game_assistant.adapters.endfield.skland_client import SklandClient
         from game_assistant.adapters.endfield.skland_parse import parse_roles, parse_user_id
         try:
             async with HypergryphClient() as passport:

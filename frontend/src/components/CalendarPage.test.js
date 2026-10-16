@@ -137,6 +137,8 @@ test('calendar puts different activity types in one game group and includes type
   assert.match(content(bars[1]), /限时卡池 卡池 已结束/)
 })
 test('timeline renders exact range proportions, a separate single-date marker and clipped detail', async (t) => {
+  // The deadline-only marker sits mid-month and must not have passed yet, so the clock is pinned before it.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-05T04:00:00Z') })
   const range = calendarRange(Date.now(), 'month')
   const iso = time => new Date(time).toISOString()
   const span = range.end - range.start

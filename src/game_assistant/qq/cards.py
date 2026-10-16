@@ -4,6 +4,8 @@ import math
 import unicodedata
 from datetime import date
 
+from .commands import mask_links
+
 CARD_KINDS = frozenset(('overview', 'summary', 'list', 'detail', 'help', 'status'))
 CARD_GAMES = frozenset(('all', 'wuthering_waves', 'nte', 'endfield'))
 MAX_TEXT = 1800
@@ -71,8 +73,7 @@ def _text(value, limit, *, required=False):
     # Display text never becomes a URL, mention or bidirectional control payload.
     value = re.sub(r'<@[^>]*>', '', value)
     value = re.sub(r'(?<!\d)\d{7,}(?!\d)', '***', value)
-    value = re.sub(r'(?:https?://|www\.)[^\s<>]+', '[链接未启用]', value, flags=re.I)
-    value = re.sub(r'(?<![\w@])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>]*)?', '[链接未启用]', value, flags=re.I)
+    value = mask_links(value)
     value = ' '.join(''.join(c if c.isspace() else '' if unicodedata.category(c).startswith('C') else c for c in value).split())
     if len(value) > limit or (required and not value):
         raise ValueError('qq_card_invalid_text')

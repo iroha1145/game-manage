@@ -11,7 +11,7 @@ const percentage = metric => Math.min(100, Math.max(0, metric.current / metric.t
   <div class="summary-metrics" :class="{ compact, rows }">
     <div v-for="metric in metrics" :key="metric.label" class="summary-metric" :class="{ measured: measurable(metric) }">
       <div class="metric-symbol" :class="{ ring: measurable(metric) }" :style="measurable(metric) ? { '--fill': `${percentage(metric)}%` } : {}" aria-hidden="true">
-        <AppIcon :name="metric.icon || (ratio(metric) ? 'refresh' : 'chart')" :size="19" />
+        <AppIcon :name="metric.icon || (ratio(metric) ? 'refresh' : 'grid')" :size="19" />
       </div>
       <div class="metric-copy"><span>{{ metric.label }}</span>
         <strong v-if="ratio(metric)">{{ display(metric.current) }} <small>/ {{ display(metric.total) }}</small></strong>

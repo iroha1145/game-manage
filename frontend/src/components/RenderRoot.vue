@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, provide } from 'vue'
 import VersionCalendarContent from './VersionCalendarContent.vue'
 import WuwaRoleDetail from './WuwaRoleDetail.vue'
 import NteRolesPanel from './NteRolesPanel.vue'
@@ -12,6 +12,8 @@ import { gameStyle } from '../dashboard.js'
 import RenderGameSnapshot from './RenderGameSnapshot.vue'
 import RenderNotice from './RenderNotice.vue'
 const props = defineProps({ snapshot: {type:Object,required:true} })
+// The whole page is an image: components that ask for image mode (GameIcon in the calendar) get it for every kind.
+provide('wuwaImageMode', true)
 const data = computed(() => props.snapshot.display_data)
 const gameTheme = computed(() => ({ '--game-accent': gameStyle(props.snapshot.game).color }))
 const calendars = computed(() => props.snapshot.kind === 'calendar' ? collectVersionCalendars(data.value.games, data.value.snapshots, '', Date.parse(props.snapshot.as_of)) : [])

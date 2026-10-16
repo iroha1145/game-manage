@@ -199,7 +199,6 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 .ef-main-mission { display:flex;gap:16px;align-items:baseline;margin:0 0 18px;padding:12px 0;border-top:1px solid var(--border);font-size:12px;line-height:1.8; }
 .ef-main-mission>span { color:var(--text-muted);white-space:nowrap; }
 .ef-main-mission>strong { font-weight:500;overflow-wrap:anywhere; }
-.ef-ship-note { margin:16px 0 8px; }
 .ef-model-note { margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;line-height:1.8;color:var(--text-muted); }
 .ef-model-note summary { cursor:pointer;padding:6px 0; }
 .ef-model-note p { margin:7px 0; }

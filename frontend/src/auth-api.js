@@ -1,4 +1,4 @@
-import { requestResponse, isCloudMode } from './http-client.js'
+import { requestResponse, isCloudMode, safeDetail } from './http-client.js'
 import { getAccounts, revokeAuthorization } from './accounts-api.js'
 export class AuthError extends Error {
   constructor(message, status = 0, retryAfter = 0) {
@@ -28,8 +28,7 @@ async function request(path, method = 'GET', body, timeoutMs = 30000) {
   let data
   try { data = await response.json() } catch { /* Do not display upstream HTML or diagnostics. */ }
   if (!response.ok) {
-    const detail = typeof data?.detail === 'string' && data.detail.trim()
-      ? data.detail : '登录服务暂时不可用，请稍后重试'
+    const detail = safeDetail(data?.detail, '登录服务暂时不可用，请稍后重试')
     const retry = Number(response.headers.get('Retry-After') || data?.retry_after)
     throw new AuthError(detail, response.status,
       Number.isFinite(retry) && retry > 0 ? Math.ceil(retry) : (response.status === 429 ? 60 : 0))

@@ -24,7 +24,7 @@ async def read_calendar(client, rows, title_keys):
     bases = [r for r in rows if any(k in str(r.get('postTitle') or '') for k in title_keys)]
     bases.sort(key=lambda r: published(r) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
 
-    async def read(row, version, *, optional=False, require_version=False):
+    async def read(row, version, *, optional=False, require_version=False, allow_empty=False):
         ident = str(row.get('postId') or '')
         if not ident.isdigit():
             raise ValueError('missing public post identity')
@@ -48,7 +48,7 @@ async def read_calendar(client, rows, title_keys):
                     source='community', source_name='库街区官方公告', fetched_at=now.isoformat(),
                     url=f'https://www.kurobbs.com/forum/post/{ident}')
         events = parse_post_events(post, 'wuthering_waves', version)
-        if not events:
+        if not events and not allow_empty:
             raise ValueError('public calendar notice has no dated events')
         return post, events
 
@@ -62,7 +62,8 @@ async def read_calendar(client, rows, title_keys):
             continue
         version = declared[1]
         requests += 1
-        post, baseline = await read(base, version)
+        # A future maintenance notice may list no activities; it is skipped below, not an error.
+        post, baseline = await read(base, version, allow_empty=True)
         notices.append(post)
         starts = [e.get('start_at') or e.get('start_date') for e in baseline
                   if e.get('start_at') or e.get('start_date')]
@@ -75,13 +76,16 @@ async def read_calendar(client, rows, title_keys):
             if re.search(r'(?:更新)?维护时间', line):
                 match = DATE.search(line) or (DATE.search(lines[i+1]) if i+1 < len(lines) else None)
                 if match and (match[1] or post['published_at']):
-                    year = int(match[1]) if match[1] else datetime.fromisoformat(post['published_at']).year
-                    release = _dt(match, year)
+                    posted = datetime.fromisoformat(post['published_at']) if post['published_at'] else None
+                    year = int(match[1]) if match[1] else posted.astimezone(BEIJING_TZ).year
+                    release = _dt(match, year, posted)
                 break
         if release and release > now:
             continue
         if not release and starts and min(starts) > now.astimezone(BEIJING_TZ).isoformat():
             continue
+        if not baseline:
+            raise ValueError('public calendar notice has no dated events')
         candidates = []
         for row in rows:
             if str(row.get('postId')) == post['id'] or not re.search(r'(?:角色|武器)活动唤取|唤取(?:活动|说明|公告)', str(row.get('postTitle') or '')):

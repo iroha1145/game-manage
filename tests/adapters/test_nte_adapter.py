@@ -306,6 +306,39 @@ async def test_session_expired_maps_to_recapture_hint():
     a = _configured()
     r = await a.fetch(Capability.ROLES)
     assert r.ok is False and "会话已失效，请在「社区账号」重新登录异环" in r.error
+    assert r.error_kind == "auth_expired" and r.error_code == 401
+
+
+@pytest.mark.parametrize(("status", "body"), [
+    (402, None), (403, None), (200, {"code": 403, "message": "denied"})])
+@respx.mock
+async def test_logged_in_rejection_is_an_expired_login(status, body):
+    reply = httpx.Response(status, json=body) if body else httpx.Response(status)
+    respx.get(f"{BASE}/usercenter/api/v2/getGameRoles").mock(return_value=reply)
+    r = await _configured().fetch(Capability.ROLES)
+    assert r.ok is False and r.error_kind == "auth_expired"
+    assert r.error_code == (body["code"] if body else status)
+
+
+@pytest.mark.parametrize("make_adapter", [lambda: NteAdapter(Settings()), _configured],
+                         ids=["no-credentials", "logged-in"])
+@pytest.mark.parametrize(("status", "body"), [
+    (403, None), (200, {"code": 401, "message": "denied"})])
+@pytest.mark.parametrize("cap", [Capability.ANNOUNCEMENT, Capability.EVENTS, Capability.TEAMS])
+@respx.mock
+async def test_rejected_public_feed_is_a_source_error_not_an_expired_login(
+        cap, status, body, make_adapter):
+    # 公告/活动/队伍走匿名接口：防火墙或限流的 401/402/403 与登录态无关，
+    # 不能显示成"登录已失效"，有无凭据都一样
+    def reply():
+        return httpx.Response(status, json=body) if body else httpx.Response(status)
+
+    respx.get(f"{BASE}/apihub/wapi/getAllCommunity").mock(return_value=reply())
+    respx.get(f"{BASE}/apihub/awapi/yh/team").mock(return_value=reply())
+    r = await make_adapter().fetch(cap)
+    assert r.ok is False
+    assert r.error_kind == "source_error"
+    assert r.error_code == (body["code"] if body else status)
 
 
 @respx.mock
@@ -354,3 +387,10 @@ async def test_base_dispatch_defaults_unimplemented_capabilities(cap):
     d.credentials_configured = True
     r = await d.fetch(cap)
     assert r.ok is False and "适配器未实现该能力" in r.error
+
+
+def test_notice_without_create_time_still_reads_dates_that_carry_a_year():
+    from game_assistant.adapters.neverness.adapter import _parse_notice_events
+    post = {'postId': 486000, 'subject': '《异环》1.4版本内容说明'}
+    detail = {'content': '[演练演习]战斗活动\n活动时间：2026年10月1日10:00 ~ 2026年10月28日03:59'}
+    assert [event.name for event in _parse_notice_events(post, detail, '1.4')] == ['演练演习']

@@ -45,33 +45,3 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
     <p v-if="fetchedAt" class="fetched-at">更新于 {{ fetchedAt }}</p>
   </div>
 </template>
-
-<style scoped>
-.dock-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.dock-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  justify-content: space-between;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-
-.dock-row:last-child {
-  border-bottom: none;
-}
-
-.dock-label {
-  color: var(--text-muted);
-}
-
-.dock-value {
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-}
-</style>

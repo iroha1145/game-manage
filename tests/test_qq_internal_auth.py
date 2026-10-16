@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from game_assistant.cloud_app import create_cloud_app
 from game_assistant.config import Settings
-from game_assistant.qq.internal_routes import install_qq_routes, QqServiceAuthenticator
+from game_assistant.qq.internal_routes import QqServiceAuthenticator
 
 @pytest.fixture
 def app(tmp_path):

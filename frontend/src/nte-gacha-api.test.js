@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pityLabel, ledgerDate, poolLabel, previewLedger } from './nte-gacha-api.js'
+import { pityLabel, ledgerDate, poolLabel, previewLedger, getLedgerSummary } from './nte-gacha-api.js'
 test('pity distinguishes exact, lower bound and unknown, including a real zero', () => {
   assert.equal(pityLabel({ status: 'exact', count: 0 }), '0 抽')
   assert.equal(pityLabel({ status: 'lower_bound', count: 12 }), '至少 12 抽')
@@ -17,4 +17,20 @@ test('import preview writes only to local ledger with required header and report
     return new Response(JSON.stringify({ detail: '文件角色身份与当前异环角色不一致' }), { status: 409 })
   }
   await assert.rejects(previewLedger({ document: {}, latest_confirmed: false }), /角色身份/)
+})
+test('a machine code answered by the cloud service is replaced by fixed Chinese text', async t => {
+  const old = globalThis.fetch; t.after(() => { globalThis.fetch = old })
+  globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'authorization_changed' }), { status: 409 })
+  await assert.rejects(previewLedger({ document: {} }), error => error.message === '账本请求失败，请检查导入文件或当前账号')
+})
+test('an unreachable local service gives a Chinese message instead of the raw fetch error', async t => {
+  const old = globalThis.fetch; t.after(() => { globalThis.fetch = old })
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch') }
+  await assert.rejects(getLedgerSummary(), error => error.message === '无法连接服务，请稍后重试')
+})
+test('an abort reaches the caller unchanged', async t => {
+  const old = globalThis.fetch; t.after(() => { globalThis.fetch = old })
+  const aborted = Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' })
+  globalThis.fetch = async () => { throw aborted }
+  await assert.rejects(getLedgerSummary(), error => error === aborted)
 })

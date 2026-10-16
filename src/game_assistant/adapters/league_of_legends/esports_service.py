@@ -17,20 +17,6 @@ def _replace_ids(old, new):
     return list(values.values())
 
 
-def merge_snapshot(previous: EsportsSnapshot | None, incoming: EsportsSnapshot) -> EsportsSnapshot:
-    if previous is None or previous.season_year != incoming.season_year:
-        return incoming.model_copy(deep=True)
-    result = incoming.model_copy(deep=True)
-    for field in ('tournaments', 'matches', 'teams', 'players'):
-        setattr(result, field, _replace_ids(getattr(previous, field), getattr(incoming, field)))
-    result.coverage = {**previous.coverage, **incoming.coverage}
-    memberships = {(r.team_id, r.player_id, r.scope): r for r in previous.roster_memberships}
-    for r in incoming.roster_memberships:
-        memberships[(r.team_id, r.player_id, r.scope)] = r
-    result.roster_memberships = list(memberships.values())
-    return result
-
-
 def snapshot_for_display(previous: EsportsSnapshot | None, poll_status: dict | None, now: datetime) -> dict:
     year = now.astimezone(BEIJING_TZ).year
     mismatch = previous is not None and previous.season_year != year

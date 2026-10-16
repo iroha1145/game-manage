@@ -6,7 +6,7 @@ import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 
-from game_assistant.event_calendar import BEIJING_TZ as BJ
+from game_assistant.event_calendar import BEIJING_TZ as BJ, nearest_year
 
 MOBILE_GAMES = {'nte', 'wuthering_waves', 'endfield'}
 VERSION = re.compile(r'(\d+\.\d+)\s*版本')
@@ -50,12 +50,15 @@ def event_key(name):
     return key(re.sub(r'(?:盲盒|签到|限时活动|活动)$', '', name or ''))
 
 
-def _dt(match, year):
+def _dt(match, year, near=None):
     y, m, d, h, minute, second = match.groups()
-    return datetime(int(y or year), int(m), int(d), int(h or 0), int(minute or 0), int(second or 0), tzinfo=BJ)
+    parts = int(m), int(d), int(h or 0), int(minute or 0), int(second or 0)
+    if y or near is None:
+        return datetime(int(y or year), *parts, tzinfo=BJ)
+    return nearest_year(*parts, near=near)
 
 
-def _times(text, year):
+def _times(text, year, published=None):
     matches = list(DATE.finditer(text))
     relative = RELATIVE.search(text)
     if (not matches and not relative) or len(matches) > 2 or '永久' in text:
@@ -64,18 +67,25 @@ def _times(text, year):
         # A lone date before "维护后" is an opening day, not a deadline.
         # Relative openings without any date remain unresolved for source binding.
         if relative and (not matches or len(matches) == 1 and matches[0].start() < relative.start()):
-            start = _dt(matches[0], year) if matches else None
+            start = _dt(matches[0], year, published) if matches else None
             return dict(start_at=None, start_date=start.date().isoformat() if start else None,
                         start_precision='relative', start_text=text, end_at=None,
                         end_date=None, end_precision='unknown', time_text=text)
         last = matches[-1]
-        end = _dt(last, year)
         if len(matches) == 1 and not relative:
             return None
         first = matches[0] if len(matches) > 1 else None
-        start = _dt(first, year) if first else None
-        if start and not last.group(1) and end < start and start.month == 12 and end.month == 1:
-            end = end.replace(year=end.year + 1)
+        start = _dt(first, year, published) if first else None
+        if start and not last.group(1):
+            # A year-less end is the first such date after the start; a range that
+            # still runs backwards half a year later is a typo, not an event.
+            end = _dt(last, start.year)
+            if end < start:
+                later = _dt(last, start.year + 1)
+                if later - start <= timedelta(days=185):
+                    end = later
+        else:
+            end = _dt(last, year, published)
         if start and end < start:
             return None
         uncertain = bool(relative or (first and first.group(4) is None))
@@ -135,8 +145,9 @@ def parse_post_events(post, game, version):
         return []
     lines = [s.strip() for s in post.get('body', '').splitlines() if s.strip()]
     published = post.get('published_at')
-    if published:
-        year = datetime.fromisoformat(published).astimezone(BJ).year
+    posted = datetime.fromisoformat(published) if published else None
+    if posted:
+        year = posted.astimezone(BJ).year
     else:
         explicit = next((m[1] for m in DATE.finditer(post.get('body', '')) if m[1]), None)
         year = int(explicit) if explicit else None
@@ -165,7 +176,7 @@ def parse_post_events(post, game, version):
                 continue
             permanent = '永久开放' in time_text
             for phase_text in re.split(r'[；;]', time_text):
-                dates = _times(phase_text.replace('永久开放', ''), year) if year else None
+                dates = _times(phase_text.replace('永久开放', ''), year, posted) if year else None
                 if dates:
                     if permanent:
                         dates.update(permanent=True, end_at=None, end_date=None,
@@ -231,8 +242,9 @@ def _same_event(a, b):
     for field in ('version','category','game','game_id','server','server_id','region'):
         if a.get(field) and b.get(field) and a[field] != b[field]:
             return False
-    names_a = {event_key(n) for n in a.get('aliases', [a['name']])}
-    names_b = {event_key(n) for n in b.get('aliases', [b['name']])}
+    # Tajiduo rows carry aliases=[] when a heading names no character; fall back to the name then too.
+    names_a = {event_key(n) for n in a.get('aliases') or [a['name']]}
+    names_b = {event_key(n) for n in b.get('aliases') or [b['name']]}
     announced = any(row.get('announced_pool') and not any(row.get(k) for k in ('start_at','end_at','start_date','end_date'))
                     for row in (a,b)) and a.get('category') == b.get('category')
     return bool(names_a & names_b) and (announced or _overlap(a, b))
@@ -281,7 +293,8 @@ def _maintenance_day(post):
         if not re.search(r'(?:更新)?维护时间', line): continue
         match = DATE.search(line) or (DATE.search(lines[i+1]) if i+1 < len(lines) else None)
         if match:
-            try: return _dt(match, datetime.fromisoformat(post['published_at']).year)
+            published = datetime.fromisoformat(post['published_at'])
+            try: return _dt(match, published.astimezone(BJ).year, published)
             except ValueError: return None
     return None
 
@@ -299,11 +312,14 @@ def _maintenance_opening_day(post):
         matches = list(DATE.finditer(text))
         if not matches or not post.get('published_at'):
             return None
-        year = datetime.fromisoformat(post['published_at']).astimezone(BJ).year
+        posted = datetime.fromisoformat(post['published_at'])
+        year = posted.astimezone(BJ).year
         try:
-            start = _dt(matches[0], year)
+            start = _dt(matches[0], year, posted)
             if len(matches) == 2:
-                end = _dt(matches[1], year)
+                end = _dt(matches[1], start.year)
+                if end < start and _dt(matches[1], start.year + 1) - start <= timedelta(days=2):
+                    end = _dt(matches[1], start.year + 1)  # an overnight window across New Year
             elif len(matches) == 1:
                 clock = re.search(r'[~～–—-]|至|到', text[matches[0].end():])
                 if not clock:

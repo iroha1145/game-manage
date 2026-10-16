@@ -150,7 +150,7 @@ function rarities(pool) {
     <details v-if="!imageMode" class="wuwa-import" :open="importOpen" @toggle="importOpen = $event.target.open">
       <summary>导入记录</summary>
       <div class="wuwa-import-body">
-        <p class="wuwa-meta">授权链接仅用于本次导入，用后清空；记录保存在本机。</p>
+        <p class="wuwa-meta">授权链接仅用于本次导入，用后清空；记录保存在{{ cloudMode ? '本人空间' : '本机' }}。</p>
         <form class="toolbar wuwa-import-row" @submit.prevent="importUrl">
           <input
             class="grow"

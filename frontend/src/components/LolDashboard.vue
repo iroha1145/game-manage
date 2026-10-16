@@ -54,10 +54,11 @@ const heatMaximum = computed(() => Math.max(1, ...heatDays.value.map(row => row.
 function closeDetail() {
   detailGeneration++; detailController?.abort(); expanded.value = null; detail.value = null; detailLoading.value = false; detailError.value = ''
 }
-async function load() {
+async function load(resetDetail = true) {
   const current = ++generation, filters = { days: days.value, queue: queue.value }
   analysisController?.abort(); analysisController = new AbortController()
-  closeDetail(); loading.value = true; error.value = ''
+  if (resetDetail) closeDetail()
+  loading.value = true; error.value = ''
   try {
     const next = await getLolAnalysis({ ...filters, signal: analysisController.signal })
     if (disposed || current !== generation) return
@@ -97,12 +98,14 @@ watch(accountKey, () => {
   collectGeneration++; collectController?.abort()
   analysis.value = null; error.value = ''; collectError.value = ''; collectNote.value = ''; collecting.value = false
 }, { flush: 'sync' })
+// Snapshot refreshes (hourly while the client is online) keep an open match;
+// new filters or another account start from a closed list.
 watch([
   days, queue, accountKey,
   () => props.snaps.account?.fetched_at,
   () => props.snaps.match?.fetched_at,
   () => props.snaps.stats?.fetched_at,
-], load, { immediate: true })
+], (next, previous) => load(!previous || next.slice(0, 3).some((value, index) => value !== previous[index])), { immediate: true })
 onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort(); collectController?.abort(); closeDetail() })
 </script>
 
@@ -129,7 +132,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
       <div class="empty-symbol" aria-hidden="true">◈</div><h3>{{ analysis ? '本机尚无归档' : '本地档案暂不可用' }}</h3>
       <p>启动并登录英雄联盟客户端，点击上方「采集客户端战绩」建立个人档案。之后每次采集会补充、去重保存当前账号的近期战绩。</p>
       <p>客户端未运行时不能采集；已归档数据可以离线查看。客户端近期窗口通常最多 20 场，不代表完整历史。</p>
-      <div v-if="section === 'history' && snaps.match?.payload?.length"><p>以下为升级前保留的近期对局快照，不计入新归档统计；实时详情需要客户端在线。</p><MatchList :snap="snaps.match" game-id="league_of_legends" /></div>
+      <div v-if="section === 'history' && snaps.match?.payload?.length"><p>以下为升级前保留的近期对局快照，不计入新归档统计；实时详情需要客户端在线。</p><MatchList :snap="snaps.match" :stats="snaps.stats?.payload ?? null" game-id="league_of_legends" /></div>
     </section>
     <template v-else-if="analysis && hasArchive">
       <template v-if="section === 'overview'">

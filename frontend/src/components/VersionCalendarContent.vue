@@ -25,16 +25,13 @@ const dateLabel = range => `${formatBeijingDateTime(range.start).slice(0,10)} â€
 .version-calendars { min-width:0; min-height:0; display:flex; flex-direction:column; flex:1; }
 .version-details { padding:12px 20px; font-size:11px; color:var(--text-muted); flex-shrink:0; }
 .version-details > summary { cursor:pointer; }
-.version-brief { margin:4px 0; }
 .version-summary { flex-shrink:0; padding:0 20px 12px; font-size:11px; color:var(--text-muted); }
 .version-axis { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 0; }
 .version-axis small { font-size:inherit; }
-.version-window { margin:12px 20px 6px; font-size:12px; color:var(--text-muted); }
 .version-window-content { display:flex; flex-direction:column; flex:1; min-height:0; }
 .image-mode { display:block; }
 .image-mode .version-summary { padding:0 0 12px; }
 .image-mode .version-details { order:0; padding:12px 0; font-size:14px; }
-.image-mode .version-window { margin-left:0; }
 .image-mode .version-summary { font-size:14px; }
 @media(max-width:760px) { .version-summary { padding-left:16px; padding-right:16px; } }
 </style>

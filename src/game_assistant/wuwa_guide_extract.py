@@ -179,6 +179,8 @@ class GuideExtractor:
             try:
                 value = json.loads(row[0])
                 if isinstance(value,dict) and isinstance(value.get('guide'),dict): return value
+                # A first-ever failure has no guide to keep, but the page still has to see its error.
+                if isinstance(value,dict) and isinstance(value.get('error'),str): return {'guide':None, 'error':value['error']}
             except ValueError:
                 pass
         return {'guide':None, 'error':None}

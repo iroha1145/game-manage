@@ -49,6 +49,10 @@ function onOutside(event) {
 }
 function onEscape(event) {
   if (event.key !== 'Escape') return
+  // A tip on screen takes this Escape. Uncancelled, it is also a close request
+  // for an enclosing <dialog>, which would discard the form behind the tip.
+  const trigger = root.value?.querySelector('.info-hint-trigger')
+  if (!dismissed.value && (open.value || hovered.value || trigger?.matches(':focus-visible'))) event.preventDefault()
   dismissed.value = true
   close()
 }

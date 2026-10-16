@@ -1,7 +1,7 @@
 <script setup>
+import { defineAsyncComponent } from 'vue'
 import { isCloudMode } from './http-client.js'
-import LocalApp from './LocalApp.vue'
-import CloudApp from './CloudApp.vue'
-const cloudMode = isCloudMode()
+// A deployment runs in one mode for its whole life, so load only that interface.
+const Interface = defineAsyncComponent(() => isCloudMode() ? import('./CloudApp.vue') : import('./LocalApp.vue'))
 </script>
-<template><CloudApp v-if="cloudMode" /><LocalApp v-else /></template>
+<template><Interface /></template>

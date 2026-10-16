@@ -91,6 +91,25 @@ async def test_one_bad_grant_does_not_hide_other_account(tmp_path):
     await query.runtime.aclose()
 
 
+async def test_a_role_the_provider_stopped_listing_does_not_break_the_account_list(tmp_path):
+    from game_assistant.accounts.runtime import AccountRuntime
+    from game_assistant.config import Settings
+    db, credentials, accounts, login = setup(tmp_path)
+    principal = Principal('a', False)
+    def kuro(roles):
+        return {'user_id': 'kuro-user', 'role_id': 'R1', 'server_id': 'S1', 'token': 'tok', 'did': 'did', 'token_source': 'ios',
+                'roles': [{'role_id': role, 'server_id': server, 'nickname': role} for role, server in roles]}
+    accounts.save_verified(principal, 'kuro', kuro([('R1', 'S1'), ('R2', 'S2')]))
+    # A later login of the same Kuro account no longer lists the S2 role.
+    accounts.save_verified(principal, 'kuro', kuro([('R1', 'S1')]))
+    runtime = AccountRuntime(accounts, Settings(), tmp_path / 'runtime', login=login)
+    query = AccountQuery(accounts, runtime, SnapshotStore(str(tmp_path / 'snapshots.db')))
+    listing = {row['server']: row for row in query.list_accounts(principal)}
+    assert listing['S1']['state'] == 'active' and listing['S1']['capabilities']
+    assert (listing['S2']['state'], listing['S2']['roles'], listing['S2']['capabilities']) == ('role_unavailable', [], [])
+    await runtime.aclose()
+
+
 def cloud_settings(tmp_path, **kwargs):
     from game_assistant.config import Settings
     key = tmp_path / 'account.key'

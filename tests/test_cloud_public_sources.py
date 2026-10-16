@@ -2,10 +2,8 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-import pytest
 
 from game_assistant.accounts.query import CloudPublicQuery
-from game_assistant.config import Settings
 from game_assistant.models import FetchResult
 from game_assistant.snapshots import SnapshotStore
 from tests.test_api import FakeRegistry

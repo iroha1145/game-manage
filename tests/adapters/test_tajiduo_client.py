@@ -167,6 +167,7 @@ async def test_auth_session_expired_reports_recapture_hint(status):
     await client.aclose()
     assert "塔吉多会话已失效，请在「社区账号」重新登录异环" == ei.value.message
     assert ei.value.status_code == status
+    assert ei.value.expired is True
 
 
 @respx.mock
@@ -179,6 +180,7 @@ async def test_auth_other_http_error_is_generic():
         await client.get_user_full_info()
     await client.aclose()
     assert ei.value.message == "HTTP 500"
+    assert ei.value.expired is False
 
 
 @respx.mock
@@ -191,6 +193,7 @@ async def test_business_code_error_raises():
         await client.get_user_full_info()
     await client.aclose()
     assert "code=1001" in ei.value.message and "请先登录" in ei.value.message
+    assert ei.value.expired is False
 
 
 @respx.mock
@@ -202,6 +205,7 @@ async def test_network_error_wrapped():
         await client.get_user_full_info()
     await client.aclose()
     assert "网络错误" in ei.value.message
+    assert ei.value.expired is False
 
 
 @respx.mock
@@ -213,3 +217,42 @@ async def test_web_client_401_is_generic_not_session_message():
         with pytest.raises(TajiduoError) as ei:
             await web.get_official_post_list("4")
     assert ei.value.message == "HTTP 401"
+
+
+@pytest.mark.parametrize("status", [401, 402, 403])
+@respx.mock
+async def test_http_rejection_expires_only_a_logged_in_session(status):
+    # 匿名公开接口被防火墙/限流拒绝与登录态无关：只有带凭据的请求才算会话失效
+    respx.get(f"{BASE}/usercenter/api/v2/getGameRoles").mock(
+        return_value=httpx.Response(status))
+    respx.get(f"{BASE}/apihub/wapi/getAllCommunity").mock(
+        return_value=httpx.Response(status))
+    async with TajiduoClient("acc") as client:
+        with pytest.raises(TajiduoError) as logged_in:
+            await client.get_game_roles()
+    async with TajiduoWebClient() as web:
+        with pytest.raises(TajiduoError) as anonymous:
+            await web.get_all_communities()
+    assert logged_in.value.expired is True
+    assert anonymous.value.expired is False
+    assert anonymous.value.status_code == status
+
+
+@pytest.mark.parametrize("code", [401, 402, 403])
+@respx.mock
+async def test_business_code_rejection_expires_only_a_logged_in_session(code):
+    reply = {"code": code, "message": "denied"}
+    respx.get(f"{BASE}/usercenter/api/v2/getGameRoles").mock(
+        return_value=httpx.Response(200, json=reply))
+    respx.get(f"{BASE}/apihub/wapi/getAllCommunity").mock(
+        return_value=httpx.Response(200, json=reply))
+    async with TajiduoClient("acc") as client:
+        with pytest.raises(TajiduoError) as logged_in:
+            await client.get_game_roles()
+    async with TajiduoWebClient() as web:
+        with pytest.raises(TajiduoError) as anonymous:
+            await web.get_all_communities()
+    assert logged_in.value.expired is True
+    assert logged_in.value.status_code == code
+    assert anonymous.value.expired is False
+    assert anonymous.value.status_code == code

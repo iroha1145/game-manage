@@ -42,3 +42,24 @@ async def test_malformed_binding_success_does_not_claim_linked():
         client=InternalQqClient('http://127.0.0.1:8000','fixture',http=http)
         message=InboundMessage(QqIdentity('app','group','group','sender'),'trusted','绑定 CODE','','')
         with pytest.raises(QqClientError):await client.execute(message)
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('code,status,want',[
+    ('group_game_disabled',403,'本群未开放'),('group_select_allowed_game',403,'写明要查的游戏'),('group_rate_limited',429,'频繁'),
+])
+async def test_group_policy_rejection_tells_the_member_why(code,status,want):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _:httpx.Response(status,json={'detail':code}))) as http:
+        client=InternalQqClient('http://127.0.0.1:8000','fixture',http=http)
+        now=datetime.now(timezone.utc)
+        message=InboundMessage(QqIdentity('app','group','group','sender'),'trusted','鸣潮 总览',now.isoformat(),(now+timedelta(minutes=5)).isoformat())
+        text=await client.execute(message)
+        assert want in text and code not in text
+
+@pytest.mark.asyncio
+async def test_other_query_rejections_stay_a_service_failure():
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _:httpx.Response(403,json={'detail':'qq_link_code_used'}))) as http:
+        client=InternalQqClient('http://127.0.0.1:8000','fixture',http=http)
+        now=datetime.now(timezone.utc)
+        message=InboundMessage(QqIdentity('app','group','group','sender'),'trusted','鸣潮 总览',now.isoformat(),(now+timedelta(minutes=5)).isoformat())
+        with pytest.raises(QqClientError,match='qq_internal_request_failed'):
+            await client.execute(message)

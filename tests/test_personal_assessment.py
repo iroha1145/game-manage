@@ -1,4 +1,3 @@
-from decimal import Decimal
 import pytest
 from game_assistant.assessment import AssessmentModel, Configuration, assess, compare
 
@@ -89,3 +88,31 @@ def test_item_subtotals_survive_unknown_set_with_partial_flag():
     unknown=config().model_dump(mode='json');unknown['items'][0]['stats_complete']=None
     empty=assess(Configuration.model_validate(unknown),wuwa_model())
     assert empty['partial'] is None and empty['partial_known_total'] is None
+
+
+def nte_model():
+    return AssessmentModel.model_validate(dict(game='nte',character_id='c1',version='personal-v1',source='user_configured',
+        nte_profile=dict(character_id='c1',version='weights-v1',source='user_configured',substat_weights={'attack':'1','crit':'3'},mainstat_weights={}),
+        nte_spec=dict(version='spec-v1',quality_factors={'custom':'0.8'},eligible_substats=['attack','crit'],
+            catalog=[dict(canonical_id=x,label=x,kinds=['drive'],main=False,sub=True,unit='flat') for x in ('attack','crit')],mainstat_reference_values=[])))
+
+
+@pytest.mark.parametrize('bad',[dict(value='-1'),dict(value='12.5%'),dict(area='four')])
+def test_nte_item_with_an_invalid_number_keeps_the_other_subtotals(bad):
+    # A value copied as '12.5%' or mistyped must make only that item unscorable, as for Wuwa.
+    def item(item_id,observation='a',value='999',area='4'):
+        return dict(id=item_id,nte=dict(kind='drive',quality='custom',area=area,substats_complete=True,
+            substats=[dict(canonical_id='attack',observation_id=observation,value=value,unit='flat')]))
+    c=Configuration.model_validate(dict(game='nte',character_id='c1',name='custom',source='user_configured',
+        items=[item('good'),item('bad','b',**bad)]))
+    result=assess(c,nte_model())
+    assert (result['status'],result['value'],result['partial'],result['partial_known_total'])==('unscorable',None,True,'8.00')
+    assert [(i['status'],i['reason']) for i in result['item_results']]==[('scored',None),('unscorable','INVALID_VALUE')]
+    assert compare(c,c,nte_model())['reason']=='BOTH_CONFIGURATIONS_REQUIRE_SCORE'
+
+
+def test_duplicated_item_ids_show_no_partial_total():
+    # The whole set is rejected; adding up its items would count the duplicated one twice.
+    raw=config().model_dump(mode='json');raw['items'].append(dict(raw['items'][0]))
+    result=assess(Configuration.model_validate(raw),wuwa_model())
+    assert (result['reason'],result['partial'],result['partial_known_total'])==('DUPLICATE_ITEM',None,None)

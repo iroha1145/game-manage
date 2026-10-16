@@ -11,7 +11,6 @@ import os
 from pathlib import Path,PurePosixPath
 import shlex
 import subprocess
-import sys
 
 from scripts.cloud.local_pull import SSHTransport,safe_path
 from scripts.cloud import bilibili_migrate_remote as remote

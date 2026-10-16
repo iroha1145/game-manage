@@ -66,7 +66,7 @@ async def test_login_persists_reloads_and_never_exposes_secrets(tmp_path):
 
 async def test_logout_masks_old_toml_after_restart_and_invalidates_session(tmp_path):
     service, _, settings, _ = make_service(tmp_path)
-    sid = await logged_in(service)
+    await logged_in(service)
     pending = await service.start('nte')
     await service.logout('nte')
     assert settings.nte_access_token == ''

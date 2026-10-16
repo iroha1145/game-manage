@@ -104,3 +104,21 @@ test('pool cards and record rows render the backend ledger fields', async t => {
   const cells = nodes(root, 'td').map(content)
   assert.deepEqual(cells, ['2026-09-12 10:00:00', '限定角色棋盘', 'c1', 'S', '1', '计数投掷'])
 })
+test('rule editor uses the reset reward the backend requires and skips the mystery box', async t => {
+  const sent = []
+  const pools = ['Arc_MiracleBox', 'Gashapon_MysteryBox', 'Lottery_Permanent'].map(pool_id => ({ pool_id, total_records: 1, total_pulls: 1, pity: { status: 'unknown' }, warnings: [] }))
+  api(t, (url, init) => {
+    if (init?.body) { sent.push(JSON.parse(init.body)); return { rules: [] } }
+    return url.includes('/summary') ? { total_records: 3, pools } : read(url)
+  })
+  const root = mount(t, Panel, { accountId: '100001' }); await flush(); await flush()
+  const cards = nodes(root, 'article').filter(n => content(n).includes('当前垫抽'))
+  const ruleButtons = cards.map(card => nodes(card, 'button').some(n => content(n) === '设置此池规则'))
+  assert.deepEqual(ruleButtons, [true, false, true])
+  nodes(cards[0], 'button').find(n => content(n) === '设置此池规则').props.onClick(); await nextTick()
+  nodes(root, 'input').find(n => n.props.type === 'checkbox' && content(n.parent).includes('已核对')).props['onUpdate:modelValue'](true)
+  await nextTick()
+  await nodes(root, 'form').find(n => n.props.class?.includes?.('rule-form')).props.onSubmit({ preventDefault() {} }); await flush()
+  assert.equal(sent.at(-1).pool_id, 'Arc_MiracleBox'); assert.equal(sent.at(-1).reset_reward_type, 'arc')
+  assert.match(content(root), /S 弧盘/)
+})

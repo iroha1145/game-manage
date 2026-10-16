@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Exact codes only: never put exception text, scopes or rendered input in logs.
 RENDER_DIAGNOSTIC_CODES = frozenset('''
 qq_browser_build_unavailable qq_browser_cleanup_failed qq_browser_cleanup_unconfirmed
-qq_browser_data_limit qq_browser_disabled qq_browser_invalid_snapshot qq_browser_invalidated
+qq_browser_data_limit qq_browser_disabled qq_browser_invalid_snapshot
 qq_browser_not_ready qq_browser_page_limit qq_browser_private_field
 qq_browser_runtime_unavailable qq_browser_selected_role_unavailable
 qq_browser_shared_content_incomplete qq_browser_shared_content_unavailable qq_browser_unsupported_panel

@@ -2,11 +2,10 @@ from dataclasses import asdict
 from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
 
 from game_assistant.qq.commands import parse_command, render_result, safe_text
 from game_assistant.qq.models import QqIdentity
-from game_assistant.qq.query_routes import QqQueryService, install_qq_query_routes
+from game_assistant.qq.query_routes import QqQueryService
 from game_assistant.accounts.models import QueryResult
 from game_assistant.identity.models import Principal
 from game_assistant.qq.bindings import QqBindingError
@@ -203,3 +202,11 @@ async def test_loopback_client_sends_explicit_host_for_actual_cloud_boundary(tmp
     result=await client.post('/internal/qq/query',{'identity':asdict(IDENTITY),'command':'help'})
     assert '帮助' in result['text']
     await http.aclose()
+
+
+def test_domains_written_right_after_chinese_text_are_masked():
+    from game_assistant.qq.commands import safe_text
+    assert safe_text('官网kurogames.com领取') == '官网[链接未启用]领取'
+    assert safe_text('详见 www.kurogames.com。') == '详见 [链接未启用]'
+    # An email address still keeps its domain; only standalone domains are links.
+    assert safe_text('邮箱 a@kurogames.com') == '邮箱 a@kurogames.com'

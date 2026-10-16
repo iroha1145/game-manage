@@ -7,7 +7,8 @@ export async function loadVue(url) {
   if (modules.has(url.href)) return modules.get(url.href)
   const { descriptor } = parse(readFileSync(url, 'utf8'), { filename: url.pathname })
   let code = compileScript(descriptor, { id: url.pathname, inlineTemplate: true, templateOptions: { compilerOptions: { hoistStatic: false } } }).content
-  for (const [, name] of [...code.matchAll(/from ['"]([^'"]+)['"]/g)]) {
+  // Static `from '…'` and dynamic `import('…')` specifiers, so lazily loaded pages resolve too.
+  for (const [, name] of [...code.matchAll(/(?:from |import\()['"]([^'"]+)['"]/g)]) {
     let resolved
     if (name.endsWith('.vue')) {
       const child = new URL(name, url); await loadVue(child); resolved = modules.get(child.href + ':url')

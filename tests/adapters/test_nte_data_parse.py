@@ -208,3 +208,16 @@ def test_bad_or_unknown_structure_raises_generic_parse_error(parser, raw):
 def test_malformed_collection_entries_do_not_become_successful_empty_payload(parser, data):
     with pytest.raises(ValueError):
         parser(wrap(data))
+
+
+@pytest.mark.parametrize('row', [
+    {'id': 'c1', 'awakenEffect': None},
+    {'id': 'c1', 'skills': [{'id': 's1', 'items': None}]},
+    {'id': 'c1', 'fork': {'id': 'w1', 'properties': None}},
+    {'id': 'c1', 'suit': {'id': 'set1', 'core': None}},
+    {'id': 'c1', 'suit': {'id': 'set1', 'core': [{'id': 'i1', 'mainProperties': None}]}},
+])
+def test_a_null_list_in_one_role_is_read_as_empty_not_a_broken_payload(row):
+    # fork: null and suit: null already count as absent; a null list must not reject every role.
+    from game_assistant.adapters.neverness.parse import parse_roles
+    assert [role.id for role in parse_roles([row, {'id': 'c2', 'name': '其他角色'}]).entries] == ['c1', 'c2']

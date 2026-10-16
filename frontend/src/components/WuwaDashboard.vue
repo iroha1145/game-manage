@@ -1,7 +1,5 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { isCloudMode } from '../http-client.js'
-const cloudMode = isCloudMode()
 import WuwaProfile from './WuwaProfile.vue'
 import WuwaRoles from './WuwaRoles.vue'
 import WuwaCombat from './WuwaCombat.vue'
@@ -17,7 +15,7 @@ import AnnouncementList from './AnnouncementList.vue'
 import AppIcon from './AppIcon.vue'
 import { vGlide } from '../motion.js'
 import WuwaModuleCard from './WuwaModuleCard.vue'
-import { list, value } from '../wuwa-display.js'
+import { value } from '../wuwa-display.js'
 import WuwaStatus from './WuwaStatus.vue'
 import SummaryMetrics from './SummaryMetrics.vue'
 const props = defineProps({

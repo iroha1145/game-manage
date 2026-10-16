@@ -4,7 +4,6 @@ from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
-import stat
 from pathlib import Path
 import sqlite3
 import sys
@@ -18,9 +17,9 @@ class OperationError(ValueError):
 
 
 def safe_path(value):
+    from game_assistant.paths import through_link
     path = Path(value).absolute()
-    if any(item.is_symlink() or (item.exists() and getattr(item.lstat(),'st_file_attributes',0)
-            & getattr(stat,'FILE_ATTRIBUTE_REPARSE_POINT',0x400)) for item in (path, *path.parents)):
+    if through_link(path):
         raise OperationError('symlink_path_rejected')
     return path.resolve()
 

@@ -108,7 +108,6 @@ def test_noncredential_roster_identifiers_survive_text_sanitization_for_exact_jo
 async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfield_views(tmp_path,monkeypatch,command,role_name):
     import os
     from io import BytesIO
-    from types import SimpleNamespace
     import httpx
     from PIL import Image
     from playwright.async_api import Page
