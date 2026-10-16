@@ -320,6 +320,9 @@ async def test_routes_do_not_echo_invalid_secret(tmp_path):
         assert "SECRET" not in response.text
         response = await client.post("/api/endfield/skland/connect", content='{"cred":"' + 'X' * 17000 + '"}')
         assert response.status_code == 413
+        # Within the 16 KiB limit, yet deeper than Python 3.11's JSON decoder allows.
+        response = await client.post("/api/endfield/skland/connect", content='[' * 8000 + ']' * 8000)
+        assert response.status_code == 400
         assert (await client.get("/api/endfield/skland/card")).status_code == 409
 
 

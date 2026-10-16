@@ -43,7 +43,7 @@ def install_wuwa_archive_routes(app):
             if not isinstance(value, dict):
                 raise ValueError
             return value
-        except (ValueError, UnicodeError):
+        except (ValueError, UnicodeError, RecursionError):
             raise HTTPException(422, '请提供有效的 JSON 对象') from None
 
     @app.get('/api/wuwa/history')

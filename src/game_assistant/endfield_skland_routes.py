@@ -25,7 +25,7 @@ async def _json_object(request: Request) -> dict:
             if len(body) > 16384:
                 raise HTTPException(413, "请求内容过大")
         value = json.loads(body)
-    except (ValueError, UnicodeError):
+    except (ValueError, UnicodeError, RecursionError):
         raise HTTPException(400, "请求内容格式不正确") from None
     if not isinstance(value, dict):
         raise HTTPException(400, "请求内容格式不正确")

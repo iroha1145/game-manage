@@ -96,3 +96,13 @@ def test_actual_role_detail_read_archives_only_success(tmp_path):
     adapter.fetch_role_detail = failed
     assert client.get('/api/wuwa/roles/1501').status_code == 502
     assert len(client.get('/api/wuwa/history?kind=role_detail').json()['items']) == 1
+
+
+def test_deeply_nested_json_is_rejected_not_a_server_error(tmp_path):
+    client, _, _ = make_client(tmp_path)
+    client = TestClient(client.app, raise_server_exceptions=False)
+    nested = ('[' * 100000 + ']' * 100000).encode()
+    headers = {'X-Game-Assistant': '1', 'Content-Type': 'application/json'}
+    for path in ('/api/wuwa/gacha/import', '/api/wuwa/history/backfill'):
+        response = client.post(path, content=nested, headers=headers)
+        assert response.status_code == 422, (path, response.status_code)
