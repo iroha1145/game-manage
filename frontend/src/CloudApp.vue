@@ -90,7 +90,10 @@ function clearPublicData() {
   publicSnapshots.value = {}; publicError.value = ''
   calendarSnapshots.value = {}; calendarReadErrors.value = {}; calendarLoading.value = false; calendarGame.value = 'all'
 }
-async function authenticated() { await dashboard.initialize(); syncRoute() }
+// A reload or a login on #/sessions leaves the page unchanged, so its watcher stays silent and the list is asked for here.
+// When the route changes the page (a login after a logout), the watcher asks.
+function enterRoute() { const shown = page.value; syncRoute(); if(page.value==='sessions' && shown==='sessions' && state.user)dashboard.loadSessions() }
+async function authenticated() { await dashboard.initialize(); enterRoute() }
 async function logout() { if (logoutBusy.value) return; logoutBusy.value = true; clearPublicData(); try { await dashboard.logout() } finally { logoutBusy.value = false; page.value = 'overview' } }
 async function refresh() { await Promise.all(caps.value.map(cap => dashboard.refresh(cap))) }
 async function readSnapshots() { if (state.user && state.selected?.state !== 'revoked') await Promise.all(caps.value.map(cap => dashboard.loadSnapshot(cap))) }
@@ -153,7 +156,7 @@ watch(publicGame,()=>{publicError.value=''})
 watch(dataKey, async () => { const key=dataKey.value; await readSnapshots(); if(key === dataKey.value && page.value === 'overview') { await dashboard.loadOverview(); await Promise.all(ownerGames.value.map(game=>loadPublic(game.game_id))) } })
 watch(() => state.user?.user_id, clearPublicData, { flush: 'sync' })
 watch(page, value => { if (value === 'sessions') dashboard.loadSessions(); if (value === 'calendar') loadCalendar(); if(value === 'overview') readOverview() })
-onMounted(() => { globalThis.window?.addEventListener('hashchange',syncRoute); globalThis.window?.addEventListener('keydown',handleKey); navigationMedia?.addEventListener('change',mediaChanged); dashboard.initialize().then(syncRoute); stopTheme = followSystem(); timer = setInterval(async () => {
+onMounted(() => { globalThis.window?.addEventListener('hashchange',syncRoute); globalThis.window?.addEventListener('keydown',handleKey); navigationMedia?.addEventListener('change',mediaChanged); dashboard.initialize().then(enterRoute); stopTheme = followSystem(); timer = setInterval(async () => {
   // initialize invalidates the controller epoch. Let bounded refresh tracking
   // settle first; its snapshot GETs still enforce session ownership and 401.
   now.value = Date.now(); if (state.user && !refreshPending.value) { await dashboard.initialize(); await readSnapshots(); if(page.value === 'overview') await dashboard.loadOverview() }
