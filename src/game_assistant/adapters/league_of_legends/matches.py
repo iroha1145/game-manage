@@ -78,7 +78,6 @@ def parse_match_detail(raw: dict, own_puuid: str,
     creation = raw.get("gameCreation")
     start_at = (datetime.fromtimestamp(creation / 1000, tz=timezone.utc)
                 if creation else None)
-    team_win = _team_win(raw)
     pid_player: dict[int, dict] = {}
     for ident in raw.get("participantIdentities") or []:
         player = ident.get("player") or {}

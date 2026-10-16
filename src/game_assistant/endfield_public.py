@@ -9,7 +9,6 @@ import json
 import re
 import sqlite3
 from datetime import datetime, timezone
-from html.parser import HTMLParser
 from pathlib import Path
 
 import httpx
@@ -28,34 +27,6 @@ SAFE_ID = re.compile(r'^[\w-]{1,80}$')
 
 class PublicSourceError(Exception):
     """Safe message for a failed public source."""
-
-
-class _Article(HTMLParser):
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.lines = []
-        self.current = []
-
-    def handle_starttag(self, tag, attrs):
-        if tag == 'br':
-            self._line()
-
-    def handle_endtag(self, tag):
-        if tag in {'p', 'h1', 'h2', 'h3', 'h4', 'li', 'div'}:
-            self._line()
-
-    def handle_data(self, data):
-        self.current.append(data)
-
-    def _line(self):
-        text = ''.join(self.current).strip()
-        if text:
-            self.lines.append(text)
-        self.current = []
-
-    def text(self):
-        self._line()
-        return '\n'.join(self.lines)
 
 
 def _flight(html):
@@ -129,13 +100,6 @@ def _detail_content(html, expected_id=None):
     if not candidates:
         raise PublicSourceError('官网公告正文不可读取')
     return article_content(max(candidates, key=len))
-
-
-def _detail(html):
-    body = _detail_content(html)['body']
-    if len(body) < 30:
-        raise PublicSourceError('官网公告正文为空')
-    return body
 
 
 def _checked(data, key):

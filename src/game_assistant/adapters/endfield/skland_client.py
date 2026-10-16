@@ -114,7 +114,7 @@ class SklandClient:
             if not isinstance(data, dict):
                 raise ValueError("bad data")
             return data
-        except (httpx.HTTPError, ValueError, TypeError) as exc:
+        except (httpx.HTTPError, ValueError, TypeError):
             raise SklandError("森空岛响应异常，请稍后重试") from None
 
     async def cred_by_code(self, code: str) -> str:

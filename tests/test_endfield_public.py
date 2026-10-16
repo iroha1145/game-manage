@@ -4,8 +4,7 @@ from datetime import datetime, timezone
 import pytest
 
 from game_assistant.endfield_public import (
-    EndfieldPublicService, PublicSourceError, _detail, _news_list,
-    _detail_content,
+    EndfieldPublicService, PublicSourceError, _news_list, _detail_content,
 )
 
 
@@ -21,7 +20,7 @@ def test_official_next_flight_parsing():
     detail = flight('6:{"value":{"bulletin":{"cid":"2653"}}}') + flight(
         '<h3>■ 更新维护时间</h3><p>2026/09/02 06:00 - 2026/09/02 12:00</p>'
         '<p>1.「冬猎」特许寻访</p><p>· 开放时间：2026/09/02 12:00 - 2026/09/30 11:59</p>')
-    assert '1.「冬猎」特许寻访' in _detail(detail)
+    assert '1.「冬猎」特许寻访' in _detail_content(detail)['body']
     with pytest.raises(PublicSourceError):
         _news_list('<html>not a Next page</html>')
 

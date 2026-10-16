@@ -114,7 +114,7 @@ def create_app(registry=None, store=None, scheduler=None, notifier=None,
 
     def read_snapshot(game_id: str, capability: str) -> dict:
         try:
-            adapter = app.state.registry.get(game_id)
+            app.state.registry.get(game_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="未注册的游戏")
         if game_id == 'league_of_legends' and capability == 'esports':

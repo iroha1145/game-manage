@@ -6,7 +6,6 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import unquote
 
 from game_assistant.auth.store import CredentialStore
 from .bilibili import BilibiliClient, SourceError, collect_pages, RULE_VERSION
@@ -24,16 +23,6 @@ class BilibiliService:
         self.credentials = CredentialStore(Path(settings.db_path).with_suffix('.bilibili.credentials.json'))
         self.tasks = {}
         self.loop_task = None
-
-    def login_state(self):
-        return {'configured': bool(self.credentials.load().get('bilibili', {}).get('sessdata'))}
-
-    def save_credentials(self, values):
-        if any(not t.done() for t in self.tasks.values()):
-            raise SourceError('采集进行中，请结束后保存登录信息')
-        allowed = ('sessdata', 'bili_jct', 'buvid3', 'buvid4', 'dedeuserid', 'ac_time_value')
-        self.credentials.save({'bilibili': {k: unquote(str(values[k]).strip()) for k in allowed if values.get(k)}})
-        for game, uid in self.sources.items(): self.store.set_state(game, uid, next_retry=0)
 
     def commit_verified_account(self, account):
         from game_assistant.auth.bilibili_provider import VerifiedBilibiliAccount, LIMITS
