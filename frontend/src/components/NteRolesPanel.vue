@@ -90,7 +90,6 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
           <strong>角色对比</strong>
           <span class="compare-count">已选 {{ selected.length }} / 4</span>
           <InfoHint v-if="selected.length < 2" text="至少选择 2 名角色，最多 4 名。切换筛选后保留对比选择。" />
-          <InfoHint v-else text="对比角色属性与技能等级。" />
           <span v-if="compared.length" class="compare-chips">
             <button v-for="role in compared" :key="keyOf(role)" type="button" class="compare-chip" :aria-label="`移除对比${role.name || '角色'}`" @click="toggleCompare(role)">{{ display(role.name) }}<AppIcon name="close" :size="11" /></button>
           </span>

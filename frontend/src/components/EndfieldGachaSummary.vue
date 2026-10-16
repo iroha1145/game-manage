@@ -14,8 +14,8 @@ const metrics = computed(()=>[
 <template>
   <section class="ef-gacha-summary" aria-label="鹰角通行证寻访摘要">
     <header><div><h2>寻访摘要</h2></div><span v-if="view.snapshot?.stale" class="badge badge-stale">已有记录待更新</span></header>
-    <div class="passport-identity"><strong>鹰角通行证 · {{ view.account?.nickname || '尚未读取' }}</strong><span v-if="view.account">角色编号 {{ view.account.role_id }}</span><span>与森空岛档案分别管理</span></div>
-    <template v-if="summary"><SummaryMetrics compact :metrics="metrics" /><div class="coverage"><span>同步于 {{ view.snapshot.fetched_at ? displayBeijing(view.snapshot.fetched_at) : '未知' }}（北京时间）</span><span>{{ report?.pending === true ? '部分待同步' : report?.pending === false ? '本轮同步完成' : '记录完整性未知' }}</span></div><p v-if="report?.average_exact_pulls != null">已展示历史内 {{ report.known_exact_intervals ?? '未知' }} 个准确 6★ 区间均值 {{ report.average_exact_pulls }} 抽；不代表完整生涯或未来出货。</p><p>统计仅覆盖已保存的记录；各池范围和逐抽明细见寻访详情。</p></template>
+    <div class="passport-identity"><strong>鹰角通行证 · {{ view.account?.nickname || '尚未读取' }}</strong><span v-if="view.account">角色编号 {{ view.account.role_id }}</span></div>
+    <template v-if="summary"><SummaryMetrics compact :metrics="metrics" /><div class="coverage"><span>同步于 {{ view.snapshot.fetched_at ? displayBeijing(view.snapshot.fetched_at) : '未知' }}（北京时间）</span><span>{{ report?.pending === true ? '部分待同步' : report?.pending === false ? '本轮同步完成' : '记录完整性未知' }}</span></div><p v-if="report?.average_exact_pulls != null">已展示历史内 {{ report.known_exact_intervals ?? '未知' }} 个准确 6★ 区间均值 {{ report.average_exact_pulls }} 抽；不代表完整生涯或未来出货。</p></template>
     <p v-else>{{ view.message || '尚未同步寻访记录，请刷新数据。' }}</p>
     <footer><button type="button" class="ui-button" @click="emit('details')">查看寻访详情 →</button><button type="button" class="ui-button" :disabled="refreshing" @click="emit('refresh')">{{ refreshing ? '同步中…' : '刷新寻访数据' }}</button></footer>
   </section>

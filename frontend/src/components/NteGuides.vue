@@ -62,7 +62,7 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
 
 <template>
   <section class="nte-guides" aria-label="异环角色攻略">
-    <header class="guides-head"><div><h2>角色攻略</h2><p class="muted">弧盘 · 配队 · 卡带 · 词条 · 技能加点</p></div><span v-if="catalog" class="catalog-count">{{ catalog.guides.length }} 名角色原图索引 <b>{{ reviewedCount }} 名已整理摘要</b></span></header>
+    <header class="guides-head"><div><h2>角色攻略</h2></div><span v-if="catalog" class="catalog-count">{{ catalog.guides.length }} 名角色原图索引 <b>{{ reviewedCount }} 名已整理摘要</b></span></header>
     <p v-if="catalogLoading" class="notice" role="status">正在加载攻略目录…</p>
     <div v-else-if="catalogError" class="notice error" role="alert">{{ catalogError }} <button @click="loadCatalog">重试</button></div>
     <template v-else-if="catalog">
@@ -77,7 +77,7 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
           <button v-for="role in owned" :key="entryCharacterId(role)" type="button" :aria-label="`查看本人${characterLabel('nte',role)}`" @click="emit('role',entryCharacterId(role))">查看本人 {{ characterLabel('nte',role) }} 面板</button>
           <header class="role-heading"><div><p class="kicker">{{ guide.element }} · {{ guide.role }}</p><h3>{{ guide.name }} <span>培养攻略</span></h3></div><span class="version">V{{ sourceMeta?.version || '未知' }} 资料</span></header>
           <p class="provenance">{{ sourceMeta?.author }}</p>
-          <details data-render-collapsed><summary>资料详情</summary><p v-if="guide.reviewed_at">摘要核对于 {{ guide.reviewed_at }}</p><p class="version-note">按来源标注的版本与定位使用，不代表当前版本唯一最优解。</p>
+          <details data-render-collapsed><summary>资料详情</summary><p v-if="guide.reviewed_at">摘要核对于 {{ guide.reviewed_at }}</p>
           <p v-if="source?.summary_changed" class="notice warning" role="status">原帖有更新，文字摘要待复核；以下为此前核对内容，请优先查看最新原图。</p>
           <p v-if="sourceError || source?.error" class="notice warning" role="alert">{{ friendlyDataError(sourceError || source.error) }}</p>
           <p v-else-if="sourceLoading" class="source-status" role="status">正在核对原帖与图片…</p>

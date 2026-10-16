@@ -90,7 +90,6 @@ async function download() {
       <p v-if="report?.average_exact_pulls != null" class="notice">均值仅来自当前展示历史中 {{ report.known_exact_intervals }} 个抽数准确的 6★ 区间，不代表完整生涯或未来出货。</p>
       <p v-if="summary.complete === false" class="notice warn" role="status">还有未同步完的记录，下次刷新会接着同步。</p>
       <p v-else-if="summary.complete !== true" class="notice warn" role="status">当前记录完整性未知，请留意各卡池的记录范围。</p>
-      <p v-else class="notice">当前可同步范围已读取；更早的历史仍以已保存记录为准。</p>
       <p v-if="!pools.length" class="empty">{{ cloudMode ? '本人档案' : '本机' }}暂无寻访记录。</p>
       <div v-else class="pool-grid">
         <article v-for="(pool,index) in pools" :key="pool.key" class="pool-card">
@@ -111,7 +110,7 @@ async function download() {
             <li v-if="pool.free" class="plain">免费 <b>{{ pool.free }}</b></li>
           </ul>
           <p class="notice history-coverage">6★ 历史：最近 {{ pool.history_available }} 条 / 账本 {{ pool.history_total ?? '未知' }} 条<span v-if="pool.history_limit != null"> · 最多展示 {{ pool.history_limit }} 条</span></p>
-          <p v-if="pool.history_truncated === true" class="notice">此处未展示全部 6★ 历史；展开逐条记录或导出完整已保存账本查看。</p><p v-else-if="pool.history_truncated == null" class="notice">历史覆盖范围未知；不代表完整生涯记录。</p>
+          <p v-if="pool.history_truncated === true" class="notice">此处未展示全部 6★ 历史；展开逐条记录或导出完整已保存账本查看。</p><p v-else-if="pool.history_truncated == null" class="notice">历史覆盖范围未知。</p>
           <ul v-if="pool.history?.length" class="chip-list" :aria-label="`${pool.label}的 6★ 记录`">
             <li v-for="(item, index) in pool.history" :key="index" class="chip six" :title="`${item.pool_name || pool.label} · ${pullDate(item.obtained_at)}`">{{ item.name || '未知' }} <b>{{ sixPulls(item) }}</b></li>
           </ul>

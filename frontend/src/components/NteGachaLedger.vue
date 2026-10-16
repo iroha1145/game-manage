@@ -121,7 +121,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
     <header class="cap-title ledger-head">
       <h2>逐抽账本</h2>
       <InfoHint text="逐条保存真实记录。导入覆盖范围与社区统计分别计算。" />
-      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已保存记录 · 截至导入文件时间<InfoHint text="只包含已导入文件里的记录，不代表已经覆盖账号全部历史。" /></span>
+      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已保存记录 · 截至导入文件时间</span>
       <span v-if="!imageMode" class="head-actions">
         <label v-if="accountId" class="check"><input type="checkbox" v-model="segmented" :disabled="busy" />分段导出大账本</label>
         <button v-if="accountId" type="button" class="ui-button small-button" :disabled="busy" @click="load">刷新账本</button>
@@ -159,7 +159,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
       </details>
       <div v-if="summary?.pools?.length" class="pool-grid">
         <article v-for="item in summary.pools" :key="item.pool_id" class="pool-card">
-          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">按用户规则<InfoHint align="end" text="按用户设置的规则计算，不表示已核实官方规则或必出 UP。" /></span><button type="button" v-if="!imageMode && ruleable(item.pool_id)" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
+          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">按用户规则</span><button type="button" v-if="!imageMode && ruleable(item.pool_id)" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
           <dl class="kv-grid pity-kv"><div><dt>当前垫抽</dt><dd>{{ pityLabel(item.pity) }}</dd></div><div><dt>距所设 S 保底</dt><dd>{{ item.pity?.hard_pity_remaining == null ? '未知' : `${item.pity.hard_pity_remaining} 抽` }}</dd></div></dl>
           <p class="muted">已导入 {{ item.total_pulls }} 次计数抽取<template v-if="item.pity?.as_of"><span class="sep" aria-hidden="true" />记录范围：{{ ledgerDate(item.pity.latest_record_at || item.pity.as_of) }}</template></p>
           <details v-if="!imageMode && (item.pity?.basis || item.pity?.missing_requirements?.length)" data-render-collapsed><summary>计算详情</summary><p v-if="item.pity?.basis" class="muted">{{ requirementLabel(item.pity.basis) }}</p><ul v-if="item.pity?.missing_requirements?.length" class="requirements"><li v-for="(note, index) in item.pity.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul></details>
@@ -181,7 +181,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
         <span class="count">{{ recordTotal }} 条</span>
       </div>
       <p v-if="imageMode && !records.length && summary?.total_records > 0" class="empty">逐条记录未加载；已导入 {{ summary.total_records }} 条，可在网页查看。</p>
-      <p v-else-if="!records.length" class="empty">暂无逐抽记录<InfoHint align="end" text="导入后即可查看；这里不会用社区出 S 明细补造历史。" /></p>
+      <p v-else-if="!records.length" class="empty">暂无逐抽记录</p>
       <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间（源文件）</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td>{{ row.reward_name || row.reward_id }}</td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
       <nav v-if="!imageMode && recordTotal > 100" class="pagination" aria-label="抽卡记录分页"><button type="button" class="ui-button small-button" :disabled="offset === 0 || busy" @click="offset = Math.max(0, offset - 100)">上一页</button><span>{{ Math.floor(offset / 100) + 1 }} / {{ Math.ceil(recordTotal / 100) }}</span><button type="button" class="ui-button small-button" :disabled="offset + 100 >= recordTotal || busy" @click="offset += 100">下一页</button></nav>
     </template>
