@@ -11,5 +11,6 @@ const named=value=>typeof value==='string'?value:value?.name || value?.title || 
               <p>技能：{{ list(data.skills).length ? list(data.skills).map(skill => `${named(skill)}（等级 ${display(skill.level)}）`).join('、') : '未知' }}</p>
             </div></template>
 <style scoped>
-.operator-detail{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:grid;gap:5px}.operator-detail p{font-size:12px;color:var(--text-muted);line-height:1.5;overflow-wrap:anywhere}
+.operator-detail{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:grid;gap:5px}
+.operator-detail p{font-size:13px;color:var(--text-muted);line-height:1.5;overflow-wrap:anywhere}
 </style>

@@ -41,7 +41,91 @@ const time=value=>value == null || value === '' ? '未知' : displayBeijing(valu
   </div>
 </template>
 <style scoped>
-.ef-loadout{--loadout-cyan:var(--ef-cyan,#79c9d1);--accent:var(--game-endfield);--accent-soft:color-mix(in srgb,var(--game-endfield) 8%,var(--card-bg));display:grid;gap:28px;min-width:0}.loadout-top{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(0,1.3fr);gap:32px;align-items:start}.loadout-hero{position:relative;min-width:0;background:linear-gradient(145deg,var(--accent-soft),transparent 70%)}.loadout-portrait{width:100%;height:280px;background:transparent;border:0;font-size:84px}.hero-identity{position:relative;padding:14px 16px 0;border-left:3px solid var(--game-endfield)}.hero-class{font-size:10px;color:var(--text-muted);letter-spacing:.08em;line-height:1.7}.hero-identity h3{font-size:27px;font-weight:550;line-height:1.35;overflow-wrap:anywhere;margin:6px 0 17px}.operator-marks{display:flex;gap:26px;flex-wrap:wrap}.operator-marks dt{font-size:10px;color:var(--text-muted);margin-bottom:5px}.operator-marks dd{margin:0;font:24px var(--font-mono);line-height:1}.operator-marks small{font-size:11px;color:var(--game-endfield);margin-right:4px}.obtained-time{font-size:10px;line-height:1.8;color:var(--text-muted);margin-top:17px;overflow-wrap:anywhere}.loadout-assembly{display:grid;gap:24px;min-width:0}.loadout-module{min-width:0}.loadout-module>header{display:flex;gap:10px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:16px}.loadout-module>header>span{font:10px var(--font-mono);color:var(--game-endfield)}.loadout-module h3{font-size:13px;font-weight:500;letter-spacing:.1em}.weapon-line{display:flex;gap:18px;align-items:center;min-width:0}.weapon-art{width:88px;height:92px;border:0;background:linear-gradient(135deg,var(--accent-soft),transparent)}.weapon-copy{min-width:0;flex:1}.ef-loadout h4{font-size:13px;font-weight:500;line-height:1.6;overflow-wrap:anywhere}.weapon-copy h4{font-size:17px;margin-bottom:13px}.item-marks{display:flex;gap:18px;flex-wrap:wrap}.item-marks>div{display:flex;gap:7px;align-items:baseline;font-size:11px;line-height:1.8}.item-marks dt{color:var(--text-muted)}.item-marks dd{margin:0;font-family:var(--font-mono)}.gem-line{display:flex;align-items:center;gap:12px;margin-top:14px;min-width:0}.gem-line>.endfield-artwork{width:34px;height:34px;border:0;background:transparent;font-size:15px}.gem-line>div{min-width:0}.gem-line p{font-size:11px;line-height:1.7;overflow-wrap:anywhere}.gem-line p>span{color:var(--text-muted);margin-right:6px}.gem-terms{display:flex;gap:4px 12px;flex-wrap:wrap;font-size:10px;line-height:1.8;color:var(--text-muted);margin-top:4px}.gem-terms b{color:var(--loadout-cyan);font-family:var(--font-mono);font-weight:400;margin-left:4px}.equipment-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.equipment-slots>li{position:relative;min-width:0;padding-top:7px}.equipment-slots>li::before{content:'';position:absolute;left:0;top:0;width:12px;height:5px;border-top:1px solid var(--text-muted);border-left:1px solid var(--text-muted);opacity:.5}.slot-label{font-size:10px;line-height:1.6;color:var(--text-muted)}.equipment-slots .endfield-artwork{width:100%;height:76px;margin:6px 0 10px;border:0;background:linear-gradient(140deg,var(--accent-soft),transparent);font-size:25px}.equipment-slots h4{font-size:11px;min-height:35px}.slot-level{font-size:10px;line-height:1.7;color:var(--text-muted);margin-top:4px;overflow-wrap:anywhere}.slot-level>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.slot-unknown .endfield-artwork{opacity:.4;background:transparent;outline:1px dashed var(--border);outline-offset:-5px}.slot-unknown h4{color:var(--text-muted);font-weight:400}.extra-equipment{display:grid;gap:10px;margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)}.extra-equipment>li{display:flex;align-items:center;gap:12px;min-width:0}.extra-equipment .endfield-artwork{width:42px;height:42px;border:0;background:transparent}.extra-equipment>li>div{min-width:0}.skill-slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:18px 24px}.skill-slots>li{display:flex;gap:12px;align-items:center;min-width:0}.skill-art{position:relative;flex-shrink:0;padding-bottom:10px}.skill-art>.endfield-artwork{width:52px;height:52px;border:0;background:var(--accent-soft);font-size:24px}.skill-level{position:absolute;bottom:0;left:0;min-width:100%;padding:2px 4px;text-align:center;background:var(--game-endfield);color:#181b18;font:10px var(--font-mono);white-space:nowrap}.skill-slots>li>div:last-child{min-width:0}.skill-slots h4{font-size:11px}.skill-mastery{font-size:10px;color:var(--loadout-cyan);margin-top:5px}.module-empty{font-size:12px;color:var(--text-muted);line-height:1.7;padding:8px 0}.ef-loadout>.ef-tactical{margin:0}
-@media(max-width:1050px){.loadout-top{gap:24px}.equipment-slots{grid-template-columns:repeat(2,minmax(0,1fr));gap:17px 16px}.equipment-slots>li{display:grid;grid-template-columns:54px minmax(0,1fr);column-gap:10px;align-items:start}.equipment-slots .slot-label{grid-column:2;grid-row:1}.equipment-slots .endfield-artwork{grid-row:1/4;height:65px;margin:0}.equipment-slots h4{min-height:0}.equipment-slots .slot-level{grid-column:2;margin-top:2px}.operator-marks{gap:18px}.skill-slots{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
-@media(max-width:640px){.ef-loadout{gap:24px}.loadout-top{grid-template-columns:1fr;gap:25px}.loadout-hero{display:grid;grid-template-columns:112px minmax(0,1fr);align-items:end;padding-top:15px}.loadout-portrait{height:205px}.hero-identity{padding:8px 0 4px 14px;border-left-width:2px}.hero-identity h3{font-size:22px;margin:6px 0 16px}.hero-class{font-size:9px}.operator-marks{gap:16px}.operator-marks dt{font-size:9px}.operator-marks dd{font-size:21px}.operator-marks small{font-size:9px}.obtained-time{font-size:9px;margin-top:15px}.loadout-assembly{gap:24px}.weapon-art{width:82px;height:86px}.weapon-copy h4{font-size:16px}.item-marks{gap:6px 16px}.equipment-slots{gap:18px 12px}.equipment-slots>li{grid-template-columns:48px minmax(0,1fr);column-gap:8px}.equipment-slots .endfield-artwork{height:62px}.equipment-slots h4{font-size:11px}.skill-slots{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px}.skill-slots>li{gap:10px}.skill-art>.endfield-artwork{width:48px;height:48px}.skill-slots h4{font-size:11px}}
+.ef-loadout{--accent:var(--game-endfield);--accent-soft:color-mix(in srgb,var(--game-endfield) 8%,var(--card-bg));display:grid;gap:28px;min-width:0}
+.loadout-top{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(0,1.3fr);gap:32px;align-items:start}
+.loadout-hero{position:relative;min-width:0}
+.loadout-portrait{width:100%;height:280px;background:transparent;font-size:28px}
+.hero-identity{position:relative;padding:14px 0 0}
+.hero-class{font-size:12px;color:var(--text-muted);line-height:1.7}
+.hero-identity h3{font-size:16px;font-weight:500;line-height:1.5;overflow-wrap:anywhere;margin:4px 0 16px}
+.operator-marks{display:flex;gap:26px;flex-wrap:wrap}
+.operator-marks dt{font-size:12px;color:var(--text-muted);margin-bottom:4px}
+.operator-marks dd{margin:0;font-size:22px;font-weight:600;line-height:28px;font-variant-numeric:tabular-nums}
+.operator-marks small{font-size:12px;font-weight:400;color:var(--text-muted);margin-right:4px}
+.obtained-time{font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:16px;overflow-wrap:anywhere}
+.loadout-assembly{display:grid;gap:24px;min-width:0}
+.loadout-module{min-width:0}
+.loadout-module>header{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.loadout-module>header>span{font-size:12px;color:var(--text-faint)}
+.loadout-module h3{font-size:14px;font-weight:500}
+.weapon-line{display:flex;gap:18px;align-items:center;min-width:0}
+.weapon-art{width:88px;height:92px}
+.weapon-copy{min-width:0;flex:1}
+.ef-loadout h4{margin:0;font-size:13px;font-weight:500;line-height:1.6;overflow-wrap:anywhere}
+.weapon-copy h4{font-size:16px;margin-bottom:8px}
+.item-marks{display:flex;gap:18px;flex-wrap:wrap}
+.item-marks>div{display:flex;gap:7px;align-items:baseline;font-size:13px;line-height:1.8}
+.item-marks dt{font-size:12px;color:var(--text-muted)}
+.item-marks dd{margin:0;font-variant-numeric:tabular-nums}
+.gem-line{display:flex;align-items:center;gap:12px;margin-top:14px;min-width:0}
+.gem-line>.endfield-artwork{width:34px;height:34px;background:transparent;font-size:18px}
+.gem-line>div{min-width:0}
+.gem-line p{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.gem-line p>span{color:var(--text-muted);margin-right:6px}
+.gem-terms{display:flex;gap:4px 12px;flex-wrap:wrap;font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:4px}
+.gem-terms b{color:var(--text);font-weight:500;margin-left:4px}
+.equipment-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.equipment-slots>li{position:relative;min-width:0}
+.slot-label{font-size:12px;line-height:1.6;color:var(--text-muted)}
+.equipment-slots .endfield-artwork{width:100%;height:76px;margin:6px 0 10px;background:var(--surface-soft);font-size:24px}
+.equipment-slots h4{font-size:13px;min-height:21px}
+.slot-level{font-size:12px;line-height:1.7;color:var(--text-muted);margin-top:4px;overflow-wrap:anywhere}
+.slot-level>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.slot-unknown .endfield-artwork{opacity:.5}
+.slot-unknown h4{color:var(--text-muted);font-weight:400}
+.extra-equipment{display:grid;gap:10px;margin-top:16px}
+.extra-equipment>li{display:flex;align-items:center;gap:12px;min-width:0}
+.extra-equipment .endfield-artwork{width:42px;height:42px;background:transparent}
+.extra-equipment>li>div{min-width:0}
+.skill-slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:18px 24px}
+.skill-slots>li{display:flex;gap:12px;align-items:center;min-width:0}
+.skill-art{position:relative;flex-shrink:0;padding-bottom:10px}
+.skill-art>.endfield-artwork{width:52px;height:52px;background:var(--accent-soft);font-size:24px}
+.skill-level{position:absolute;bottom:0;left:0;min-width:100%;padding:0 4px;border-radius:var(--radius-chip);text-align:center;background:var(--game-endfield);color:var(--accent-ink);font-size:12px;font-weight:500;line-height:20px;white-space:nowrap}
+.skill-slots>li>div:last-child{min-width:0}
+.skill-slots h4{font-size:13px}
+.skill-mastery{font-size:12px;color:var(--text-muted);margin-top:4px}
+.module-empty{font-size:13px;color:var(--text-muted);line-height:1.7;padding:8px 0}
+.ef-loadout>.ef-tactical{margin:0}
+@media(max-width:1050px){
+  .loadout-top{gap:24px}
+  .equipment-slots{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .equipment-slots>li{display:grid;grid-template-columns:54px minmax(0,1fr);column-gap:10px;align-items:start}
+  .equipment-slots .slot-label{grid-column:2;grid-row:1}
+  .equipment-slots .endfield-artwork{grid-row:1/4;height:65px;margin:0}
+  .equipment-slots h4{min-height:0}
+  .equipment-slots .slot-level{grid-column:2;margin-top:2px}
+  .operator-marks{gap:18px}
+  .skill-slots{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+}
+@media(max-width:640px){
+  .ef-loadout{gap:24px}
+  .loadout-top{grid-template-columns:1fr;gap:24px}
+  .loadout-hero{display:grid;grid-template-columns:112px minmax(0,1fr);align-items:end;padding-top:14px}
+  .loadout-portrait{height:205px}
+  .hero-identity{padding:8px 0 4px 14px}
+  .hero-identity h3{margin:4px 0 16px}
+  .operator-marks{gap:16px}
+  .operator-marks dd{font-size:20px}
+  .obtained-time{margin-top:14px}
+  .loadout-assembly{gap:24px}
+  .weapon-art{width:82px;height:86px}
+  .item-marks{gap:6px 16px}
+  .equipment-slots{gap:16px 12px}
+  .equipment-slots>li{grid-template-columns:48px minmax(0,1fr);column-gap:8px}
+  .equipment-slots .endfield-artwork{height:62px}
+  .skill-slots{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px}
+  .skill-slots>li{gap:10px}
+  .skill-art>.endfield-artwork{width:48px;height:48px}
+}
 </style>

@@ -150,14 +150,14 @@ const medals = computed(() => [
 </template>
 
 <style scoped>
-.nte-card { min-width: 0; overflow-wrap: anywhere; --medal-bronze: #c98a5a; --medal-silver: #a9b1bd; --medal-gold: #e2b340; }
-:root[data-theme="light"] .nte-card { --medal-bronze: #9c5a2b; --medal-silver: #7c8698; --medal-gold: #ad7a00; }
-.cap-title { position: relative; }
-.mono { font-family: var(--font-mono); font-size: 10.5px; }
+.nte-card { min-width: 0; overflow-wrap: anywhere; --medal-bronze: #c98a5a; --medal-silver: #a8a8a8; --medal-gold: #e2b340; }
+:root[data-theme="light"] .nte-card { --medal-bronze: #9c5a2b; --medal-silver: #8c8c8c; --medal-gold: #ad7a00; }
+.cap-title { position: relative; font-size: 16px; line-height: 24px; }
+.mono { font-family: var(--font-mono); font-size: 12px; }
 
 /* Account: name with server / UID chips, then eight compact tiles. */
 .identity { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-bottom: 10px; }
-.identity > strong { margin-right: 4px; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--text); }
+.identity > strong { margin-right: 4px; font-size: 14px; line-height: 22px; font-weight: 500; color: var(--text); }
 .account-grid { --kv-min: 104px; }
 .account-grid dd { font-variant-numeric: tabular-nums; }
 .tile-meter { height: 3px; margin-top: 4px; }
@@ -166,10 +166,11 @@ const medals = computed(() => [
    (the tests read value/max) but takes the .meter look. */
 .gauges > .bar-row { grid-template-columns: 64px minmax(60px, 1fr) minmax(64px, auto); }
 .bar-row > .v { font-variant-numeric: tabular-nums; }
-progress { display: block; appearance: none; width: 100%; height: 6px; border: none; border-radius: 99px; overflow: hidden; background: var(--track); accent-color: var(--series, var(--accent)); }
-progress::-webkit-progress-bar { background: var(--track); border-radius: 99px; }
-progress::-webkit-progress-value { background: var(--series, var(--accent)); border-radius: 99px; }
-progress::-moz-progress-bar { background: var(--series, var(--accent)); border-radius: 99px; }
+.bar-row > .v small { font-size: 12px; }
+progress { display: block; appearance: none; width: 100%; height: 6px; border: none; border-radius: 999px; overflow: hidden; background: var(--track); accent-color: var(--series, var(--accent)); }
+progress::-webkit-progress-bar { background: var(--track); border-radius: 999px; }
+progress::-webkit-progress-value { background: var(--series, var(--accent)); border-radius: 999px; }
+progress::-moz-progress-bar { background: var(--series, var(--accent)); border-radius: 999px; }
 /* Unknown counts draw no bar at all: a dashed hairline instead of a 0% track. */
 .meter-none { display: block; height: 0; border-top: 1px dashed var(--border-strong); }
 .weekly { margin-top: 2px; border-top: 1px solid var(--border); }
@@ -179,11 +180,11 @@ progress::-moz-progress-bar { background: var(--series, var(--accent)); border-r
 .total-row > .v { font-size: 13px; }
 /* Indented to start under the bar, so the medals read as part of the total. */
 .medals { margin: 2px 0 0 74px; }
-.medal::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--medal); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); }
+.medal::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--medal); }
 .medal.bronze { --medal: var(--medal-bronze); }
 .medal.silver { --medal: var(--medal-silver); }
 .medal.gold { --medal: var(--medal-gold); }
-.categories { margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--border); }
+.categories { margin-top: 16px; }
 /* Total and categories share one value column, so every bar ends on one line. */
 .total-row, .categories > .bar-row { grid-template-columns: 64px minmax(60px, 1fr) 104px; }
 
@@ -191,17 +192,17 @@ progress::-moz-progress-bar { background: var(--series, var(--accent)); border-r
 .area-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 10px 32px; margin: 0; padding: 0; list-style: none; }
 .area { min-width: 0; }
 .area-row { grid-template-columns: 104px minmax(60px, 1fr) minmax(92px, auto); }
-.area-row > .k { color: var(--text); font-weight: 600; }
+.area-row > .k { color: var(--text); font-weight: 500; }
 .area-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 0 14px; margin: 0 0 0 calc(104px + 10px); padding: 0; list-style: none; font-size: 12px; line-height: 20px; }
 .area-details > li { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
 .area-details .k { flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
 /* The value may wrap its 已达目标 tag under the numbers in a narrow cell. */
 .area-details .v { flex: 1 1 auto; min-width: 0; color: var(--text-body); text-align: right; font-variant-numeric: tabular-nums; }
-.area-details .v small { color: var(--text-faint); font-size: 11px; white-space: nowrap; }
+.area-details .v small { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
 .area-details .target-met { display: inline-block; margin-left: 0; }
 .area-details > li:only-child { grid-column: 1 / -1; justify-content: flex-start; }
 .area-details > li:only-child > .v { flex: none; }
-.target-met { margin-left: 6px; padding: 0 5px; border-radius: 4px; background: var(--success-bg); color: var(--success); font-size: 10.5px; font-weight: 500; line-height: 16px; }
+.target-met { margin-left: 6px; padding: 0 6px; border-radius: var(--radius-chip); background: var(--success-bg); color: var(--success); font-size: 12px; font-weight: 500; line-height: 18px; }
 
 /* Community card: one compact block, link on the right. */
 .record-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
@@ -209,7 +210,7 @@ progress::-moz-progress-bar { background: var(--series, var(--accent)); border-r
 .record + .record { padding-top: 8px; border-top: 1px solid var(--border); }
 .record-main { display: grid; gap: 4px; min-width: 0; }
 .record-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.record-name > strong { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text); }
+.record-name > strong { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text); }
 .record .chip.game { --game-color: var(--game-nte); }
 .level { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 

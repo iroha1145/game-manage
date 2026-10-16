@@ -156,53 +156,53 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
 .skill-name > span:last-child { overflow:hidden;text-overflow:ellipsis; }
 .nte-roles-panel { min-width: 0; overflow-wrap: anywhere; }
 .role-detail-view .role-grid { grid-template-columns: 1fr; }
-.cap-title { position: relative; }
+.cap-title { position: relative; font-size: 16px; line-height: 24px; }
 .summary { gap: 4px; }
 .muted { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .toolbar input[type=search] { min-width: 150px; }
-.favorite-filter { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 7px; color: var(--text-body); font-size: 12px; cursor: pointer; }
+.favorite-filter { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--text-body); font-size: 13px; cursor: pointer; }
 .favorite-filter:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); color: var(--accent-strong); }
 .favorite-filter:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-.notice { margin: 0 0 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel-bg); color: var(--text-muted); font-size: 12px; }
+.notice { margin: 0 0 8px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--surface-soft); color: var(--text-muted); font-size: 13px; }
 
 /* Comparison: a one-line strip until two roles are picked, then the table. */
-.compare-tray { margin: 0 0 12px; padding: 6px 10px; border-radius: 8px; background: var(--overlay-2); }
+.compare-tray { margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius-well); background: var(--surface-soft); }
 .compare-heading { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 28px; font-size: 12px; }
-.compare-heading > strong { color: var(--text); font-size: 13px; font-weight: 600; }
+.compare-heading > strong { color: var(--text); font-size: 14px; font-weight: 500; }
 .compare-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .compare-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.compare-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 0 6px 0 8px; border: 0; border-radius: 5px; background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 500; }
+.compare-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 6px 0 8px; border: 0; border-radius: var(--radius-chip); background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 500; }
 .compare-chip:not(:disabled):active { transform: scale(var(--scale-medium)); }
 .clear-compare { margin-left: auto; min-height: 24px; padding: 2px 8px; }
-.comparison-scroll { overflow-x: auto; margin: 6px -10px -6px; padding: 0 10px 6px; }
-.comparison-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+.comparison-scroll { overflow-x: auto; margin: 6px -12px -6px; padding: 0 12px 6px; }
+.comparison-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-control); }
 .comparison-scroll table { min-width: 460px; table-layout: fixed; font-variant-numeric: tabular-nums; }
 .comparison-scroll :is(th, td) { padding-top: 4px; padding-bottom: 4px; line-height: 18px; }
 .comparison-scroll thead th:first-child { width: 112px; }
 .comparison-scroll tbody tr:last-child th { border-bottom: 0; }
-.comparison-scroll tbody th { color: var(--text-muted); font-size: 12px; font-weight: 400; }
-.comparison-scroll .group-row th { padding-top: 10px; color: var(--text); font-size: 11px; font-weight: 600; letter-spacing: .03em; }
+.comparison-scroll tbody th { color: var(--text-muted); font-size: 13px; font-weight: 400; }
+.comparison-scroll .group-row th { padding-top: 10px; color: var(--text); font-size: 12px; font-weight: 500; }
 
 /* Role cards: portrait, name and rank on one line; actions top-right; the
    level chips double as the disclosure for the full sheet. */
 .role-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; align-items: start; }
-.role-card { min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
-.role-card.compared { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.role-card { min-width: 0; padding: 8px 10px; border-radius: var(--radius-well); background: var(--surface-soft); }
+.role-card.compared { background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft)); }
 .role-top { display: flex; align-items: center; gap: 8px; }
-.avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 8px; object-fit: cover; background: var(--surface-soft); }
+.avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--radius-control); object-fit: cover; background: var(--surface-soft); }
 .role-heading { display: grid; gap: 1px; min-width: 0; flex: 1; }
-.role-heading > strong { overflow: hidden; color: var(--text); font-size: 13px; line-height: 18px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.role-sub { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px; line-height: 16px; white-space: nowrap; }
-.rank { padding: 0 4px; border-radius: 3px; background: var(--overlay-3); color: var(--text-body); font-size: 10px; font-weight: 700; line-height: 14px; }
+.role-heading > strong { overflow: hidden; color: var(--text); font-size: 14px; line-height: 20px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.role-sub { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; line-height: 18px; white-space: nowrap; }
+.rank { padding: 0 5px; border-radius: var(--radius-chip); background: var(--overlay-3); color: var(--text-body); font-size: 12px; font-weight: 500; line-height: 18px; }
 /* Letters mix toward the text colour: lighter at night, darker by day, so the
-   10px glyph keeps its contrast on the tint in both themes. */
+   small glyph keeps its contrast on the tint in both themes. */
 .rank-S { background: color-mix(in srgb, var(--chart-4) 18%, transparent); color: color-mix(in srgb, var(--chart-4) 60%, var(--text)); }
 .rank-A { background: color-mix(in srgb, var(--chart-5) 16%, transparent); color: color-mix(in srgb, var(--chart-5) 75%, var(--text)); }
 .level { color: var(--text-body); font-variant-numeric: tabular-nums; }
 .role-actions { display: flex; gap: 4px; margin-left: auto; align-self: flex-start; }
 /* Quiet until used: 24 bordered buttons would outweigh the data. */
-.role-actions .icon-button { width: 28px; height: 28px; border-color: transparent; border-radius: 6px; background: transparent; box-shadow: none; color: var(--text-faint); }
+.role-actions .icon-button { width: 28px; height: 28px; border-color: transparent; border-radius: var(--radius-control); background: transparent; color: var(--text-faint); }
 @media (hover: hover) and (pointer: fine) { .role-actions .icon-button:not(:disabled):not([aria-pressed=true]):hover { background: var(--hover-bg); color: var(--text); } }
 .role-actions .icon-button:disabled { opacity: .4; cursor: not-allowed; }
 .role-actions .icon-button[aria-pressed=true] { border-color: transparent; background: var(--accent-soft); color: var(--accent-strong); }
@@ -210,17 +210,18 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .role-actions .favorite[aria-pressed=true] svg { fill: currentColor; }
 .role-actions .icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .role-more { margin-top: 6px; }
-.role-more > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 -4px; padding: 2px 4px; border-radius: 6px; list-style: none; cursor: pointer; }
+.role-more > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 -4px; padding: 2px 4px; border-radius: var(--radius-control); list-style: none; cursor: pointer; }
 .role-more > summary::-webkit-details-marker { display: none; }
 .role-more > summary > svg { margin-left: auto; color: var(--text-faint); }
 .role-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (hover: hover) and (pointer: fine) { .role-more > summary:hover { background: var(--hover-bg); } .role-more > summary:hover > svg { color: var(--text-body); } }
-.detail-body { display: grid; gap: 8px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
-.detail-group h4 { margin: 0 0 3px; color: var(--text-faint); font-size: 11px; font-weight: 500; letter-spacing: .03em; }
-.weapon { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
-.weapon > strong { margin-right: 2px; color: var(--text); font-weight: 600; }
-.detail-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; margin: 0; }
-.detail-rows > div { display: flex; justify-content: space-between; gap: 6px; min-width: 0; padding: 1px 0; font-size: 12px; line-height: 18px; }
+.detail-body { display: grid; gap: 8px; margin-top: 6px; padding-top: 8px; }
+.detail-group h4 { margin: 0 0 3px; color: var(--text-muted); font-size: 12px; font-weight: 500; }
+.weapon { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; }
+.weapon > strong { margin-right: 2px; color: var(--text); font-weight: 500; }
+.detail-rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 12px; margin: 0; }
+.role-detail-view .detail-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.detail-rows > div { display: flex; justify-content: space-between; gap: 6px; min-width: 0; padding: 1px 0; font-size: 13px; line-height: 20px; }
 .detail-rows dt { overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
 .detail-rows dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 560px) {

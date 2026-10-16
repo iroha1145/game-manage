@@ -32,5 +32,21 @@ function published(value) {
   </section>
 </template>
 <style scoped>
-.ef-news-summary{min-width:0;display:grid;gap:14px;padding:22px;border:1px solid var(--border);border-top:2px solid var(--game-endfield);background:var(--card-bg)}header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}h2{font-size:21px}.note,.error{font-size:12px;line-height:1.8;overflow-wrap:anywhere}.note{color:var(--text-muted)}.error{color:var(--danger)}ol{list-style:none;padding:0;margin:0}li{display:flex;gap:16px;padding:15px 0;border-top:1px solid var(--border);min-width:0}li>div{min-width:0;flex:1}h3{font-size:13px;font-weight:500;line-height:1.8;overflow-wrap:anywhere}h3 a{color:var(--text);text-decoration:none}h3 a:hover{color:var(--game-endfield)}.article-source{font-size:11px;line-height:1.7;color:var(--text-muted);margin-top:7px}.article-source summary{cursor:pointer}.article-meta{display:flex;gap:5px 12px;flex-wrap:wrap;margin-top:7px;font-size:11px;line-height:1.7;color:var(--text-muted)}footer{border-top:1px solid var(--border);padding-top:14px}.ui-button{border-radius:0;min-height:40px}@media(max-width:600px){.ef-news-summary{padding:16px}h2{font-size:19px}li{gap:12px}footer .ui-button{width:100%;justify-content:space-between}}
+.ef-news-summary{min-width:0;display:grid;gap:12px;padding:20px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--card-bg)}
+header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h2{font-size:16px;line-height:24px;font-weight:500}
+.note,.error{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.note{color:var(--text-muted)}
+.error{color:var(--danger)}
+ol{list-style:none;padding:0;margin:0}
+li{display:flex;gap:16px;padding:14px 0;border-top:1px solid var(--border);min-width:0}
+li>div{min-width:0;flex:1}
+h3{font-size:14px;font-weight:500;line-height:1.7;overflow-wrap:anywhere}
+h3 a{color:var(--text);text-decoration:none}
+h3 a:hover{color:var(--game-endfield)}
+.article-source{font-size:12px;line-height:1.7;color:var(--text-muted);margin-top:6px}
+.article-source summary{cursor:pointer}
+.article-meta{display:flex;gap:5px 12px;flex-wrap:wrap;margin-top:6px;font-size:12px;line-height:1.7;color:var(--text-muted)}
+footer{padding-top:4px}
+@media(max-width:600px){.ef-news-summary{padding:16px}li{gap:12px}footer .ui-button{width:100%;justify-content:space-between}}
 </style>

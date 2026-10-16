@@ -170,14 +170,14 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
 <style scoped>
 .nte-assets { min-width: 0; color: var(--text); }
 .cap-title { position: relative; }
-.cap-title h3 { margin: 0; color: var(--text); font-size: 14px; line-height: 20px; font-weight: 600; }
+.cap-title h3 { margin: 0; color: var(--text); font-size: 16px; line-height: 24px; font-weight: 500; }
 .muted { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
-.mono { font-family: var(--font-mono); font-size: 11px; }
+.mono { font-family: var(--font-mono); font-size: 12px; }
 
 /* Header count: 拥有 3 / 8 with a short bar in the NTE identity colour. */
 .owned-count { display: inline-flex; align-items: baseline; gap: 4px; margin-left: 4px; font-variant-numeric: tabular-nums; }
 .owned-label { color: var(--text-muted); font-size: 12px; font-weight: 400; }
-.owned-count b { color: var(--text); font-size: 15px; font-weight: 600; }
+.owned-count b { color: var(--text); font-size: 15px; font-weight: 500; }
 .owned-count small { color: var(--text-muted); font-size: 12px; font-weight: 400; }
 .owned-count .meter { --series: var(--game-nte); align-self: center; width: 64px; height: 5px; margin-left: 4px; }
 
@@ -192,39 +192,40 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
 .vehicle-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 8px; }
 .base-stats { --kv-min: 72px; gap: 4px 12px; }
 .base-stats dd { font-size: 14px; line-height: 20px; }
-.asset { min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); }
-summary { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 5px 8px 5px 10px; border-radius: 7px; list-style: none; cursor: pointer; color: var(--text); font-size: 13px; }
+/* Entries sit inside the panel card, so they take a tone step and no outline. */
+.asset { min-width: 0; border-radius: var(--radius-control); background: var(--surface-soft); }
+summary { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 5px 8px 5px 10px; border-radius: var(--radius-control); list-style: none; cursor: pointer; color: var(--text); font-size: 13px; }
 summary::-webkit-details-marker { display: none; }
 summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (hover: hover) and (pointer: fine) { summary:hover { background: var(--overlay-2); } summary:hover > svg { color: var(--text-body); } }
+@media (hover: hover) and (pointer: fine) { summary:hover { background: var(--hover-bg); } summary:hover > svg { color: var(--text-body); } }
 summary > svg { flex-shrink: 0; margin-left: auto; color: var(--text-faint); }
-.asset-name { min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.team-icon { width: 28px; height: 28px; flex-shrink: 0; border-radius: 6px; object-fit: cover; }
+.asset-name { min-width: 0; overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.team-icon { width: 28px; height: 28px; flex-shrink: 0; border-radius: var(--radius-control); object-fit: cover; }
 .preview { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 /* Open rows show the full description below, so the preview steps aside. */
 .asset[open] .preview { visibility: hidden; }
 /* Ownership sits at the right edge so the states line up down each column. */
-.ownership { flex-shrink: 0; margin-left: auto; padding: 0 6px; border-radius: 4px; font-size: 11px; line-height: 18px; white-space: nowrap; }
+.ownership { flex-shrink: 0; margin-left: auto; padding: 0 6px; border-radius: var(--radius-chip); font-size: 12px; line-height: 20px; white-space: nowrap; }
 .ownership + .sr-only + svg { margin-left: 0; }
 .ownership.owned { background: color-mix(in srgb, var(--game-nte) 14%, transparent); color: var(--game-nte); }
 .ownership.unowned { background: var(--overlay-3); color: var(--text-muted); }
-.ownership.unknown { box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text-faint); }
+.ownership.unknown { color: var(--text-faint); }
 .state { font-size: 12px; color: var(--text-muted); }
 .state.owned { color: var(--game-nte); }
 
-.detail-body { display: grid; gap: 8px; padding: 8px 10px 10px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
-.detail-group h4 { margin: 0 0 2px; color: var(--text-faint); font-size: 11px; font-weight: 500; letter-spacing: .03em; }
-.rows { margin: 0; padding: 0; list-style: none; font-size: 12px; }
-.rows > li, .rows > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+.detail-body { display: grid; gap: 8px; padding: 8px 10px 10px; overflow-wrap: anywhere; }
+.detail-group h4 { margin: 0 0 2px; color: var(--text-muted); font-size: 12px; font-weight: 500; }
+.rows { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.rows > li, .rows > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--border-strong); }
 .rows > :last-child { border-bottom: 0; }
 .rows dt { color: var(--text-muted); }
 .rows dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .rows dd.gauge { display: inline-flex; align-items: center; gap: 8px; }
 .gauge > .meter { --series: var(--game-nte); width: 56px; height: 4px; }
-.residents { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
-.residents li { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 2px; border-radius: 6px; background: var(--overlay-3); }
+.residents { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.residents li { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 2px; border-radius: var(--radius-chip); background: var(--overlay-3); }
 .residents li:not(:has(img)) { padding-left: 8px; }
-.residents img { width: 22px; height: 22px; object-fit: cover; border-radius: 5px; }
+.residents img { width: 22px; height: 22px; object-fit: cover; border-radius: var(--radius-chip); }
 
 /* Official teams: one row each with a description preview; images open in a grid. */
 .team-list { grid-template-columns: 1fr; }
@@ -232,7 +233,7 @@ summary > svg { flex-shrink: 0; margin-left: auto; color: var(--text-faint); }
 .description { white-space: pre-wrap; color: var(--text-body); font-size: 13px; line-height: 1.7; }
 .recommendation-images { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 8px; }
 .recommendation-images a { display: block; color: var(--accent); font-size: 12px; }
-.recommendation-images img { display: block; width: 100%; height: auto; border-radius: 6px; }
+.recommendation-images img { display: block; width: 100%; height: auto; border-radius: var(--radius-control); }
 a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 600px) { .recommendation-images { grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr)); } }
 @media (max-width: 480px) { .preview { display: none; } }

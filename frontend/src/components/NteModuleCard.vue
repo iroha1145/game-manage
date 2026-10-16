@@ -3,7 +3,6 @@ import { computed, ref, watch } from 'vue'
 import { nteModuleMetrics, nteModuleTitles } from '../nte-modules.js'
 import { displayBeijing } from '../time.js'
 import NteDetailDialog from './NteDetailDialog.vue'
-import AppIcon from './AppIcon.vue'
 import NteIcon from './NteIcon.vue'
 import { nteRoleIcon } from '../nte-icons.js'
 import SummaryMetrics from './SummaryMetrics.vue'
@@ -22,7 +21,7 @@ watch(()=>props.capability,()=>{opened.value=false})
 </script>
 <template>
   <section class="nte-module-card" :class="`module-${capability}`">
-    <header><span class="module-mark"><AppIcon :name="capability === 'roles' || capability === 'account' ? 'user' : capability === 'gacha' ? 'spark' : capability === 'guides' ? 'menu' : 'grid'" :size="22" /></span><h2>{{ title }}</h2><button v-if="!inline" type="button" @click="opened = true">查看{{ title }}</button></header>
+    <header><h2>{{ title }}</h2><button v-if="!inline" type="button" @click="opened = true">查看{{ title }}</button></header>
     <div v-if="capability === 'record'" class="inline-content"><slot /></div>
     <SummaryMetrics v-else-if="metrics.length" :metrics="metrics" :compact="!inline" />
     <p v-else class="module-state">{{ snap?.payload && snap.payload.schema_version !== 1 ? '数据格式已更新，请刷新' : '暂无数据，请刷新后查看' }}</p>
@@ -38,9 +37,19 @@ watch(()=>props.capability,()=>{opened.value=false})
 </template>
 <style scoped>
 .module-account,.module-stamina{grid-column:1/-1}
-.inline-content :deep(.cap-card){padding:0;border:0;background:none;box-shadow:none;margin-top:16px}
+.inline-content :deep(.cap-card){padding:0;border:0;background:none;margin-top:16px}
 .inline-content :deep(.cap-title),.inline-content :deep(.fetched-at){display:none}
 .module-state{margin-top:12px}
-.module-previews{display:flex;flex-wrap:wrap;gap:10px;margin-top:17px}.module-previews>span{display:grid;justify-items:center;gap:5px}.module-previews small{font-size:10px;color:var(--text-muted);max-width:55px;text-align:center}
-.nte-module-card{min-width:0;padding:23px;border:1px solid var(--border);background:var(--card-bg);border-radius:12px}.nte-module-card>header{display:flex;align-items:center;gap:11px}.module-mark{display:grid;place-items:center;width:39px;height:42px;border-radius:9px;border:1px solid var(--border);color:var(--accent);background:var(--accent-soft)}.nte-module-card h2{font-size:17px;font-weight:550}.nte-module-card>header>button{margin-left:auto;cursor:pointer;padding:8px 10px;border:1px solid var(--border);background:transparent;border-radius:7px;color:var(--accent);font:inherit;font-size:12px}.module-state{font-size:11px;color:var(--text-muted)}.module-error{color:var(--danger);font-size:12px;line-height:1.7;margin-top:10px}.nte-module-card footer{display:flex;gap:10px;color:var(--text-muted);font-size:10px;min-height:12px;margin-top:17px}.old{color:var(--accent)}@media(max-width:650px){.nte-module-card{padding:17px}.nte-module-card>header{flex-wrap:wrap}.nte-module-card h2{font-size:15px}}
+.module-previews{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.module-previews>span{display:grid;justify-items:center;gap:5px}
+.module-previews small{font-size:12px;color:var(--text-muted);max-width:72px;text-align:center}
+.nte-module-card{min-width:0;padding:20px;border:1px solid var(--border);background:var(--card-bg);border-radius:var(--radius-card)}
+.nte-module-card>header{display:flex;align-items:center;gap:12px}
+.nte-module-card h2{font-size:16px;line-height:24px;font-weight:500}
+.nte-module-card>header>button{margin-left:auto;cursor:pointer;min-height:32px;padding:4px 12px;border:1px solid var(--border);background:var(--card-bg);border-radius:var(--radius-control);color:var(--accent);font:inherit;font-size:13px;font-weight:500;line-height:20px}
+.module-state{font-size:12px;color:var(--text-muted)}
+.module-error{color:var(--danger);font-size:13px;line-height:1.7;margin-top:10px}
+.nte-module-card footer{display:flex;gap:10px;color:var(--text-muted);font-size:12px;min-height:12px;margin-top:16px}
+.old{color:var(--accent)}
+@media(max-width:650px){.nte-module-card{padding:16px}.nte-module-card>header{flex-wrap:wrap}}
 </style>

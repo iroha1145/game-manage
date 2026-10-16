@@ -22,5 +22,13 @@ const show=value=>value==null||value===''?'未提供':String(value)
   </div>
 </template>
 <style scoped>
-.cloud-skland-profile{display:grid;gap:14px;min-width:0}h3{margin:0 0 12px;font-size:15px}p{line-height:1.6}ul{padding-left:20px;display:grid;gap:8px}summary{cursor:pointer;padding:8px 0}.profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.inner-card{border:1px solid var(--border);padding:12px;border-radius:9px}.inner-card h4{margin:0 0 8px}@media(max-width:720px){.profile-grid{grid-template-columns:1fr}}
+.cloud-skland-profile{display:grid;gap:14px;min-width:0}
+h3{margin:0 0 12px;font-size:16px;font-weight:500}
+p{line-height:1.6}
+ul{padding-left:20px;display:grid;gap:8px}
+summary{cursor:pointer;padding:8px 0}
+.profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.inner-card{padding:12px;border-radius:var(--radius-well);background:var(--surface-soft)}
+.inner-card h4{margin:0 0 8px;font-size:14px;font-weight:500}
+@media(max-width:720px){.profile-grid{grid-template-columns:1fr}}
 </style>

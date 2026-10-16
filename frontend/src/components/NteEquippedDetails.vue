@@ -13,5 +13,10 @@ const rows = value => Array.isArray(value) ? value : []
   </div>
 </template>
 <style scoped>
-.nte-equipped-details{font-size:12px;line-height:1.6;overflow-wrap:anywhere}.nte-equipped-details section{margin-top:10px}.nte-equipped-details h4,.nte-equipped-details h5{margin:5px 0}.nte-equipped-details p{margin:4px 0;white-space:pre-wrap}.nte-equipped-details dl>div{display:flex;justify-content:space-between;gap:12px}.nte-equipped-details dd{margin:0}
+.nte-equipped-details{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.nte-equipped-details section{margin-top:10px}
+.nte-equipped-details h4,.nte-equipped-details h5{margin:5px 0;font-size:14px;font-weight:500}
+.nte-equipped-details p{margin:4px 0;white-space:pre-wrap}
+.nte-equipped-details dl>div{display:flex;justify-content:space-between;gap:12px}
+.nte-equipped-details dd{margin:0}
 </style>

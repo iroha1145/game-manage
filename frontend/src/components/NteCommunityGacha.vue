@@ -93,69 +93,69 @@ function obtained(value) {
 </template>
 
 <style scoped>
-.community-stats { --mint:#04c8a3; --mint-ink:#062e28; --bar-green:#04c8a3; --bar-yellow:#edbc49; --bar-red:#e55961; --rating-bg:#101820e8; --rating-short:#3aebc0; --rating-long:#ff7c86; --rating-medium:#f5d46e; --bar-text-shadow:0 1px 3px #0009; --badge-ink:#17201f; min-width:0; color:var(--text); }
-/* Day theme: bars turn into light tints under dark text; the mint used as text darkens. */
-:root[data-theme="light"] .community-stats { --mint:#06755e; --mint-ink:#ffffff; --bar-green:#8fdcc7; --bar-yellow:#f3cf73; --bar-red:#f2a1a7; --rating-bg:#ffffffe6; --rating-short:#0b7d61; --rating-long:#c23c48; --rating-medium:#836000; --bar-text-shadow:none; }
+/* The rating hues follow the Tajiduo community page. Bars are tints of them on the card colour,
+   so the text on a bar stays readable without a shadow in both themes. */
+.community-stats { --bar-green:color-mix(in srgb,#04c8a3 50%,var(--card-bg)); --bar-yellow:color-mix(in srgb,#edbc49 50%,var(--card-bg)); --bar-red:color-mix(in srgb,#e55961 50%,var(--card-bg)); --rating-bg:var(--card-bg); --rating-short:#3aebc0; --rating-long:#ff7c86; --rating-medium:#f5d46e; min-width:0; color:var(--text); }
+:root[data-theme="light"] .community-stats { --bar-green:#8fdcc7; --bar-yellow:#f3cf73; --bar-red:#f2a1a7; --rating-short:#0b7d61; --rating-long:#c23c48; --rating-medium:#836000; }
 
 /* Header: title, source tag and the official rating on one line, read time right. */
 .stats-header { position:relative; }
-.stats-header h2 { font-size:18px; line-height:24px; font-weight:600; letter-spacing:-.01em; }
-.source-tag { padding:0 6px; border-radius:4px; background:var(--mint); color:var(--mint-ink); font-size:11px; font-weight:600; line-height:18px; }
-.luck-title { display:inline-flex; align-items:baseline; gap:6px; padding:1px 8px; border-radius:5px; color:var(--badge-ink); line-height:20px; }
-.luck-title small { font-size:10px; font-weight:500; }
-.luck-title strong { font-size:13px; font-weight:700; }
+.stats-header h2 { font-size:16px; line-height:24px; font-weight:500; }
+.source-tag { padding:0 6px; border-radius:var(--radius-chip); background:var(--overlay-3); color:var(--text-body); font-size:12px; font-weight:400; line-height:20px; }
+.luck-title { display:inline-flex; align-items:baseline; gap:6px; padding:1px 8px; border-radius:var(--radius-chip); color:var(--text); line-height:20px; }
+.luck-title small { font-size:12px; font-weight:400; }
+.luck-title strong { font-size:13px; font-weight:500; }
 .luck-title.unknown { color:var(--text-muted); }
 .read-time time { color:var(--text-muted); font-variant-numeric:tabular-nums; }
 
 /* Pool totals: three compact tiles, count on the left, S stats stacked right. */
 .pool-overview { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap:8px; }
-.pool-stat { display:grid; grid-template-columns:1fr auto; grid-template-areas:"name name" "total stats"; align-items:end; gap:2px 12px; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:9px; background:var(--overlay-2); }
-.pool-stat.active { border-color:color-mix(in srgb,var(--accent) 35%,transparent); background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 5%,transparent),var(--overlay-2)); }
-.pool-stat h3 { grid-area:name; overflow:hidden; color:var(--text-muted); font-size:12px; font-weight:500; line-height:16px; text-overflow:ellipsis; white-space:nowrap; }
+.pool-stat { display:grid; grid-template-columns:1fr auto; grid-template-areas:"name name" "total stats"; align-items:end; gap:2px 12px; min-width:0; padding:12px 14px; border-radius:var(--radius-control); background:var(--surface-soft); }
+.pool-stat.active { background:var(--accent-soft); }
+.pool-stat h3 { grid-area:name; overflow:hidden; color:var(--text-muted); font-size:12px; font-weight:500; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
 .draw-total { grid-area:total; display:flex; align-items:baseline; gap:4px; }
-.draw-total strong { font-size:26px; line-height:30px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
-.draw-total > span { color:var(--text-muted); font-size:12px; }
+.draw-total strong { font-size:22px; line-height:28px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+.draw-total > span { color:var(--text-muted); font-size:13px; }
 .pool-stat dl { grid-area:stats; display:grid; gap:1px; margin:0 0 3px; }
 .pool-stat dl > div { display:flex; align-items:baseline; justify-content:flex-end; gap:8px; }
-.pool-stat dt { color:var(--text-muted); font-size:11px; line-height:16px; }
-.pool-stat dd { min-width:2.5em; margin:0; color:var(--text); font-size:13px; font-weight:600; line-height:16px; text-align:right; font-variant-numeric:tabular-nums; }
+.pool-stat dt { color:var(--text-muted); font-size:12px; line-height:18px; }
+.pool-stat dd { min-width:2.5em; margin:0; color:var(--text); font-size:13px; font-weight:500; line-height:18px; text-align:right; font-variant-numeric:tabular-nums; }
 
 /* S history: tabs and heading share one line; each pull is one ~34px row. */
-.history-panel { margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
-.history-bar { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin-bottom:10px; }
-.history-bar h3 { margin-left:auto; font-size:13px; font-weight:600; white-space:nowrap; }
-.history-bar h3 span { margin-left:4px; color:var(--text-muted); font-size:11px; font-weight:400; }
+.history-panel { margin-top:20px; }
+.history-bar { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin-bottom:12px; }
+.history-bar h3 { margin-left:auto; font-size:14px; font-weight:500; white-space:nowrap; }
+.history-bar h3 span { margin-left:4px; color:var(--text-muted); font-size:12px; font-weight:400; }
 .pull-list { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
 .pull-row { display:grid; grid-template-columns:28px minmax(72px, 112px) minmax(0, 1fr) auto; align-items:center; gap:10px; min-width:0; min-height:32px; }
-.reward-icon { display:grid; place-items:center; width:28px; height:28px; overflow:hidden; border:1px solid color-mix(in srgb,var(--game-nte) 22%,transparent); border-radius:6px; background:linear-gradient(140deg,color-mix(in srgb,var(--game-nte) 16%,transparent),var(--overlay-1)); }
+.reward-icon { display:grid; place-items:center; width:28px; height:28px; overflow:hidden; border-radius:var(--radius-control); background:var(--accent-soft); }
 .reward-icon img { width:100%; height:100%; object-fit:cover; }
-.reward-icon > span { color:var(--game-nte); font-size:11px; }
-.pull-name { min-width:0; overflow:hidden; color:var(--text); font-size:12px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
-.pull-time { color:var(--text-muted); font-size:11px; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.bar-track { position:relative; height:26px; min-width:0; border-radius:5px; background:var(--overlay-2); }
-.pull-bar { position:absolute; inset:0 auto 0 0; height:100%; max-width:100%; border-radius:5px; box-sizing:border-box; transition:width var(--duration-slow) var(--ease-smooth-out); background-image:repeating-linear-gradient(110deg,transparent 0,transparent 22px,#ffffff15 22px,#ffffff15 40px); }
-.bar-values { position:relative; display:flex; align-items:center; gap:4px; height:100%; padding:0 10px; color:var(--text); text-shadow:var(--bar-text-shadow); }
-.bar-values strong { font-size:15px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }
-.bar-values > span { font-size:11px; white-space:nowrap; }
-.bar-values .rating { margin-left:6px; padding:1px 5px; border-radius:3px; background:var(--rating-bg); color:var(--text); font-size:10.5px; line-height:15px; text-shadow:none; }
+.reward-icon > span { color:var(--game-nte); font-size:12px; }
+.pull-name { min-width:0; overflow:hidden; color:var(--text); font-size:13px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.pull-time { color:var(--text-muted); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.bar-track { position:relative; height:26px; min-width:0; border-radius:var(--radius-control); background:var(--overlay-2); }
+.pull-bar { position:absolute; inset:0 auto 0 0; height:100%; max-width:100%; border-radius:var(--radius-control); box-sizing:border-box; transition:width var(--duration-slow) var(--ease-smooth-out); }
+.bar-values { position:relative; display:flex; align-items:center; gap:4px; height:100%; padding:0 10px; color:var(--text); }
+.bar-values strong { font-size:15px; font-weight:500; line-height:1; font-variant-numeric:tabular-nums; }
+.bar-values > span { font-size:12px; white-space:nowrap; }
+.bar-values .rating { margin-left:6px; padding:0 6px; border-radius:var(--radius-chip); background:var(--rating-bg); color:var(--text); font-size:12px; line-height:18px; }
 .rating.short { color:var(--rating-short); }.rating.long { color:var(--rating-long); }.rating.medium { color:var(--rating-medium); }
-.short { background-color:var(--bar-green); }.medium { background-color:var(--bar-yellow); }.long { background-color:var(--bar-red); }.unknown { color:var(--text-muted); background-color:var(--overlay-2); background-image:none; }
-.bar-legend { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); color:var(--text-muted); font-size:11px; }
+.short { background-color:var(--bar-green); }.medium { background-color:var(--bar-yellow); }.long { background-color:var(--bar-red); }.unknown { color:var(--text-muted); background-color:var(--overlay-2); }
+.bar-legend { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin-top:12px; color:var(--text-muted); font-size:12px; }
 .bar-legend > span { display:flex; align-items:center; gap:5px; }
 .bar-legend i { width:7px; height:7px; border-radius:2px; }
 .empty { padding:18px 0; color:var(--text-muted); font-size:13px; line-height:1.7; text-align:center; }
 @media (max-width:560px) {
   .pool-overview { grid-template-columns:repeat(auto-fit, minmax(96px, 1fr)); gap:6px; }
-  .pool-stat { grid-template-columns:minmax(0, 1fr); grid-template-areas:"name" "total" "stats"; padding:8px; }
-  .draw-total strong { font-size:22px; line-height:26px; }
+  .pool-stat { grid-template-columns:minmax(0, 1fr); grid-template-areas:"name" "total" "stats"; padding:10px 8px; }
   .pool-stat dl > div { justify-content:space-between; gap:4px; }
-  .pool-stat dt { font-size:10.5px; white-space:nowrap; }
+  .pool-stat dt { white-space:nowrap; }
   .pool-stat dd { min-width:0; }
   .history-bar h3 { margin-left:0; }
   .pull-row { grid-template-columns:28px minmax(0, 1fr) auto; grid-template-areas:"icon name time" "icon bar bar"; gap:2px 10px; }
   .reward-icon { grid-area:icon; align-self:start; margin-top:2px; }
   .pull-name { grid-area:name; }
-  .pull-time { grid-area:time; font-size:10.5px; }
+  .pull-time { grid-area:time; }
   .bar-track { grid-area:bar; height:24px; }
 }
 </style>

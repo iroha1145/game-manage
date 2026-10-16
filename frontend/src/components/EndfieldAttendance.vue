@@ -41,5 +41,21 @@ const day=value=>Number.isInteger(value) && value > 0 ? `第 ${value} 日` : '�
   </section>
 </template>
 <style scoped>
-.ef-attendance{--accent:var(--game-endfield);min-width:0;display:grid;gap:14px;padding:22px;border:1px solid var(--border);border-top:2px solid var(--game-endfield);background:var(--card-bg)}header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}h2{font-size:21px}h3{font-size:12px;font-weight:500;margin:0 0 8px}.note,.error,.award-results p,.record-history p{font-size:12px;line-height:1.8;overflow-wrap:anywhere}.note{color:var(--text-muted)}.error{color:var(--danger)}.attendance-summary{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}.attendance-summary strong{font-size:16px;font-weight:500}.attendance-summary span{font-size:12px;color:var(--text-muted)}footer{justify-content:flex-start;border-top:1px solid var(--border);padding-top:14px}.ui-button{min-height:40px;border-radius:0}.attendance-records{border-top:1px solid var(--border);padding-top:10px}.attendance-records summary{cursor:pointer;font-size:12px;color:var(--text-muted);padding:5px 0}.attendance-records li{display:flex;gap:8px 16px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.7;overflow-wrap:anywhere}.attendance-records li strong{font-weight:500}.attendance-records li span{color:var(--text-muted)}.record-history{margin-top:14px}@media(max-width:600px){.ef-attendance{padding:16px}h2{font-size:19px}footer .ui-button{flex:1}.attendance-records li{gap:5px 12px}.attendance-records li>span:nth-of-type(2){flex-basis:100%}}
+.ef-attendance{--accent:var(--game-endfield);min-width:0;display:grid;gap:12px;padding:20px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--card-bg)}
+header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h2{font-size:16px;line-height:24px;font-weight:500}
+h3{font-size:14px;font-weight:500;margin:0 0 8px}
+.note,.error,.award-results p,.record-history p{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.note{color:var(--text-muted)}
+.error{color:var(--danger)}
+.attendance-summary{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.attendance-summary strong{font-size:16px;font-weight:500}
+.attendance-summary span{font-size:13px;color:var(--text-muted)}
+footer{justify-content:flex-start}
+.attendance-records summary{cursor:pointer;font-size:13px;color:var(--text-muted);padding:5px 0}
+.attendance-records li{display:flex;gap:8px 16px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.attendance-records li strong{font-weight:500}
+.attendance-records li span{color:var(--text-muted)}
+.record-history{margin-top:14px}
+@media(max-width:600px){.ef-attendance{padding:16px}footer .ui-button{flex:1}.attendance-records li{gap:5px 12px}.attendance-records li>span:nth-of-type(2){flex-basis:100%}}
 </style>
