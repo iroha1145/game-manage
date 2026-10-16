@@ -28,12 +28,21 @@ test('Chinese text from the service is kept with its state and error code', asyn
 
 test('the request limit gives a Chinese message while a caller abort stays an abort', async t => {
   cloud(t)
-  const realTimeout = AbortSignal.timeout.bind(AbortSignal)
-  t.mock.method(AbortSignal, 'timeout', () => realTimeout(5))
-  t.mock.method(globalThis, 'fetch', (path, options) => csrf(path) || new Promise((_, reject) => options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })))
-  const timedOut = await startCloudBilibiliQr().catch(error => error)
-  assert.equal(timedOut.message, '请求超时，请检查会话状态后重试')
+  // AbortSignal.timeout's timer does not hold Node 22's event loop open, so the test fires the limit itself.
+  let limit, reached
+  t.mock.method(AbortSignal, 'timeout', () => (limit = new AbortController()).signal)
+  t.mock.method(globalThis, 'fetch', (path, options) => csrf(path) || new Promise((_, reject) => {
+    if (options.signal.aborted) return reject(options.signal.reason)
+    options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+    reached()
+  }))
+  const fetched = () => new Promise(resolve => { reached = resolve })
+  let started = fetched()
+  const timedOut = startCloudBilibiliQr().catch(error => error)
+  await started; limit.abort(new DOMException('signal timed out', 'TimeoutError'))
+  assert.equal((await timedOut).message, '请求超时，请检查会话状态后重试')
+  started = fetched()
   const caller = new AbortController(), pending = startCloudBilibiliQr(caller.signal).catch(error => error)
-  await new Promise(resolve => setImmediate(resolve)); caller.abort()
+  await started; caller.abort()
   assert.equal((await pending).name, 'AbortError')
 })
