@@ -7,7 +7,7 @@ const emit = defineEmits(['account-changed'])
 const GAMES = [{ id: 'wuthering_waves', name: '鸣潮' }, { id: 'nte', name: '异环' }, { id: 'endfield', name: '终末地' }]
 const LOGIN_HINTS = { endfield: '终末地使用鹰角通行证绑定的中国大陆手机号登录，目前只支持官服。' }
 const endfieldConnectionHint = computed(() => isCloudMode() ? '登录后可在下方选择鹰角授权与角色，一键连接森空岛；也可手动授权。' : '登录后可在终末地页面一键连接森空岛。')
-const STATE_LABELS = { connected: '已连接', active: '已授权', configured: '已配置', expired: '登录已失效', revoked: '授权已撤销', unconfigured: '未登录' }
+const STATE_LABELS = { connected: '已登录', active: '已授权', configured: '已登录', expired: '登录已失效', revoked: '授权已撤销', unconfigured: '未登录' }
 const accounts = ref({})
 const statusError = ref('')
 const statusLoading = ref(false)

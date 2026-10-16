@@ -1,10 +1,12 @@
+import { isCloudMode } from './http-client.js'
+
 export const capabilityLabel = cap => ({ account:'账号档案',stamina:'体力',progress:'周期进度',stats:'统计',record:'社区名片',roles:'角色练度',exploration:'探索进度',calabash:'数据坞',combat:'挑战记录',activities:'玩法进度',resources:'资源简报',gacha:'抽卡记录',realestate:'房产',vehicles:'载具',teams:'配队',news:'公共资讯',events:'活动日历',match:'对局记录',announcement:'官方公告' })[cap] || '其他数据'
 export function friendlyDataError(value, state = '') {
   if (!value && !['auth_expired','expired'].includes(state)) return ''
   const text = typeof value === 'string' ? value : ''
   if (/森空岛未接受通行证授权/.test(text)) return '森空岛未接受通行证授权，请改用手动连接。'
   if (/网站会话|重新登录网站/.test(text)) return '网站会话已失效，请重新登录。'
-  if (['auth_expired','expired'].includes(state) || /授权|凭据|auth_expired|credential_unavailable/.test(text)) return '游戏授权不可用，请到「账号与授权」重新登录。'
+  if (['auth_expired','expired'].includes(state) || /授权|凭据|auth_expired|credential_unavailable/.test(text)) return `游戏授权不可用，请到「${isCloudMode() ? '账号与授权' : '社区账号'}」重新登录。`
   if (/请选择.*角色|请先.*角色|role_required|role_not_found/.test(text)) return '请先选择已授权的游戏角色。'
   if (/参数|检查输入|invalid_parameters/.test(text)) return '请检查输入后重试。'
   if (/频繁|rate_limit/.test(text)) return '请求过于频繁，请稍后重试。'
