@@ -247,7 +247,8 @@ class NteAdapter(BaseGameAdapter):
                 try:
                     characters = self._data(await self._characters(client, role_id))
                     for character in characters:
-                        names[str(character['id'])] = str(character['name'])
+                        if character['name']:  # null 名称不进映射，由解析器给 id 标签
+                            names[str(character['id'])] = str(character['name'])
                         weapon = character.get('fork')
                         if isinstance(weapon, dict) and weapon.get('id') and weapon.get('name'):
                             names[str(weapon['id'])] = str(weapon['name'])
