@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getLedgerSummary, getLedgerRecords, previewLedger, importLedger, getLedgerRules, saveLedgerRule, exportLedger, pityLabel, ledgerDate, poolLabel, requirementLabel, resultLabel } from '../nte-gacha-api.js'
 import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
@@ -10,7 +10,10 @@ const summary = ref(null), records = ref([]), recordTotal = ref(0), rules = ref(
 const pool = ref(''), offset = ref(0), busy = ref(false), error = ref(''), message = ref('')
 const documentData = ref(null), fileName = ref(''), preview = ref(null)
 const latest = ref(false), continuous = ref(false), identity = ref(false)
-const rulePool = ref(''), ruleLimit = ref(''), ruleType = ref('character'), ruleNote = ref(''), ruleConfirmed = ref(false)
+const rulePool = ref(''), ruleLimit = ref(''), ruleNote = ref(''), ruleConfirmed = ref(false)
+// The backend fixes the reset reward per pool and refuses mystery-box rules (no per-round identity or reset rule).
+const ruleType = computed(() => rulePool.value === 'Arc_MiracleBox' ? 'arc' : 'character')
+const ruleable = pool => pool !== 'Gashapon_MysteryBox'
 const segmented = ref(false), exportStart = ref(1), exportNext = ref(null)
 let generation = 0, listRequest = 0, fileRequest = 0
 function importBody() { return { document: documentData.value, latest_confirmed: latest.value, continuity_confirmed: continuous.value, identity_confirmed: identity.value } }
@@ -104,7 +107,7 @@ async function saveRule() {
 function selectRule(value) {
   rulePool.value = value
   const existing = rules.value.find(r => r.pool_id === value)
-  ruleLimit.value = existing?.s_hard_pity || ''; ruleType.value = existing?.reset_reward_type || 'character'
+  ruleLimit.value = existing?.s_hard_pity || ''
   ruleNote.value = existing?.source_note || ''; ruleConfirmed.value = false
 }
 function nextExport() { exportStart.value = exportNext.value + 1; download() }
@@ -152,7 +155,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
       </details>
       <div v-if="summary?.pools?.length" class="pool-grid">
         <article v-for="item in summary.pools" :key="item.pool_id" class="pool-card">
-          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">自定义规则</span><button type="button" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
+          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">自定义规则</span><button v-if="ruleable(item.pool_id)" type="button" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
           <dl class="kv-grid pity-kv"><div><dt>当前垫抽</dt><dd>{{ pityLabel(item.pity) }}</dd></div><div><dt>距所设 S 保底</dt><dd>{{ item.pity?.hard_pity_remaining == null ? '未知' : `${item.pity.hard_pity_remaining} 抽` }}</dd></div></dl>
           <p class="muted">已导入 {{ item.total_pulls }} 次计数抽取<template v-if="item.pity?.as_of"><span class="sep" aria-hidden="true" />最新记录：{{ ledgerDate(item.pity.latest_record_at || item.pity.as_of) }}</template></p>
           <p v-if="item.pity?.basis" class="muted">{{ requirementLabel(item.pity.basis) }}</p>
@@ -161,9 +164,9 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
       </div>
       <details class="panel rule-editor" :open="!!rulePool"><summary>卡池规则<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
         <form class="panel-body rule-form" @submit.prevent="saveRule">
-          <div class="field">卡池<MenuSelect :model-value="rulePool" label="卡池" :options="[{ value: '', label: '选择卡池' }, ...(summary?.pools || []).map(item => ({ value: item.pool_id, label: poolLabel(item.pool_id) }))]" @change="selectRule" /></div>
+          <div class="field">卡池<MenuSelect :model-value="rulePool" label="卡池" :options="[{ value: '', label: '选择卡池' }, ...(summary?.pools || []).filter(item => ruleable(item.pool_id)).map(item => ({ value: item.pool_id, label: poolLabel(item.pool_id) }))]" @change="selectRule" /></div>
           <label>S 硬保底抽数<input v-model="ruleLimit" type="number" min="1" max="1000" required /></label>
-          <div class="field">重置奖励<MenuSelect v-model="ruleType" label="重置奖励" :options="[{ value: 'character', label: 'S 角色' }, { value: 'arc', label: 'S 弧盘' }]" /></div>
+          <div class="field">重置奖励<span class="rule-reward">{{ !rulePool ? '先选择卡池' : ruleType === 'arc' ? 'S 弧盘' : 'S 角色' }}</span></div>
           <label class="wide">规则依据<input v-model="ruleNote" maxlength="200" required placeholder="例如：游戏内某卡池规则及核对日期" /></label>
           <label class="wide check"><input type="checkbox" v-model="ruleConfirmed" required />已核对游戏内规则，按此设置计算</label>
           <div class="wide panel-actions"><button class="ui-button small-button" :disabled="busy || !rulePool || !ruleConfirmed">保存规则</button><InfoHint text="请填写对应卡池的游戏内规则。记录完整且奖励类型明确时，显示距所设 S 保底的抽数。" /></div>
@@ -237,6 +240,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
 
 .rule-form { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px 12px; }
 .rule-form label,.rule-form .field { display:grid; gap:4px; color:var(--text-muted); font-size:11px; }
+.rule-reward { color:var(--text); font-size:13px; line-height:30px; }
 .rule-form .menu-select { display:flex; width:100%; }
 .rule-form .wide { grid-column:1 / -1; }
 .rule-form .check { display:flex; align-items:center; color:var(--text-body); font-size:12px; }
