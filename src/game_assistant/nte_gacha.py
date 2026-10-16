@@ -25,6 +25,11 @@ def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
 
 
+def _is_pool(value):
+    # JSON may deliver a list or dict here; those are unhashable and break `in POOLS`.
+    return isinstance(value, str) and value in POOLS
+
+
 def _text(value, maximum=200, required=False):
     if value is None and not required:
         return ''
@@ -65,7 +70,7 @@ def _row(raw, default_pool=None):
     if not isinstance(raw, dict):
         raise GachaError()
     pool = raw.get('pool_group_id', default_pool)
-    if pool not in POOLS:
+    if not _is_pool(pool):
         raise GachaError('尚不支持此卡池格式')
     timestamp = _text(raw.get('timestamp'), 19, True)
     try:
@@ -111,7 +116,7 @@ def _rule(raw, archive=False):
         raise GachaError('请明确确认这是用户设置的规则')
     pool = raw.get('pool_id')
     expected = 'arc' if pool == 'Arc_MiracleBox' else 'character'
-    if pool not in POOLS or pool == 'Gashapon_MysteryBox' or raw.get('reset_reward_type') != expected:
+    if not _is_pool(pool) or pool == 'Gashapon_MysteryBox' or raw.get('reset_reward_type') != expected:
         raise GachaError('卡池与重置奖励类型不匹配')
     threshold = _integer(raw.get('s_hard_pity'), 1000)
     if threshold < 1:
@@ -177,7 +182,7 @@ class GachaStore:
             raise GachaError('记录数量必须为 1 至 50000 条')
         own = document['format'] == OWN_FORMAT
         banner = document.get('banner', {})
-        if not isinstance(banner, dict) or (not own and banner.get('id') not in POOLS):
+        if not isinstance(banner, dict) or (not own and not _is_pool(banner.get('id'))):
             raise GachaError()
         rows = [_row(raw, banner.get('id')) for raw in raw_rows]
         if not own and any(r['pool_group_id'] != banner['id'] for r in rows):
@@ -198,7 +203,7 @@ class GachaStore:
             covered_keys = set()
             reference_count = 0
             for segment in raw_coverage:
-                if not isinstance(segment, dict) or segment.get('pool_id') not in POOLS:
+                if not isinstance(segment, dict) or not _is_pool(segment.get('pool_id')):
                     raise GachaError()
                 ids = segment.get('record_uids')
                 if not isinstance(ids, list) or not ids or len(ids) > MAX_RECORDS:
@@ -275,7 +280,9 @@ class GachaStore:
                         continuity_confirmed=False, identity_confirmed=False):
         options = dict(latest_confirmed=latest_confirmed, continuity_confirmed=continuity_confirmed,
                        identity_confirmed=identity_confirmed)
-        if not isinstance(preview_id, str) or not hmac.compare_digest(preview_id, self._ticket(role, document, options)):
+        # compare_digest raises TypeError for a non-ASCII str, so reject that first.
+        if (not isinstance(preview_id, str) or not preview_id.isascii()
+                or not hmac.compare_digest(preview_id, self._ticket(role, document, options))):
             raise GachaError('导入内容或确认选项已变化，请重新预览', 409)
         rows, coverage, warnings, missing_identity = self._normalize(
             role, document, latest_confirmed=latest_confirmed, continuity_confirmed=continuity_confirmed)

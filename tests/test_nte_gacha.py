@@ -238,3 +238,49 @@ def test_export_page_shrinks_to_fit_real_json_bytes(tmp_path, monkeypatch):
     assert 0 < page['export_page']['limit'] < 4
     assert page['export_page']['next_offset'] == page['export_page']['limit']
     assert len(json.dumps(page, ensure_ascii=False, separators=(',', ':')).encode()) <= 2200
+
+
+def rejection(call):
+    with pytest.raises(GachaError) as error:
+        call()
+    return error.value.status, str(error.value)
+
+
+@pytest.mark.parametrize('spot', ['banner', 'record', 'rule', 'archive_rule', 'archive_coverage'])
+@pytest.mark.parametrize('bad', [['Lottery_LimitedCharacter'], {'id': 'Lottery_LimitedCharacter'}, 7])
+def test_wrongly_typed_pool_id_is_rejected_like_an_unknown_pool(tmp_path, spot, bad):
+    source = GachaStore(tmp_path/'source.db')
+    commit(source, document())
+    rule = dict(pool_id='Lottery_LimitedCharacter', s_hard_pity=90, reset_reward_type='character',
+                source_note='n', confirmed=True)
+    source.set_rule('77', rule)
+    archive = source.export('77')
+
+    def attempt(value):
+        store = GachaStore(tmp_path/'target.db')
+        doc, restored = document(), copy.deepcopy(archive)
+        if spot == 'banner':
+            doc['banner']['id'] = value
+        elif spot == 'record':
+            doc['records'][0]['pool_group_id'] = value
+        elif spot == 'rule':
+            return store.set_rule('77', dict(rule, pool_id=value))
+        elif spot == 'archive_rule':
+            restored['rules'][0]['pool_id'] = value
+            doc = restored
+        else:
+            restored['coverage'][0]['pool_id'] = value
+            doc = restored
+        return store.preview('77', doc)
+
+    unknown = rejection(lambda: attempt('Unknown_Pool'))
+    assert unknown[0] == 422
+    assert rejection(lambda: attempt(bad)) == unknown
+
+
+@pytest.mark.parametrize('preview_id', ['é', '预览', 'abcé'])
+def test_non_ascii_preview_id_is_a_changed_preview_not_a_crash(tmp_path, preview_id):
+    store = GachaStore(tmp_path/'g.db')
+    status, message = rejection(lambda: store.import_document('77', document(), preview_id=preview_id))
+    assert status == 409
+    assert (status, message) == rejection(lambda: store.import_document('77', document(), preview_id='abc'))
