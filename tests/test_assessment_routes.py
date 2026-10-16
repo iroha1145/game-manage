@@ -113,3 +113,31 @@ def test_nte_model_whose_weights_do_not_fit_its_catalog_is_refused(identity,tmp_
     assert write(client,path,main_weight_on_a_sub_only_row,method='put').status_code==422
     assert write(client,path,good,method='put').status_code==200
     store.close()
+
+
+def test_local_equipped_finds_the_character_behind_newer_rows_of_others(tmp_path):
+    # Reading only the account's newest 100 detail rows lost a character once another changed 100 times.
+    import sqlite3, threading
+    from types import SimpleNamespace
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from game_assistant.wuwa_history import WuwaHistory
+    history=WuwaHistory(sqlite3.connect(':memory:',check_same_thread=False),threading.Lock())
+    def detail(character,level=90):
+        echo=dict(phantom_prop={'id':'res'},main_props=[dict(attribute_name='攻击',attribute_value='10%')],sub_props=[])
+        return dict(schema_version=1,role_id='uid-w',server_id='srv',character_id=character,
+            provenance={'endpoint':'getRoleDetail','fetched_at':'2026-10-14T00:00:00Z'},
+            data={'role':{'role_id':character,'level':level},'phantom_data':{'equip_phantom_list':[echo]}})
+    history.capture('role_detail',detail('c1'),expected=('uid-w','srv'))
+    for level in range(100):history.capture('role_detail',detail('c2',level),expected=('uid-w','srv'))
+    app=FastAPI()
+    app.state.settings=SimpleNamespace(db_path=str(tmp_path/'local.db'))
+    adapter=SimpleNamespace(credentials_configured=True,_settings=SimpleNamespace(nte_role_id='uid-n',wuwa_role_id='uid-w',wuwa_server_id='srv'))
+    app.state.registry=SimpleNamespace(get=lambda game:adapter)
+    app.state.auth=SimpleNamespace(account_generation=lambda game:1)
+    app.state.store=SimpleNamespace(wuwa_history=history)
+    store=install_assessment_routes(app)
+    try:
+        body=TestClient(app).get('/api/assessment/wuthering_waves/c1/equipped').json()
+        assert len(body['configuration']['items'])==1
+    finally:store.close()

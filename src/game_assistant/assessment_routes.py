@@ -121,13 +121,13 @@ def install_assessment_routes(app,accounts=None,private_root=None,snapshots=None
             rows=[]
             if (scope_directory(root,scope)/'wuwa_history'/'ledger.sqlite3').is_file():
                 archive=WuwaHistory.for_scope(scope,root,role_uid=info['game_uid'],server_id=info['server'])
-                try: rows=archive.read(scope,'role_detail',limit=100)['items']
+                try: rows=archive.read(scope,'role_detail',limit=20,subject=character)['items']
                 finally: archive.close()
             retained,observed=archived_role_detail(rows,character)
             if retained is not None:payload=retained
         else:
             settings=app.state.registry.get(game)._settings
-            rows=app.state.store.wuwa_history.read(str(settings.wuwa_role_id),str(settings.wuwa_server_id),'role_detail',100)['items']
+            rows=app.state.store.wuwa_history.read(str(settings.wuwa_role_id),str(settings.wuwa_server_id),'role_detail',20,subject=character)['items']
             retained,observed=archived_role_detail(rows,character)
             if retained is not None:payload=retained
         value=equipped_configuration(game,character,payload,observed)
