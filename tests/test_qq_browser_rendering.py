@@ -436,3 +436,47 @@ async def test_unconfirmed_cleanup_disables_followup_browser_jobs():
     assert not renderer.enabled and renderer.disabled_reason=='qq_browser_cleanup_unconfirmed'
     with pytest.raises(RenderingUnavailable,match='cleanup_unconfirmed'):
         await renderer.render_summary_async(SCOPE,envelope(calendar()),budget_seconds=1)
+
+
+def build_fixture(tmp_path):
+    dist = tmp_path / 'dist'
+    (dist / 'assets').mkdir(parents=True)
+    (dist / 'render.html').write_text('<!doctype html>')
+    (dist / 'assets/app-abc.js').write_text('one')
+    font = tmp_path / 'font.otf'
+    font.write_bytes(b'OTTO' + b'\0' * 64)
+    return dist, font
+
+
+def test_render_cache_key_rehashes_only_files_that_changed(tmp_path, monkeypatch):
+    dist, font = build_fixture(tmp_path)
+    renderer = BrowserRenderer(dist_path=str(dist), font_path=str(font))
+    reads = []
+    read_bytes = Path.read_bytes
+    monkeypatch.setattr(Path, 'read_bytes', lambda self: reads.append(self.name) or read_bytes(self))
+    scope, result = AccountScope('u', 'a', 'r'), QueryResult({'text': 'x'}, None, 'ok', None)
+    first = renderer.cache_key(scope, result)
+    assert sorted(reads) == ['app-abc.js', 'font.otf', 'render.html']
+    reads.clear()
+    assert renderer.cache_key(scope, result) == first and reads == []
+    (dist / 'assets/app-abc.js').write_text('two, a new build')
+    assert renderer.cache_key(scope, result) != first and sorted(reads) == ['app-abc.js', 'render.html']
+
+
+def test_font_sidecar_replaced_by_a_link_is_refused_after_a_cached_check(tmp_path):
+    import hashlib, json
+    dist, font = build_fixture(tmp_path)
+    woff = dist / 'render-font.woff2'
+    woff.write_bytes(b'wOF2' + b'\1' * 32)
+    digest = lambda data: hashlib.sha256(data).hexdigest()
+    (dist / 'render-font.json').write_text(json.dumps(dict(schema_version=1, source_sha256=digest(font.read_bytes()),
+        woff2_sha256=digest(woff.read_bytes()), source_bytes=len(font.read_bytes()), woff2_bytes=len(woff.read_bytes()),
+        glyph_count=1, cmap_sha256='0' * 64, glyph_order_sha256='0' * 64, hmtx_sha256='0' * 64, outline_tag='CFF ',
+        outline_sha256='0' * 64, fonttools_version='4.0')))
+    renderer = BrowserRenderer(dist_path=str(dist), font_path=str(font))
+    assert renderer._font_resource() == (woff, 'font/woff2')
+    copy = tmp_path / 'elsewhere.woff2'
+    copy.write_bytes(woff.read_bytes())
+    woff.unlink()
+    woff.symlink_to(copy)
+    assert renderer._font_resource() == (font, 'font/ttf')
