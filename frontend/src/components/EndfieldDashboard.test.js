@@ -276,3 +276,21 @@ for (const [initialSection, attendanceCalls] of [['overview', 1], ['operators', 
   assert.equal(calls.filter(url => url.endsWith('/attendance')).length, attendanceCalls)
   assert.ok(!calls.some(url => url.includes('/skland/challenges?')))
 })
+
+test('choosing the role placeholder puts the dropdown back on the active role', async t => {
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    calls.push([options.method || 'GET', url])
+    if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: 'old', server_id: '1', nickname: '旧角色' }], selected_role_id: 'old', selected_server_id: '1' })
+    if (url.endsWith('/card')) return response({ payload: { base: { name: '旧档案' } } })
+    return response({ supported: false })
+  })
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush(); await flush()
+  const target = { value: '' }
+  nodes(root, 'select')[0].props.onChange({ target })
+  await flush()
+  assert.equal(target.value, 'old:1')
+  assert.match(content(root), /旧档案/)
+  assert.ok(!calls.some(([method, url]) => method === 'POST' && url.endsWith('/skland/role')))
+})

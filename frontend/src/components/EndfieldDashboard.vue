@@ -248,7 +248,7 @@ async function connectWithPassport() {
 }
 async function selectRole(event) {
   const role = status.value?.roles?.find(item => `${item.role_id}:${item.server_id}` === event.target.value)
-  if (!role || event.target.value === roleKey.value) return
+  if (!role || event.target.value === roleKey.value) { event.target.value = roleKey.value; return }
   clearPrivate(); actionBusy.value = true; actionError.value = ''; actionMessage.value = ''
   try { status.value = await chooseSklandRole(role.role_id, role.server_id) }
   catch (error) { actionError.value = error.message; await loadStatus(); if (roleKey.value) { if (['overview', 'operators'].includes(section.value)) { loadCard(); if (section.value === 'overview') loadAttendance() } if (section.value === 'challenges') loadChallenge() } }
