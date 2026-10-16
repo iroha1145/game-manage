@@ -68,7 +68,7 @@ class NteAdapter(BaseGameAdapter):
             return FetchResult(ok=False, error=e.message, error_kind='unconfigured')
         except TajiduoError as e:
             return FetchResult(ok=False, error=e.message, error_code=e.status_code,
-                error_kind='auth_expired' if e.status_code in (401, 402, 403) else 'source_error')
+                error_kind='auth_expired' if e.expired else 'source_error')
         except ValueError:
             return FetchResult(ok=False, error='塔吉多数据格式已变化或角色不匹配，保留上次成功数据',
                                error_kind='invalid_data')
