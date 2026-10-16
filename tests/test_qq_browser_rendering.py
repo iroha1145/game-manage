@@ -478,5 +478,8 @@ def test_font_sidecar_replaced_by_a_link_is_refused_after_a_cached_check(tmp_pat
     copy = tmp_path / 'elsewhere.woff2'
     copy.write_bytes(woff.read_bytes())
     woff.unlink()
-    woff.symlink_to(copy)
+    try:
+        woff.symlink_to(copy)
+    except OSError:
+        pytest.skip('Host does not permit creating file symlinks')
     assert renderer._font_resource() == (font, 'font/ttf')
