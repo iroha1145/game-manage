@@ -82,7 +82,7 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
     <p v-else-if="legacy" class="empty">数据版本已更新，请刷新获取资产详情</p>
     <template v-else>
       <div v-if="entries.length" class="toolbar">
-        <input class="grow" type="search" :aria-label="searchLabels[capability]" :placeholder="placeholders[capability]" :value="search" @input="search = $event.target.value" />
+        <input class="grow" type="search" :aria-label="searchLabels[capability]" :placeholder="placeholders[capability]" :value="search" @input="$event.isComposing || (search = $event.target.value)" @compositionend="search = $event.target.value" />
         <MenuSelect v-if="capability !== 'teams'" v-model="ownership" label="拥有状态" align="end" :options="ownershipOptions" />
         <span class="count" role="status">显示 {{ filtered.length }} / {{ entries.length }} 条</span>
       </div>

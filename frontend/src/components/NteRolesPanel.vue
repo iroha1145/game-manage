@@ -69,7 +69,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
     <p v-else-if="!roles.length" class="empty">暂无数据</p>
     <template v-else>
       <div class="toolbar">
-        <input class="grow" type="search" aria-label="搜索角色" placeholder="搜索角色名称" :value="search" @input="search = $event.target.value" />
+        <input class="grow" type="search" aria-label="搜索角色" placeholder="搜索角色名称" :value="search" @input="$event.isComposing || (search = $event.target.value)" @compositionend="search = $event.target.value" />
         <MenuSelect v-model="quality" label="品质筛选" :options="[{ value: '', label: '全部品质' }, ...qualities]" />
         <MenuSelect v-model="element" label="元素筛选" :options="[{ value: '', label: '全部元素' }, ...elements]" />
         <MenuSelect v-model="sort" label="角色排序" :options="[{ value: 'level', label: '按等级' }, { value: 'awaken_level', label: '按觉醒' }, { value: 'mix_level', label: '按混频' }, { value: 'name', label: '按名称' }]" />

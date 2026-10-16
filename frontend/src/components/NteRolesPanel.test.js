@@ -83,3 +83,11 @@ test('legacy, empty, unsafe and failed portraits remain supported', async t => {
   const image = nodes(root, 'img')[0]; image.props.onError({ currentTarget: { src: image.props.src } }); await nextTick()
   assert.equal(nodes(root, 'img').length, 0)
 })
+test('search waits for IME composition to finish before filtering', async t => {
+  const root = mount(t, Panel, { snap: snap(), accountId: 'a' })
+  const input = nodes(root, 'input').find(n => n.props['aria-label'] === '搜索角色')
+  input.props.onInput({ isComposing: true, target: { value: 'jiaose' } }); await nextTick()
+  assert.equal(cards(root).length, 5, 'pinyin letters while composing must not filter the list')
+  input.props.onCompositionend({ target: { value: '角色2' } }); await nextTick()
+  assert.equal(cards(root).length, 1)
+})
