@@ -177,18 +177,24 @@ class WutheringWavesAdapter(BaseGameAdapter):
             items = announcements.parse_announcement_list(raw)
             from game_assistant.sources.article_content import article_content
             slots = asyncio.Semaphore(3)
+            rejected = False
 
             async def enrich(item):
+                nonlocal rejected
                 if not item.id.isdigit():
                     return item
                 try:
                     async with slots:
+                        if rejected:
+                            # gather() has already failed, but queued tasks keep running.
+                            return item
                         detail = await self._client.get_post_detail(item.id)
                     if detail.get('postId') is not None and str(detail['postId']) != item.id:
                         raise ValueError('article identity mismatch')
                     return item.model_copy(update=article_content(detail.get('postH5Content')))
                 except KuroError as error:
                     if error.code in AUTH_EXPIRED_CODES:
+                        rejected = True
                         raise  # Keep the existing credential-renewal path.
                 except ValueError:
                     pass

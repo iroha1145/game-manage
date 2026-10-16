@@ -368,3 +368,17 @@ async def test_rolebox_unconfigured_reports_hint():
     for cap in (Capability.EXPLORATION, Capability.CALABASH, Capability.ROLES):
         r = await a.fetch(cap)
         assert r.ok is False and "未配置 b-at" in r.error
+
+
+@respx.mock
+async def test_announcement_details_stop_once_the_token_is_rejected():
+    import asyncio
+    listing = {"code": 200, "data": {"list": [{"postId": 1000 + i, "postTitle": f"公告{i}", "publishTime": 1789184890182 + i, "coverUrl": ""} for i in range(20)]}}
+    respx.post(EVENT_URL).mock(return_value=httpx.Response(200, json=listing))
+    detail = respx.post("https://api.kurobbs.com/forum/getPostDetail").mock(
+        return_value=httpx.Response(200, json={"code": 220, "msg": "token失效"}))
+    a = WutheringWavesAdapter(Settings(wuwa_token="tok", wuwa_user_id="123"))
+    r = await a.fetch(Capability.ANNOUNCEMENT)
+    await asyncio.sleep(0.05)  # detail tasks outlive the failed gather
+    assert r.ok is False and r.error_kind == "auth_expired"
+    assert detail.call_count <= 3, "only requests already in flight may reach the server"
