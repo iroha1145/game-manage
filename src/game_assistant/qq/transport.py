@@ -72,7 +72,7 @@ class EventGate:
 
 
 class BotState:
-    """Independent bot state; keys are hashed, expired private text is pruned."""
+    """Independent bot state: hashed keys and delivery outcomes, never reply text."""
     def __init__(self,path):
         path=Path(path).absolute()
         for item in (path,*path.parents):
@@ -101,8 +101,9 @@ class BotState:
         self.connection.commit()
         return cursor.rowcount==1
 
-    def update(self,message,state,*,text=None,platform_id=None):
-        self.connection.execute('UPDATE replies SET state=?,text=?,platform_id=? WHERE event_key=?',(state,text,platform_id,self.key(message)))
+    def update(self,message,state,*,platform_id=None):
+        # The text column stays for existing files; it is cleared, never filled.
+        self.connection.execute('UPDATE replies SET state=?,text=NULL,platform_id=? WHERE event_key=?',(state,platform_id,self.key(message)))
         self.connection.commit()
 
     def close(self):self.connection.close()
@@ -126,11 +127,11 @@ class BotDispatcher:
                 text='查询服务暂不可用，请稍后发送新指令。'
                 image=None
                 logger.warning('QQ internal query failed')
-            self.state.update(message,'ready',text=text)
+            self.state.update(message,'ready')
             if instant(message.reply_deadline)<=self.now():
                 self.state.update(message,'expired');return
             # One passive response per inbound ID; sequence stays 1 even when outcome is uncertain.
-            self.state.update(message,'sending',text=text)
+            self.state.update(message,'sending')
             try:
                 if image is not None:
                     try:
@@ -141,7 +142,6 @@ class BotDispatcher:
                         if instant(message.reply_deadline)<=self.now():
                             self.state.update(message,'expired');return
                         text=image_fallback_text(text)
-                        self.state.update(message,'sending',text=text)
                         platform_id=await self.sender.send_text(message,text,1)
                 else:
                     platform_id=await self.sender.send_text(message,text,1)

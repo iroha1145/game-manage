@@ -58,6 +58,21 @@ async def test_uncertain_send_is_not_blindly_repeated(tmp_path, caplog):
     state.close()
 
 
+async def test_reply_text_is_never_written_to_the_state_file(tmp_path):
+    # The state file only needs the delivery outcome; a private reply must not reach disk,
+    # not even while it is being sent (a crash then would leave it there).
+    state = BotState(tmp_path / 'bot-state.db')
+    seen = []
+    class Watching(Sender):
+        async def send_text(self, message, text, sequence):
+            seen.extend(state.connection.execute('SELECT state, text FROM replies').fetchall())
+            return await super().send_text(message, text, sequence)
+    await BotDispatcher(Service(), Watching(), state, now=lambda: NOW).handle_message(message())
+    assert seen == [('sending', None)]
+    assert state.connection.execute('SELECT state, text FROM replies').fetchall() == [('sent', None)]
+    state.close()
+
+
 async def test_expired_reply_not_sent(tmp_path):
     service, sender = Service(), Sender()
     state = BotState(tmp_path / 'bot-state.db')
