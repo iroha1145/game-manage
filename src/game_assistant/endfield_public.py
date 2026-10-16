@@ -6,6 +6,7 @@ is sent or stored here.
 """
 import asyncio
 import json
+import logging
 import re
 import sqlite3
 from datetime import datetime, timezone
@@ -15,6 +16,8 @@ import httpx
 
 from .sources.endfield_notice import calendar_from_posts
 from .sources.article_content import article_content, retain_article_bodies
+
+logger = logging.getLogger(__name__)
 
 NEWS_URL = 'https://endfield.hypergryph.com/news'
 MAP_URL = 'https://game.skland.com/map/endfield'
@@ -201,6 +204,11 @@ class EndfieldPublicService:
                     error = None
                 except PublicSourceError as exc:
                     error = calendar_error = str(exc)
+                except Exception as exc:
+                    # Record any failure as an attempt; otherwise every read re-fetches the site
+                    # and the status never changes.
+                    logger.warning("终末地官网资讯刷新异常，保留上次成功数据 (%s)", type(exc).__name__)
+                    error = calendar_error = '官网资讯处理异常，保留上次成功数据'
                 news, news_at = self._get('news')
                 cal, cal_at = self._get('calendar')
                 self._put('news_status', {'error': error, 'calendar_error': calendar_error})

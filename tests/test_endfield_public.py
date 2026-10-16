@@ -117,6 +117,52 @@ async def test_news_stale_cache_and_force_refresh(tmp_path):
         await service.news(force=True)
 
 
+async def test_a_notice_time_that_does_not_exist_does_not_fail_the_refresh(tmp_path):
+    from types import SimpleNamespace
+    service = EndfieldPublicService(str(tmp_path / 'game.db'))
+    now = int(datetime.now(timezone.utc).timestamp())
+    page = flight('6:' + json.dumps({'bulletins': [
+        {'cid': '2653', 'title': '「雪凇幽梦」版本更新说明', 'displayTime': now, 'tab': 'notices'},
+    ]}, ensure_ascii=False, separators=(',', ':')))
+    notice = flight('6:{"bulletin":{"cid":"2653"}}') + flight(
+        '<p>「雪凇幽梦」版本更新说明</p><p>■ 更新维护时间</p><p>2026/09/02 06:00 - 2026/09/02 12:00</p>'
+        '<p>1.「冬猎」特许寻访</p><p>· 开放时间：2026/09/02 12:00 - 2026/09/30 24:00</p>'
+        '<p>2.「雪降深林」引入活动</p><p>· 活动时间：2026/09/09 12:00 - 2026/09/30 12:00（服务器时间）</p>')
+
+    async def request(url, params=None):
+        return SimpleNamespace(text=notice if url.endswith('/2653') else page)
+    service._request = request
+    result = await service.public(force=True)
+    assert result['news']['error'] is None and result['calendar']['error'] is None
+    assert [e['name'] for e in result['calendar']['events']] == ['雪降深林']
+    assert service._get('news_status')[0] == {'error': None, 'calendar_error': None}
+    service.close()
+
+
+async def test_unexpected_refresh_failure_is_recorded_as_a_failed_attempt(tmp_path):
+    service = EndfieldPublicService(str(tmp_path / 'db.sqlite3'))
+    service._put('news', [{'id': '1', 'title': '旧公告'}])
+    service._put('calendar', {'version': '旧版本', 'events': [{'name': '旧活动'}]})
+    attempts = []
+
+    async def broken():
+        attempts.append(1)
+        raise RuntimeError('DO_NOT_EXPOSE')
+
+    service._refresh_news = broken
+    result = await service.public(force=True)
+    assert result['news']['stale'] and result['calendar']['stale']
+    assert result['news']['error'] and result['calendar']['error']
+    assert result['news']['items'][0]['title'] == '旧公告' and result['calendar']['events'][0]['name'] == '旧活动'
+    assert 'DO_NOT_EXPOSE' not in str(result)
+    assert service._get('news_status')[0]['error']
+    await service.public()  # 刚失败过：一分钟内的普通读取不再重复请求官网
+    assert attempts == [1]
+    with pytest.raises(PublicSourceError):
+        await service.news()
+    service.close()
+
+
 @pytest.mark.asyncio
 async def test_map_catalog_filter_pagination_and_stale(tmp_path):
     service = EndfieldPublicService(str(tmp_path / 'db.sqlite3'))
