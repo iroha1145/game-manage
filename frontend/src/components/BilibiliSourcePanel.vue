@@ -15,7 +15,9 @@ const STATUS_ERROR = '无法读取B站来源状态'
 const SOURCE_NAMES = { wuthering_waves: '鸣潮', nte: '异环', endfield: '终末地' }
 let timer, stopped = false, wasRunning = false, latestLoad = 0
 async function request(path, options = {}) {
-  const r = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'X-Game-Assistant': '1' } })
+  let r
+  try { r = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'X-Game-Assistant': '1' } }) }
+  catch { throw new Error('本地服务暂时不可用，请稍后重试') }
   let data = null
   try { data = await r.json() } catch { /* Never show a non-JSON error page, such as a proxy's. */ }
   if (!r.ok) throw new Error(typeof data?.detail === 'string' && data.detail ? data.detail : '操作失败，请稍后重试')

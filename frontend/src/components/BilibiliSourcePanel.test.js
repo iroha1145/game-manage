@@ -92,6 +92,30 @@ test('a non-JSON error page is replaced by the fixed failure text', async (t) =>
   assert.doesNotMatch(content(root), /Unexpected token/)
 })
 
+test('a stopped local service shows Chinese text instead of the raw fetch error', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  serve(t, async (path, options) => {
+    if (options?.method === 'POST') throw new TypeError('Failed to fetch')
+    return { ok: true, json: async () => status() }
+  })
+  const root = mount(t, Panel, {})
+  await flush()
+  await collect(root); await flush()
+  assert.match(content(root), /本地服务暂时不可用，请稍后重试/)
+  assert.doesNotMatch(content(root), /Failed to fetch/)
+})
+
+test('an HTTP error keeps the detail the server sent', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  serve(t, async (path, options) => options?.method === 'POST'
+    ? { ok: false, status: 409, json: async () => ({ detail: '正在同步中，请稍候' }) }
+    : { ok: true, json: async () => status() })
+  const root = mount(t, Panel, {})
+  await flush()
+  await collect(root); await flush()
+  assert.match(content(root), /正在同步中，请稍候/)
+})
+
 test('a collection that finishes while two reads overlap emits collected once', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   let reads = 0, audits = 0, collected = 0, releaseRead, releaseAudit
