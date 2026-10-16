@@ -2,7 +2,6 @@ import importlib
 import importlib.util
 from urllib.parse import quote
 
-import httpx
 import pytest
 import respx
 import base64

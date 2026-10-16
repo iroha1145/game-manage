@@ -128,7 +128,7 @@ async def test_unconfigured_reports_error():
 
 @respx.mock
 async def test_fetch_account_ok():
-    route = respx.post(ROLE_LIST_URL).mock(
+    respx.post(ROLE_LIST_URL).mock(
         return_value=httpx.Response(200, json=ROLE_LIST_RAW))
     a = WutheringWavesAdapter(Settings(wuwa_token="tok", wuwa_user_id="123"))
     r = await a.fetch(Capability.ACCOUNT)

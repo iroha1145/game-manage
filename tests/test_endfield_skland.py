@@ -10,11 +10,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from game_assistant.api import create_app
-from game_assistant.auth.service import LoginService
 from game_assistant.auth.store import CredentialStore, CredentialStoreError
 from game_assistant.adapters.endfield.hypergryph import EXPIRED_MESSAGE, EndfieldError
 from game_assistant.adapters.endfield.skland_client import PASSPORT_REJECTED, SklandClient, SklandError, sign_request
-from game_assistant.adapters.endfield.skland_parse import parse_card, parse_challenge
+from game_assistant.adapters.endfield.skland_parse import parse_card
 from game_assistant.config import Settings
 from game_assistant.endfield_skland import (
     PASSPORT_CHANGED, PASSPORT_EXPIRED, EndfieldSklandService, credential_path,
