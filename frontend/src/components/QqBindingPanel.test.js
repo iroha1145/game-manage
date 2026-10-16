@@ -34,3 +34,17 @@ test('QQ code clears on website session invalidation',async t=>{
   invalidateSession();await tick()
   assert.doesNotMatch(content(root),/single-use-fixture/)
 })
+test('QQ copy failure is Chinese text whether the page has no clipboard or the browser refuses it',async t=>{
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  t.mock.method(globalThis,'fetch',async path=>new Response(JSON.stringify(path.endsWith('/csrf')?{csrf_token:'csrf'}:path.endsWith('/link-codes')?{code:'single-use-fixture',expires_at:'soon'}:{attempts:[],links:[]})))
+  const prior=globalThis.navigator
+  t.after(()=>Object.defineProperty(globalThis,'navigator',{configurable:true,value:prior}))
+  const root=mount(t,Panel);await tick();await tick()
+  await nodes(root,'button').find(n=>content(n)==='生成或更换绑定码').props.onClick();await tick()
+  for(const clipboard of [undefined,{writeText:async()=>{throw new DOMException('Document is not focused.','NotAllowedError')}}]){
+    Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard}})
+    await nodes(root,'button').find(n=>content(n)==='复制绑定指令').props.onClick();await tick()
+    assert.match(content(nodes(root,'p').find(n=>n.props.role==='alert')),/无法自动复制，请手动复制绑定指令/)
+    assert.doesNotMatch(content(root),/已复制/)
+  }
+})

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { requestJson, requestResponse, configureHttpClient, invalidateSession, subscribeSessionInvalidation, setAccountScope } from './http-client.js'
+import { requestJson, requestResponse, configureHttpClient, invalidateSession, subscribeSessionInvalidation, setAccountScope, safeDetail } from './http-client.js'
 import { loadFavorites, saveFavorites } from './nte-roles.js'
 import { readdirSync, readFileSync } from 'node:fs'
 import { logoutSite } from './identity-api.js'
@@ -91,6 +91,11 @@ test('an expired game authorization answers 401 without ending the website sessi
     assert.equal(failure.status, 401); assert.equal(failure.message, '网站会话已失效，请重新登录')
     assert.equal(cleared, before + 1, `a website-session or unrecognised 401 (${reply || 'empty body'}) must end the session`)
   }
+})
+test('server text is shown only when it is Chinese, capped, and everything else gets the fixed text', () => {
+  assert.equal(safeDetail('短信发送过于频繁', '请稍后重试'), '短信发送过于频繁')
+  assert.equal(safeDetail('x'.repeat(10) + '错'.repeat(300), '请稍后重试').length, 256)
+  for (const detail of ['csrf_required', 'Not Found', '', '  ', undefined, null, 404, ['短信'], { detail: '短信' }]) assert.equal(safeDetail(detail, '请稍后重试'), '请稍后重试')
 })
 test('canonical community auth and role detail use owned cloud routes with CSRF', async t => {
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))

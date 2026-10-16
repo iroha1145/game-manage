@@ -1,9 +1,9 @@
-import { requestResponse } from './http-client.js'
+import { requestResponse, safeDetail } from './http-client.js'
 async function request(path) {
   const response = await requestResponse(`/api/endfield/gacha/${path}`)
   let result
   try { result = await response.json() } catch { throw new Error('寻访账本服务返回异常，请稍后重试') }
-  if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : '寻访账本请求失败，请稍后重试')
+  if (!response.ok) throw new Error(safeDetail(result.detail, '寻访账本请求失败，请稍后重试'))
   return result
 }
 export const getRecords = (poolKey = '', offset = 0, limit = 50) => request(`records?${new URLSearchParams({ pool_key: poolKey, offset, limit })}`)

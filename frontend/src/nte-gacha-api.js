@@ -1,11 +1,11 @@
-import { requestResponse } from './http-client.js'
+import { requestResponse, safeDetail } from './http-client.js'
 async function request(path, body) {
   const response = await requestResponse(`/api/nte/gacha/${path}`, body === undefined ? {} : {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Game-Assistant': '1' }, body: JSON.stringify(body),
   })
   let result
   try { result = await response.json() } catch { throw new Error('抽卡账本服务返回异常，请稍后重试') }
-  if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : '账本请求失败，请检查导入文件或当前账号')
+  if (!response.ok) throw new Error(safeDetail(result.detail, '账本请求失败，请检查导入文件或当前账号'))
   return result
 }
 export const getLedgerSummary = () => request('summary')

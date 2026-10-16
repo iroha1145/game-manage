@@ -9,7 +9,7 @@ const unsubscribe=subscribeSessionInvalidation(clear)
 async function run(action){if(busy.value)return;busy.value=true;error.value='';const current=generation;try{await action()}catch(e){if(!disposed&&current===generation&&e.name!=='AbortError')error.value=e.message}finally{if(!disposed)busy.value=false}}
 async function load(){const current=generation;const data=await listQqLinks();if(!disposed&&current===generation)links.value=data.links||[]}
 async function generate(){await run(async()=>{const current=generation;const data=await generateQqLinkCode();if(disposed||current!==generation)return;code.value=data.code;expires.value=data.expires_at;copied.value=false;await load()})}
-async function copy(){await run(async()=>{const current=generation;await navigator.clipboard.writeText(`绑定 ${code.value}`);if(!disposed&&current===generation)copied.value=true})}
+async function copy(){await run(async()=>{const current=generation;try{await navigator.clipboard.writeText(`绑定 ${code.value}`)}catch{throw new Error('无法自动复制，请手动复制绑定指令')}if(!disposed&&current===generation)copied.value=true})}
 async function unlink(link){await run(async()=>{const current=generation;await unlinkQqLink(link.link_id);if(!disposed&&current===generation)await load()})}
 onMounted(()=>run(load))
 onBeforeUnmount(()=>{disposed=true;clear();unsubscribe()})

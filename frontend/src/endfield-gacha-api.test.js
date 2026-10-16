@@ -20,3 +20,7 @@ test('server errors keep their own message and a non-JSON page is replaced by fi
   globalThis.fetch = async () => new Response('<html>Bad Gateway</html>', { status: 502 })
   await assert.rejects(getRecords(), error => error.message === '寻访账本服务返回异常，请稍后重试')
 })
+test('a machine code answered by the cloud service is replaced by fixed Chinese text', async t => {
+  serve(t, async () => new Response(JSON.stringify({ detail: 'authorization_changed' }), { status: 409 }))
+  await assert.rejects(getRecords(), error => error.message === '寻访账本请求失败，请稍后重试')
+})

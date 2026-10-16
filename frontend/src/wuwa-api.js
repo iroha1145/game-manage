@@ -28,7 +28,10 @@ export async function wuwaRequest(path, { signal, body } = {}) {
         502: '来源暂时不可用，请稍后重试',
       }[response.status] || '请求失败，请稍后重试',
     )
-  return response.json()
+  return response.json().catch((error) => {
+    // A cancelled body read stays an abort; a page that is not JSON must not reach the screen as a parse error.
+    throw error?.name === 'AbortError' ? error : new Error('服务响应异常，请稍后重试')
+  })
 }
 
 // Abort saves work; generation and payload identity checks also protect against

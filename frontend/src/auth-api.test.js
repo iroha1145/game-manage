@@ -55,6 +55,11 @@ test('non-string errors never expose validation objects or HTML responses', asyn
   }
 })
 
+test('a machine code from the cloud middleware never becomes the displayed message', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ detail: 'csrf_required' }), { status: 403 }))
+  await assert.rejects(createAuthSession('nte'), (error) => error.status === 403 && error.message === '登录服务暂时不可用，请稍后重试')
+})
+
 test('network errors use a safe recoverable message', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => { throw new Error('private network details') })
   await assert.rejects(getAuthStatus(), (error) => error.status === 0 && error.message === '无法连接登录服务，请检查网络后重试')

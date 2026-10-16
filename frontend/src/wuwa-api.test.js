@@ -105,3 +105,10 @@ test('an abort reaches the caller unchanged so a cancelled run stays silent', as
   const api = requestHarness(t, ref('account:server'))
   assert.equal(await api.run('roles/1501'), null)
 })
+test('a successful response that is not JSON gets fixed text, while a cancelled body read stays an abort', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('<!doctype html><title>维护中</title>', { status: 200 }))
+  await assert.rejects(wuwaRequest('history?kind=tower'), (error) => error.message === '服务响应异常，请稍后重试')
+  const aborted = Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' })
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: true, json: async () => { throw aborted } }))
+  await assert.rejects(wuwaRequest('history?kind=tower'), (error) => error === aborted)
+})

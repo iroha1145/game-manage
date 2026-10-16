@@ -45,7 +45,7 @@ async function refresh(s,backfill){
     await refreshCloudBilibiliSource(s.game_id,backfill,controller.signal)
     if(stopped||invalidated||run!==generation)return
     observed.set(s.game_id,{lastSuccess:s.last_success});await load()
-  }catch(e){if(!stopped&&!invalidated&&run===generation&&e.name!=='AbortError')error.value=({source_busy:'该游戏公共采集已排队或进行中，请等待结束。',source_backoff:'来源仍在退避，请到下次可请求时间后重试。'})[e.message]||'无法提交采集，请检查状态后重试'}
+  }catch(e){if(!stopped&&!invalidated&&run===generation&&e.name!=='AbortError')error.value=({source_busy:'该游戏公共采集已排队或进行中，请等待结束。',source_backoff:'来源仍在退避，请到下次可请求时间后重试。'})[e.detail]||'无法提交采集，请检查状态后重试'}
   finally{if(run===generation)busy.value=false}
 }
 function check(){resetBudget();void load()}

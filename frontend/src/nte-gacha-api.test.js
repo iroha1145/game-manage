@@ -18,6 +18,11 @@ test('import preview writes only to local ledger with required header and report
   }
   await assert.rejects(previewLedger({ document: {}, latest_confirmed: false }), /角色身份/)
 })
+test('a machine code answered by the cloud service is replaced by fixed Chinese text', async t => {
+  const old = globalThis.fetch; t.after(() => { globalThis.fetch = old })
+  globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'authorization_changed' }), { status: 409 })
+  await assert.rejects(previewLedger({ document: {} }), error => error.message === '账本请求失败，请检查导入文件或当前账号')
+})
 test('an unreachable local service gives a Chinese message instead of the raw fetch error', async t => {
   const old = globalThis.fetch; t.after(() => { globalThis.fetch = old })
   globalThis.fetch = async () => { throw new TypeError('Failed to fetch') }

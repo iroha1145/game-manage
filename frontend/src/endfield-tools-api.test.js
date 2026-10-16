@@ -37,3 +37,12 @@ test('a 422 with a list of details gets a fixed message and other failures keep 
   assert.equal(await messageFor(422, { detail: '这条蓝图收藏不存在' }), '这条蓝图收藏不存在')
   assert.equal(await messageFor(500, { detail: listed }), '请求未完成，请稍后重试。')
 })
+
+test('a machine code answered by the cloud service is replaced by fixed Chinese text', async t => {
+  let reply
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: false, status: reply[0], json: async () => reply[1] }))
+  const messageFor = async (...next) => { reply = next; try { await saveBlueprint({ name: '工厂', code: 'SECRET', notes: '' }) } catch (error) { return error.message } }
+  assert.equal(await messageFor(422, { detail: 'invalid_input' }), '输入内容格式不正确，请检查名称、分享码和备注。')
+  assert.equal(await messageFor(404, { detail: 'private_item_not_found' }), '请求未完成，请稍后重试。')
+  assert.equal(await messageFor(502, { error: 'skland_query_failed' }), '请求未完成，请稍后重试。')
+})
