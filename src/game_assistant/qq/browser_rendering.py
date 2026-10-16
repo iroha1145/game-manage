@@ -286,8 +286,9 @@ class BrowserRenderer(SummaryRenderer):
                 if len(png)>self.max_bytes:raise RenderingUnavailable('qq_image_size_limit')
                 png=RenderedImage(png,page=snapshot['page'],total_pages=len(pages))
                 with self.lock:
-                    if self.generation!=generation:raise RenderingUnavailable('qq_browser_invalidated')
-                    if self.cache_entries:
+                    # Any account change bumps the shared generation. The caller re-checks this
+                    # user's binding and grants after rendering, so the image is returned, not cached.
+                    if self.generation==generation and self.cache_entries:
                         owner=(scope.user_id,frozenset([scope.account_id]+[s['account_id'] for s in result.payload.get('scopes',[])]))
                         self.cache[key]=(owner,time.monotonic()+self.cache_ttl,png)
                         while len(self.cache)>self.cache_entries:self.cache.popitem(last=False)
