@@ -6,7 +6,7 @@ import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 
-from game_assistant.event_calendar import BEIJING_TZ as BJ
+from game_assistant.event_calendar import BEIJING_TZ as BJ, nearest_year
 
 MOBILE_GAMES = {'nte', 'wuthering_waves', 'endfield'}
 VERSION = re.compile(r'(\d+\.\d+)\s*版本')
@@ -55,17 +55,7 @@ def _dt(match, year, near=None):
     parts = int(m), int(d), int(h or 0), int(minute or 0), int(second or 0)
     if y or near is None:
         return datetime(int(y or year), *parts, tzinfo=BJ)
-    # Notices omit the year: take the adjacent year nearest the post, so dates
-    # around New Year do not land a year early or late.
-    candidates = []
-    for guess in (year - 1, year, year + 1):
-        try:
-            candidates.append(datetime(guess, *parts, tzinfo=BJ))
-        except ValueError:
-            pass
-    if not candidates:
-        raise ValueError('no such date')
-    return min(candidates, key=lambda value: abs(value - near))
+    return nearest_year(*parts, near=near)
 
 
 def _times(text, year, published=None):

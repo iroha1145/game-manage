@@ -38,6 +38,24 @@ def parse_ms_or_iso(*vals) -> datetime | None:
     return None
 
 
+def nearest_year(month, day, hour=0, minute=0, second=0, *, near):
+    """A date written without a year, placed in the year nearest `near` (the notice's publish time).
+
+    A December notice about "1月7日" means next January; a January notice about
+    "12月28日" means last December.
+    """
+    year = near.astimezone(BEIJING_TZ).year
+    candidates = []
+    for guess in (year - 1, year, year + 1):
+        try:
+            candidates.append(datetime(guess, month, day, hour, minute, second, tzinfo=BEIJING_TZ))
+        except ValueError:
+            pass
+    if not candidates:
+        raise ValueError('no such date')
+    return min(candidates, key=lambda value: abs(value - near))
+
+
 # 手填条目（config [[nte_events]]）的时间写法："YYYY-MM-DD HH:MM"
 MANUAL_DT_FMT = "%Y-%m-%d %H:%M"
 

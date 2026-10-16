@@ -85,3 +85,13 @@ def test_no_version_anchor_returns_source_backed_available_summary():
     result = calendar_from_posts([post], 'wuthering_waves', NOW)
     assert result['version'] is None and [e['name'] for e in result['events']] == ['独立活动']
     assert result['version_metadata']['status'] == 'unknown'
+
+
+def test_year_less_maintenance_date_takes_the_year_nearest_the_notice():
+    from game_assistant.event_calendar import BEIJING_TZ
+    from game_assistant.version_calendar import maintenance
+    # Announced in late December for January: the version opens next year, not last January.
+    december = {'body': '更新维护时间：1月7日06:00-11:00', 'published_at': '2026-12-28T04:00:00+00:00'}
+    assert maintenance(december) == (datetime(2027, 1, 7, 6, tzinfo=BEIJING_TZ), 'minute')
+    january = {'body': '更新维护时间：12月30日', 'published_at': '2027-01-02T04:00:00+00:00'}
+    assert maintenance(january) == (datetime(2026, 12, 30, tzinfo=BEIJING_TZ), 'day')

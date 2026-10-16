@@ -2,7 +2,7 @@
 import re
 from datetime import datetime, timezone
 
-from game_assistant.event_calendar import BEIJING_TZ, parse_ms_or_iso
+from game_assistant.event_calendar import BEIJING_TZ, nearest_year, parse_ms_or_iso
 
 VERSION = re.compile(r'(\d+\.\d+)\s*版本')
 MAINTENANCE = re.compile(r'(?:更新)?维护时间')
@@ -50,9 +50,10 @@ def maintenance(post):
         if not match or not (match[1] or published):
             return None, 'unknown'
         try:
-            year = int(match[1]) if match[1] else published.astimezone(BEIJING_TZ).year
-            return datetime(year, int(match[2]), int(match[3]), int(match[4] or 0),
-                            int(match[5] or 0), tzinfo=BEIJING_TZ), 'minute' if match[4] else 'day'
+            parts = int(match[2]), int(match[3]), int(match[4] or 0), int(match[5] or 0)
+            stamp = (datetime(int(match[1]), *parts, tzinfo=BEIJING_TZ) if match[1]
+                     else nearest_year(*parts, near=published))
+            return stamp, 'minute' if match[4] else 'day'
         except ValueError:
             return None, 'unknown'
     return None, 'unknown'
