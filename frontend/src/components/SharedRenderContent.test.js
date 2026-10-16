@@ -19,6 +19,20 @@ test('shared render source and output target both inherit the existing game acce
  }
 })
 
+test('image pages for events and the calendar request no game icon file, which the QQ renderer would abort',t=>{
+ const events=[{name:'跨月活动',category:'限时活动',start_at:'2026-10-01T10:00:00+08:00',end_at:'2026-11-20T10:00:00+08:00',source_title:'版本公告'}]
+ const events_snapshot={payload:events,fetched_at:'2026-10-14T11:00:00+08:00',state:'ok',complete:true,stale:false}
+ const base={schema_version:1,game:'nte',as_of:'2026-10-14T12:00:00+08:00',page:1,theme:'light'}
+ const pages={
+  game_snapshot:{...base,kind:'game_snapshot',title:'近期活动',next_command:'近期活动',display_data:{notices:[],panels:[{game:'nte',provider:'public',capability:'events',snapshot:events_snapshot}]}},
+  calendar:{...base,kind:'calendar',title:'活动日历',next_command:'活动日历',display_data:{games:[{game_id:'nte',display_name:'异环'}],snapshots:{nte:{events:events_snapshot}}}},
+ }
+ for(const [kind,snapshot] of Object.entries(pages)){
+  const root=mount(t,RenderRoot,{snapshot})
+  assert.match(content(root),/跨月活动/,kind)
+  assert.deepEqual(nodes(root,'img').map(n=>n.props.src),[],kind)
+ }
+})
 test('screen and image calendar share all dated and unknown content without clipping or fake version end',t=>{
  const now=Date.parse('2026-10-14T12:00:00+08:00')
  const calendars=collectVersionCalendars([{game_id:'nte',display_name:'异环'}],{nte:{events:{payload:[

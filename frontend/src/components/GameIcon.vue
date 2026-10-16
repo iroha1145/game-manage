@@ -1,10 +1,12 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, inject, ref, unref, watch } from 'vue'
 import { gameStyle } from '../dashboard.js'
 import { theme } from '../theme.js'
 
 const props = defineProps({ gameId: { type: String, required: true }, name: { type: String, default: '' } })
 const failed = ref(0)
+// The QQ renderer serves no /game-icons/* file and aborts the request, which would leave the alt text; its pages show the mark.
+const imageMode = inject('wuwaImageMode', false)
 const style = computed(() => gameStyle(props.gameId))
 const icons = computed(() => [...new Set([
   typeof __LOCAL_GAME_ICONS__ !== 'undefined' ? __LOCAL_GAME_ICONS__[props.gameId] : null,
@@ -15,7 +17,7 @@ watch([() => props.gameId, theme], () => { failed.value = 0 })
 
 <template>
   <span class="game-icon" :style="{ color: style.color }">
-    <img v-if="icons[failed]" :src="icons[failed]" :alt="`${name || gameId}图标`" decoding="async" @error="failed++" />
+    <img v-if="icons[failed] && !unref(imageMode)" :src="icons[failed]" :alt="`${name || gameId}图标`" decoding="async" @error="failed++" />
     <span v-else aria-hidden="true">{{ style.mark }}</span>
   </span>
 </template>

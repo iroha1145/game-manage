@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
-import { nextTick, reactive } from 'vue'
+import { computed, h, nextTick, provide, reactive } from 'vue'
 import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
 import { gameStyle } from '../dashboard.js'
 import { theme } from '../theme.js'
@@ -61,4 +61,12 @@ test('icon failure falls back to game mark and a changed game retries its own ic
   props.gameId = 'wuthering_waves'
   await nextTick()
   assert.equal(nodes(root, 'img')[0].props.src, gameStyle('wuthering_waves').icon)
+})
+test('in image mode the icon is the game mark, never an image request the QQ renderer would abort', async t => {
+  for (const mode of [true, computed(() => true)]) {
+    const root = mount(t, { setup() { provide('wuwaImageMode', mode); return () => h(GameIcon, { gameId: 'nte', name: '异环' }) } })
+    assert.equal(nodes(root, 'img').length, 0)
+    assert.match(content(root), new RegExp(gameStyle('nte').mark))
+  }
+  assert.equal(nodes(mount(t, GameIcon, { gameId: 'nte' }), 'img').length, 1, 'the website still loads the bundled icon')
 })
