@@ -42,6 +42,11 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
 </template>
 
 <style scoped>
+.cap-title {
+  font-size: 16px;
+  line-height: 24px;
+}
+
 .sep {
   margin: 0 4px;
   color: var(--text-muted);
@@ -50,6 +55,12 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
 .stamina-eta {
   margin-top: 4px;
   font-size: 13px;
+  color: var(--text-muted);
+}
+
+.fetched-at {
+  margin-top: 12px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 </style>

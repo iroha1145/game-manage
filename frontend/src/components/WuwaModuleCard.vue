@@ -22,7 +22,8 @@ const imageMode = inject('wuwaImageMode', false)
 .wuwa-module-card { min-width: 0; }
 .wuwa-module-card > .wuwa-muted { margin-top: 12px; }
 .wuwa-module-card .cap-title { margin-bottom: 0; }
-.wuwa-module-card > .wuwa-status { margin-top: 12px; }
-.inline-content :deep(.cap-card){padding:0;border:0;background:none;box-shadow:none;margin-top:16px}
+.wuwa-module-card > .wuwa-status { display: flex; justify-content: flex-start; margin-top: 12px; }
+.wuwa-module-card > .wuwa-status + .wuwa-status { margin-top: 0; }
+.inline-content :deep(.cap-card){padding:0;border:0;background:none;margin-top:16px}
 .inline-content :deep(.cap-title),.inline-content :deep(.fetched-at){display:none}
 </style>

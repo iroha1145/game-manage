@@ -38,14 +38,14 @@ const guides = computed(() => selectChallengeGuides(props.mode, selectedBoss.val
 </template>
 <style scoped>
 .challenge-guides > p { margin: 12px 0; line-height: 1.8; }
-.boss-filter { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--text-muted); white-space: nowrap; }
-.boss-filter select { background: var(--bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px; max-width: 100%; min-width: 0; }
-.challenge-guide-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.boss-filter { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text-muted); font-size: 13px; white-space: nowrap; }
+.boss-filter select { min-height: 32px; background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-control); padding: 4px 10px; font-size: 13px; max-width: 100%; min-width: 0; }
+.challenge-guide-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .challenge-guide-card.has-lineups { grid-column: 1 / -1; }
 .challenge-guide-title { display: flex; gap: 12px; align-items: center; }
-.challenge-guide-title h4 { margin: 8px 0; line-height: 1.6; }
+.challenge-guide-title h4 { margin: 8px 0; font-size: 14px; font-weight: 500; line-height: 1.6; }
 .challenge-guide-card > p { line-height: 1.8; font-size: 13px; color: var(--text-muted); margin: 12px 0; }
-.challenge-guide-card details { font-size: 12px; color: var(--text-muted); }
+.challenge-guide-card details { font-size: 13px; color: var(--text-muted); }
 .challenge-guide-card summary { cursor: pointer; }
 .challenge-guide-card footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 16px; }
 .challenge-guide-card a { color: var(--accent); text-decoration: none; font-size: 13px; }

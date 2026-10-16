@@ -25,8 +25,9 @@ watch(current, () => { failed.value = false })
 <style scoped>
 .guide-lineups { margin: 16px 0; }
 .guide-lineups .wuwa-tabs { flex-wrap: wrap; margin-bottom: 14px; }
+.guide-lineups .wuwa-tabs .ui-button[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); }
 figure { margin: 0; }
 figure a { display: block; max-width: 680px; margin: 0 auto; }
-figure img { display: block; width: 100%; height: auto; border-radius: 8px; }
+figure img { display: block; width: 100%; height: auto; border-radius: var(--radius-control); }
 figcaption { text-align: center; margin-top: 10px; }
 </style>

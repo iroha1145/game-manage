@@ -13,9 +13,9 @@ watch(url, () => { failed.value = false }, { flush: 'sync' })
   </span>
 </template>
 <style scoped>
-.wuwa-item-icon { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; border: 1px solid var(--border-strong); border-radius: 10px; background: linear-gradient(150deg, var(--surface-soft), var(--bg)); overflow: hidden; vertical-align: middle; }
+.wuwa-item-icon { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; border-radius: var(--radius-control); background: var(--overlay-3); overflow: hidden; vertical-align: middle; }
 .wuwa-item-icon img { width: 100%; height: 100%; object-fit: contain; }
 .icon-fallback { color: var(--text-muted); font-size: 16px; }
-.icon-small { width: 28px; height: 28px; border-radius: 6px; }
-.icon-large { width: 76px; height: 76px; border-radius: 14px; }
+.icon-small { width: 24px; height: 24px; border-radius: var(--radius-chip); }
+.icon-large { width: 76px; height: 76px; border-radius: var(--radius-well); }
 </style>

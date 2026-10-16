@@ -91,6 +91,11 @@ const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 </template>
 
 <style scoped>
+.cap-title {
+  font-size: 16px;
+  line-height: 24px;
+}
+
 .region-list {
   --bar-label: 20%;
   row-gap: 6px;
@@ -113,9 +118,7 @@ const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 }
 
 .detection {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  margin-top: 20px;
 }
 
 .detection-head {
@@ -128,7 +131,8 @@ const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 }
 
 .detection-head b {
-  font-size: 16px;
+  font-size: 20px;
+  line-height: 28px;
   font-weight: 600;
   color: var(--text);
   font-variant-numeric: tabular-nums;

@@ -22,5 +22,14 @@ watch(search,()=>{selected.value=''}, {flush:'sync'})
   </section>
 </template>
 <style scoped>
-.wuwa-guide-browser{margin:16px 0}.guide-candidates{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;max-height:220px;overflow:auto}.guide-candidates button{border:1px solid var(--border);background:var(--card-bg);color:var(--text);border-radius:6px;padding:8px;cursor:pointer}.guide-candidates button[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
+.wuwa-guide-browser{margin:16px 0}
+.wuwa-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:12px;font-size:13px;color:var(--text-body)}
+.wuwa-filters input[type=search]{flex:1 1 220px;min-width:0;min-height:32px;padding:4px 10px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);color:var(--text);font-size:13px}
+.wuwa-filters label{display:inline-flex;align-items:center;gap:6px}
+.wuwa-filters>span{margin-left:auto;color:var(--text-muted);font-size:12px}
+.guide-candidates{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;max-height:220px;overflow:auto}
+.guide-candidates button{min-height:28px;padding:3px 10px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-body);border-radius:var(--radius-control);font-size:13px;line-height:20px;cursor:pointer}
+.guide-candidates button[aria-pressed=true]{color:var(--accent-strong);background:var(--accent-soft);border-color:transparent;font-weight:500}
+@media(hover:hover) and (pointer:fine){.guide-candidates button:not([aria-pressed=true]):hover{border-color:var(--border-strong);color:var(--text)}}
+.wuwa-guide-browser>button{min-height:28px;padding:3px 10px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-body);border-radius:var(--radius-control);font-size:13px;font-weight:500;line-height:20px;cursor:pointer}
 </style>

@@ -96,5 +96,23 @@ function load(row){name.value=row.data.name;itemsJson.value=json(row.data.items)
  </section>
 </template>
 <style scoped>
-.personal-assessment{font-size:12px;line-height:1.6;overflow-wrap:anywhere;border-block-start:1px solid var(--border);padding-block:10px}.personal-assessment h4{margin:0}.personal-assessment p{margin:6px 0}.assessment-editor label{display:block;margin:8px 0}.assessment-editor textarea{display:block;width:100%;min-width:0;box-sizing:border-box;font:12px monospace;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px}.personal-assessment button,.personal-assessment select,.personal-assessment input{margin:3px;padding:5px 8px;color:var(--text);background:var(--card-bg);border:1px solid var(--border);border-radius:5px}.personal-assessment table{font-size:11px;width:100%;text-align:left}.personal-assessment pre{white-space:pre-wrap}.field-row,.stat-row{display:flex;flex-wrap:wrap;align-items:center;gap:5px}.equipment-input{border:1px solid var(--border);border-radius:6px;padding:8px;margin:8px 0}.stat-row input{width:100px}.assessment-result td,.assessment-result th{padding:3px}
+.personal-assessment{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.personal-assessment h4{margin:0;color:var(--text);font-size:14px;font-weight:500}
+.personal-assessment h5{margin:12px 0 4px;color:var(--text);font-size:13px;font-weight:500}
+.personal-assessment strong{font-weight:500}
+.personal-assessment p{margin:6px 0}
+.assessment-editor label{display:block;margin:8px 0}
+.assessment-editor textarea{display:block;width:100%;min-width:0;box-sizing:border-box;font:12px/1.6 var(--font-mono);background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control);padding:8px 10px}
+.personal-assessment button,.personal-assessment select,.personal-assessment input:not([type=checkbox]){margin:3px;padding:4px 10px;min-height:32px;color:var(--text);background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-control);font-size:13px}
+.personal-assessment button{color:var(--text-body);font-weight:500;line-height:20px}
+.personal-assessment input[type=checkbox]{margin:3px 6px 3px 3px}
+@media(hover:hover) and (pointer:fine){.personal-assessment button:not(:disabled):hover{background:var(--button-hover-bg);color:var(--text)}}
+@media(pointer:coarse){.personal-assessment button,.personal-assessment select,.personal-assessment input:not([type=checkbox]){min-height:44px}}
+.personal-assessment table{border-collapse:collapse;font-size:13px;width:100%;text-align:left}
+.personal-assessment th{color:var(--text-muted);font-size:12px;font-weight:500}
+.personal-assessment pre{margin:6px 0;padding:8px 10px;border-radius:var(--radius-control);background:var(--surface-soft);font:12px/1.6 var(--font-mono);white-space:pre-wrap}
+.field-row,.stat-row{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.equipment-input{border-radius:var(--radius-well);background:var(--surface-soft);padding:12px;margin:8px 0}
+.stat-row input{width:100px}
+.assessment-result td,.assessment-result th{padding:4px 8px 4px 0;border-bottom:1px solid var(--border)}
 </style>

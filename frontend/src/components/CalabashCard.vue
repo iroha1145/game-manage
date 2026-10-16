@@ -45,3 +45,16 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
     <p v-if="fetchedAt" class="fetched-at">更新于 {{ fetchedAt }}</p>
   </div>
 </template>
+
+<style scoped>
+.cap-title {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.fetched-at {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+</style>
