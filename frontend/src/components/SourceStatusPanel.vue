@@ -32,7 +32,8 @@ function dismiss(event) {
 }
 function closeOnMove(event) {
   const el = panel.value
-  if (el?.open && !el.querySelector('.source-body')?.contains(event.target)) el.open = false
+  // A resize targets the window, which is not a Node and would make contains() throw.
+  if (el?.open && (event.type === 'resize' || !el.querySelector('.source-body')?.contains(event.target))) el.open = false
 }
 function listen(on) {
   if (typeof window === 'undefined') return
