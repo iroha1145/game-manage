@@ -48,3 +48,10 @@ test('QQ copy failure is Chinese text whether the page has no clipboard or the b
     assert.doesNotMatch(content(root),/已复制/)
   }
 })
+test('QQ binding code shows its expiry in Beijing time',async t=>{
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  t.mock.method(globalThis,'fetch',async path=>new Response(JSON.stringify(path.endsWith('/csrf')?{csrf_token:'csrf'}:path.endsWith('/link-codes')?{code:'single-use-fixture',expires_at:'2026-10-16T14:02:00.123456Z'}:{attempts:[],links:[]})))
+  const root=mount(t,Panel);await tick();await tick()
+  await nodes(root,'button').find(n=>content(n)==='生成或更换绑定码').props.onClick();await tick()
+  assert.match(content(root),/到期 2026-10-16 22:02(?!:)/)
+})

@@ -214,6 +214,14 @@ test('logging in while the address names the sessions page lists the sessions to
   assert.equal(calls.filter(path => path === '/api/identity/sessions').length, 1, 'the session list was not asked for after the login')
   assert.match(content(root), /会话 1/)
 })
+test('the sessions page shows when a session was created and expires in Beijing time', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', async path => new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] }
+    : path === '/api/identity/sessions' ? { sessions: [{ session_id: 's1', created_at: '2026-10-16T14:02:00.123456Z', expires_at: '2026-10-23T14:02:00.123456Z' }] } : { state: 'never', payload: null })))
+  const root = mount(t, CloudApp); await tick(); await tick()
+  nodes(root, 'button').find(n => content(n) === '网站会话').props.onClick(); await tick(); await tick()
+  assert.equal(content(nodes(root, 'article')[0]), '会话 1 · 创建 2026-10-16 22:02 · 过期 2026-10-23 22:02 撤销此会话')
+})
 test('cloud public events render the real calendar with unknown dates and source details', async t => {
   configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
   const calls=[]
