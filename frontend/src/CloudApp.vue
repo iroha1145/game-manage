@@ -28,7 +28,7 @@ const initialHash = globalThis.window?.location?.hash || ''
 const initialRoute = /#\/sessions(?:$|\?)/.test(initialHash) ? {page:'sessions',game:''} : readRoute(initialHash)
 const page = ref(initialRoute.page), logoutBusy = ref(false)
 const calendarGame = ref(initialRoute.page === 'calendar' ? initialRoute.game || 'all' : 'all'), now = ref(Date.now())
-const publicGame = ref('wuthering_waves'), publicSnapshots = ref({}), publicError = ref('')
+const publicGame = ref('wuthering_waves'), publicSnapshots = ref({})
 const calendarSnapshots = ref({}), calendarReadErrors = ref({}), calendarLoading = ref(false)
 const publicGames = [{game_id:'wuthering_waves',display_name:'鸣潮',capabilities:['news','events']},{game_id:'nte',display_name:'异环',capabilities:['news','events']},{game_id:'endfield',display_name:'终末地',capabilities:['news','events']}]
 const menuOpen = ref(false), sidebar = ref(null), menuToggle = ref(null), mainContent = ref(null)
@@ -85,11 +85,11 @@ const selectedGame = computed(() => gameFor(state.selected))
 const refreshPending = computed(() => Object.values(state.refreshPending).some(Boolean))
 const refreshMessages = computed(() => Object.entries(state.refreshing).filter(([, value]) => value))
 const caps = computed(() => accountCapabilities(state.selected)), dataKey = computed(() => `${state.user?.user_id}:${state.selected?.account_id}:${state.role}:${state.revision}`)
-const publicReadVersions = new Map(), publicLoadVersions = new Map()
+const publicReadVersions = new Map()
 let timer, stopTheme, publicGeneration = 0, calendarGeneration = 0
 function clearPublicData() {
-  publicGeneration++; calendarGeneration++; publicReadVersions.clear(); publicLoadVersions.clear()
-  publicSnapshots.value = {}; publicError.value = ''
+  publicGeneration++; calendarGeneration++; publicReadVersions.clear()
+  publicSnapshots.value = {}
   calendarSnapshots.value = {}; calendarReadErrors.value = {}; calendarLoading.value = false; calendarGame.value = 'all'
 }
 // A reload or a login on #/sessions leaves the page unchanged, so its watcher stays silent and the list is asked for here.
@@ -126,11 +126,9 @@ async function readPublicSnapshot(game, cap) {
   }
 }
 async function loadPublic(game = publicGame.value) {
-  const version = publicGeneration, owner = state.user?.user_id, request = (publicLoadVersions.get(game) || 0)+1
-  if (!owner) return
-  publicLoadVersions.set(game,request); publicError.value = ''
+  if (!state.user?.user_id) return
   try { await Promise.all([readPublicSnapshot(game,'news'), readPublicSnapshot(game,'events')]) }
-  catch (error) { if (version === publicGeneration && owner === state.user?.user_id && request === publicLoadVersions.get(game) && game === publicGame.value && error.name !== 'AbortError') publicError.value = error.message }
+  catch { /* readPublicSnapshot keeps the failure on its snapshot, where the cards show it */ }
 }
 function openCalendar(game = 'all') { calendarGame.value = game; page.value = 'calendar'; writeRoute('calendar',game); sidebarNavigate() }
 function openAccount(account) { if (!account) return; dashboard.selectAccount(account); publicGame.value = gameFor(account) || 'wuthering_waves'; page.value = 'game'; routeGame=publicGame.value; writeRoute('game',routeGame); sidebarNavigate(); loadPublic(publicGame.value) }
@@ -154,7 +152,6 @@ async function loadCalendar() {
   } finally { if (current()) calendarLoading.value = false }
 }
 watch(()=>state.accounts,()=>{if(routeGame && page.value==='game'){const account=state.accounts.find(a=>a.state!=='revoked' && gameFor(a)===routeGame);if(account && gameFor(state.selected)!==routeGame)openAccount(account)}}, {flush:'post'})
-watch(publicGame,()=>{publicError.value=''})
 watch(dataKey, async () => { const key=dataKey.value; await readSnapshots(); if(key === dataKey.value && page.value === 'overview') { await dashboard.loadOverview(); await Promise.all(ownerGames.value.map(game=>loadPublic(game.game_id))) } })
 watch(() => state.user?.user_id, clearPublicData, { flush: 'sync' })
 watch(page, value => { if (value === 'sessions') dashboard.loadSessions(); if (value === 'calendar') loadCalendar(); if(value === 'overview') readOverview() })
@@ -185,7 +182,7 @@ onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',sync
   </div>
 </template>
 <style scoped>
-.cloud-content{display:grid;align-content:start;gap:20px}.cloud-navigation{overflow:auto}.cloud-navigation nav{display:grid;gap:4px}.cloud-navigation nav button{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 14px;border:0;border-radius:9px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:13px}.cloud-navigation nav button[aria-current],.cloud-navigation nav button[aria-pressed=true]{background:var(--button-hover-bg);color:var(--text);font-weight:600}.cloud-navigation small{font-size:11px;color:var(--text-faint)}.cloud-grants{margin-top:16px}.cloud-grants button{flex-wrap:wrap}.cloud-navigation>p{font-size:11px;color:var(--text-faint);padding:12px}.cloud-game-heading{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.cloud-identity{width:100%;color:var(--text-muted);font-size:12px}.cloud-skland,.cloud-skland form{display:grid;gap:14px}.cloud-skland label,.cloud-game-heading label{display:grid;gap:7px}.cloud-content input,.cloud-content select{max-width:100%;box-sizing:border-box;min-width:0;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text)}.cloud-public{display:grid;gap:14px}.cloud-calendar{min-width:0;display:grid;gap:18px}.cloud-calendar-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap}p[role=alert]{color:var(--danger);overflow-wrap:anywhere}@media(max-width:720px){.cloud-game-heading>label{width:100%}.cloud-game-heading select{width:100%}.cloud-content .cap-card{min-width:0}.topbar-right{gap:8px}}
+.cloud-content{display:grid;align-content:start;gap:20px}.cloud-navigation{overflow:auto}.cloud-navigation nav{display:grid;gap:4px}.cloud-navigation nav button{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 14px;border:0;border-radius:9px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:13px}.cloud-navigation nav button[aria-current],.cloud-navigation nav button[aria-pressed=true]{background:var(--button-hover-bg);color:var(--text);font-weight:600}.cloud-navigation small{font-size:11px;color:var(--text-faint)}.cloud-grants{margin-top:16px}.cloud-grants button{flex-wrap:wrap}.cloud-navigation>p{font-size:11px;color:var(--text-faint);padding:12px}.cloud-game-heading{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.cloud-identity{width:100%;color:var(--text-muted);font-size:12px}.cloud-game-heading label{display:grid;gap:7px}.cloud-content select{max-width:100%;box-sizing:border-box;min-width:0;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text)}.cloud-calendar{min-width:0;display:grid;gap:18px}.cloud-calendar-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap}p[role=alert]{color:var(--danger);overflow-wrap:anywhere}@media(max-width:720px){.cloud-game-heading>label{width:100%}.cloud-game-heading select{width:100%}.cloud-content .cap-card{min-width:0}.topbar-right{gap:8px}}
 /* Keep cloud button navigation on the same selected surface as local links.
    The generic hover surface equals the sidebar background in the light theme. */
 .cloud-navigation .primary-nav button[aria-current="page"],

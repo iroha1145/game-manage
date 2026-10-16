@@ -22,7 +22,6 @@ const LolDashboard = lazyPage(() => import('./LolDashboard.vue'))
 const props = defineProps({
   cloudAccount: Object,
   authAccount: Object,
-  authAccount: Object,
   cloudRole: String,
   cloudScope: Object,
   isAdmin: Boolean,

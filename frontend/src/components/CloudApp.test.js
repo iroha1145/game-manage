@@ -222,6 +222,23 @@ test('the sessions page shows when a session was created and expires in Beijing 
   nodes(root, 'button').find(n => content(n) === '网站会话').props.onClick(); await tick(); await tick()
   assert.equal(content(nodes(root, 'article')[0]), '会话 1 · 创建 2026-10-16 22:02 · 过期 2026-10-23 22:02 撤销此会话')
 })
+test('a failed public read stays on its snapshot and is not left as an unhandled rejection', async t => {
+  const unhandled = [], record = reason => unhandled.push(reason)
+  process.on('unhandledRejection', record); t.after(() => process.off('unhandledRejection', record))
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async path => {
+    calls.push(path)
+    if (path.startsWith('/api/public/')) return new Response('{}', { status: 503 })
+    return new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' }
+      : path === '/api/accounts' ? { accounts: [{ account_id: 'a', provider: 'kuro', game: 'wuthering_waves', state: 'active', capabilities: [], roles: [{ role_id: 'r', is_default: true }] }] } : { state: 'never', payload: null }))
+  })
+  const root = mount(t, CloudApp); await tick(); await tick()
+  nodes(root, 'button').find(n => content(n).includes('授权 1')).props.onClick(); for (let i = 0; i < 4; i++) await tick()
+  assert.ok(calls.includes('/api/public/games/wuthering_waves/news'), 'the game page asked for the public news')
+  assert.deepEqual(unhandled, [])
+  assert.match(content(root), /鸣潮 · 库街区/)
+})
 test('cloud public events render the real calendar with unknown dates and source details', async t => {
   configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
   const calls=[]
