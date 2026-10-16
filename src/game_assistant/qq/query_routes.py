@@ -125,7 +125,6 @@ class QqQueryService:
         if context is None or cap not in shared_view.PANEL_CAPS.get(row['game'],{}):return
         context['panels'].append(shared_view.game_panel(row['game'],row['provider'],cap,snapshot,summary=summary,resolved=resolved))
         if summary and cap=='roles':context['panel_notices'].append(GAME_NAMES[row['game']]+'总览最多展示 6 名角色；完整角色请使用角色指令。')
-        if summary and cap=='gacha':context['panel_notices'].append(GAME_NAMES[row['game']]+'总览显示抽卡摘要；明细请使用抽卡指令。')
 
     def _ledger_snapshot(self, scope, game):
         """Read only an existing scoped shard; missing files never get initialized."""
@@ -319,7 +318,7 @@ class QqQueryService:
             notices=['森空岛与鹰角寻访按独立授权分区；未核实同一角色时不拼接账号身份。']+list(dict.fromkeys(notices))[:3]
             if context is not None:context['shared_notices']=notices
         return view.document('summary','endfield','终末地 · 今日总览' if command=='summary' else '终末地 · 查询状态',
-            sections=sections,notices=notices,subtitle='本人默认授权 · 快照查询',footer='时间均为北京时间；缺失字段保留未知。')
+            sections=sections,notices=notices,footer='时间均为北京时间')
 
     def query(self,identity,command,game=None,*,image_context=None,role_name=None,page=1):
         context=image_context
@@ -348,13 +347,11 @@ class QqQueryService:
         except QqBindingError:
             scene='当前群' if identity.scene=='group' else '当前私聊'
             card=view.document('status',game or 'all',scene+'尚未绑定',
-                subtitle='当前会话没有有效的网站账号绑定。',
                 sections=[{'title':'请在当前会话完成绑定','fields':[
                     view.field('1 登录看板','没有网站身份时，请向管理员获取邀请注册入口。'),
                     view.field('2 网站生成绑定码','进入网站 QQ 绑定页面，生成新的绑定码。'),
                     view.field('3 本会话发送绑定指令','在'+scene+'发送「绑定 实际绑定码」，收到绑定成功即完成。')]}],
-                notices=['绑定完成后，重新发送「我的总览」。',
-                         '公共活动可直接发送「鸣潮 活动」「异环 日历」等带游戏前缀指令。'])
+                notices=['公共活动可直接发送「鸣潮 活动」「异环 日历」等带游戏前缀指令。'])
             return reply(card)
         if context is not None:
             context.update(user_id=principal.user_id,binding_revision=self._binding_revision(identity))
@@ -583,7 +580,7 @@ class QqQueryService:
     def _text_fallback(self,card):
         # A timed-out renderer may still read the original document in its worker.
         card=dict(card)
-        card['notices']=card.get('notices',[])[:5]+['图片暂不可用，当前为文字摘要；完整内容请到网站查看。']
+        card['notices']=card.get('notices',[])[:5]+['图片暂不可用，改发文字版；完整内容请到网站查看。']
         return {'text':card_to_text(card)}
 
 

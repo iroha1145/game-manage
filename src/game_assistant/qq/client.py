@@ -23,7 +23,7 @@ SDK_VERSION='1.2.2'
 MAX_REPLY_PIXELS = 16_000_000
 logger=logging.getLogger(__name__)
 BINDING_ERRORS = {
-    'qq_link_code_invalid':'绑定码无效，请在看板重新生成，再发送「绑定 新绑定码」。',
+    'qq_link_code_invalid':'绑定码无效，请在网站重新生成后再发送。',
     'qq_link_code_expired':'绑定码已过期，请在看板重新生成，再发送「绑定 新绑定码」。',
     'qq_link_code_revoked':'绑定码已更换，请使用看板最新生成的绑定指令。',
     'qq_link_code_used':'绑定码已使用，请在看板查看已关联身份；如需新关联，请重新生成绑定码。',

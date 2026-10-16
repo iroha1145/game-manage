@@ -124,7 +124,7 @@ def render_result(label, result, capability):
                      '部分来源不可用，显示可用来源数据' if available else
                      '当前查询失败或待刷新，显示旧快照')
     elif getattr(result, 'stale', False):
-        lines.append('缓存已过期，等待刷新')
+        lines.append('数据可能过期')
     payload=result.payload
     if payload is None:
         lines.append('暂无数据')

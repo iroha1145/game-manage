@@ -109,14 +109,14 @@ def metadata(snapshot):
                  and any(obj(s).get('state') in ('error', 'auth_expired') for s in sources.values())
                  else '当前查询失败或待刷新，显示旧快照')
     elif getattr(snapshot, 'stale', False):
-        state = '缓存已过期，等待刷新'
+        state = '数据可能过期'
     else:
         state = '缓存快照'
     complete = '不完整' if snapshot.complete is False else '完整' if snapshot.complete is True else '未知'
     return [field('数据状态', state), time_field('更新时间', snapshot.fetched_at), field('完整性', complete)]
 
 
-def document(kind, game, title, *, sections=None, notices=None, footer='', subtitle='本人默认账号与默认角色 · 缓存查询'):
+def document(kind, game, title, *, sections=None, notices=None, footer='', subtitle=''):
     return dict(version=3, kind=kind, game=game or 'all', title=text(title, 90), subtitle=text(subtitle, 170),
                 sections=sections or [], notices=notices or [], footer=text(footer,170) if footer else '')
 
@@ -139,8 +139,7 @@ def help_document(game=None):
     if game in (None,'endfield'):
         sections.append({'title':'终末地专项','layout':'help','fields':[field(title,'终末地 '+title) for title in ('理智','练度','地区','帝江号','光荣之路','挑战','寻访战报')]+[field('干员配装','终末地 干员 精确名称')]})
     card=document('help',game or 'all',prefix+' · 帮助' if game else '帮助 · 游戏管家',subtitle='游戏前缀：鸣潮、异环、终末地；公共单游戏活动无需绑定',sections=sections,
-        notices=['先登录网站生成绑定码，再发送绑定指令；收到成功回复即完成。','无前缀活动查询按本人授权游戏分别展示；近期活动指未来168小时内开始或结束，日历保留来源版本已结束及未来活动；覆盖待核验。',
-                 '角色名称精确匹配；未知不补零。终末地鹰角寻访与森空岛档案分开展示。'])
+        notices=['先登录网站生成绑定码，再发送绑定指令；收到成功回复即完成。','不写游戏名时，活动按已授权的游戏分别显示；近期活动指未来168小时内开始或结束。'])
     card['version']=3
     return card
 
@@ -250,8 +249,7 @@ def gacha_document(game,provider,snapshot,asset_cache=None,*,ledger=None):
     else:
         section=capability_section(game,provider,'gacha',ledger,asset_cache)
         section['title']='本人逐抽账本';section['fields']+=metadata(ledger);sections.append(section)
-    card=document('list',game,label(game,provider)+' · 抽卡',sections=sections,footer='更新时间：'+format_time(snapshot.fetched_at),
-        notices=['评价和配色沿用塔吉多：绿为欧/超欧，黄为普通/非，红为超非，未知为灰。','横条表示该次出 S 抽数，不表示当前垫抽；缺标尺不画比例。统计窗口不证明完整历史。'])
+    card=document('list',game,label(game,provider)+' · 抽卡',sections=sections,footer='更新时间：'+format_time(snapshot.fetched_at))
     card['version']=3
     return card
 
@@ -347,7 +345,7 @@ def role_card(game, provider, snapshot, name=None, asset_cache=None, *, resoluti
                 notices=[state,notice,'请发送完整角色名称与形态，或在网站点击确认。'],**common)
         entry=resolution['entry']
         return with_image(document('detail',game,label(game,provider)+' · '+text(entry.get('name')),sections=role_sections(game,entry,asset_cache),
-            notices=[state,'仅展示本人角色缓存中的已采集字段；装备不代表完整库存。'],**common),image_ref(asset_cache,game,'role',entry.get('id') or entry.get('role_id') or name,entry.get('icon_url') or entry.get('avatar_url')))
+            notices=[state],**common),image_ref(asset_cache,game,'role',entry.get('id') or entry.get('role_id') or name,entry.get('icon_url') or entry.get('avatar_url')))
     out=[]
     for entry in entries:
         fields=[field('等级',entry.get('level'))]
@@ -478,8 +476,7 @@ def snapshot_card(game, provider, capability, snapshot,asset_cache=None):
         notices.append('仅代表已采集或已导入记录；不推算保底、评分或排名。')
         if obj(snapshot.payload).get('state')=='need_import':notices.append('尚未导入本人抽卡记录；请在网站导入。')
     return document('list' if section['rows'] else 'summary',game,label(game,provider)+' · '+LABELS.get(capability,capability),
-       sections=[section],notices=notices,footer='更新时间：'+format_time(snapshot.fetched_at),
-       subtitle='公共缓存查询' if capability in ('news','events') else '本人默认账号与默认角色 · 缓存查询')
+       sections=[section],notices=notices,footer='更新时间：'+format_time(snapshot.fetched_at))
 
 
 def long_document(card, requested_page=1,asset_cache=None):

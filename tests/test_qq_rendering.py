@@ -141,7 +141,7 @@ async def test_upload_failure_falls_back_to_text(tmp_path):
     dispatcher = BotDispatcher(Service(), Sender(), state)
     await dispatcher.handle_message(message)
     await dispatcher.handle_message(message)
-    assert calls == [('upload', 1), ('文字摘要\n图片暂不可用，当前为文字摘要；完整内容请到网站查看。', 1)]
+    assert calls == [('upload', 1), ('文字摘要\n图片暂不可用，改发文字版；完整内容请到网站查看。', 1)]
     assert state.connection.execute('SELECT state FROM replies').fetchone()[0] == 'sent'
     state.close()
 

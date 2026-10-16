@@ -81,7 +81,7 @@ def test_nte_all_pool_details_source_colors_and_missing_guarantee():
     assert pools[0]['rows'][0]['gacha']['color']=='green'
     assert pools[0]['rows'][1]['gacha']['lucky_text']==''
     assert pools[1]['rows'][0]['gacha']['guarantee'] is None
-    assert '未导入' in str(card) and '当前垫抽' in str(card)
+    assert '未导入' in str(card)
 
 def test_help_one_command_each_and_overview_known_equipment():
     card=view.help_document('nte')

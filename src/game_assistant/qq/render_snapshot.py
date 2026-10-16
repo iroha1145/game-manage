@@ -56,7 +56,7 @@ for _game in PANEL_CAPS:
  PANEL_CAPS[_game].update(news=NEWS,events=CALENDAR,recent_events=CALENDAR)
 DISPLAY_FIELDS = frozenset().union(COMMON,*[fields for caps in PANEL_CAPS.values() for fields in caps.values()])
 PROVIDERS = frozenset(('kuro','tajiduo','skland','hypergryph','public'))
-_TECHNICAL = re.compile(r'^(?:(?:缓存状态|快照状态|公共快照状态|完整性|来源诊断|来源状态|数据状态)(?:：|$)|缓存快照$|缓存已过期，等待刷新$|当前查询失败或待刷新，显示旧快照$|部分来源不可用，显示可用来源数据$)')
+_TECHNICAL = re.compile(r'^(?:(?:缓存状态|快照状态|公共快照状态|完整性|来源诊断|来源状态|数据状态)(?:：|$)|缓存快照$|数据可能过期$|当前查询失败或待刷新，显示旧快照$|部分来源不可用，显示可用来源数据$)')
 
 
 def _clean_text(value):

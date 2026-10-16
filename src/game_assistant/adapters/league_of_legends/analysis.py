@@ -363,5 +363,5 @@ def analyze_matches(records, own_puuid, catalog=None, *, days=90, queue_id=None,
                      "score_games": sum(r["score"] is not None for r in selected),
                      "first_at": _iso(min(archive_dates)) if archive_dates else None,
                      "last_at": _iso(max(archive_dates)) if archive_dates else None,
-                     "scope_note": "仅统计本账号确实参与的本机已归档记录；客户端最近窗口不等于完整历史。日期按北京时间零点划分。重开保留在记录和活跃日期中，不计胜负、场均、高光或连胜负。评分为 LOLhelper v3 展示分，其他模式仅供参考，非官方评分；缺少完整队伍指标不评分。"},
+                     "scope_note": "仅含本账号在本机已归档的对局；客户端最近窗口不等于完整历史。日期按北京时间零点划分。"},
     }

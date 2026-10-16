@@ -53,7 +53,7 @@ def _footer(snapshot, report=None):
 
 
 def _notice(snapshot):
-    return [view.metadata(snapshot)[0]['value'], '缺失字段保留未知；图片是缓存观测，不代表游戏实时状态。']
+    return [view.metadata(snapshot)[0]['value']]
 
 
 def _section(title, *, fields=None, rows=None, layout='stats', category=None):
@@ -218,7 +218,7 @@ def challenge_document(reports):
         notices.append('明细按各分类本图 / 已观测数量展示；超限部分已省略，完整内容请到网站查看。')
     return view.document('list','endfield','终末地 · 挑战记录',sections=sections,
         subtitle='森空岛档案 · 本人默认角色 · 战争 / 丰碑 / 危机',notices=notices,
-        footer='时间均为北京时间；缺失字段保留未知；查询不会触发实时挑战采集。')
+        footer='时间均为北京时间')
 
 
 def overview_document(snapshot, asset_cache=None, *, focus=None):
