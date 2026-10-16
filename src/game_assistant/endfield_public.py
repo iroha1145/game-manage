@@ -40,13 +40,13 @@ def _flight(html):
 def _flight_value(html, key):
     needle = json.dumps(key) + ':'
     # A long JSON value may span several push calls in the official stream.
-    for chunk in [''.join(_flight(html))]:
-        start = chunk.find(needle)
-        if start >= 0:
-            try:
-                return json.JSONDecoder().raw_decode(chunk[start + len(needle):])[0]
-            except ValueError:
-                continue
+    stream = ''.join(_flight(html))
+    start = stream.find(needle)
+    if start >= 0:
+        try:
+            return json.JSONDecoder().raw_decode(stream[start + len(needle):])[0]
+        except ValueError:
+            pass
     raise PublicSourceError('官网资讯格式发生变化')
 
 
