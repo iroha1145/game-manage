@@ -188,11 +188,11 @@ onBeforeUnmount(() => { if (open.value) listen(false) })
 @media (pointer: coarse) { .menu-select-trigger { min-height: 40px; } }
 
 /* Floating list: same surface and clock as Option Pro's select (200ms in). */
-.menu-select-list { position: fixed; inset: auto; z-index: 60; color: var(--text-body); max-width: calc(100% - 24px); margin: 0; padding: 4px; overflow-y: auto; list-style: none; border: 1px solid var(--border-strong); border-radius: var(--radius-well); background: var(--card-bg); box-shadow: var(--popover-shadow); transform-origin: top left; animation: menu-select-in 200ms var(--ease-smooth-out); }
+.menu-select-list { position: fixed; inset: auto; z-index: 60; color: var(--text-body); max-width: calc(100% - 24px); margin: 0; padding: 4px; overflow-y: auto; list-style: none; border: 1px solid var(--border-strong); border-radius: var(--radius-well); background: var(--card-bg); box-shadow: var(--popover-shadow); transform-origin: top left; animation: menu-select-in var(--duration-fast) var(--ease-smooth-out); }
 .menu-select-list.up { transform-origin: bottom left; }
 .menu-select-list.end { transform-origin: top right; }
 .menu-select-list.end.up { transform-origin: bottom right; }
-@keyframes menu-select-in { from { opacity: 0; transform: scale(.97); } }
+@keyframes menu-select-in { from { opacity: 0; transform: scale(var(--scale-medium)); } }
 li { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 32px; padding: 6px 8px 6px 10px; border-radius: var(--radius-chip); color: var(--text-body); font-size: 13px; line-height: 20px; white-space: nowrap; cursor: default; user-select: none; }
 li[data-active] { background: var(--accent-soft); color: var(--accent-strong); }
 li[aria-selected="true"] { font-weight: 500; }

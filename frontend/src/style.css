@@ -186,10 +186,10 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 @media(max-width:600px) { .info-hint-tip::before { height:8px; } }
 .info-hint-tip[data-side="above"]::before { top:100%; }
 .info-hint-tip[data-side="below"]::before { bottom:100%; }
-.info-hint.is-hovered .info-hint-tip,.info-hint-trigger:focus-visible + .info-hint-tip { display:block; animation:t-tip-in var(--duration-quick) var(--ease-out) var(--duration-quick) backwards; }
+.info-hint.is-hovered .info-hint-tip,.info-hint-trigger:focus-visible + .info-hint-tip { display:block; animation:t-tip-in var(--duration-quick) var(--ease-out) var(--duration-micro) backwards; }
 .info-hint.is-open .info-hint-tip { display:block; animation:t-tip-in var(--duration-quick) var(--ease-out) backwards; }
 .info-hint.is-dismissed .info-hint-tip { display:none; }
-@keyframes t-tip-in { from { opacity:0; transform:translateY(4px); } }
+@keyframes t-tip-in { from { opacity:0; transform:scale(var(--scale-small)); } }
 /* Key-value grid: small label over a strong value; .tiles puts each in a well. */
 .kv-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--kv-min, 112px), 1fr)); gap:8px; margin:0; }
 .kv-grid>div { min-width:0; }.kv-grid dt { color:var(--text-muted); font-size:12px; line-height:18px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }.kv-grid dd { margin:2px 0 0; color:var(--text); font-size:16px; line-height:24px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }.kv-grid dd small { margin-left:3px; color:var(--text-muted); font-size:12px; font-weight:400; }
