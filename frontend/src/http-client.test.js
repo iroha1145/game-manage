@@ -107,6 +107,17 @@ test('canonical community auth and role detail use owned cloud routes with CSRF'
   for (const [,options] of calls.filter(x => x[1].method === 'POST')) assert.equal(options.headers['X-CSRF-Token'],'csrf')
   await wuwaRequest('gacha/import', {body:{}}); assert.equal(calls.at(-1)[0],'/api/accounts/a/roles/r/wuwa/gacha/import'); assert.equal(calls.at(-1)[1].headers['X-CSRF-Token'],'csrf')
 })
+test('the Wuwa record import may preview and set its pity rule in the cloud, for a Kuro authorization only', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (path, options) => { calls.push(`${options.method} ${path}`); return json(path.endsWith('/csrf') ? { csrf_token: 'csrf' } : { ok: true }) })
+  setAccountScope({ account_id: 'a', role_id: 'r', provider: 'kuro' })
+  const steps = ['gacha/preview', 'gacha/rules', 'gacha/import', 'history/backfill']
+  for (const step of steps) await wuwaRequest(step, { body: {} })
+  assert.deepEqual(calls.filter(call => !call.endsWith('/csrf')), steps.map(step => `POST /api/accounts/a/roles/r/wuwa/${step}`))
+  setAccountScope({ account_id: 'b', role_id: 'r', provider: 'tajiduo' })
+  await assert.rejects(wuwaRequest('gacha/preview', { body: {} }), /尚未提供云端接口/)
+})
 test('logout mutation reaches server while private scope is cleared', async t => {
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
   const calls = []

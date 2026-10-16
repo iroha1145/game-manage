@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
 import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { configureHttpClient } from '../http-client.js'
 
 const component = (name) => loadVue(new URL(`./${name}.vue`, import.meta.url))
 const tick = async () => {
@@ -438,6 +439,17 @@ test('gacha loads only local archive; explicit import clears secret and displays
   await click(root, '预览链接')
   await click(root, '确认导入链接预览')
   assert.match(content(root), /未获得记录/)
+})
+test('the gacha import says where the records are kept: this machine locally, the personal space in the cloud', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => reply({ ...identity, total: 0, items: [], gold: [], gold_total: 0, pools: [], state: 'need_import', coverage: { complete: false } }))
+  t.after(() => configureHttpClient({ mode: 'local' }))
+  for (const [mode, kept, other] of [['local', /记录保存在本机/, /本人空间/], ['cloud', /记录保存在本人空间/, /本机/]]) {
+    configureHttpClient({ mode })
+    const root = mount(t, await component('WuwaGacha'), { accountKey: 'account:server' })
+    await tick()
+    assert.match(content(root), kept)
+    assert.doesNotMatch(content(root), other)
+  }
 })
 test('history exposes archive origin, first observation, paged seasons and no invented backfill', async (t) => {
   const calls = []

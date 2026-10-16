@@ -63,7 +63,7 @@ function cloudPath(path, method) {
       skland: /^\/api\/endfield\/(?:blueprints(?:\/export)?|skland\/(?:card|attendance|operators\/[^/?]+|challenges|tools))$/,
     }
     const ownedWrite = {
-      kuro: method === 'POST' && ['/api/wuwa/gacha/import','/api/wuwa/history/backfill'].includes(pathname),
+      kuro: method === 'POST' && ['/api/wuwa/gacha/preview','/api/wuwa/gacha/import','/api/wuwa/gacha/rules','/api/wuwa/history/backfill'].includes(pathname),
       tajiduo: method === 'POST' && /^\/api\/nte\/gacha\/(?:preview|import|rules)$/.test(pathname),
       skland: (method === 'POST' && pathname === '/api/endfield/blueprints') ||
         (['PUT','DELETE'].includes(method) && /^\/api\/endfield\/blueprints\/(?!export$)[^/?]+$/.test(pathname)),
