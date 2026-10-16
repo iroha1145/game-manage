@@ -765,7 +765,8 @@
 }
 .wuwa-chain-order {
   flex: none;
-  width: 1.1em;
+  min-width: 1.1em;
+  white-space: nowrap;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
