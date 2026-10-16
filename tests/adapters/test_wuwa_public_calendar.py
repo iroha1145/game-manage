@@ -135,6 +135,15 @@ async def test_known_future_release_cannot_replace_current_version():
     assert result.payload[0].version == '3.6'
 
 
+@respx.mock
+async def test_future_maintenance_notice_without_activities_keeps_the_current_calendar():
+    # The newest notice only announces next version's maintenance and compensation.
+    maintenance = {**BASE, 'postId': '9004', 'postTitle': '3.7版本维护更新公告', 'publishTime': 1791741600000}
+    mock_notices([BASE, maintenance], {'9001': BASE_BODY, '9004': '更新维护时间：2030年10月30日06:00-11:00\n维护补偿：星声×300'})
+    result = await WutheringWavesAdapter(Settings()).fetch(Capability.EVENTS)
+    assert result.ok and [e.name for e in result.payload] == ['签到']
+
+
 @pytest.mark.parametrize('with_dated_supplement', [False, True])
 @respx.mock
 async def test_announced_future_pool_is_retained_and_exact_supplement_replaces_unknown(with_dated_supplement):
