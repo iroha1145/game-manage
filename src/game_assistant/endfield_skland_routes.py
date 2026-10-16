@@ -120,9 +120,9 @@ def install_endfield_skland_routes(app, settings):
             raise _http_error(exc) from None
 
     @router.get("/tools")
-    async def tools(kind: str, char_id: str | None = None):
+    async def tools(kind: str):
         try:
-            return await service.read_tool(kind, char_id=char_id)
+            return await service.read_tool(kind)
         except SklandError as exc:
             raise _http_error(exc) from None
 

@@ -195,8 +195,7 @@ class SklandClient:
             raise SklandError("森空岛挑战记录格式已变化")
         return payload
 
-    async def tool(self, kind: str, cred: str, token: str, role_id: str, server_id: str,
-                   device_id: str = "", *, char_id: str | None = None) -> dict:
+    async def tool(self, kind: str, cred: str, token: str, device_id: str = "") -> dict:
         path = TOOLS.get(kind)
         if path is None:
             raise SklandError("工具类型不受支持")

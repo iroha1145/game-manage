@@ -340,17 +340,15 @@ class EndfieldSklandService:
                 return {"supported": True, "kind": kind, "records": [], "summary": {},
                         "fetched_at": None, "stale": True, "error": str(exc)}
 
-    async def read_tool(self, kind: str, *, char_id: str | None = None) -> dict:
+    async def read_tool(self, kind: str) -> dict:
         if kind not in TOOLS:
             return {"supported": False, "kind": kind, "payload": None,
                     "fetched_at": None, "stale": False, "error": "工具类型不受支持"}
         async with self._lock:
             s = self._selected()
-            key = (kind, char_id)
             try:
                 s, token = await self._token(s)
-                data = await self.client.tool(kind, s["cred"], token, s["role_id"],
-                                              s["server_id"], s.get("device_id", ""), char_id=char_id)
+                data = await self.client.tool(kind, s["cred"], token, s.get("device_id", ""))
                 field = {'characters': 'chars', 'weapons': 'weapons', 'equipment': 'equips',
                          'tactical': 'tacticalItems', 'materials': 'materials'}[kind]
                 expected = dict if kind == 'materials' else list
@@ -358,10 +356,10 @@ class EndfieldSklandService:
                     raise SklandError('森空岛图鉴目录格式已变化')
                 result = {"supported": True, "kind": kind, "payload": _safe_public_data(data),
                           "fetched_at": self.clock().isoformat(), "stale": False, "error": None}
-                self._tool_cache[key] = result
+                self._tool_cache[kind] = result
                 return result.copy()
             except SklandError as exc:
-                result = self._tool_cache.get(key)
+                result = self._tool_cache.get(kind)
                 if result:
                     return {**result, "stale": True, "error": str(exc)}
                 return {"supported": True, "kind": kind, "payload": None,

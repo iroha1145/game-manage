@@ -35,7 +35,7 @@ export const chooseSklandRole = (role_id, server_id) => request('/skland/role', 
 export const disconnectSkland = () => request('/skland/connection', { method: 'DELETE' })
 export const getSklandCard = signal => request('/skland/card', { signal })
 export const getSklandOperator = (id, signal) => request(`/skland/operators/${encodeURIComponent(id)}`, { signal })
-export const getSklandTools = (kind, charId = '', signal) => request(`/skland/tools?kind=${encodeURIComponent(kind)}${charId ? `&char_id=${encodeURIComponent(charId)}` : ''}`, { signal })
+export const getSklandTools = (kind, signal) => request(`/skland/tools?kind=${encodeURIComponent(kind)}`, { signal })
 export const refreshSklandCard = () => request('/skland/refresh', { method: 'POST' })
 export const getAttendance = signal => request('/skland/attendance', { signal })
 export const signAttendance = () => request('/skland/attendance', { method: 'POST' })

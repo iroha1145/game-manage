@@ -98,8 +98,8 @@ class FakeClient:
             return {"indieHardGroups": [{"id": "i1", "name": "丰碑", "dungeonGroups": []}]}
         return {"status": {"id": "c1", "highest": 10}, "history": {"records": [{"id": "r1", "isPass": True}]}}
 
-    async def tool(self, kind, cred, token, role_id, server_id, device_id="", *, char_id=None):
-        self.calls.append(("tool", kind, role_id, char_id))
+    async def tool(self, kind, cred, token, device_id=""):
+        self.calls.append(("tool", kind))
         return {"chars": [{"id": "c1", "token": "must-not-leak"}], "cred": "must-not-leak"}
 
 
@@ -245,7 +245,7 @@ async def test_fixed_tool_routes_and_redaction(tmp_path):
     payload = (await service.read_tool("characters"))["payload"]
     assert payload == {"chars": [{"id": "c1"}]}
     assert not (await service.read_tool("arbitrary-path"))["supported"]
-    assert not (await service.read_tool("rules", char_id="../etc"))["supported"]
+    assert not (await service.read_tool("rules"))["supported"]
 
 
 async def test_corrupt_store_and_save_failure_do_not_break_service(tmp_path):
