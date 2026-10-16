@@ -239,3 +239,16 @@ test('a snapshot refresh keeps the open match detail; a filter change closes it'
   days.props.onChange({ target: { value: '30' } }); await flush()
   assert.doesNotMatch(content(root), /详情英雄/)
 })
+
+test('the recent-match snapshot gets champion names and record chips from the stats snapshot', async t => {
+  // The pre-archive snapshot list is shown while the local archive is still empty.
+  t.mock.method(globalThis, 'fetch', async () => response({ ...data(), overview: { games: 0 }, coverage: { archived_games: 0 }, matches: [] }))
+  const snaps = {
+    match: { fetched_at: '2026-10-16T04:00:00Z', payload: [{ match_id: 'g1', champion_id: 7, champion_name: null, win: true, kills: 9, deaths: 1, assists: 5, start_at: '2026-10-15 20:00' }] },
+    stats: { fetched_at: '2026-10-16T04:00:00Z', payload: { top_champions: [{ champion_id: 7, champion_name: '诡术妖姬' }], records: [{ match_id: 'g1', label: '单场最多击杀' }] } },
+  }
+  const root = mount(t, LolDashboard, { snaps })
+  await flush(); button(root, '对局记录').props.onClick(); await flush()
+  assert.match(content(root), /诡术妖姬/)
+  assert.match(content(root), /最多击杀/)
+})
