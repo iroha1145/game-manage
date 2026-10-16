@@ -491,9 +491,6 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
 .ef-connection-settings { position:relative; font-size:11px; color:var(--text-muted); }
 .ef-connection-settings>summary { cursor:pointer; padding:10px 0; white-space:nowrap; }
 .ef-connection-settings .ui-button { position:absolute; z-index:5; right:0; top:100%; min-width:120px; background:var(--card-bg); box-shadow:var(--popover-shadow); }
-.ef-passport-note { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:14px 0; border-top:1px solid var(--border); }
-.ef-passport-note strong { display:block; font-size:12px; font-weight:500; }
-.ef-passport-note span { display:block; margin-top:5px; color:var(--text-muted); font-size:11px; }
 @media(max-width:900px) { .ef-main-nav>button { flex:1; padding:12px 10px; }.ef-calendar-link { font-size:11px; }.ef-connection .role-bar { justify-content:flex-start; } }
 @media(max-width:600px) {
   .ef-main-nav { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); flex-basis:100%; }
@@ -506,6 +503,5 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
   .ef-connection .role-bar>button,.ef-connection .role-bar>details { width:auto; }
   .ef-connection .role-bar>details { margin-left:auto; }
   .ef-connection-settings .ui-button { width:auto; }
-  .ef-passport-note .text-link { min-height:36px; }
 }
 </style>

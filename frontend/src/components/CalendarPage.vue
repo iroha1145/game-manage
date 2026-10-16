@@ -196,8 +196,6 @@ async function closeDetail() {
 .calendar-detail dt { color: var(--text-muted); font-size: 11px; margin-bottom: 6px; }
 .calendar-detail dd { margin: 0; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .calendar-detail dl small { display: block; color: var(--text-muted); margin-top: 6px; }
-.source-details { margin-top: 20px; color: var(--text-muted); font-size: 12px; }
-.source-details summary { cursor: pointer; }
 .source-id { color: var(--text-muted); margin-top: 10px; font-size: 11px; overflow-wrap: anywhere; }
 .source-link { display: inline-block; margin-top: 16px; color: var(--accent); font-size: 13px; font-weight: 500; text-decoration: none; }
 .calendar-page button:focus-visible, .calendar-page select:focus-visible, .timeline-scroll:focus-visible, .calendar-detail:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

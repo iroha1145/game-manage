@@ -131,8 +131,7 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .unplaced-event { transition:background-color var(--duration-quick) var(--ease-smooth-out); display:flex; justify-content:space-between; gap:20px; align-items:center; padding:8px 0; width:100%; border:0; border-top:1px solid var(--overlay-3); color:var(--text); background:transparent; text-align:left; }
 .unplaced-event > span:first-child { display:flex; flex-wrap:wrap; align-items:center; gap:3px 8px; }
 .unplaced-event strong { font-weight: 500; font-size: 13px; }
-.unplaced-event small, .unknown-reason { color: var(--text-muted); font-size: 11px; }
-.unknown-reason b { margin-left: 18px; color: var(--accent); }
+.unplaced-event small { color: var(--text-muted); font-size: 11px; }
 
 .calendar-content { min-width:0; display:flex; flex-direction:column; flex:1; min-height:0; }
 .calendar-content:not(.image-mode) { overflow:auto; }
@@ -161,7 +160,6 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
   .group-label strong { font-size:11px; }
   .calendar-unplaced { padding:18px; }
   .unplaced-event { gap:10px; align-items:start; }
-  .unknown-reason { max-width:100px; line-height:1.6; flex-shrink:0; }
 }
 @media(prefers-reduced-motion:reduce) { .timeline-event { transition:none; } }
 </style>
