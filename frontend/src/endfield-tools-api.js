@@ -15,7 +15,7 @@ async function request(path, { method = 'GET', body, signal } = {}) {
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
     const detail = data.detail || data.error
-    throw new Error(typeof detail === 'string' ? detail : '请求未完成，请稍后重试。')
+    throw new Error(typeof detail === 'string' ? detail : response.status === 422 ? '输入内容格式不正确，请检查名称、分享码和备注。' : '请求未完成，请稍后重试。')
   }
   return data
 }

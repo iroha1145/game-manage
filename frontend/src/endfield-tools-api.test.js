@@ -27,3 +27,13 @@ test('external links allow only ordinary HTTPS URLs', () => {
   assert.equal(safeExternalUrl('https://example.com/map'), 'https://example.com/map')
   for (const url of ['javascript:alert(1)', 'http://example.com', 'https://user:pass@example.com']) assert.equal(safeExternalUrl(url), null)
 })
+
+test('a 422 with a list of details gets a fixed message and other failures keep their own text', async t => {
+  let reply
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: false, status: reply[0], json: async () => reply[1] }))
+  const messageFor = async (...next) => { reply = next; try { await saveBlueprint({ name: '工厂', code: 'SECRET', notes: '' }) } catch (error) { return error.message } }
+  const listed = [{ type: 'value_error', loc: ['body', 'code'], msg: 'Value error, 内容包含无法显示的字符', input: 'SECRET', ctx: { error: {} } }]
+  assert.equal(await messageFor(422, { detail: listed }), '输入内容格式不正确，请检查名称、分享码和备注。')
+  assert.equal(await messageFor(422, { detail: '这条蓝图收藏不存在' }), '这条蓝图收藏不存在')
+  assert.equal(await messageFor(500, { detail: listed }), '请求未完成，请稍后重试。')
+})
