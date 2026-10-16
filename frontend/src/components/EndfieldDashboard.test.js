@@ -231,3 +231,48 @@ test('a passport session whose role differs from Skland asks the user to choose'
   await flush()
   assert.match(content(root), /森空岛绑定的角色与通行证登录的角色不同，请确认后手动选择/)
 })
+
+for (const [label, failing, act] of [
+  ['role switch', '/skland/role', root => nodes(root, 'select')[0].props.onChange({ target: { value: 'new:1' } })],
+  ['disconnect', '/skland/connection', root => nodes(root, 'button').find(n => content(n) === '断开').props.onClick()],
+]) test(`a failed ${label} reloads the challenge records instead of the profile card`, async t => {
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async url => {
+    calls.push(url)
+    if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: 'old', server_id: '1', nickname: '旧角色' }, { role_id: 'new', server_id: '1', nickname: '新角色' }], selected_role_id: 'old', selected_server_id: '1' })
+    if (url.includes('/skland/challenges?')) return response({ supported: true, records: [{ id: 'w1', name: '第一期战争', stars: 3 }] })
+    if (url.endsWith(failing)) return { ok: false, status: 502, json: async () => ({ detail: '森空岛暂时无法响应' }) }
+    return response({})
+  })
+  const root = mount(t, Dashboard, { snaps: {}, initialSection: 'challenges' })
+  await flush(); await flush()
+  assert.match(content(root), /第一期战争/)
+  calls.length = 0
+  act(root)
+  await flush(); await flush()
+  assert.match(content(root), /森空岛暂时无法响应/)
+  assert.match(content(root), /第一期战争/)
+  assert.doesNotMatch(content(root), /暂无挑战记录/)
+  assert.equal(calls.filter(url => url.includes('/skland/challenges?')).length, 1)
+  assert.ok(!calls.some(url => url.endsWith('/card')))
+})
+
+for (const [initialSection, attendanceCalls] of [['overview', 1], ['operators', 0]]) test(`a failed role switch on ${initialSection} still reloads the profile card`, async t => {
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async url => {
+    calls.push(url)
+    if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: 'old', server_id: '1', nickname: '旧角色' }, { role_id: 'new', server_id: '1', nickname: '新角色' }], selected_role_id: 'old', selected_server_id: '1' })
+    if (url.endsWith('/card')) return response({ payload: { base: { name: '旧档案' } } })
+    if (url.endsWith('/attendance')) return response({ supported: false })
+    if (url.endsWith('/skland/role')) return { ok: false, status: 502, json: async () => ({ detail: '森空岛暂时无法响应' }) }
+    return response({})
+  })
+  const root = mount(t, Dashboard, { snaps: {}, initialSection })
+  await flush(); await flush()
+  calls.length = 0
+  nodes(root, 'select')[0].props.onChange({ target: { value: 'new:1' } })
+  await flush(); await flush()
+  assert.equal(calls.filter(url => url.endsWith('/card')).length, 1)
+  assert.equal(calls.filter(url => url.endsWith('/attendance')).length, attendanceCalls)
+  assert.ok(!calls.some(url => url.includes('/skland/challenges?')))
+})

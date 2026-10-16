@@ -251,13 +251,13 @@ async function selectRole(event) {
   if (!role || event.target.value === roleKey.value) return
   clearPrivate(); actionBusy.value = true; actionError.value = ''; actionMessage.value = ''
   try { status.value = await chooseSklandRole(role.role_id, role.server_id) }
-  catch (error) { actionError.value = error.message; await loadStatus(); if (roleKey.value) { loadCard(); if (section.value === 'overview') loadAttendance() } }
+  catch (error) { actionError.value = error.message; await loadStatus(); if (roleKey.value) { if (['overview', 'operators'].includes(section.value)) { loadCard(); if (section.value === 'overview') loadAttendance() } if (section.value === 'challenges') loadChallenge() } }
   finally { actionBusy.value = false }
 }
 async function disconnect() {
   actionBusy.value = true; actionError.value = ''; actionMessage.value = ''; clearPrivate()
   try { status.value = await disconnectSkland(); actionMessage.value = '已断开森空岛连接。' }
-  catch (error) { actionError.value = error.message; await loadStatus(); if (roleKey.value) { loadCard(); if (section.value === 'overview') loadAttendance() } }
+  catch (error) { actionError.value = error.message; await loadStatus(); if (roleKey.value) { if (['overview', 'operators'].includes(section.value)) { loadCard(); if (section.value === 'overview') loadAttendance() } if (section.value === 'challenges') loadChallenge() } }
   finally { actionBusy.value = false }
 }
 function editBlueprint(item) {
