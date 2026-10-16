@@ -118,6 +118,14 @@ test('the Wuwa record import may preview and set its pity rule in the cloud, for
   setAccountScope({ account_id: 'b', role_id: 'r', provider: 'tajiduo' })
   await assert.rejects(wuwaRequest('gacha/preview', { body: {} }), /尚未提供云端接口/)
 })
+test('the Wuwa record backup can be exported in the cloud', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (path, options) => { calls.push(`${options.method} ${path}`); return json({ items: [] }) })
+  setAccountScope({ account_id: 'a', role_id: 'r', provider: 'kuro' })
+  await wuwaRequest('gacha/export?limit=2000&offset=0')
+  assert.deepEqual(calls, ['GET /api/accounts/a/roles/r/wuwa/gacha/export?limit=2000&offset=0'])
+})
 test('logout mutation reaches server while private scope is cleared', async t => {
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
   const calls = []

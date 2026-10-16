@@ -57,7 +57,7 @@ function cloudPath(path, method) {
   if (scope) {
     const prefix = `/api/accounts/${encodeURIComponent(scope.account_id)}/roles/${encodeURIComponent(scope.role_id)}`
     const ownedRead = {
-      kuro: /^\/api\/wuwa\/(?:history|gacha|roles\/[^/?]+|resources\/(?:week|month|version)\/[^/?]+)$/,
+      kuro: /^\/api\/wuwa\/(?:history|gacha(?:\/export)?|roles\/[^/?]+|resources\/(?:week|month|version)\/[^/?]+)$/,
       tajiduo: /^\/api\/nte\/gacha\/(?:summary|records|export|rules)$/,
       hypergryph: /^\/api\/endfield\/gacha\/(?:summary|records|export)$/,
       skland: /^\/api\/endfield\/(?:blueprints(?:\/export)?|skland\/(?:card|attendance|operators\/[^/?]+|challenges|tools))$/,
