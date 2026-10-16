@@ -122,3 +122,23 @@ async def test_check_extracts_a_real_post_and_unknown_or_video_selections_never_
     with pytest.raises(HTTPException) as error:
         await service.extract(query,candidate['id'])
     assert error.value.status_code == 422 and detail.call_count == 1
+
+
+@respx.mock
+async def test_first_extraction_failure_reaches_the_page_and_a_later_success_clears_it(tmp_path):
+    from game_assistant.wuwa_guide_extract import POST_URL
+    respx.post(SEARCH_URL).respond(200,json={'code':200,'data':{'postList':[post()],'hasNext':False}})
+    detail = respx.post(POST_URL).respond(503,text='DO_NOT_EXPOSE')
+    service = GuideUpdates(tmp_path/'guides.db')
+    query = Search(character_id='1311',name='心',attribute='导电')
+    result = await service.check(query)  # 自动提炼首次失败，此前没有任何培养建议
+    assert result['active_guide'] is None and result['extraction_error']
+    assert 'DO_NOT_EXPOSE' not in str(result)
+    assert GuideUpdates(tmp_path/'guides.db').cached(query)['extraction_error'] == result['extraction_error']
+    detail.respond(200,json={'code':200,'data':{'postDetail':{
+        'id':'1555005846752059392','postTitle':'V3.7心培养攻略','gameId':3,'postType':1,
+        'postContent':[{'contentType':1,'content':'武器推荐：玉阙玄华。'}]}}})
+    service.extractor.attempts.clear()
+    fixed = await service.extract(query,'1555005846752059392')
+    assert fixed['active_guide']['sections'][0]['text'] == '武器推荐：玉阙玄华。'
+    assert fixed['extraction_error'] is None
