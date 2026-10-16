@@ -19,7 +19,7 @@ onBeforeUnmount(()=>{disposed=true;clear();unsubscribe()})
   <section class="cap-card qq-binding"><h2>QQ 绑定</h2>
     <p>生成一次性码，在认可的群内 @机器人发送下方绑定指令。QQ 回复「绑定成功」即完成，无需回填回执。</p>
     <p>绑定码有效 2 分钟，仅可使用一次。不要提前分享绑定码，公开群内其他成员可能抢先使用。更换绑定码会使旧码失效。</p>
-    <div class="qq-controls"><button class="ui-button" :disabled="busy" @click="generate">生成或更换绑定码</button><button class="ui-button" :disabled="busy" @click="run(load)">刷新已关联身份</button></div>
+    <div class="qq-controls"><button class="ui-button primary" :disabled="busy" @click="generate">生成或更换绑定码</button><button class="ui-button" :disabled="busy" @click="run(load)">刷新已关联身份</button></div>
     <div v-if="code" class="qq-command"><code>绑定 {{ code }}</code><button class="ui-button" :disabled="busy" @click="copy">复制绑定指令</button><span v-if="copied" role="status">已复制</span><p>到期 {{ displayBeijing(expires) }}</p></div>
     <p v-if="error" role="alert">{{ error }}</p>
     <article v-for="(link, index) in links" :key="link.link_id"><h3>已关联 · {{ link.identity.scene === 'group' ? '群聊' : '私聊' }} {{ index + 1 }}</h3><details><summary>查看绑定标识</summary><p>群标识：{{ link.identity.group_openid || '无' }} · 发送者：{{ link.identity.sender_openid }}</p></details><button class="ui-button" :disabled="busy" @click="unlink(link)">解除关联</button></article>
@@ -27,5 +27,5 @@ onBeforeUnmount(()=>{disposed=true;clear();unsubscribe()})
   </section>
 </template>
 <style scoped>
-.qq-binding{display:grid;gap:12px;min-width:0}.qq-binding p,.qq-binding code{overflow-wrap:anywhere}.qq-controls,.qq-command{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.qq-command p{flex-basis:100%;margin:0}.qq-binding article{border-top:1px solid var(--border);padding-top:12px}
+.qq-binding{display:grid;gap:12px;min-width:0}.qq-binding h2{font-size:16px;font-weight:500;line-height:24px}.qq-binding h3{font-size:14px;font-weight:500}.qq-binding p,.qq-binding code{overflow-wrap:anywhere}.qq-controls,.qq-command{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.qq-command p{flex-basis:100%;margin:0}.qq-command code{padding:4px 10px;border-radius:var(--radius-control);background:var(--surface-soft);font-family:var(--font-mono);font-size:13px}.qq-binding article{border-top:1px solid var(--border);padding-top:12px}
 </style>

@@ -90,8 +90,8 @@ const teamResult = (team) => {
   background: var(--danger-bg);
   color: var(--danger);
   padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: var(--radius-control);
+  font-size: 13px;
 }
 
 .teams {
@@ -100,16 +100,17 @@ const teamResult = (team) => {
   flex-wrap: wrap;
 }
 
+/* Each side is a tone step inside the card; the own side is tinted, not outlined. */
 .team-col {
   flex: 1 1 300px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px;
+  border-radius: var(--radius-well);
+  background: var(--surface-soft);
+  padding: 10px 12px;
   min-width: 260px;
 }
 
 .team-col.team-own {
-  border-color: var(--game-lol);
+  background: color-mix(in srgb, var(--game-lol) 9%, var(--surface-soft));
   order: -1;
 }
 
@@ -121,8 +122,8 @@ const teamResult = (team) => {
 }
 
 .team-result {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .team-win {
@@ -138,10 +139,11 @@ const teamResult = (team) => {
 }
 
 .team-own-tag {
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--game-lol);
-  border: 1px solid var(--game-lol);
-  border-radius: 999px;
+  background: color-mix(in srgb, var(--game-lol) 14%, transparent);
+  border-radius: var(--radius-chip);
   padding: 0 6px;
 }
 
@@ -161,6 +163,10 @@ const teamResult = (team) => {
   min-width: 320px;
 }
 
+.team-col .data-table small {
+  font-size: 12px;
+}
+
 .muted {
   color: var(--text-muted);
 }
@@ -174,13 +180,12 @@ const teamResult = (team) => {
 .item-id {
   display: inline-block;
   margin: 1px 3px 1px 0;
-  padding: 0 4px;
-  border-radius: 4px;
+  padding: 0 5px;
+  border-radius: var(--radius-chip);
   background: var(--overlay-3);
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .player-own td {

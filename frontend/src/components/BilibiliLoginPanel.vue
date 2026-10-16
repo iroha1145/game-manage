@@ -180,13 +180,16 @@ onUnmounted(()=>{stopped=true;invalidate()})
 </template>
 
 <style scoped>
-.bili-login{max-width:480px;margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:8px;}
+/* A tone step inside the source card; inputs and tabs sit on it with their own hairline. */
+.bili-login{max-width:480px;margin-top:10px;padding:14px;border-radius:var(--radius-well);background:var(--surface-soft);}
 .login-note{color:var(--text-muted);font-size:12px;line-height:1.7;}
-.login-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
-.login-tabs button{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:7px 9px;border-radius:6px;cursor:pointer;}
-.login-tabs button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);}
+.login-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 10px;}
+.login-tabs button{background:var(--card-bg);color:var(--text-body);border:1px solid var(--border);padding:6px 10px;border-radius:var(--radius-control);cursor:pointer;font-size:13px;}
+.login-tabs button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);font-weight:500;}
 .login-error{color:var(--warning-text);}
-label{display:block;margin:10px 0;color:var(--text-muted);}
-input{box-sizing:border-box;display:block;width:100%;margin-top:4px;padding:7px 8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;}
-form button{margin:4px 8px 4px 0;}.qr-login img{background:white;border-radius:8px;padding:8px;}.close-login{margin-top:12px;}
+label{display:block;margin:10px 0;color:var(--text-body);font-size:13px;font-weight:500;}
+input{box-sizing:border-box;display:block;width:100%;margin-top:4px;padding:8px 10px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control);font-size:13px;font-weight:400;}
+form button{margin:4px 8px 4px 0;}
+/* A QR code only scans on white, in both themes. */
+.qr-login img{background:white;border-radius:var(--radius-control);padding:8px;}.close-login{margin-top:12px;}
 </style>

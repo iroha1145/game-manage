@@ -73,5 +73,5 @@ onUnmounted(()=>{stopped=true;unsubscribe();clear()})
   </section>
 </template>
 <style scoped>
-.cloud-bili-collection{display:grid;gap:10px;border-top:1px solid var(--border);padding-top:14px}.cloud-bili-collection article{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--border)}h3,p{margin:0}p{line-height:1.65}p[role=alert]{color:var(--danger)}.actions{display:flex;flex-wrap:wrap;gap:10px}
+.cloud-bili-collection{display:grid;gap:10px;border-top:1px solid var(--border);padding-top:14px}.cloud-bili-collection article{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--border)}.cloud-bili-collection article strong{font-weight:500}.cloud-bili-collection>button{justify-self:start}h3,p{margin:0}h3{font-size:14px;font-weight:500}p{line-height:1.65}p[role=alert]{color:var(--danger)}.actions{display:flex;flex-wrap:wrap;gap:10px}
 </style>

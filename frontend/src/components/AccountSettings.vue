@@ -32,5 +32,5 @@ function sklandSource(account) {
   </section>
 </template>
 <style scoped>
-.cloud-account-settings{display:grid;gap:14px}.cloud-account-settings header{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.cloud-account-settings article{display:grid;gap:12px}.cloud-account-settings label{display:grid;gap:8px}select{max-width:100%;padding:10px;border-radius:8px;background:var(--card-bg);color:var(--text);border:1px solid var(--border)}h2,h3,p{margin:0}
+.cloud-account-settings{display:grid;gap:14px}.cloud-account-settings header{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.cloud-account-settings header span{font-size:12px;color:var(--text-muted)}.cloud-account-settings article{display:grid;gap:12px}.cloud-account-settings article>button{justify-self:start}.cloud-account-settings label{display:grid;gap:8px;font-size:13px;font-weight:500}select{max-width:100%;padding:9px 12px;border-radius:var(--radius-control);background:var(--card-bg);color:var(--text);border:1px solid var(--border);font-weight:400}h2,p{margin:0}h2{font-size:16px;font-weight:500;line-height:24px}h3{font-size:14px;font-weight:500}
 </style>

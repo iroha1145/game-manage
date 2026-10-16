@@ -31,10 +31,10 @@ async function save() {
       <p>限制游戏范围后，请使用带游戏名的查询；全游戏总览会被拒绝，避免展示已关闭游戏。</p>
       <label><input v-model="settings.image_preference" type="checkbox" />使用图片回复查询结果</label>
       <label>群查询每分钟上限<input v-model.number="settings.requests_per_minute" type="number" min="1" max="60" required /></label>
-      <button class="ui-button" :disabled="busy">保存群设置</button>
+      <button class="ui-button primary" :disabled="busy">保存群设置</button>
     </form>
   </section>
 </template>
 <style scoped>
-.group-settings,form{display:grid;gap:12px}h2,p{margin:0}label{display:flex;align-items:center;flex-wrap:wrap;gap:8px}fieldset{display:flex;gap:14px;flex-wrap:wrap;border:1px solid var(--border);border-radius:8px}input{padding:8px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:6px}input[type=number]{width:100px}
+.group-settings,form{display:grid;gap:12px}.group-settings>button,form>button{justify-self:start}h2,p{margin:0}h2{font-size:16px;font-weight:500;line-height:24px}label{display:flex;align-items:center;flex-wrap:wrap;gap:8px}fieldset{display:flex;gap:14px;flex-wrap:wrap;margin:0;padding:0;border:0;min-width:0}legend{padding:0;margin-bottom:8px;font-size:13px;font-weight:500}input{padding:8px 10px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control)}input[type=number]{width:100px}
 </style>

@@ -120,26 +120,23 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
 </template>
 
 <style scoped>
-.bili-panel { margin-top:24px; padding:0 16px; background:var(--card-bg); border:1px solid var(--border); border-radius:12px; font-size:12px; color:var(--text); }
+.bili-panel { margin-top:24px; padding:0 16px; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-card); font-size:13px; color:var(--text); }
 /* Always open: the source status and its controls are what this card is for. */
 .bili-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; min-height:40px; }
-.bili-head h2 { margin:0; color:var(--text); font-size:13px; font-weight:600; }
-.bili-head span { color:var(--text-muted); font-size:11px; font-weight:400; }
+.bili-head h2 { margin:0; color:var(--text); font-size:16px; font-weight:500; }
 .bili-body { padding-bottom:14px; }
 .bili-intro { display:flex; align-items:center; gap:2px; margin-bottom:8px; }
 .bili-alert { margin:0 0 8px; color:var(--warning-text); }
 .muted { color:var(--text-muted); }
 .bili-status { padding:9px 0; border-bottom:1px solid var(--border); }
 .bili-status-head { display:flex; align-items:center; gap:8px; }
+.bili-status-head strong { font-size:14px; font-weight:500; }
 .status-line { margin:4px 0 0; color:var(--text-muted); }
 .status-line.warning { color:var(--warning-text); }
 .bili-kv { margin:6px 0 0; }
 .bili-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
 .login-row { display:flex; align-items:center; gap:6px; margin-top:12px; }
 .bili-login { max-width:480px; margin-top:10px; }
-.login-note { color:var(--text-muted); font-size:12px; line-height:1.7; }
-.bili-login label { display:block; margin:10px 0; color:var(--text-muted); }
-.bili-login input { display:block; width:100%; margin-top:4px; padding:7px 8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:12px; }
 .bili-audit { margin-top:14px; max-height:650px; overflow:auto; }
 .bili-audit .toolbar { margin:0 0 6px; }
 .audit-filter-label { display:flex; align-items:center; gap:8px; color:var(--text-muted); }
@@ -148,8 +145,8 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
 .audit-title { color:var(--accent); font-weight:500; text-decoration:none; }
 @media(hover:hover) and (pointer:fine) { .audit-title:hover { text-decoration:underline; } }
 .audit-meta { display:flex; align-items:center; gap:8px; margin-top:4px; }
-.audit-date { margin-left:auto; color:var(--text-faint); font-size:11px; }
-.audit-evidence { margin:4px 0 0; color:var(--text-muted); font-size:11px; }
+.audit-date { margin-left:auto; color:var(--text-faint); font-size:12px; }
+.audit-evidence { margin:4px 0 0; color:var(--text-muted); font-size:12px; }
 .bili-audit details { margin-top:6px; }
-.original { margin:4px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; color:var(--text-muted); font-size:11px; }
+.original { margin:4px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; color:var(--text-muted); font-size:13px; }
 </style>

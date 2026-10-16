@@ -40,6 +40,12 @@ const fmt = value => Number.isFinite(value) ? `${Number(value.toFixed(1))}${prop
   </section>
 </template>
 <style scoped>
-.chart-method { margin-top:8px;color:var(--text-muted);font-size:11px;line-height:1.7; }
-.lol-trend{min-width:0;border:1px solid var(--border);border-radius:12px;padding:18px;background:var(--card-bg)}.chart-heading{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:baseline}.chart-heading h3{font-size:14px;margin:0}.chart-heading span,summary{font-size:11px;color:var(--text-muted)}svg{width:100%;display:block;margin:14px 0 4px;overflow:visible}svg text{fill:var(--text-muted);font-size:10px}.grid line{stroke:var(--border);stroke-dasharray:3 4}.trend-line{stroke:var(--accent);stroke-width:2}.trend-point{fill:var(--accent);stroke:var(--card-bg);stroke-width:1.5}.chart-empty{min-height:140px;display:grid;align-content:center;color:var(--text-muted);font-size:13px;line-height:1.8}summary{cursor:pointer}.trend-table{max-height:190px;overflow:auto;margin-top:10px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{text-align:left;padding:7px;border-bottom:1px solid var(--border)}
+.chart-method { margin-top:8px;color:var(--text-muted);font-size:12px;line-height:1.7; }
+.lol-trend{min-width:0;container-type:inline-size;border:1px solid var(--border);border-radius:var(--radius-card);padding:20px;background:var(--card-bg)}.chart-heading{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:baseline}.chart-heading h3{font-size:16px;font-weight:500;margin:0}.chart-heading span,summary{font-size:12px;color:var(--text-muted)}svg{width:100%;display:block;margin:14px 0 4px;overflow:visible}svg text{fill:var(--text-muted);font-size:12px}.grid line{stroke:var(--border);stroke-dasharray:3 4}.trend-line{stroke:var(--accent);stroke-width:2}.trend-point{fill:var(--accent);stroke:var(--card-bg);stroke-width:1.5}.chart-empty{min-height:140px;display:grid;align-content:center;color:var(--text-muted);font-size:13px;line-height:1.8}summary{cursor:pointer}.trend-table{max-height:190px;overflow:auto;margin-top:10px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px;border-bottom:1px solid var(--border)}th{font-size:12px;font-weight:500;color:var(--text-muted)}
+/* The chart scales with its card (viewBox 480 wide), so axis text is sized in chart units to land between 12 and 15px on screen. */
+@container (max-width:479px){svg text{font-size:14px}}
+@container (max-width:439px){svg text{font-size:16px}}
+@container (max-width:359px){svg text{font-size:18px}}
+@container (max-width:319px){svg text{font-size:20px}}
+@container (max-width:287px){svg text{font-size:22px}}
 </style>

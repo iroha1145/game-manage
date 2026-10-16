@@ -24,11 +24,11 @@ async function submit() {
       <label>网站密码<input name="password" v-model="password" type="password" :autocomplete="registering ? 'new-password' : 'current-password'" required :minlength="registering ? 12 : 1" maxlength="128" /></label>
       <label v-if="registering">邀请码<input name="invite" v-model="invite" autocomplete="off" required maxlength="128" /></label>
       <p v-if="error" role="alert">{{ error }}</p>
-      <button class="ui-button" :disabled="busy">{{ busy ? '正在验证…' : registering ? '注册并登录' : '登录' }}</button>
+      <button class="ui-button primary" :disabled="busy">{{ busy ? '正在验证…' : registering ? '注册并登录' : '登录' }}</button>
     </form>
     <button type="button" class="text-link" :disabled="busy" @click="registering = !registering; error = ''; password = ''; invite = ''">{{ registering ? '已有网站账号，去登录' : '使用邀请码注册' }}</button>
   </section>
 </template>
 <style scoped>
-.site-login{width:min(100%,420px);margin:8vh auto;display:grid;gap:18px}.site-login form{display:grid;gap:14px}.site-login label{display:grid;gap:7px}.site-login input{width:100%;min-width:0;box-sizing:border-box;padding:11px;border:1px solid var(--border);border-radius:8px;background:var(--input-bg);color:var(--text)}h1,p{margin:0}p{line-height:1.6}p[role=alert]{color:var(--danger)}
+.site-login{width:min(100%,420px);margin:8vh auto;display:grid;gap:18px}.site-login form{display:grid;gap:14px}.site-login label{display:grid;gap:7px;font-size:13px;font-weight:500}.site-login input{width:100%;min-width:0;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);color:var(--text);font-weight:400}h1,p{margin:0}h1{font-size:16px;font-weight:500;line-height:24px}p{line-height:1.6}.site-login>p:not(.eyebrow){font-size:13px;color:var(--text-muted)}small{font-size:12px;color:var(--text-muted)}p[role=alert]{color:var(--danger);font-size:13px}
 </style>

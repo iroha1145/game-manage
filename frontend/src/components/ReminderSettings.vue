@@ -61,12 +61,12 @@ onBeforeUnmount(() => { ++generation; controller?.abort() })
       <label>来源读取最大年龄（秒）<input v-model.number="rule.max_source_age_seconds" type="number" min="60" max="3600" required /></label>
       <label>静默开始<input v-model="rule.quiet_start" type="time" /></label><label>静默结束<input v-model="rule.quiet_end" type="time" /></label>
       <p>时区 Asia/Shanghai；静默区间可跨午夜。开始与结束须同时填写，留空表示无静默时段。</p>
-      <button class="ui-button" :disabled="busy">保存提醒规则</button>
+      <button class="ui-button primary" :disabled="busy">保存提醒规则</button>
     </form>
     <button class="ui-button" :disabled="busy" @click="load">读取规则与站内消息</button>
     <div v-if="active()" aria-label="站内提醒收件箱"><p v-if="!messages.length">暂无站内提醒；查看消息不会触发采集或发送。</p><article v-for="message in messages" :key="message.id"><strong>{{ message.title }}</strong><p>{{ message.body }}</p><small>写入时间 {{ message.delivered_at }}</small></article></div>
   </section>
 </template>
 <style scoped>
-.reminder-settings,form{display:grid;gap:10px}.reminder-settings{padding-top:12px;border-top:1px solid var(--border)}h4,p{margin:0}label{display:flex;align-items:center;flex-wrap:wrap;gap:8px}input,select{padding:7px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:6px}input[type=number]{width:100px}article{padding:10px;background:var(--card-bg);border-radius:6px}small{color:var(--text-muted)}
+.reminder-settings,form{display:grid;gap:10px}.reminder-settings>button,form>button{justify-self:start}.reminder-settings{padding-top:12px;border-top:1px solid var(--border)}h4,p{margin:0}h4{font-size:14px;font-weight:500}label{display:flex;align-items:center;flex-wrap:wrap;gap:8px}input,select{padding:7px 10px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control)}input[type=number]{width:100px}article{padding:10px;background:var(--surface-soft);border-radius:var(--radius-control)}article+article{margin-top:8px}article strong{font-weight:500}small{font-size:12px;color:var(--text-muted)}
 </style>

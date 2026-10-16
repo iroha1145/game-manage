@@ -410,19 +410,19 @@ async function toggleDetail(row) {
 </template>
 
 <style scoped>
-.chart-title { margin: 0; color: var(--text); font-size: 12px; font-weight: 600; }
+.chart-title { margin: 0; color: var(--text); font-size: 14px; font-weight: 500; white-space: nowrap; }
 
-/* Overview: KPI tiles, then the trend chart beside the mode split. */
+/* Overview: KPI tiles, then the trend chart beside the mode split. Inner groups take a tone step instead of a border. */
 .overview { display: grid; gap: 12px; margin-bottom: 14px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 0; }
-.tile { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-bg); }
-.tile dt { color: var(--text-muted); font-size: 11px; line-height: 16px; }
+.tile { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; border-radius: var(--radius-control); background: var(--surface-soft); }
+.tile dt { color: var(--text-muted); font-size: 12px; line-height: 18px; }
 .tile dd { margin: 2px 0 0; color: var(--text); font-size: 20px; line-height: 24px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap; }
-.tile dd small { margin-left: 3px; color: var(--text-muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+.tile dd small { margin-left: 3px; color: var(--text-muted); font-size: 12px; font-weight: 400; letter-spacing: 0; }
 .tile dd.up { color: var(--success); }
 .tile dd.down { color: var(--danger); }
 .tile dd.up small, .tile dd.down small { color: inherit; }
-.tile p { margin-top: 1px; color: var(--text-faint); font-size: 11px; line-height: 16px; white-space: nowrap; }
+.tile p { margin-top: 1px; color: var(--text-faint); font-size: 12px; line-height: 18px; white-space: nowrap; }
 .donut { width: 44px; height: 44px; flex-shrink: 0; transform: rotate(-90deg); }
 .donut circle { fill: none; stroke-width: 4.2; }
 .donut-track { stroke: var(--track); }
@@ -430,13 +430,13 @@ async function toggleDetail(row) {
 .donut-loss { stroke: color-mix(in srgb, var(--danger) 70%, transparent); }
 
 .charts { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(220px, 1fr); gap: 12px; }
-.trend, .modes { min-width: 0; margin: 0; padding: 10px 12px 8px; border: 1px solid var(--border); border-radius: 10px; }
-.trend figcaption { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.trend, .modes { min-width: 0; margin: 0; padding: 12px 14px 10px; border-radius: var(--radius-well); background: var(--surface-soft); }
+.trend figcaption { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin-bottom: 8px; }
 .trend .legend { margin: 0; }
 .legend .line-key::before { width: 12px; height: 2px; border-radius: 1px; background: var(--accent); }
 
 .plot { position: relative; height: 128px; padding-top: 14px; border-bottom: 1px solid var(--border-strong); }
-.axis-max { position: absolute; top: 0; left: 0; color: var(--text-faint); font-size: 10px; line-height: 12px; }
+.axis-max { position: absolute; top: 0; left: 0; color: var(--text-faint); font-size: 12px; line-height: 14px; }
 .bars { position: absolute; inset: 14px 30px 0 0; display: flex; align-items: flex-end; gap: 3px; }
 .bar { position: relative; flex: 1; min-width: 0; height: var(--h); border-radius: 3px 3px 0 0; background: var(--track); opacity: .88; transition: opacity var(--duration-quick) var(--ease-smooth-out); }
 .bar.win { background: var(--success); }
@@ -444,8 +444,8 @@ async function toggleDetail(row) {
 /* Not a win or a loss: grey. Remakes and missing stats get a short hatched stub
    so they read as "no result" rather than a KDA of zero. */
 .bar.unknown { background: color-mix(in srgb, var(--text-faint) 55%, transparent); }
-.bar.stub { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-faint) 70%, transparent) 0 2px, transparent 2px 5px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-faint) 45%, transparent); }
-.bar::after { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 6px); z-index: 3; display: none; padding: 4px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); box-shadow: var(--popover-shadow); color: var(--text-body); font-size: 11px; line-height: 16px; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
+.bar.stub { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-faint) 70%, transparent) 0 2px, transparent 2px 5px); }
+.bar::after { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 6px); z-index: 3; display: none; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card-bg); box-shadow: var(--popover-shadow); color: var(--text-body); font-size: 12px; line-height: 16px; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
 /* Tips near the edges open inward so they never leave the card. */
 .bar:nth-child(-n+3)::after { left: 0; transform: none; }
 .bar:nth-last-child(-n+3)::after { right: 0; left: auto; transform: none; }
@@ -459,40 +459,39 @@ async function toggleDetail(row) {
 .line .half { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
 /* KDA above the axis cap: the bar stops at the top with a small marker. */
 .bar.clipped::before { content: ''; position: absolute; left: 50%; top: -5px; width: 6px; height: 6px; border-radius: 1px; background: inherit; transform: translateX(-50%) rotate(45deg); }
-.half-label { position: absolute; right: 0; top: calc(14px + (100% - 14px) * .5); width: 28px; color: var(--text-faint); font-size: 10px; line-height: 12px; text-align: right; transform: translateY(-50%); }
-.line-end { position: absolute; right: 0; width: 28px; color: var(--accent); font-size: 11px; font-weight: 600; line-height: 14px; text-align: right; transform: translateY(-50%); }
-.axis { position: relative; display: flex; justify-content: space-between; margin-right: 30px; padding-top: 4px; color: var(--text-faint); font-size: 10px; }
+.half-label { position: absolute; right: 0; top: calc(14px + (100% - 14px) * .5); width: 30px; color: var(--text-faint); font-size: 12px; line-height: 14px; text-align: right; transform: translateY(-50%); }
+.line-end { position: absolute; right: 0; width: 30px; color: var(--accent); font-size: 12px; font-weight: 500; line-height: 14px; text-align: right; transform: translateY(-50%); }
+.axis { position: relative; display: flex; justify-content: space-between; margin-right: 30px; padding-top: 4px; color: var(--text-faint); font-size: 12px; }
 /* A break of several days between two games: dashed divider plus a label. */
 .gap { position: absolute; top: 14px; bottom: 0; width: 0; border-left: 1px dashed var(--border-strong); pointer-events: none; }
-.gap-label { position: absolute; top: 4px; padding: 0 4px; background: var(--card-bg); white-space: nowrap; transform: translateX(-50%); }
+.gap-label { position: absolute; top: 4px; padding: 0 4px; background: var(--surface-soft); white-space: nowrap; transform: translateX(-50%); }
 
 .modes { display: flex; flex-direction: column; gap: 6px; }
 .modes .bar-list { gap: 8px; }
-.modes .bar-row { font-size: 12px; }
-.mode-detail { margin: -2px 0 0; color: var(--text-faint); font-size: 11px; line-height: 16px; }
-.modes .k small { margin-left: 4px; color: var(--text-faint); font-size: 11px; }
-.modes-note { margin-top: auto; color: var(--text-faint); font-size: 11px; }
+.mode-detail { margin: -2px 0 0; color: var(--text-faint); font-size: 12px; line-height: 18px; }
+.modes .k small { margin-left: 4px; color: var(--text-faint); font-size: 12px; }
+.modes-note { margin-top: auto; color: var(--text-faint); font-size: 12px; }
 
 /* Match cards in a grid; the opened match's details span the full width
    after the last card of its row. */
 .match-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 232px), 1fr)); gap: 8px; }
-.match-item { display: grid; gap: 6px; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); transition: border-color var(--duration-quick) var(--ease-smooth-out), box-shadow var(--duration-quick) var(--ease-smooth-out); }
+.match-item { display: grid; gap: 6px; min-width: 0; padding: 10px 12px; border: 1px solid transparent; border-radius: var(--radius-well); background: var(--surface-soft); transition: border-color var(--duration-quick) var(--ease-smooth-out); }
 .match-item.is-remake { background: var(--panel-bg); }
 .is-remake .mi-head strong, .is-remake .mi-kda b, .is-remake .mi-kda b.deaths { color: var(--text-muted); }
-.match-item.open { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+.match-item.open { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 @media (hover: hover) and (pointer: fine) { .match-item:not(.open):hover { border-color: var(--border-strong); } }
 .mi-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.mi-head strong { min-width: 0; overflow: hidden; color: var(--text); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.mi-head time { margin-left: auto; color: var(--text-faint); font-size: 11px; white-space: nowrap; }
+.mi-head strong { min-width: 0; overflow: hidden; color: var(--text); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.mi-head time { margin-left: auto; color: var(--text-faint); font-size: 12px; white-space: nowrap; }
 .mi-kda { display: flex; align-items: baseline; gap: 3px; color: var(--text); }
-.mi-kda b { font-size: 18px; line-height: 22px; font-weight: 600; letter-spacing: -.02em; }
+.mi-kda b { font-size: 20px; line-height: 24px; font-weight: 600; letter-spacing: -.02em; }
 .mi-kda b.deaths { color: var(--danger); }
 .mi-kda i { color: var(--text-faint); font-style: normal; font-size: 13px; }
-.mi-kda .ratio { margin-left: auto; padding: 0 6px; border-radius: 5px; background: var(--overlay-3); color: var(--text-body); font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; }
-.mi-damage { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--text-muted); font-size: 11px; }
+.mi-kda .ratio { margin-left: auto; padding: 0 6px; border-radius: var(--radius-chip); background: var(--overlay-3); color: var(--text-body); font-size: 12px; font-weight: 500; line-height: 20px; white-space: nowrap; }
+.mi-damage { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; }
 .mi-damage .meter { height: 4px; }
-.mi-foot { display: flex; align-items: center; gap: 6px; min-width: 0; padding-top: 6px; border-top: 1px solid var(--border); }
-.mi-meta { min-width: 0; margin-right: auto; overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.mi-foot { display: flex; align-items: center; gap: 6px; min-width: 0; padding-top: 6px; }
+.mi-meta { min-width: 0; margin-right: auto; overflow: hidden; color: var(--text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .chip.record { background: color-mix(in srgb, var(--game-lol) 14%, transparent); color: var(--text); }
 .mi-foot .ui-button { flex-shrink: 0; }
 .match-detail { grid-column: 1 / -1; min-width: 0; }

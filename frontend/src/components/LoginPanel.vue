@@ -376,36 +376,38 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.login-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--card-shadow); }
+.login-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px; }
 .panel-header, .form-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
-h3 { font-size: 15px; font-weight: 600; }
+h2 { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+h3 { font-size: 14px; font-weight: 500; }
 .muted, .field-hint { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 .accounts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
-.account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+/* A tone step, not an outline, groups each game inside the card. The accounts page rule in style.css sets the same ground. */
+.account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: var(--radius-well); background: var(--surface-soft); padding: 12px; }
 .account-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.account-info > strong { font-size: 14px; font-weight: 500; }
 .account-message { flex-basis: 100%; overflow-wrap: anywhere; }
-.nickname { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nickname { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-muted); }
 .account-actions { display: flex; flex-shrink: 0; gap: 6px; }
-.state { font-size: 11px; font-weight: 500; line-height: 18px; border-radius: 5px; padding: 1px 7px; color: var(--text-muted); background: var(--overlay-3); }
+.state { font-size: 12px; font-weight: 500; line-height: 20px; border-radius: var(--radius-chip); padding: 0 8px; color: var(--text-muted); background: var(--overlay-3); }
 .connected, .active { color: var(--success); background: var(--success-bg); }
 .expired, .revoked { color: var(--danger); background: var(--danger-bg); }
 .configured { color: var(--stale-text); background: var(--stale-bg); }
-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--card-bg); color: var(--text-body); padding: 5px 12px; font-size: 12px; font-weight: 500; line-height: 18px; cursor: pointer; box-shadow: var(--btn-shadow); transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), box-shadow var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card-bg); color: var(--text-body); padding: 5px 12px; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
 @media (hover: hover) and (pointer: fine) { button:not(:disabled):hover { background: var(--button-hover-bg); color: var(--text); } }
-button:not(:disabled):active { transform: scale(var(--scale-medium)); box-shadow: var(--btn-shadow-pressed); }
-.text-button, .text-button:not(:disabled):hover { box-shadow: none; background: transparent; border-color: transparent; }
+button:not(:disabled):active { transform: scale(var(--scale-medium)); }
+.text-button, .text-button:not(:disabled):hover { background: transparent; border-color: transparent; }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .text-button { border: 0; color: var(--accent); min-height: 0; padding: 4px; white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) { .text-button:not(:disabled):hover { color: var(--accent-strong); } }
 .logout { color: var(--text-muted); }
-.primary { color: var(--accent-ink); background: var(--accent-fill); border-color: transparent; box-shadow: var(--btn-primary-shadow); }
+.primary { color: var(--accent-ink); background: var(--accent-fill); border-color: transparent; }
 @media (hover: hover) and (pointer: fine) { .primary:not(:disabled):hover { color: var(--accent-ink); background: var(--accent-hover); } }
-.primary:not(:disabled):active { transform: scale(var(--scale-small)); box-shadow: var(--btn-primary-pressed); }
-.login-form { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 560px; }
-label { font-size: 13px; font-weight: 600; margin-top: 4px; }
-input { width: 100%; min-width: 0; border: 1px solid var(--border-strong); border-radius: 7px; padding: 9px 12px; font: inherit; color: var(--text); background: var(--card-bg); box-shadow: inset 0 1px 2px rgba(16, 24, 40, .04); }
+.primary:not(:disabled):active { transform: scale(var(--scale-small)); }
+.login-form { margin-top: 16px; padding-top: 16px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 560px; }
+label { font-size: 13px; font-weight: 500; margin-top: 4px; }
+input { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 9px 12px; font: inherit; color: var(--text); background: var(--card-bg); }
 input::placeholder { color: var(--text-faint); }
 input:focus-visible { border-color: var(--accent); outline: none; box-shadow: var(--ring); }
 input[readonly] { background: var(--panel-bg); }
