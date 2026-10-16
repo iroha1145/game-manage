@@ -5,13 +5,17 @@ import { getAuthStatus } from './auth-api.js'
 import { createDashboard, readRoute, gameStyle } from './dashboard.js'
 import { vGlide } from './motion.js'
 import { followSystem, setTheme, theme } from './theme.js'
+import { lazyPage } from './lazy-page.js'
 import AppIcon from './components/AppIcon.vue'
 import GameIcon from './components/GameIcon.vue'
 import OverviewPage from './components/OverviewPage.vue'
 import CalendarPage from './components/CalendarPage.vue'
-import GameCard from './components/GameCard.vue'
 import LoginPanel from './components/LoginPanel.vue'
 import BilibiliSourcePanel from './components/BilibiliSourcePanel.vue'
+
+// Game pages carry every game module plus the icon and guide catalogs; the
+// overview, calendar and accounts need none of it.
+const GameCard = lazyPage(() => import('./components/GameCard.vue'))
 
 const dashboard = createDashboard({ ...api, getAuthStatus })
 const state = dashboard.state

@@ -257,3 +257,100 @@ test('a passport session whose role differs from Skland asks the user to choose'
   await flush()
   assert.match(content(root), /森空岛绑定的角色与通行证登录的角色不同，请确认后手动选择/)
 })
+
+for (const [label, failing, act] of [
+  ['role switch', '/skland/role', root => nodes(root, 'select')[0].props.onChange({ target: { value: 'new:1' } })],
+  ['disconnect', '/skland/connection', root => nodes(root, 'button').find(n => content(n) === '断开森空岛').props.onClick()],
+]) test(`a failed ${label} reloads the challenge records instead of the profile card`, async t => {
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async url => {
+    calls.push(url)
+    if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: 'old', server_id: '1', nickname: '旧角色' }, { role_id: 'new', server_id: '1', nickname: '新角色' }], selected_role_id: 'old', selected_server_id: '1' })
+    if (url.includes('/skland/challenges?')) return response({ kind: 'war', fetched_at: '2026-10-15T01:02:00Z', records: [{ name: '第一期战争', stars: 3, weeks: [] }] })
+    if (url.endsWith(failing)) return { ok: false, status: 502, json: async () => ({ detail: '森空岛暂时无法响应' }) }
+    return response({})
+  })
+  const root = mount(t, Dashboard, { snaps: {}, initialSection: 'challenges' })
+  await flush(); await flush()
+  assert.match(content(root), /第一期战争/)
+  calls.length = 0
+  act(root)
+  await flush(); await flush()
+  assert.match(content(root), /暂时无法读取，请稍后重试/)
+  assert.match(content(root), /第一期战争/)
+  assert.doesNotMatch(content(root), /尚未采集战争记录/)
+  assert.equal(calls.filter(url => url.includes('/skland/challenges?')).length, 1)
+  assert.ok(!calls.some(url => url.endsWith('/card')))
+})
+
+for (const [initialSection, attendanceCalls] of [['overview', 1], ['operators', 0]]) test(`a failed role switch on ${initialSection} still reloads the profile card`, async t => {
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async url => {
+    calls.push(url)
+    if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: 'old', server_id: '1', nickname: '旧角色' }, { role_id: 'new', server_id: '1', nickname: '新角色' }], selected_role_id: 'old', selected_server_id: '1' })
+    if (url.endsWith('/card')) return response({ payload: { base: { name: '旧档案' } } })
+    if (url.endsWith('/attendance')) return response({ supported: false })
+    if (url.endsWith('/skland/role')) return { ok: false, status: 502, json: async () => ({ detail: '森空岛暂时无法响应' }) }
+    return response({})
+  })
+  const root = mount(t, Dashboard, { snaps: {}, initialSection })
+  await flush(); await flush()
+  calls.length = 0
+  nodes(root, 'select')[0].props.onChange({ target: { value: 'new:1' } })
+  await flush(); await flush()
+  assert.equal(calls.filter(url => url.endsWith('/card')).length, 1)
+  assert.equal(calls.filter(url => url.endsWith('/attendance')).length, attendanceCalls)
+  assert.ok(!calls.some(url => url.includes('/skland/challenges?')))
+})
+
+test('choosing the role placeholder puts the dropdown back on the active role', async t => {
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    calls.push([options.method || 'GET', url])
+    if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: 'old', server_id: '1', nickname: '旧角色' }], selected_role_id: 'old', selected_server_id: '1' })
+    if (url.endsWith('/card')) return response({ payload: { base: { name: '旧档案' } } })
+    return response({ supported: false })
+  })
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush(); await flush()
+  const target = { value: '' }
+  nodes(root, 'select')[0].props.onChange({ target })
+  await flush()
+  assert.equal(target.value, 'old:1')
+  assert.match(content(root), /旧档案/)
+  assert.ok(!calls.some(([method, url]) => method === 'POST' && url.endsWith('/skland/role')))
+})
+
+const blueprintFetch = async url => url.endsWith('/blueprints') ? response({ items: [{ id: 'b1', name: '工厂', code: 'ABC', notes: '' }] }) : response({ connected: false, roles: [] })
+const button = (root, label) => nodes(root, 'button').find(n => content(n) === label)
+
+test('copying a share code confirms in the blueprint list and never on the Skland card', async t => {
+  t.mock.getter(globalThis, 'navigator', () => ({ clipboard: { writeText: async () => {} } }))
+  t.mock.method(globalThis, 'fetch', blueprintFetch)
+  const root = mount(t, Dashboard, { snaps: {}, initialSection: 'blueprints' })
+  await flush(); await flush()
+  button(root, '复制分享码').props.onClick()
+  await flush()
+  assert.match(content(root), /分享码已复制/)
+  button(root, '概览').props.onClick()
+  await flush()
+  assert.doesNotMatch(content(root), /分享码已复制/)
+  button(root, '蓝图收藏').props.onClick()
+  await flush()
+  assert.doesNotMatch(content(root), /分享码已复制/)
+})
+
+test('a failed copy and a successful copy replace each other in the blueprint list', async t => {
+  let clipboardFails = true
+  t.mock.getter(globalThis, 'navigator', () => ({ clipboard: { writeText: async () => { if (clipboardFails) throw new Error('denied') } } }))
+  t.mock.method(globalThis, 'fetch', blueprintFetch)
+  const root = mount(t, Dashboard, { snaps: {}, initialSection: 'blueprints' })
+  await flush(); await flush()
+  for (const [fails, shown, hidden] of [[true, /复制失败，请手动选取分享码/, /分享码已复制/], [false, /分享码已复制/, /复制失败/], [true, /复制失败，请手动选取分享码/, /分享码已复制/]]) {
+    clipboardFails = fails
+    button(root, '复制分享码').props.onClick()
+    await flush()
+    assert.match(content(root), shown)
+    assert.doesNotMatch(content(root), hidden)
+  }
+})

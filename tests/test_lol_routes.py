@@ -115,3 +115,26 @@ async def test_custom_database_directory_shares_downloaded_champion_names(tmp_pa
     assert c.get('/api/lol/matches/321').json()['payload']['teams'][0]['participants'][0]['champion_name'] == '黑暗之女'
     assert (await selected.fetch_match()).payload[0].champion_name == '黑暗之女'
     assert (await selected.fetch_match_detail('321')).payload.teams[0].participants[0].champion_name == '黑暗之女'
+
+
+def test_analysis_decodes_the_archive_off_the_event_loop(tmp_path):
+    import asyncio
+    c, app = client(tmp_path)
+    app.state.lol_archive.save({'puuid': 'fixture-owner'}, [{
+        'gameId': 1, 'gameCreation': 1_760_000_000_000, 'participants': [{'participantId': 1, 'stats': {}}],
+        'participantIdentities': [{'participantId': 1, 'player': {'puuid': 'fixture-owner'}}]}])
+    archive, loops = app.state.lol_archive, []
+    read = archive.records
+
+    def records(puuid):
+        try:
+            loops.append(asyncio.get_running_loop())
+        except RuntimeError:
+            loops.append(None)
+        return read(puuid)
+
+    archive.records = records
+    r = c.get('/api/lol/analysis?days=0')
+    assert r.status_code == 200 and r.json()['coverage']['archived_games'] == 1
+    # A large archive takes a noticeable time to decode; it must not stall other requests.
+    assert loops == [None]

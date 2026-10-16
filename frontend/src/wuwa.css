@@ -49,10 +49,6 @@
   border-radius: 12px;
   box-shadow: var(--card-shadow);
 }
-.wuwa-empty {
-  color: var(--text-muted);
-  font-size: 13px;
-}
 /* Two independent columns, so a short card (stamina) is not stretched to the
    height of its neighbour. On one column the cards keep their reading order. */
 .wuwa-grid {
@@ -60,11 +56,6 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 12px;
-}
-.wuwa-column {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
 }
 
 /* Title line: 14px title, ⓘ, then meta pushed to the right. */
@@ -627,17 +618,6 @@
   color: var(--text-faint);
   font-size: 11px;
   white-space: nowrap;
-}
-.wuwa-detail {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-.wuwa-close {
-  margin-left: auto;
-}
-.wuwa-status + .wuwa-close {
-  margin-left: 0;
 }
 .wuwa-role-detail {
   display: grid;
@@ -1260,13 +1240,6 @@
   .wuwa-grid {
     grid-template-columns: 1fr;
   }
-  .wuwa-column {
-    display: contents;
-  }
-  .wuwa-slot-1 { order: 1; }
-  .wuwa-slot-2 { order: 2; }
-  .wuwa-slot-3 { order: 3; }
-  .wuwa-slot-4 { order: 4; }
 }
 @media (max-width: 700px) {
   .wuwa-panel {

@@ -127,7 +127,9 @@ async function importCookie() {
 }
 async function retrySave() {await operation((sid,signal)=>commitBilibiliSession(sid,signal))}
 function close() {invalidate();emit('close')}
-watch([username,mobile],()=>{if(session.value){invalidate();state.value='ready';error.value='输入账号已变化，请重新验证';if(mode.value==='sms')countdown()}},{flush:'sync'})
+// A fresh session has seen no account yet; only a verified captcha or a request
+// already made for the previous input is tied to it.
+watch([username,mobile],()=>{if(session.value&&(proof.value||state.value!=='ready')){invalidate();state.value='ready';error.value='输入账号已变化，请重新验证';if(mode.value==='sms')countdown()}},{flush:'sync'})
 onMounted(()=>void startSession())
 onUnmounted(()=>{stopped=true;invalidate()})
 </script>

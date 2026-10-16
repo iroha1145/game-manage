@@ -145,3 +145,13 @@ def test_preview_aggregate_source_selection_and_invalid_body(tmp_path):
     assert archive['total']==0 and archive['aggregates']['total']==1
     assert client.post('/api/wuwa/gacha/preview',content=b'x'*(2*1024*1024+1),headers=headers).status_code==413
     assert client.post('/api/wuwa/gacha/preview',json={'source':'xhh','records':payload},headers=headers).status_code==422
+
+
+def test_deeply_nested_json_is_rejected_not_a_server_error(tmp_path):
+    client, _, _ = make_client(tmp_path)
+    client = TestClient(client.app, raise_server_exceptions=False)
+    nested = ('[' * 100000 + ']' * 100000).encode()
+    headers = {'X-Game-Assistant': '1', 'Content-Type': 'application/json'}
+    for path in ('/api/wuwa/gacha/import', '/api/wuwa/history/backfill'):
+        response = client.post(path, content=nested, headers=headers)
+        assert response.status_code == 422, (path, response.status_code)

@@ -4,7 +4,7 @@ import { formatTime } from '../dashboard.js'
 import { ARTICLE_CATEGORIES, prepareArticles, contentNote } from '../articles.js'
 import { collectionState, hasFreshPublicFallback } from '../snapshot-state.js'
 import ArticleDetailDialog from './ArticleDetailDialog.vue'
-const props = defineProps({ snap: { type: Object, default: null }, extraSnaps: { type: Array, default: () => [] }, capability: { type: String, default: 'news' }, gameId: { type: String, default: '' }, imageMode:Boolean })
+const props = defineProps({ snap: { type: Object, default: null }, extraSnaps: { type: Array, default: () => [] }, gameId: { type: String, default: '' }, imageMode:Boolean })
 const category = ref('all'), selectedKey = ref('')
 const snapshots = computed(() => [props.snap, ...props.extraSnaps].filter(Boolean))
 const rows = computed(() => prepareArticles(snapshots.value))

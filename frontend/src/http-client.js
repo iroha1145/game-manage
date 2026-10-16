@@ -85,8 +85,15 @@ export async function requestJson(path, options = {}) {
   const controller = new AbortController(); if (!logout) controllers.add(controller)
   const signal = rest.signal ? AbortSignal.any([controller.signal, rest.signal]) : controller.signal
   try {
-    const result = await fetch(path, { ...rest, method, headers, credentials: 'same-origin', cache: 'no-store', referrerPolicy: 'no-referrer', signal,
-      ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }) })
+    let result
+    try {
+      result = await fetch(path, { ...rest, method, headers, credentials: 'same-origin', cache: 'no-store', referrerPolicy: 'no-referrer', signal,
+        ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }) })
+    } catch (error) {
+      // An unreachable service rejects with an English TypeError ("Failed to fetch").
+      // Keep the type: wrappers with their own wording still recognise it.
+      throw error instanceof TypeError ? new TypeError('无法连接服务，请稍后重试') : error
+    }
     if (!logout && current !== epoch) throw cancelled()
     if (cloud && result.status === 401) { invalidateSession(); throw new HttpError(401) }
     // Legacy wrappers retain their existing error/response validation, while all

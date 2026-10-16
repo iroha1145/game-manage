@@ -4,6 +4,7 @@ import { createCloudDashboard } from './cloud-dashboard.js'
 import { accountCapabilities, providerName, getPublicSnapshot } from './accounts-api.js'
 import { revokeSession, getMe } from './identity-api.js'
 import { followSystem, theme, setTheme } from './theme.js'
+import { lazyPage } from './lazy-page.js'
 import { collectionState } from './snapshot-state.js'
 import { capabilityLabel } from './cloud-display.js'
 import AppIcon from './components/AppIcon.vue'
@@ -13,11 +14,13 @@ import SiteLogin from './components/SiteLogin.vue'
 import AccountSettings from './components/AccountSettings.vue'
 import QqBindingPanel from './components/QqBindingPanel.vue'
 import LoginPanel from './components/LoginPanel.vue'
-import CloudGameCard from './components/CloudGameCard.vue'
 import CalendarPage from './components/CalendarPage.vue'
 import OverviewPage from './components/OverviewPage.vue'
 import CloudBilibiliSourcePanel from './components/CloudBilibiliSourcePanel.vue'
 import CloudSklandConnect from './components/CloudSklandConnect.vue'
+
+// The game card pulls in every game module and catalog; the overview and account pages do not need it.
+const CloudGameCard = lazyPage(() => import('./components/CloudGameCard.vue'))
 const dashboard = createCloudDashboard(), state = dashboard.state
 const initialHash = globalThis.window?.location?.hash || ''
 const initialRoute = /#\/sessions(?:$|\?)/.test(initialHash) ? {page:'sessions',game:''} : readRoute(initialHash)

@@ -42,7 +42,7 @@ async def test_legacy_nte_refresh_only_acquires_stable_device_and_persists(tmp_p
     auth, registry, settings = integrated(tmp_path, nte_refresh_token='legacy-refresh')
     refresh = respx.post('https://bbs-api.tajiduo.com/usercenter/api/refreshToken').mock(
         return_value=httpx.Response(200, json={'code': 0, 'data': {'accessToken': 'new-a', 'refreshToken': 'new-r'}}))
-    roles = respx.get('https://bbs-api.tajiduo.com/usercenter/api/v2/getGameRoles').mock(
+    respx.get('https://bbs-api.tajiduo.com/usercenter/api/v2/getGameRoles').mock(
         return_value=httpx.Response(200, json={'code': 0, 'data': {'roles': [{'roleId': '77'}]}}))
     characters = respx.get('https://bbs-api.tajiduo.com/apihub/awapi/yh/characters').mock(
         return_value=httpx.Response(200, json={'code': 0, 'data': []}))

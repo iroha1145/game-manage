@@ -75,7 +75,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
     <template v-else>
       <p v-if="imageMode && !detailMode" class="notice">完整角色概览。查看装备、属性与技能详情：异环 角色 名称</p>
       <div v-if="!imageMode" class="toolbar">
-        <input class="grow" type="search" aria-label="搜索角色" placeholder="名称、别名、拼音或首字母" :value="search" @input="search = $event.target.value" />
+        <input class="grow" type="search" aria-label="搜索角色" placeholder="名称、别名、拼音或首字母" :value="search" @input="$event.isComposing || (search = $event.target.value)" @compositionend="search = $event.target.value" />
         <MenuSelect v-model="quality" label="品质筛选" :options="[{ value: '', label: '全部品质' }, ...qualities]" />
         <MenuSelect v-model="element" label="元素筛选" :options="[{ value: '', label: '全部元素' }, ...elements]" />
         <MenuSelect v-model="sort" label="角色排序" :options="[{ value: 'level', label: '按等级' }, { value: 'awaken_level', label: '按觉醒' }, { value: 'mix_level', label: '按混频' }, { value: 'name', label: '按名称' }]" />
@@ -191,7 +191,6 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .role-card.compared { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .role-top { display: flex; align-items: center; gap: 8px; }
 .avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 8px; object-fit: cover; background: var(--surface-soft); }
-.avatar-empty { display: grid; place-items: center; color: var(--text-muted); font-size: 15px; }
 .role-heading { display: grid; gap: 1px; min-width: 0; flex: 1; }
 .role-heading > strong { overflow: hidden; color: var(--text); font-size: 13px; line-height: 18px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .role-sub { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px; line-height: 16px; white-space: nowrap; }

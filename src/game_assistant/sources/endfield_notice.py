@@ -106,24 +106,27 @@ def _times(text):
         left, right = _split_range(clean)
     if right is None:
         return None
-    start_match = DATE_TIME.search(left)
-    if start_match:
-        start = _dt(start_match)
-        start_fields = dict(start_at=start.isoformat(), start_date=start.date().isoformat(),
-                            start_text=start_match.group(), start_precision='minute')
-    elif RELATIVE_START.search(left) or left.endswith('版本期间'):
-        start_fields = dict(start_at=None, start_date=None, start_text=left, start_precision='relative')
-    else:
-        return None
-    end_match = DATE_TIME.search(right)
-    if '版本更新维护前' in right:
-        end_fields = dict(end_at=None, end_text='版本更新维护前', end_precision='version_end')
-    elif end_match:
-        end_fields = dict(end_at=_dt(end_match).isoformat(), end_text=end_match.group(), end_precision='minute')
-    elif DEPENDENT_END.search(right):
-        end_fields = dict(end_at=None, end_text=right, end_precision='dependent')
-    else:
-        return None
+    try:
+        start_match = DATE_TIME.search(left)
+        if start_match:
+            start = _dt(start_match)
+            start_fields = dict(start_at=start.isoformat(), start_date=start.date().isoformat(),
+                                start_text=start_match.group(), start_precision='minute')
+        elif RELATIVE_START.search(left) or left.endswith('版本期间'):
+            start_fields = dict(start_at=None, start_date=None, start_text=left, start_precision='relative')
+        else:
+            return None
+        end_match = DATE_TIME.search(right)
+        if '版本更新维护前' in right:
+            end_fields = dict(end_at=None, end_text='版本更新维护前', end_precision='version_end')
+        elif end_match:
+            end_fields = dict(end_at=_dt(end_match).isoformat(), end_text=end_match.group(), end_precision='minute')
+        elif DEPENDENT_END.search(right):
+            end_fields = dict(end_at=None, end_text=right, end_precision='dependent')
+        else:
+            return None
+    except ValueError:
+        return None  # 24:00、9 月 31 日这类不存在的时刻无法确认，和缺少时间一样不进日历
     if start_fields['start_at'] and end_fields['end_at'] and end_fields['end_at'] < start_fields['start_at']:
         return None
     return dict(**start_fields, **end_fields, time_text=original)
@@ -182,12 +185,18 @@ def maintenance_window(post):
     for index, line in enumerate(lines):
         if '维护时间' in line:
             for candidate in lines[index:index + 2]:
-                dates = [_dt(match) for match in DATE_TIME.finditer(candidate)]
+                try:
+                    dates = [_dt(match) for match in DATE_TIME.finditer(candidate)]
+                except ValueError:
+                    continue  # 不存在的时刻：这一行当作没写维护时间
                 if dates:
                     return dates[0], dates[1] if len(dates) > 1 else None
     planned = re.search(r'计划(?:将)?于(.{0,40}?)开始', post.get('body') or '')
     if planned and DATE_TIME.search(planned[1]):
-        return _dt(DATE_TIME.search(planned[1])), None
+        try:
+            return _dt(DATE_TIME.search(planned[1])), None
+        except ValueError:
+            pass
     return None
 
 

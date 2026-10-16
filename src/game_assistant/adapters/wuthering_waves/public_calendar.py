@@ -75,8 +75,9 @@ async def read_calendar(client, rows, title_keys):
             if re.search(r'(?:更新)?维护时间', line):
                 match = DATE.search(line) or (DATE.search(lines[i+1]) if i+1 < len(lines) else None)
                 if match and (match[1] or post['published_at']):
-                    year = int(match[1]) if match[1] else datetime.fromisoformat(post['published_at']).year
-                    release = _dt(match, year)
+                    posted = datetime.fromisoformat(post['published_at']) if post['published_at'] else None
+                    year = int(match[1]) if match[1] else posted.astimezone(BEIJING_TZ).year
+                    release = _dt(match, year, posted)
                 break
         if release and release > now:
             continue

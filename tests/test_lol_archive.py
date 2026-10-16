@@ -1,6 +1,5 @@
 import sqlite3
 import threading
-from copy import deepcopy
 
 from game_assistant.lol_archive import LolArchive
 

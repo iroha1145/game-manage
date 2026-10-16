@@ -42,14 +42,6 @@ def install_lol_routes(app):
         except KeyError:
             raise HTTPException(404, '英雄联盟未启用') from None
 
-    @app.middleware('http')
-    async def private_headers(request, call_next):
-        response = await call_next(request)
-        if request.url.path.startswith('/api/lol/'):
-            response.headers['Cache-Control'] = 'no-store'
-            response.headers['Referrer-Policy'] = 'no-referrer'
-        return response
-
     @app.get('/api/lol/analysis')
     async def analysis(days: int = Query(90, ge=0, le=365),
                        queue_id: int | None = Query(None, ge=0, le=100000)):
@@ -58,11 +50,16 @@ def install_lol_routes(app):
         if days not in (0, 7, 30, 90, 365):
             raise HTTPException(422, '时间范围须为 7、30、90、365 天或全部')
         account = archive.account()
-        records = archive.records(account['puuid']) if account else []
+        puuid = account['puuid'] if account else ''
         # Reading the dashboard never needs the client or a public network fetch.
         names, _ = catalog._read_cache()
-        payload = await run_in_threadpool(analyze_matches, records, account['puuid'] if account else '',
-                                         names, days=days, queue_id=queue_id)
+
+        def analyze():
+            # Decoding the archive costs ~0.3 s per 2,000 games; keep it off the event loop too.
+            records = archive.records(puuid) if account else []
+            return analyze_matches(records, puuid, names, days=days, queue_id=queue_id)
+
+        payload = await run_in_threadpool(analyze)
         return {**payload, 'account': {k: account[k] for k in ('nickname', 'level')} if account else None,
                 'collected_at': account['collected_at'] if account else None,
                 'source': 'local_lcu_archive'}

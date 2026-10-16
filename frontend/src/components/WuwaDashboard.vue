@@ -17,7 +17,7 @@ import AnnouncementList from './AnnouncementList.vue'
 import AppIcon from './AppIcon.vue'
 import { vGlide } from '../motion.js'
 import WuwaModuleCard from './WuwaModuleCard.vue'
-import { list, value } from '../wuwa-display.js'
+import { value } from '../wuwa-display.js'
 import WuwaStatus from './WuwaStatus.vue'
 import SummaryMetrics from './SummaryMetrics.vue'
 const props = defineProps({

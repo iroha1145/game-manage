@@ -6,16 +6,18 @@ is sent or stored here.
 """
 import asyncio
 import json
+import logging
 import re
 import sqlite3
 from datetime import datetime, timezone
-from html.parser import HTMLParser
 from pathlib import Path
 
 import httpx
 
 from .sources.endfield_notice import calendar_from_posts
 from .sources.article_content import article_content, retain_article_bodies
+
+logger = logging.getLogger(__name__)
 
 NEWS_URL = 'https://endfield.hypergryph.com/news'
 # Official website client: cms.host + /api/bulletin, code=endfield_web.
@@ -35,34 +37,6 @@ class PublicSourceError(Exception):
     """Safe message for a failed public source."""
 
 
-class _Article(HTMLParser):
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.lines = []
-        self.current = []
-
-    def handle_starttag(self, tag, attrs):
-        if tag == 'br':
-            self._line()
-
-    def handle_endtag(self, tag):
-        if tag in {'p', 'h1', 'h2', 'h3', 'h4', 'li', 'div'}:
-            self._line()
-
-    def handle_data(self, data):
-        self.current.append(data)
-
-    def _line(self):
-        text = ''.join(self.current).strip()
-        if text:
-            self.lines.append(text)
-        self.current = []
-
-    def text(self):
-        self._line()
-        return '\n'.join(self.lines)
-
-
 def _flight(html):
     for raw in FLIGHT.findall(html):
         try:
@@ -74,13 +48,13 @@ def _flight(html):
 def _flight_value(html, key):
     needle = json.dumps(key) + ':'
     # A long JSON value may span several push calls in the official stream.
-    for chunk in [''.join(_flight(html))]:
-        start = chunk.find(needle)
-        if start >= 0:
-            try:
-                return json.JSONDecoder().raw_decode(chunk[start + len(needle):])[0]
-            except ValueError:
-                continue
+    stream = ''.join(_flight(html))
+    start = stream.find(needle)
+    if start >= 0:
+        try:
+            return json.JSONDecoder().raw_decode(stream[start + len(needle):])[0]
+        except ValueError:
+            pass
     raise PublicSourceError('官网资讯格式发生变化')
 
 
@@ -137,13 +111,6 @@ def _detail_content(html, expected_id=None):
     if not candidates:
         raise PublicSourceError('官网公告正文不可读取')
     return article_content(max(candidates, key=len))
-
-
-def _detail(html):
-    body = _detail_content(html)['body']
-    if len(body) < 30:
-        raise PublicSourceError('官网公告正文为空')
-    return body
 
 
 def _checked(data, key):
@@ -271,6 +238,11 @@ class EndfieldPublicService:
                     error = None
                 except PublicSourceError as exc:
                     error = calendar_error = str(exc)
+                except Exception as exc:
+                    # Record any failure as an attempt; otherwise every read re-fetches the site
+                    # and the status never changes.
+                    logger.warning("终末地官网资讯刷新异常，保留上次成功数据 (%s)", type(exc).__name__)
+                    error = calendar_error = '官网资讯处理异常，保留上次成功数据'
                 news, news_at = self._get('news')
                 cal, cal_at = self._get('calendar')
                 self._put('news_status', {'error': error, 'calendar_error': calendar_error})

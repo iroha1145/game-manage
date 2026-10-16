@@ -7,7 +7,7 @@ import math
 import re
 import secrets
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .bilibili_provider import BilibiliLoginProvider, BilibiliProtocolError, VerifiedBilibiliAccount, normalize_cookie_input
 from .store import CredentialStoreError

@@ -28,3 +28,6 @@ test('status aggregation isolates games and keeps native capability names', () =
   assert.equal(capabilityLabel('progress', 'nte'), '成就进度')
   assert.equal(capabilityLabel('progress', 'wuthering_waves'), '周期进度')
 })
+test('the esports capability is named like the LoL tab instead of showing its raw key', () => {
+  assert.equal(capabilityLabel('esports', 'league_of_legends'), '职业赛事')
+})

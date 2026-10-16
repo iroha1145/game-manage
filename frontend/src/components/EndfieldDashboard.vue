@@ -44,7 +44,7 @@ const map = ref(null), mapBusy = ref(false), mapError = ref('')
 const markDetail = ref(null), markBusy = ref(false), markError = ref('')
 const mapId = ref(''), levelId = ref(''), typeId = ref(''), mapQuery = ref(''), submittedQuery = ref(''), mapOffset = ref(0)
 const toolKind = ref('characters'), toolQuery = ref(''), toolPage = ref(0), toolData = ref(null), toolBusy = ref(false), toolError = ref('')
-const blueprints = ref([]), blueprintBusy = ref(false), blueprintError = ref(''), editingId = ref(null)
+const blueprints = ref([]), blueprintBusy = ref(false), blueprintError = ref(''), blueprintMessage = ref(''), editingId = ref(null)
 const blueprintName = ref(''), blueprintCode = ref(''), blueprintNotes = ref('')
 const cred = ref(''), deviceId = ref(''), actionBusy = ref(false), actionError = ref(''), actionMessage = ref(''), manualOpen = ref(false)
 let statusSeq = 0, privateSeq = 0, attendanceSeq = 0, operatorSeq = 0, challengeSeq = 0, mapSeq = 0, markSeq = 0, toolSeq = 0, publicSeq = 0, blueprintsSeq = 0
@@ -256,7 +256,7 @@ async function loadMark(mark) {
 async function loadBlueprints() {
   if (cloud.value && props.cloudAccount.provider !== 'skland') return
   const seq = ++blueprintsSeq
-  blueprintBusy.value = true; blueprintError.value = ''
+  blueprintBusy.value = true; blueprintError.value = ''; blueprintMessage.value = ''
   try {
     const data = await getBlueprints()
     if (destroyed || seq !== blueprintsSeq) return
@@ -285,16 +285,16 @@ async function connectWithPassport() {
 }
 async function selectRole(event) {
   const role = status.value?.roles?.find(item => `${item.role_id}:${item.server_id}` === event.target.value)
-  if (!role || event.target.value === roleKey.value) return
+  if (!role || event.target.value === roleKey.value) { event.target.value = roleKey.value; return }
   clearPrivate(); actionBusy.value = true; actionError.value = ''; actionMessage.value = ''
   try { status.value = await chooseSklandRole(role.role_id, role.server_id) }
-  catch (error) { actionError.value = humanError(error.message); await loadStatus(); if (roleKey.value) { loadCard(); if (section.value === 'overview') loadAttendance() } }
+  catch (error) { actionError.value = humanError(error.message); await loadStatus(); if (roleKey.value) reloadPrivate() }
   finally { actionBusy.value = false }
 }
 async function disconnect() {
   actionBusy.value = true; actionError.value = ''; actionMessage.value = ''; clearPrivate()
   try { status.value = await disconnectSkland(); actionMessage.value = '已断开森空岛连接。' }
-  catch (error) { actionError.value = humanError(error.message); await loadStatus(); if (roleKey.value) { loadCard(); if (section.value === 'overview') loadAttendance() } }
+  catch (error) { actionError.value = humanError(error.message); await loadStatus(); if (roleKey.value) reloadPrivate() }
   finally { actionBusy.value = false }
 }
 function editBlueprint(item) {
@@ -304,7 +304,7 @@ function resetBlueprint() { editingId.value = null; blueprintName.value = ''; bl
 async function submitBlueprint() {
   const item = { name: blueprintName.value.trim(), code: blueprintCode.value.trim(), notes: blueprintNotes.value.trim() }
   if (!item.name || !item.code) { blueprintError.value = '请填写名称和分享码。'; return }
-  blueprintBusy.value = true; blueprintError.value = ''
+  blueprintBusy.value = true; blueprintError.value = ''; blueprintMessage.value = ''
   try {
     if (editingId.value === null) await saveBlueprint(item)
     else await updateBlueprint(editingId.value, item)
@@ -313,13 +313,14 @@ async function submitBlueprint() {
   finally { blueprintBusy.value = false }
 }
 async function removeBlueprint(id) {
-  blueprintBusy.value = true; blueprintError.value = ''
+  blueprintBusy.value = true; blueprintError.value = ''; blueprintMessage.value = ''
   try { await deleteBlueprint(id); if (editingId.value === id) resetBlueprint(); await loadBlueprints() }
   catch (error) { blueprintError.value = humanError(error.message) }
   finally { blueprintBusy.value = false }
 }
 async function copyCode(code) {
-  try { await navigator.clipboard.writeText(code); actionMessage.value = '分享码已复制。' }
+  blueprintError.value = ''; blueprintMessage.value = ''
+  try { await navigator.clipboard.writeText(code); blueprintMessage.value = '分享码已复制。' }
   catch { blueprintError.value = '复制失败，请手动选取分享码。' }
 }
 async function downloadBlueprints() {
@@ -334,11 +335,15 @@ function submitMapSearch() { submittedQuery.value = mapQuery.value.trim(); if (m
 
 // Without a passport login the manual form is the only way in, so show it expanded.
 watch(() => status.value?.passport_available, available => { manualOpen.value = available !== true }, { immediate: true })
+// Re-read the role data the current section shows.
+function reloadPrivate() {
+  if (['overview', 'operators', 'regions', 'ship', 'honor'].includes(section.value)) { loadCard(); if (section.value === 'overview') loadAttendance() }
+  if (section.value === 'challenges') loadChallenge()
+}
 watch(roleValue, (next, previous) => {
   if (next === previous) return
   clearPrivate()
-  if (next && ['overview', 'operators', 'regions', 'ship', 'honor'].includes(section.value)) { loadCard(); if (section.value === 'overview') loadAttendance() }
-  if (next && section.value === 'challenges') loadChallenge()
+  if (next) reloadPrivate()
 })
 watch(section, current => {
   if (['overview', 'operators', 'regions', 'ship', 'honor'].includes(current)) { if (roleKey.value && !card.value) loadCard(); if (current === 'overview' && roleKey.value && !attendance.value) loadAttendance() }
@@ -450,7 +455,7 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
         </template>
       </section></div>
 
-    <div v-else-if="section === 'blueprints'" class="endfield-stack"><p v-if="cloud && cloudAccount.provider !== 'skland'" class="cap-card hint">蓝图保存在森空岛授权与角色的本人空间，请在页面上方选择森空岛授权。</p><section v-else class="cap-card"><div class="cap-title">蓝图收藏<button type="button" class="ui-button" :disabled="blueprintBusy" @click="downloadBlueprints">导出备份</button></div><p class="hint">{{ cloud ? '分享码和备注保存在当前用户、授权与角色的云端空间。' : '分享码和备注保存在本机。' }}</p><form class="field-grid" @submit.prevent="submitBlueprint"><label>名称<input v-model="blueprintName" type="text" maxlength="100" required /></label><label>分享码<input v-model="blueprintCode" type="text" maxlength="2000" required /></label><label>备注<textarea v-model="blueprintNotes" maxlength="2000" rows="2" /></label><div class="actions"><button type="submit" class="ui-button" :disabled="blueprintBusy">{{ editingId === null ? '保存蓝图' : '保存修改' }}</button><button v-if="editingId !== null" type="button" class="ui-button" @click="resetBlueprint">取消编辑</button></div></form><p v-if="blueprintError" class="error" role="alert">{{ blueprintError }}</p><p v-if="blueprintBusy" class="hint" role="status">正在处理蓝图…</p><p v-if="!blueprintBusy && !blueprints.length" class="empty">还没有收藏蓝图</p><ul v-else class="blueprint-list"><li v-for="item in blueprints" :key="item.id"><strong>{{ item.name }}</strong><code>{{ item.code }}</code><p v-if="item.notes" class="hint">{{ item.notes }}</p><div class="actions"><button type="button" class="ui-button" @click="copyCode(item.code)">复制分享码</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="editBlueprint(item)">编辑</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="removeBlueprint(item.id)">删除</button></div></li></ul></section></div>
+    <div v-else-if="section === 'blueprints'" class="endfield-stack"><p v-if="cloud && cloudAccount.provider !== 'skland'" class="cap-card hint">蓝图保存在森空岛授权与角色的本人空间，请在页面上方选择森空岛授权。</p><section v-else class="cap-card"><div class="cap-title">蓝图收藏<button type="button" class="ui-button" :disabled="blueprintBusy" @click="downloadBlueprints">导出备份</button></div><p class="hint">{{ cloud ? '分享码和备注保存在当前用户、授权与角色的云端空间。' : '分享码和备注保存在本机。' }}</p><form class="field-grid" @submit.prevent="submitBlueprint"><label>名称<input v-model="blueprintName" type="text" maxlength="100" required /></label><label>分享码<input v-model="blueprintCode" type="text" maxlength="2000" required /></label><label>备注<textarea v-model="blueprintNotes" maxlength="2000" rows="2" /></label><div class="actions"><button type="submit" class="ui-button" :disabled="blueprintBusy">{{ editingId === null ? '保存蓝图' : '保存修改' }}</button><button v-if="editingId !== null" type="button" class="ui-button" @click="resetBlueprint">取消编辑</button></div></form><p v-if="blueprintError" class="error" role="alert">{{ blueprintError }}</p><p v-if="blueprintMessage" class="hint" role="status">{{ blueprintMessage }}</p><p v-if="blueprintBusy" class="hint" role="status">正在处理蓝图…</p><p v-if="!blueprintBusy && !blueprints.length" class="empty">还没有收藏蓝图</p><ul v-else class="blueprint-list"><li v-for="item in blueprints" :key="item.id"><strong>{{ item.name }}</strong><code>{{ item.code }}</code><p v-if="item.notes" class="hint">{{ item.notes }}</p><div class="actions"><button type="button" class="ui-button" @click="copyCode(item.code)">复制分享码</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="editBlueprint(item)">编辑</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="removeBlueprint(item.id)">删除</button></div></li></ul></section></div>
 
     <div v-else-if="section === 'news'" class="endfield-stack"><AnnouncementList game-id="endfield" :snap="newsSnapshots[0]" :extra-snaps="newsSnapshots.slice(1)"><template #actions><button v-if="canMaintain" type="button" class="ui-button" :disabled="publicBusy" @click="loadPublic(true)"><AppIcon name="refresh" :size="14" />{{ publicBusy ? '正在读取…' : '刷新资讯' }}</button></template></AnnouncementList><p v-if="publicBusy" class="hint" role="status">正在读取公开资讯…</p><p v-if="publicError && !publicNewsSnap" class="error" role="alert">{{ publicError }}</p></div>
   </div>

@@ -789,3 +789,37 @@ test('resource responses cannot roll back a newer period selection', async (t) =
   assert.match(content(root), /贝币 22/)
   assert.doesNotMatch(content(root), /贝币 11/)
 })
+
+test('a chosen resource period survives polling; a newer fetch replaces only the current period', async (t) => {
+  const reports = {
+    'week/7': { kind: 'week', period: '7', data: { total_coin: 7, total_star: 8 } },
+    'month/202610': { kind: 'month', period: '202610', data: { total_coin: 111, total_star: 222 } },
+  }
+  t.mock.method(globalThis, 'fetch', async (url) => ({
+    ok: true,
+    json: async () => ({ payload: { ...identity, ...reports[url.split('/resources/')[1]] } }),
+  }))
+  const resources = (fetched_at, coin) => ({
+    fetched_at, stale: false,
+    payload: {
+      periods: { week: [{ period: '7', title: '九月第二周' }], month: [{ period: '202610', title: '十月' }], version: [] },
+      current: { kind: 'month', period: '202610', state: 'ok', data: { total_coin: coin, total_star: 222 } },
+    },
+  })
+  const coin = (root) => content(root).match(/贝币 (\S+)/)?.[1]
+  const props = reactive({ accountKey: 'account:server', snap: resources('2026-10-16T04:00:00Z', 111) })
+  const root = mount(t, await component('WuwaResources'), props)
+  await tick()
+  await click(root, '九月第二周')
+  assert.equal(coin(root), '7')
+  props.snap = resources('2026-10-16T04:00:00Z', 111) // the 60-second re-read: same data, new object
+  await tick()
+  assert.equal(coin(root), '7')
+  props.snap = resources('2026-10-16T05:00:00Z', 333) // a newer fetch of another period
+  await tick()
+  assert.equal(coin(root), '7')
+  await click(root, '十月')
+  props.snap = resources('2026-10-16T06:00:00Z', 444) // the period on display was fetched again
+  await tick()
+  assert.equal(coin(root), '444')
+})

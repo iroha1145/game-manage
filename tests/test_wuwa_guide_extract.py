@@ -90,6 +90,20 @@ async def test_extraction_is_anonymous_cached_and_preserves_last_good_on_failure
 
 
 @respx.mock
+async def test_first_failure_without_a_previous_guide_stays_visible_until_a_success(tmp_path):
+    source = respx.post(POST_URL).respond(503,text='DO_NOT_EXPOSE')
+    extractor = GuideExtractor(tmp_path / 'guides.db')
+    failed = await extractor.extract(QUERY,POST_ID)
+    assert failed['guide'] is None and failed['error']
+    assert GuideExtractor(tmp_path / 'guides.db').active(QUERY) == {'guide':None,'error':failed['error']}
+    extractor.attempts.clear()
+    source.respond(200,json=raw(body=[{'contentType':1,'content':'武器推荐：玉阙玄华。'}]))
+    fixed = await extractor.extract(QUERY,POST_ID)
+    assert fixed['guide'] and fixed['error'] is None
+    assert extractor.active(QUERY)['error'] is None
+
+
+@respx.mock
 async def test_changed_source_never_reuses_reviewed_summary(tmp_path):
     source = parse_source(raw(body=[{'contentType':1,'content':'武器推荐：玉阙玄华。'}]),POST_ID,QUERY)
     fingerprint = source_fingerprint(source, [])

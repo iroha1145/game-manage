@@ -25,7 +25,7 @@ async def _json_object(request: Request) -> dict:
             if len(body) > 16384:
                 raise HTTPException(413, "请求内容过大")
         value = json.loads(body)
-    except (ValueError, UnicodeError):
+    except (ValueError, UnicodeError, RecursionError):
         raise HTTPException(400, "请求内容格式不正确") from None
     if not isinstance(value, dict):
         raise HTTPException(400, "请求内容格式不正确")
@@ -73,7 +73,10 @@ def install_endfield_skland_routes(app, settings):
 
     @router.delete("/connection")
     async def connection():
-        return await service.disconnect()
+        try:
+            return await service.disconnect()
+        except SklandError as exc:
+            raise _http_error(exc) from None
 
     @router.get("/card")
     async def card():
@@ -120,9 +123,9 @@ def install_endfield_skland_routes(app, settings):
             raise _http_error(exc) from None
 
     @router.get("/tools")
-    async def tools(kind: str, char_id: str | None = None):
+    async def tools(kind: str):
         try:
-            return await service.read_tool(kind, char_id=char_id)
+            return await service.read_tool(kind)
         except SklandError as exc:
             raise _http_error(exc) from None
 

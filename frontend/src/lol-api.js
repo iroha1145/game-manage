@@ -14,9 +14,11 @@ async function request(path, { signal, method = 'GET', timeout = 30000 } = {}) {
     })
     if (!response.ok) throw new Error({
       404: '本机尚未保存这场对局的详情',
-      409: '客户端账号已变化，请重新采集',
+      409: '客户端正在采集、未登录，或采集期间账号已变化，请稍后重新采集',
       422: '筛选参数无效，请重新选择',
+      502: '客户端战绩结构异常，请稍后重试',
       503: '无法连接英雄联盟客户端，请启动并登录客户端后再采集',
+      504: '读取客户端超时，本机已有归档仍保留，请稍后重试',
     }[response.status] || '本地数据读取失败，请稍后重试')
     return await response.json()
   } catch (error) {

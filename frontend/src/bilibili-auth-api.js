@@ -31,7 +31,6 @@ async function request(path, method='GET', body, signal) {
   return data
 }
 const session=sid=>`/sessions/${encodeURIComponent(sid)}`
-export const getBilibiliAuthStatus=signal=>request('/status','GET',undefined,signal)
 export const createBilibiliSession=(mode,signal)=>request('/sessions','POST',{mode},signal)
 export const getBilibiliSession=(sid,signal)=>request(session(sid),'GET',undefined,signal)
 export const cancelBilibiliSession=(sid,signal)=>request(session(sid),'DELETE',undefined,signal)

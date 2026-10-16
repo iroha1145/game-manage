@@ -110,3 +110,32 @@ def test_separate_phases_do_not_fill_the_gap_between_them():
         assert len(events)==2
         assert events[0]['end_at']=='2026-09-07T03:59:00+08:00'
         assert events[1]['start_at']=='2026-09-10T04:00:00+08:00'
+
+
+def test_year_less_dates_take_the_year_around_the_post_at_new_year():
+    december = notice('《异环》1.6版本更新公告\n五、全新盲盒「岁末来信」上线\n活动时间：12月24日版本更新后-2月4日05:59'
+                      '\n● 「新年签到」限时活动\n活动时间：01/01 10:00至01/15 05:59', published='2026-12-23T02:00:00+00:00')
+    events = {e['name']: e for e in parse_post_events(december, 'nte', '1.6')}
+    assert events['岁末来信']['start_date'] == '2026-12-24'
+    assert events['岁末来信']['end_at'] == '2027-02-04T05:59:00+08:00'
+    assert (events['新年签到']['start_at'], events['新年签到']['end_at']) == ('2027-01-01T10:00:00+08:00', '2027-01-15T05:59:00+08:00')
+    january = notice('《异环》限定棋盘返场\n「岁末」限定棋盘开启\n开放时间：12/28 11:00至01/10 05:59', id='2', published='2027-01-02T02:00:00+00:00')
+    [event] = parse_post_events(january, 'nte', '1.6')
+    assert (event['start_at'], event['end_at']) == ('2026-12-28T11:00:00+08:00', '2027-01-10T05:59:00+08:00')
+
+
+def test_year_less_ranges_that_run_backwards_keep_only_the_heading():
+    p = notice('《异环》1.6版本更新公告\n● 「错误」限时活动\n活动时间：09/30 10:00至09/01 10:00', published='2026-09-20T02:00:00+00:00')
+    [event] = parse_post_events(p, 'nte', '1.6')
+    assert (event['start_at'], event['end_at'], event['end_precision']) == (None, None, 'unknown')
+
+
+def test_a_note_for_next_year_published_on_new_years_eve_is_not_active_yet():
+    current = notice('1.6版本内容说明\n更新维护时间：12月1日06:00 ~ 11:00\n[签到]冬日签到活动\n活动时间：1.6版本更新后 ~ 1月20日03:59',
+                     id='1', published='2026-11-30T02:00:00+00:00')
+    # 20:00 UTC on 31 December is already New Year's Day in Beijing; maintenance is a week later.
+    future = notice('1.7版本内容说明\n更新维护时间：1月8日06:00 ~ 11:00\n[签到]新春签到活动\n活动时间：1.7版本更新后 ~ 2月20日03:59',
+                    id='2', published='2026-12-31T20:00:00+00:00')
+    result = calendar_from_posts([future, current], 'wuthering_waves', datetime(2027, 1, 2, tzinfo=timezone.utc))
+    assert result['version'] == '1.6'
+    assert [e['end_at'] for e in result['events']] == ['2027-01-20T03:59:00+08:00']

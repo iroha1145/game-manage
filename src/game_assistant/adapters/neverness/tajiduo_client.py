@@ -38,9 +38,12 @@ _NONCE_CHARS = string.ascii_letters + string.digits
 
 
 class TajiduoError(Exception):
-    def __init__(self, message: str, status_code: int | None = None):
+    def __init__(self, message: str, status_code: int | None = None,
+                 expired: bool = False):
         self.message = message
         self.status_code = status_code
+        # 仅鉴权请求被 401/402/403 拒绝才算登录会话失效；匿名请求的同样状态码不算
+        self.expired = expired
         super().__init__(message)
 
 
@@ -72,7 +75,7 @@ async def _request_json(client: httpx.AsyncClient, method: str, url: str, *,
         raise TajiduoError(f"网络错误: {type(e).__name__}") from e
     if authorized and resp.status_code in _SESSION_EXPIRED_CODES:
         raise TajiduoError("塔吉多会话已失效，请在「社区账号」重新登录异环",
-                           status_code=resp.status_code)
+                           status_code=resp.status_code, expired=True)
     if resp.status_code != 200:
         raise TajiduoError(f"HTTP {resp.status_code}", status_code=resp.status_code)
     try:
@@ -84,7 +87,8 @@ async def _request_json(client: httpx.AsyncClient, method: str, url: str, *,
     code = data.get("code", data.get("retcode", 0))
     if code not in (0, 200):
         message = data.get("message") or data.get("msg") or "未知错误"
-        raise TajiduoError(f"接口错误 code={code}: {message}", status_code=code)
+        raise TajiduoError(f"接口错误 code={code}: {message}", status_code=code,
+                           expired=authorized and code in _SESSION_EXPIRED_CODES)
     return data
 
 
