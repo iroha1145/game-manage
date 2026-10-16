@@ -45,7 +45,7 @@ def _parse_notice_events(post, detail, version):
         # publication year is required; never substitute collection time.
         source_url = GET_POST_FULL + '?' + urlencode({'postId': post_id})
         notice = {'id':post_id, 'title':title, 'body':'\n'.join(lines), 'decision':'accepted',
-                  'published_at':published.isoformat(), 'url':source_url,
+                  'published_at':published.isoformat() if published else None, 'url':source_url,
                   'source':'community', 'source_name':'塔吉多官方公告'}
         events = [NteCalendarEvent(**{**row, 'source':'community', 'source_name':'塔吉多官方公告',
             'source_title':title, 'published_at':published})

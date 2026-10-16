@@ -387,3 +387,10 @@ async def test_base_dispatch_defaults_unimplemented_capabilities(cap):
     d.credentials_configured = True
     r = await d.fetch(cap)
     assert r.ok is False and "适配器未实现该能力" in r.error
+
+
+def test_notice_without_create_time_still_reads_dates_that_carry_a_year():
+    from game_assistant.adapters.neverness.adapter import _parse_notice_events
+    post = {'postId': 486000, 'subject': '《异环》1.4版本内容说明'}
+    detail = {'content': '[演练演习]战斗活动\n活动时间：2026年10月1日10:00 ~ 2026年10月28日03:59'}
+    assert [event.name for event in _parse_notice_events(post, detail, '1.4')] == ['演练演习']
