@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { formatTime } from '../dashboard.js'
 import { safeUrl } from '../calendar.js'
 import InfoHint from './InfoHint.vue'
@@ -10,6 +10,7 @@ const emit = defineEmits(['collected'])
 const sources = ref([]), rows = ref([]), error = ref(''), login = ref(false), showLogin = ref(false)
 const account = ref({}), selected = ref(''), decision = ref('accepted'), busy = ref(false)
 const visible = computed(() => sources.value.filter(s => !props.gameId || s.game_id === props.gameId))
+const isVisible = game => visible.value.some(s => s.game_id === game)
 const filtered = computed(() => rows.value.filter(r => !decision.value || r.decision === decision.value))
 const STATUS_ERROR = '无法读取B站来源状态'
 const SOURCE_NAMES = { wuthering_waves: '鸣潮', nte: '异环', endfield: '终末地' }
@@ -48,9 +49,15 @@ async function refresh(game, backfill) {
   finally { busy.value = false }
 }
 async function audit(game) {
-  try { const data = await request(`/api/sources/bilibili/${game}/audit`); selected.value = game; rows.value = data.rows }
+  try {
+    const data = await request(`/api/sources/bilibili/${game}/audit`)
+    // Moving to another game's page while the answer was on its way must not bring this list along.
+    if (isVisible(game)) { selected.value = game; rows.value = data.rows }
+  }
   catch { error.value = '无法读取筛选记录' }
 }
+// App.vue keeps this panel across the overview and the game pages, so a list goes once its game is no longer shown.
+watch(() => props.gameId, () => { if (selected.value && !isVisible(selected.value)) { selected.value = ''; rows.value = [] } })
 async function accountChanged(value) { if (value) { account.value = value; login.value = value.configured } await load() }
 onMounted(load)
 onUnmounted(() => { stopped = true; clearTimeout(timer) })
