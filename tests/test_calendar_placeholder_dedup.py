@@ -75,3 +75,21 @@ def test_multiple_dated_phases_or_conflicting_candidates_keep_the_ambiguous_plac
     assert rows[0]['end_at'] == '2026-10-10T10:00:00+08:00'
     assert rows[1]['end_at'] == second['end_at']
     assert rows[2]['end_at'] is None
+
+
+def test_undated_pool_from_both_bilibili_and_tajiduo_is_listed_once():
+    # Tajiduo rows are stored with aliases=[] when a heading has no S-level name;
+    # an empty list must fall back to the row's own name like a missing key does.
+    import json
+    from game_assistant.adapters.neverness.adapter import _parse_notice_events
+    title = '《异环》1.4版本「祷歌为谁而诵」更新公告'
+    text = ('● 全新限定S级角色「测试角色」\n开放时间：9月24日版本更新后-10月15日05:59\n'
+            '● 「后续棋盘」限定棋盘\n开放时间：后续另行公告\n'
+            '● 「像素溢出」限时活动\n活动时间：10月12日05:00-10月19日04:59')
+    tajiduo = json.loads(json.dumps([event.model_dump(mode='json') for event in _parse_notice_events(
+        {'postId': 494294, 'subject': title, 'createTime': 1790139834502}, {'content': text.replace('\n', '<br>')}, '1.4')]))
+    bilibili = calendar_from_posts([dict(id='b1', title=title, body=title + '\n' + text, decision='accepted',
+        published_at='2026-09-23T03:03:54+00:00', source='bilibili', source_name='B站官方动态',
+        url='https://t.bilibili.com/b1')], 'nte', datetime(2026, 10, 16, 4, tzinfo=timezone.utc))['events']
+    names = [row['name'] for row in merge_events(bilibili, tajiduo, '1.4')]
+    assert names.count('测试角色') == 1 and names.count('后续棋盘') == 1

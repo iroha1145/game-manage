@@ -242,8 +242,9 @@ def _same_event(a, b):
     for field in ('version','category','game','game_id','server','server_id','region'):
         if a.get(field) and b.get(field) and a[field] != b[field]:
             return False
-    names_a = {event_key(n) for n in a.get('aliases', [a['name']])}
-    names_b = {event_key(n) for n in b.get('aliases', [b['name']])}
+    # Tajiduo rows carry aliases=[] when a heading names no character; fall back to the name then too.
+    names_a = {event_key(n) for n in a.get('aliases') or [a['name']]}
+    names_b = {event_key(n) for n in b.get('aliases') or [b['name']]}
     announced = any(row.get('announced_pool') and not any(row.get(k) for k in ('start_at','end_at','start_date','end_date'))
                     for row in (a,b)) and a.get('category') == b.get('category')
     return bool(names_a & names_b) and (announced or _overlap(a, b))
