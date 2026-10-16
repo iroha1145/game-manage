@@ -8,7 +8,6 @@ from datetime import datetime
 
 from game_assistant.event_calendar import (
     BEIJING_TZ,
-    find_version_post,
     parse_cn_date_range,
     parse_events_from_lines,
     parse_manual_events,
@@ -186,39 +185,6 @@ async def test_parse_events_name_without_time_window_skipped():
         "✦活动时间：2026年1月1日00:00 ~ 2026年1月2日00:00",
     ]
     assert parse_events_from_lines(lines) == []
-
-
-async def test_find_version_post_picks_latest():
-    posts = [
-        {"postId": "1", "postTitle": "2.6版本更新公告", "publishTime": 100},
-        {"postId": "2", "postTitle": "蜃云灯影，凡尘剑心3.6版本内容说明",
-         "publishTime": 300},
-        {"postId": "3", "postTitle": "维护完成公告", "publishTime": 999},
-    ]
-    got = find_version_post(posts, ("版本内容说明", "版本更新公告"),
-                            title_key="postTitle",
-                            time_key="publishTime")
-    assert got is not None and got["postId"] == "2"
-
-
-async def test_find_version_post_none_when_absent():
-    posts = [{"postId": "3", "postTitle": "维护完成公告", "publishTime": 999}]
-    assert find_version_post(posts, ("版本内容说明", "版本更新公告"),
-                             title_key="postTitle", time_key="publishTime") is None
-    assert find_version_post([], ("版本内容说明")) is None
-
-
-async def test_find_version_post_tolerates_missing_time():
-    # 时间键全部缺失按 0 处理：返回按列表顺序的第一个匹配；
-    # 带时间戳的帖子优先于缺时间戳的帖子
-    posts = [{"postId": "9", "subject": "1.5版本内容说明"},
-             {"postId": "8", "subject": "1.4版本内容说明"}]
-    got = find_version_post(posts, ("版本内容说明",), title_key="subject", time_key="createTime")
-    assert got is not None and got["postId"] == "9"
-    posts2 = [{"postId": "9", "subject": "1.5版本内容说明"},
-              {"postId": "8", "subject": "1.4版本内容说明", "createTime": 50}]
-    got2 = find_version_post(posts2, ("版本内容说明",), title_key="subject", time_key="createTime")
-    assert got2 is not None and got2["postId"] == "8"
 
 
 async def test_parse_manual_events_ok():

@@ -38,7 +38,3 @@ export function searchCharacters(game, query, entries = catalogEntries(game)) {
   if(catalog.characters.some(row=>row.game!==game && terms(row.game,row).includes(key))) return []
   return found
 }
-export function resolveCharacter(game,query,entries) {
-  const candidates=searchCharacters(game,query,entries),exact=candidates.filter(item=>item.match==='exact')
-  return {status:exact.length===1?'resolved':exact.length>1?'ambiguous':candidates.length?'candidates':'none',entry:exact.length===1?exact[0].entry:null,candidates:exact.length?exact:candidates}
-}
