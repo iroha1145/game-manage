@@ -42,14 +42,6 @@ def install_lol_routes(app):
         except KeyError:
             raise HTTPException(404, '英雄联盟未启用') from None
 
-    @app.middleware('http')
-    async def private_headers(request, call_next):
-        response = await call_next(request)
-        if request.url.path.startswith('/api/lol/'):
-            response.headers['Cache-Control'] = 'no-store'
-            response.headers['Referrer-Policy'] = 'no-referrer'
-        return response
-
     @app.get('/api/lol/analysis')
     async def analysis(days: int = Query(90, ge=0, le=365),
                        queue_id: int | None = Query(None, ge=0, le=100000)):
