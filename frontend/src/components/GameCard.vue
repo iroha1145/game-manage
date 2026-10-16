@@ -5,20 +5,12 @@ import { vGlide } from '../motion.js'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
 import SourceStatusPanel from './SourceStatusPanel.vue'
-import AccountCard from './AccountCard.vue'
 import AnnouncementList from './AnnouncementList.vue'
-import CalabashCard from './CalabashCard.vue'
-import ExplorationCard from './ExplorationCard.vue'
-import MatchList from './MatchList.vue'
 import NteDataCard from './NteDataCard.vue'
 import NteAssetsPanel from './NteAssetsPanel.vue'
 import NteRolesPanel from './NteRolesPanel.vue'
 import NteGachaPanel from './NteGachaPanel.vue'
-import EndfieldGachaPanel from './EndfieldGachaPanel.vue'
 import EndfieldDashboard from './EndfieldDashboard.vue'
-import ProgressCard from './ProgressCard.vue'
-import StaminaCard from './StaminaCard.vue'
-import StatsCard from './StatsCard.vue'
 import WuwaDashboard from './WuwaDashboard.vue'
 import LolDashboard from './LolDashboard.vue'
 import NteGuides from './NteGuides.vue'
@@ -38,12 +30,11 @@ const activeSection = ref(props.initialSection)
 const style = computed(() => gameStyle(props.game.game_id))
 const groups = computed(() => [
   { id: 'all', label: '全部', caps: props.game.capabilities },
-  { id: 'overview', label: '概览', caps: ['account', 'stamina', 'progress', 'stats', 'record'] },
+  { id: 'overview', label: '概览', caps: ['account', 'stamina', 'progress', 'record'] },
   { id: 'characters', label: '角色与探索', caps: ['roles', 'exploration', 'calabash'] },
   { id: 'assets', label: '房产与载具', caps: ['realestate', 'vehicles'] },
   { id: 'teams', label: '官方配队', caps: ['teams'] },
   { id: 'guides', label: '角色攻略', caps: ['guides'] },
-  { id: 'matches', label: '近期对局', caps: ['match'] },
   { id: 'gacha', label: '抽卡统计', caps: ['gacha'] },
   { id: 'news', label: '公告与资讯', caps: ['announcement', 'news'] },
 ].filter(group => group.id === 'guides' ? props.game.game_id === 'nte' : group.caps.some(cap => cap !== 'events' && props.game.capabilities.includes(cap))))
@@ -58,25 +49,14 @@ const visibleCaps = computed(() => {
   return caps.map((cap, index) => ({ cap, index })).sort((a, b) => rank(a.cap) - rank(b.cap) || a.index - b.index).map(item => item.cap)
 })
 
-const CAP_COMPONENTS = {
-  stamina: StaminaCard,
-  account: AccountCard,
-  progress: ProgressCard,
-  announcement: AnnouncementList,
-  news: AnnouncementList,
-  match: MatchList,
-  stats: StatsCard,
-  exploration: ExplorationCard,
-  calabash: CalabashCard,
-}
-
+// Wuwa, LoL and Endfield have their own dashboards; this grid only serves NTE.
 function capComponent(cap) {
-  if (props.game.game_id === 'nte' && ['realestate', 'vehicles', 'teams'].includes(cap)) return NteAssetsPanel
-  if (props.game.game_id === 'nte' && cap === 'roles') return NteRolesPanel
-  if (props.game.game_id === 'nte' && cap === 'gacha') return NteGachaPanel
-  if (props.game.game_id === 'endfield' && cap === 'gacha') return EndfieldGachaPanel
-  if (props.game.game_id === 'nte' && ['account', 'stamina', 'progress', 'exploration', 'record'].includes(cap)) return NteDataCard
-  return CAP_COMPONENTS[cap] || null
+  if (props.game.game_id !== 'nte') return null
+  if (['realestate', 'vehicles', 'teams'].includes(cap)) return NteAssetsPanel
+  if (cap === 'roles') return NteRolesPanel
+  if (cap === 'gacha') return NteGachaPanel
+  if (['account', 'stamina', 'progress', 'exploration', 'record'].includes(cap)) return NteDataCard
+  return null
 }
 
 // Each panel gets only the props it declares; anything else would land on its
@@ -89,7 +69,6 @@ function capProps(cap) {
     capability: cap,
     accountId: ['nte', 'endfield'].includes(props.game.game_id) ? snaps.account?.payload?.role_id || '' : '',
     roles: snaps.roles?.payload?.entries || [],
-    stats: snaps.stats?.payload ?? null,
   }
   const declared = capComponent(cap)?.props ?? {}
   return Object.fromEntries(Object.entries(offered).filter(([key]) => key in declared))
@@ -126,17 +105,10 @@ function capProps(cap) {
     <EndfieldDashboard v-else-if="game.game_id === 'endfield'" :snaps="externalSnapshots" :initial-section="initialSection" @calendar="emit('calendar')" />
     <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" /></NteModuleCard>
     <div v-else class="cap-list">
-      <template v-for="(cap, index) in visibleCaps" :key="cap">
-        <NteModuleCard v-if="game.game_id === 'nte' && capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
+      <template v-for="cap in visibleCaps" :key="cap">
+        <NteModuleCard v-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
           <component :is="capComponent(cap)" v-bind="capProps(cap)" />
         </NteModuleCard>
-        <component
-          :is="capComponent(cap)"
-          v-else-if="capComponent(cap)"
-          v-bind="capProps(cap)"
-          :class="['detail-cap', 't-item', `detail-cap-${cap}`]"
-          :style="{ '--i': index }"
-        />
         <div v-else class="cap-card cap-coming">敬请期待</div>
       </template>
       <AnnouncementList v-if="['all', 'news'].includes(activeSection) && game.capabilities.some(cap => ['announcement', 'news'].includes(cap))" class="detail-articles" :game-id="game.game_id" :snap="externalSnapshots.news?.payload ? externalSnapshots.news : externalSnapshots.announcement" />
