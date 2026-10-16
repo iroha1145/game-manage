@@ -36,6 +36,20 @@ test('first offline attempt never claims an old snapshot was retained', t => {
   assert.doesNotMatch(content(root), /已保留快照|保留旧数据/)
 })
 
+test('unconfigured items keep the summary from claiming everything is updated', t => {
+  const row = (capability, state) => ({ game_id: 'nte', capability, state, consecutive_failures: 0, last_success_at: null })
+  const chip = root => nodes(root, 'summary')[0]
+  const unconfigured = mount(t, Panel, { game: { game_id: 'nte', capabilities: ['account', 'stamina', 'news'] },
+    collection: [row('account', 'unconfigured'), row('stamina', 'unconfigured'), row('news', 'ok')] })
+  assert.match(content(chip(unconfigured)), /2 项未配置/)
+  assert.doesNotMatch(content(chip(unconfigured)), /各项状态已更新/)
+  assert.equal(chip(unconfigured).props.class, 'warn')
+  const healthy = mount(t, Panel, { game: { game_id: 'nte', capabilities: ['account', 'news'] },
+    collection: [row('account', 'ok'), row('news', 'ok')] })
+  assert.match(content(chip(healthy)), /各项状态已更新/)
+  assert.equal(chip(healthy).props.class, 'good')
+})
+
 test('resizing the window closes the open popover although the event target is not a node', async t => {
   const { details, listeners, open } = openPopover(t)
   await open()
