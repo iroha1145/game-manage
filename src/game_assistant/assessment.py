@@ -145,7 +145,8 @@ def assess(configuration: Configuration,model: AssessmentModel):
         score=_assess_core(single,model)
         items.append({'item_id':item.id,**score})
         if score['status']=='scored':known+=Fraction(int(score['exact_fraction']['numerator']),int(score['exact_fraction']['denominator']))
-    has_known=any(i['status']=='scored' for i in items)
+    # A duplicated item id rejects the whole set; adding up its items would count that item twice.
+    has_known=result['reason']!='DUPLICATE_ITEM' and any(i['status']=='scored' for i in items)
     partial=(True if has_known else None) if result['status']=='unscorable' else False if result['status']=='scored' else None
     return {**result,'item_results':items,'partial':partial,'partial_known_total':_rounded(known) if partial else None}
 

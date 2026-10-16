@@ -109,3 +109,10 @@ def test_nte_item_with_an_invalid_number_keeps_the_other_subtotals(bad):
     assert (result['status'],result['value'],result['partial'],result['partial_known_total'])==('unscorable',None,True,'8.00')
     assert [(i['status'],i['reason']) for i in result['item_results']]==[('scored',None),('unscorable','INVALID_VALUE')]
     assert compare(c,c,nte_model())['reason']=='BOTH_CONFIGURATIONS_REQUIRE_SCORE'
+
+
+def test_duplicated_item_ids_show_no_partial_total():
+    # The whole set is rejected; adding up its items would count the duplicated one twice.
+    raw=config().model_dump(mode='json');raw['items'].append(dict(raw['items'][0]))
+    result=assess(Configuration.model_validate(raw),wuwa_model())
+    assert (result['reason'],result['partial'],result['partial_known_total'])==('DUPLICATE_ITEM',None,None)
