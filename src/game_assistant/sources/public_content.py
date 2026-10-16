@@ -4,7 +4,7 @@ No network or private account state; native snapshots remain untouched.
 """
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from game_assistant.event_calendar import BEIJING_TZ as BJ
 
@@ -42,27 +42,47 @@ def event_key(name):
     return key(re.sub(r'(?:盲盒|签到|限时活动|活动)$', '', name or ''))
 
 
-def _dt(match, year):
+def _dt(match, year, near=None):
     y, m, d, h, minute, second = match.groups()
-    return datetime(int(y or year), int(m), int(d), int(h or 0), int(minute or 0), int(second or 0), tzinfo=BJ)
+    parts = int(m), int(d), int(h or 0), int(minute or 0), int(second or 0)
+    if y or near is None:
+        return datetime(int(y or year), *parts, tzinfo=BJ)
+    # Notices omit the year: take the adjacent year nearest the post, so dates
+    # around New Year do not land a year early or late.
+    candidates = []
+    for guess in (year - 1, year, year + 1):
+        try:
+            candidates.append(datetime(guess, *parts, tzinfo=BJ))
+        except ValueError:
+            pass
+    if not candidates:
+        raise ValueError('no such date')
+    return min(candidates, key=lambda value: abs(value - near))
 
 
-def _times(text, year):
+def _times(text, year, published=None):
     matches = list(DATE.finditer(text))
     if not matches or len(matches) > 2 or '永久' in text:
         return None
     try:
         last = matches[-1]
-        end = _dt(last, year)
         if last.group(4) is None:
             return None  # Never fabricate a deadline at midnight from a date alone.
         relative = RELATIVE.search(text)
         if len(matches) == 1 and not relative:
             return None
         first = matches[0] if len(matches) > 1 else None
-        start = _dt(first, year) if first else None
-        if start and not last.group(1) and end < start and start.month == 12 and end.month == 1:
-            end = end.replace(year=end.year + 1)
+        start = _dt(first, year, published) if first else None
+        if start and not last.group(1):
+            # A year-less end is the first such date after the start; a range that
+            # still runs backwards half a year later is a typo, not an event.
+            end = _dt(last, start.year)
+            if end < start:
+                later = _dt(last, start.year + 1)
+                if later - start <= timedelta(days=185):
+                    end = later
+        else:
+            end = _dt(last, year, published)
         if start and end < start:
             return None
         uncertain = bool(relative or (first and first.group(4) is None))
@@ -111,7 +131,8 @@ def parse_post_events(post, game, version):
         return []
     from .bilibili import PROMOTION
     lines = [s.strip() for s in post.get('body', '').splitlines() if s.strip()]
-    year = datetime.fromisoformat(post['published_at']).astimezone(BJ).year
+    published = datetime.fromisoformat(post['published_at'])
+    year = published.astimezone(BJ).year
     events = []
     for i, line in enumerate(lines):
         heading = _heading(line, game)
@@ -129,7 +150,7 @@ def parse_post_events(post, game, version):
             if not DATE.search(time_text) and j + 1 < len(lines) and not _heading(lines[j+1], game):
                 time_text += lines[j+1]
             for phase_text in re.split(r'[；;]', time_text):
-                dates = _times(phase_text, year)
+                dates = _times(phase_text, year, published)
                 if dates:
                     headings = [heading]
                     if game == 'wuthering_waves' and line.startswith('「'):
@@ -173,7 +194,8 @@ def _maintenance_day(post):
         if not re.search(r'(?:更新)?维护时间', line): continue
         match = DATE.search(line) or (DATE.search(lines[i+1]) if i+1 < len(lines) else None)
         if match:
-            try: return _dt(match, datetime.fromisoformat(post['published_at']).year)
+            published = datetime.fromisoformat(post['published_at'])
+            try: return _dt(match, published.astimezone(BJ).year, published)
             except ValueError: return None
     return None
 
