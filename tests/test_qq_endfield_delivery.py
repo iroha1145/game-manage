@@ -18,7 +18,6 @@ from game_assistant.qq import assets
 from game_assistant.qq.client import InternalQqClient, OfficialQqClient, QqReply, valid_reply_image
 from game_assistant.qq.models import InboundMessage, QqIdentity
 from game_assistant.qq.transport import BotDispatcher, BotState
-from tests.qq_test_fonts import cjk_font_path
 from tests.test_qq_endfield_cached_details import fixture as scoped_query_fixture
 from tests.test_qq_endfield_challenges import synthetic_challenges
 from tests.test_qq_endfield_reports import NOW, synthetic_account, synthetic_gacha

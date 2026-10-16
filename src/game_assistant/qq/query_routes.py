@@ -15,7 +15,7 @@ from game_assistant.accounts.models import AccountScope, QueryResult
 from .bindings import QqBindingError
 from .commands import GAME_NAMES, PAGED_COMMANDS, MAX_PAGE, safe_text
 from .internal_routes import IdentityBody
-from .rendering import RenderQueue, SummaryRenderer, RenderingPageUnavailable, RenderingUnavailable
+from .rendering import RenderQueue, RenderingPageUnavailable, RenderingUnavailable
 from .cards import card_to_text
 from . import presentation as view
 from . import render_snapshot as shared_view
@@ -398,7 +398,6 @@ class QqQueryService:
                         stamina=self._snapshot(row,scope,'stamina',context,read_cache)
                         if stamina is not None:
                             self._panel(context,row,'stamina',stamina)
-                            data=view.obj(stamina.payload)
                             fields+=view.capability_section(row['game'],row['provider'],'stamina',stamina,self.asset_cache)['fields']
                             fields.append(view.time_field('体力更新时间',stamina.fetched_at))
                             if stamina.state not in ('ok','success'):fields.append(view.field('体力状态',view.metadata(stamina)[0]['value']))

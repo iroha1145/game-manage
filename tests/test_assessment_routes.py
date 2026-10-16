@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-import pytest
 from fastapi import HTTPException
 from game_assistant.assessment_routes import install_assessment_routes
 from game_assistant.accounts.models import AccountScope

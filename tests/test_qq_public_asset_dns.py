@@ -1,9 +1,7 @@
 """Bounded public-only DoH uses fixed verified HTTPS and has no fallback."""
-from copy import deepcopy
 import asyncio
 import json
 import socket
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 import httpx
 import pytest

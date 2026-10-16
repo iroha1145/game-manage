@@ -1,7 +1,7 @@
 """Restore a verified backup into a new directory, preserving the source."""
 import argparse
 import json
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 import shutil
 import sqlite3
 import sys

@@ -514,7 +514,7 @@ class ScopedLoginService:
 
     async def _exchange_skland(self, credentials, role_id, server_id):
         from game_assistant.adapters.endfield.hypergryph import HypergryphClient, EndfieldError
-        from game_assistant.adapters.endfield.skland_client import SklandClient, SklandError
+        from game_assistant.adapters.endfield.skland_client import SklandClient
         from game_assistant.adapters.endfield.skland_parse import parse_roles, parse_user_id
         try:
             async with HypergryphClient() as passport:

@@ -2,11 +2,10 @@ from dataclasses import asdict
 from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
 
 from game_assistant.qq.commands import parse_command, render_result, safe_text
 from game_assistant.qq.models import QqIdentity
-from game_assistant.qq.query_routes import QqQueryService, install_qq_query_routes
+from game_assistant.qq.query_routes import QqQueryService
 from game_assistant.accounts.models import QueryResult
 from game_assistant.identity.models import Principal
 from game_assistant.qq.bindings import QqBindingError

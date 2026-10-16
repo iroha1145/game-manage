@@ -1,4 +1,3 @@
-from decimal import Decimal
 import pytest
 from game_assistant.assessment import AssessmentModel, Configuration, assess, compare
 

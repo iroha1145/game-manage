@@ -8,8 +8,8 @@ from datetime import datetime, timedelta, timezone
 import math
 import re
 
-from .cards import card_to_text, validate_card_document
-from .commands import GAME_NAMES, HELP, safe_text
+from .cards import validate_card_document
+from .commands import GAME_NAMES, safe_text
 
 BEIJING = timezone(timedelta(hours=8))
 PRIVATE_LABELS = re.compile(r'score|rank|rating|token|secret|password|credential|authorization|uid|评分|评级|排名|伤害估算|凭据|密码|令牌',re.I)

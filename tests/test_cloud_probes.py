@@ -178,7 +178,6 @@ async def test_wuwa_query_imports_profile_parser_and_rejects_wrong_role(monkeypa
 @pytest.mark.parametrize('malformed', [False, True])
 async def test_endfield_query_reads_one_official_pool_page(monkeypatch, malformed):
     games = module('probe_games')
-    from game_assistant.adapters.endfield.hypergryph import HypergryphClient
     from game_assistant.adapters.endfield.data_models import EndfieldRole
     from game_assistant.adapters.endfield import parse
     requested = []
