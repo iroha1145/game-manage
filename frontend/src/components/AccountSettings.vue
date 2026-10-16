@@ -19,7 +19,7 @@ function sklandSource(account) {
 </script>
 <template>
   <section class="cloud-account-settings" aria-label="本人游戏授权">
-    <h2>游戏授权与默认角色</h2><p>终末地的鹰角寻访和森空岛档案分别授权、分别选择角色。</p>
+    <h2>游戏授权与默认角色</h2>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="!accounts.length">尚未关联游戏账号，请使用下方社区授权。</p>
     <article v-for="account in accounts" :key="account.account_id" class="cap-card">
       <header><h3>{{ providerName(account) }}</h3><span>{{ labels[account.state] || '状态未知' }}</span></header>

@@ -327,7 +327,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="login-panel" aria-labelledby="accounts-title">
     <header class="panel-header">
-      <div><h2 id="accounts-title">社区账号</h2><p class="muted">手机号登录，连接你的游戏数据</p></div>
+      <div><h2 id="accounts-title">社区账号</h2></div>
       <button class="text-button" :disabled="statusLoading || !!busy" @click="refreshStatus">{{ statusLoading ? '读取中…' : '刷新状态' }}</button>
     </header>
     <div class="accounts">
@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
     <p v-if="statusError" class="error" role="alert">{{ statusError }}</p>
     <form v-if="expanded" class="login-form" @submit.prevent="submitLogin">
       <div class="form-header"><h3>登录{{ selectedName }}</h3><button type="button" class="text-button" :disabled="!!busy" @click="closeForm">收起</button></div>
-      <p class="muted">{{ LOGIN_HINTS[selectedGame] || '请使用游戏社区绑定的中国大陆手机号。' }}{{ selectedGame === 'endfield' ? endfieldConnectionHint : '' }}退出仅清除本工具授权。</p>
+      <p class="muted">{{ LOGIN_HINTS[selectedGame] || '' }}{{ selectedGame === 'endfield' ? endfieldConnectionHint : '' }}退出仅清除本工具授权。</p>
       <label for="community-mobile">手机号</label>
       <input id="community-mobile" v-model.trim="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="11" placeholder="11 位中国大陆手机号" :readonly="!!busy" />
       <p v-if="mobile && !validMobile" class="field-hint">请输入有效的 11 位中国大陆手机号。</p>

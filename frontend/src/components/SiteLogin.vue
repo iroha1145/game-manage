@@ -16,8 +16,7 @@ async function submit() {
 </script>
 <template>
   <section class="site-login cap-card">
-    <p class="eyebrow">游戏管家 · 云端个人空间</p><h1>{{ registering ? '邀请注册' : '网站登录' }}</h1>
-    <p>使用网站账号访问本人游戏数据。游戏社区授权在登录后管理。</p>
+    <p class="eyebrow">游戏管家</p><h1>{{ registering ? '邀请注册' : '网站登录' }}</h1>
     <form @submit.prevent="submit">
       <label>用户名<input name="username" v-model="username" autocomplete="username" required maxlength="64" /></label>
       <small v-if="registering">用户名为 3–64 位英文字母、数字、下划线（_）、点（.）或短横线（-）。</small>

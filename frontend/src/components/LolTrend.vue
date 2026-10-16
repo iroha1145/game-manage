@@ -24,7 +24,7 @@ const fmt = value => Number.isFinite(value) ? `${Number(value.toFixed(1))}${prop
 </script>
 <template>
   <section class="lol-trend">
-    <div class="chart-heading"><h3>{{ label }}</h3><span>按北京时间 · 每日</span></div>
+    <div class="chart-heading"><h3>{{ label }}</h3></div>
     <p v-if="metric === 'winrate'" class="chart-method">重开与未知胜负不计入胜率分母；对局数保留全部归档记录。</p>
     <svg v-if="known.length" viewBox="0 0 480 172" role="img" :aria-label="`${label}，${known.length} 个有效日期`">
       <g v-for="tick in [min, (min + max) / 2, max]" :key="tick" class="grid">

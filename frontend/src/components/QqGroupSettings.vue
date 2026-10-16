@@ -22,7 +22,7 @@ async function save() {
 </script>
 <template>
   <section class="cap-card group-settings" aria-label="管理员群设置">
-    <h2>管理员 · QQ 群设置</h2><p>填写需要管理的 QQ 群标识，再读取该群的设置。</p>
+    <h2>管理员 · QQ 群设置</h2>
     <p>可管理允许查询的游戏、图片偏好与查询频率。</p>
     <label>QQ 群标识<input v-model="group" aria-label="QQ 群标识" maxlength="256" autocomplete="off" :disabled="busy" /></label><button class="ui-button" :disabled="busy || !group.trim()" @click="load">读取群设置</button>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="status" role="status">{{ status }}</p>

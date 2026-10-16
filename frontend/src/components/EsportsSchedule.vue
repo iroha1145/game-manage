@@ -15,7 +15,7 @@ async function page(value) { emit('page-change', value); await nextTick(); resul
   <section :aria-label="filters.view === 'results' ? '职业赛事赛果' : '职业赛事赛程'">
     <EsportsMatchDetail v-if="filters.matchId" :payload="payload" :match="selected" @back="emit('back')" @select-team="(id, focus) => emit('select-team', id, focus)" />
     <template v-else>
-      <p class="es-list-caption">北京时间 · {{ filters.view === 'results' ? '最新赛果在前' : '按比赛状态分组 · 近期赛果在前' }} · 点击比分查看详情</p>
+      <p class="es-list-caption">北京时间 · {{ filters.view === 'results' ? '最新赛果在前' : '按比赛状态分组 · 近期赛果在前' }}</p>
       <p v-if="filters.view !== 'results' && noFuture" class="es-inline-notice">当前筛选暂无进行中或待赛记录。</p>
       <template v-for="section in sections" :key="section.key">
         <section v-if="section.total || filters.view === 'results'" class="es-match-section" :aria-label="section.label">

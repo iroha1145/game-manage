@@ -55,7 +55,6 @@ onUnmounted(()=>{stopped=true;unsubscribe();clear()})
 <template>
   <section class="cloud-bili-collection" aria-label="B站公共动态采集">
     <h3>公共动态采集</h3>
-    <p>读取官方新动态，或补充最近 60 天的历史动态。</p>
     <details><summary>查看采集说明</summary><p>采集新动态在历史不完整或规则更新时会自动回补历史；手动回补覆盖60天。仅收录符合规则的官方图文通知，结果供成员读取。失败保留已有记录。</p></details>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="message" role="status">{{ message }}</p>
     <article v-for="s in sources" :key="s.game_id">

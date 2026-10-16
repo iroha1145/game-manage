@@ -57,7 +57,6 @@ onBeforeUnmount(() => { stop(); clear() })
 <template>
   <section v-if="isCloudMode()" class="cap-card cloud-skland" aria-label="森空岛档案授权">
     <h2>终末地 · 森空岛档案授权</h2>
-    <p>选择本人已授权的鹰角账号与角色，一键连接森空岛档案。两类授权独立显示、分别选择角色。</p>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="success" role="status">{{ success }}</p>
     <form aria-label="通过鹰角授权连接森空岛" @submit.prevent="connectPassport">
       <label>来源鹰角授权<select aria-label="用于连接森空岛的鹰角授权" :value="accountId" :disabled="!!busy" @change="chooseAccount"><option value="">请选择鹰角授权</option><option v-for="(account, index) in sources" :key="account.account_id" :value="account.account_id">鹰角授权 {{ index + 1 }} · {{ account.roles?.find(item => item.is_default)?.display_name || account.roles?.[0]?.display_name || '角色名称未提供' }}</option></select></label>
