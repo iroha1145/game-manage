@@ -294,3 +294,37 @@ test('choosing the role placeholder puts the dropdown back on the active role', 
   assert.match(content(root), /旧档案/)
   assert.ok(!calls.some(([method, url]) => method === 'POST' && url.endsWith('/skland/role')))
 })
+
+const blueprintFetch = async url => url.endsWith('/blueprints') ? response({ items: [{ id: 'b1', name: '工厂', code: 'ABC', notes: '' }] }) : response({ connected: false, roles: [] })
+const button = (root, label) => nodes(root, 'button').find(n => content(n) === label)
+
+test('copying a share code confirms in the blueprint list and never on the Skland card', async t => {
+  t.mock.getter(globalThis, 'navigator', () => ({ clipboard: { writeText: async () => {} } }))
+  t.mock.method(globalThis, 'fetch', blueprintFetch)
+  const root = mount(t, Dashboard, { snaps: {}, initialSection: 'blueprints' })
+  await flush(); await flush()
+  button(root, '复制分享码').props.onClick()
+  await flush()
+  assert.match(content(root), /分享码已复制/)
+  button(root, '概览').props.onClick()
+  await flush()
+  assert.doesNotMatch(content(root), /分享码已复制/)
+  button(root, '蓝图收藏').props.onClick()
+  await flush()
+  assert.doesNotMatch(content(root), /分享码已复制/)
+})
+
+test('a failed copy and a successful copy replace each other in the blueprint list', async t => {
+  let clipboardFails = true
+  t.mock.getter(globalThis, 'navigator', () => ({ clipboard: { writeText: async () => { if (clipboardFails) throw new Error('denied') } } }))
+  t.mock.method(globalThis, 'fetch', blueprintFetch)
+  const root = mount(t, Dashboard, { snaps: {}, initialSection: 'blueprints' })
+  await flush(); await flush()
+  for (const [fails, shown, hidden] of [[true, /复制失败，请手动选取分享码/, /分享码已复制/], [false, /分享码已复制/, /复制失败/], [true, /复制失败，请手动选取分享码/, /分享码已复制/]]) {
+    clipboardFails = fails
+    button(root, '复制分享码').props.onClick()
+    await flush()
+    assert.match(content(root), shown)
+    assert.doesNotMatch(content(root), hidden)
+  }
+})
