@@ -31,3 +31,12 @@ test('archive detail uses the local archived endpoint and encodes identifiers', 
   await getLolMatch('a/b')
   assert.equal(url, '/api/lol/matches/a%2Fb')
 })
+
+test('collection failures name every reason the service reports, without reading the body', async t => {
+  let status
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: false, status, json: async () => { throw new Error('body must not be read') } }))
+  // 409 covers three cases: a collection already running, client not logged in, account switched mid-collection.
+  status = 409; await assert.rejects(collectLol(), error => /正在采集/.test(error.message) && /未登录/.test(error.message) && /账号/.test(error.message))
+  status = 502; await assert.rejects(collectLol(), /战绩结构异常/)
+  status = 504; await assert.rejects(collectLol(), /超时/)
+})
