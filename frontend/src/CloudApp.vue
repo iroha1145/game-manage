@@ -12,16 +12,17 @@ import AppIcon from './components/AppIcon.vue'
 import GameIcon from './components/GameIcon.vue'
 import { gameStyle, readRoute } from './dashboard.js'
 import SiteLogin from './components/SiteLogin.vue'
-import AccountSettings from './components/AccountSettings.vue'
-import QqBindingPanel from './components/QqBindingPanel.vue'
-import LoginPanel from './components/LoginPanel.vue'
-import CalendarPage from './components/CalendarPage.vue'
 import OverviewPage from './components/OverviewPage.vue'
-import CloudBilibiliSourcePanel from './components/CloudBilibiliSourcePanel.vue'
-import CloudSklandConnect from './components/CloudSklandConnect.vue'
 
-// The game card pulls in every game module and catalog; the overview and account pages do not need it.
+// The overview needs none of these; each loads when its page is first opened. The game card also pulls in
+// every game module and catalog.
 const CloudGameCard = lazyPage(() => import('./components/CloudGameCard.vue'))
+const AccountSettings = lazyPage(() => import('./components/AccountSettings.vue'))
+const QqBindingPanel = lazyPage(() => import('./components/QqBindingPanel.vue'))
+const LoginPanel = lazyPage(() => import('./components/LoginPanel.vue'))
+const CalendarPage = lazyPage(() => import('./components/CalendarPage.vue'))
+const CloudBilibiliSourcePanel = lazyPage(() => import('./components/CloudBilibiliSourcePanel.vue'))
+const CloudSklandConnect = lazyPage(() => import('./components/CloudSklandConnect.vue'))
 const dashboard = createCloudDashboard(), state = dashboard.state
 const initialHash = globalThis.window?.location?.hash || ''
 const initialRoute = /#\/sessions(?:$|\?)/.test(initialHash) ? {page:'sessions',game:''} : readRoute(initialHash)

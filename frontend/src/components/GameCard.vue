@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { gameStyle } from '../dashboard.js'
 import { vGlide } from '../motion.js'
+import { lazyPage } from '../lazy-page.js'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
 import SourceStatusPanel from './SourceStatusPanel.vue'
@@ -12,9 +13,11 @@ import NteRolesPanel from './NteRolesPanel.vue'
 import NteGachaPanel from './NteGachaPanel.vue'
 import EndfieldDashboard from './EndfieldDashboard.vue'
 import WuwaDashboard from './WuwaDashboard.vue'
-import LolDashboard from './LolDashboard.vue'
 import NteGuides from './NteGuides.vue'
 import NteModuleCard from './NteModuleCard.vue'
+
+// Only the local workbench shows League of Legends; the cloud never loads this dashboard or its esports tables.
+const LolDashboard = lazyPage(() => import('./LolDashboard.vue'))
 
 const props = defineProps({
   cloudAccount: Object,

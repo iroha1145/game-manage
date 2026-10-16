@@ -35,9 +35,10 @@ test('integrated shell retains the upstream Endfield gacha panel', async t => {
   assert.doesNotMatch(content(root),/敬请期待/)
 })
 
-test('integrated LOL shell exposes both announcements and local archive analysis', t => {
+test('integrated LOL shell exposes both announcements and local archive analysis', async t => {
   t.mock.method(globalThis,'fetch',async()=>({ok:true,json:async()=>({matches:[],overview:{},coverage:{}})}))
   const root=mount(t,Card,{game:game('league_of_legends',['account','news','announcement','match']),externalSnapshots:{}})
+  for (let i=0;i<3;i++) { await new Promise(setImmediate); await nextTick() }   // the dashboard is loaded on demand
   assert.ok(nodes(root,'button').some(n=>content(n)==='公告与资讯'))
   assert.ok(nodes(root,'button').some(n=>content(n)==='个人总览'))
 })
