@@ -575,13 +575,9 @@ class QqQueryService:
                 content='完整日历长图' if command=='calendar' else '完整图片'
                 return {'text':content+'超出 QQ 图片尺寸或大小限制，未截断；请到看板查看。'}
             return self._text_fallback(context['card'])
-        if png is not None:
-            if hasattr(png,'total_pages'):
-                if png.total_pages==1:response['text']=safe_text(context['render_snapshot']['title'])
-                else:response['text']=safe_text(f"{context['render_snapshot']['title']} · 第 {png.page} / {png.total_pages} 页\n"+
-                    (f"下一页：{context['render_snapshot']['next_command']} {png.page+1}" if png.page<png.total_pages else '已到末页。'))
-            response['image']=base64.b64encode(png).decode('ascii')
-        else:return self._text_fallback(context['card'])
+        if png is None:return self._text_fallback(context['card'])
+        # The bot sends only the image; the full card text is what it falls back to if delivery fails.
+        response['image']=base64.b64encode(png).decode('ascii')
         return response
 
     def _text_fallback(self,card):
