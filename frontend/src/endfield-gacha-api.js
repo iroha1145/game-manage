@@ -1,5 +1,6 @@
 async function request(path) {
-  const response = await fetch(`/api/endfield/gacha/${path}`)
+  let response
+  try { response = await fetch(`/api/endfield/gacha/${path}`) } catch (error) { throw error?.name === 'AbortError' ? error : new Error('本地服务暂时不可用，请稍后重试') }
   let result
   try { result = await response.json() } catch { throw new Error('寻访账本服务返回异常，请稍后重试') }
   if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : '寻访账本请求失败，请稍后重试')

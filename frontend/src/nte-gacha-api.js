@@ -1,7 +1,10 @@
 async function request(path, body) {
-  const response = await fetch(`/api/nte/gacha/${path}`, body === undefined ? {} : {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Game-Assistant': '1' }, body: JSON.stringify(body),
-  })
+  let response
+  try {
+    response = await fetch(`/api/nte/gacha/${path}`, body === undefined ? {} : {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Game-Assistant': '1' }, body: JSON.stringify(body),
+    })
+  } catch (error) { throw error?.name === 'AbortError' ? error : new Error('本地服务暂时不可用，请稍后重试') }
   let result
   try { result = await response.json() } catch { throw new Error('抽卡账本服务返回异常，请稍后重试') }
   if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : '账本请求失败，请检查导入文件或当前账号')

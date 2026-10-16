@@ -1,21 +1,28 @@
 import { onBeforeUnmount, watch } from 'vue'
 
 export async function wuwaRequest(path, { signal, body } = {}) {
-  const response = await fetch(`/api/wuwa/${path}`, {
-    signal,
-    cache: 'no-store',
-    referrerPolicy: 'no-referrer',
-    ...(body === undefined
-      ? {}
-      : {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Game-Assistant': '1',
-          },
-          body: JSON.stringify(body),
-        }),
-  })
+  let response
+  try {
+    response = await fetch(`/api/wuwa/${path}`, {
+      signal,
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
+      ...(body === undefined
+        ? {}
+        : {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Game-Assistant': '1',
+            },
+            body: JSON.stringify(body),
+          }),
+    })
+  } catch (error) {
+    // An abort reaches useWuwaRequest unchanged; anything else means the local service did not answer.
+    if (error?.name === 'AbortError') throw error
+    throw new Error('本地服务暂时不可用，请稍后重试')
+  }
   // Never reflect response bodies: import errors may contain sensitive source input.
   if (!response.ok)
     throw new Error(

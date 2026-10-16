@@ -79,3 +79,29 @@ test('account switch aborts the transport and discards even a late successful re
   })
   assert.equal(await pending, null)
 })
+test('an unreachable local service gives a Chinese message instead of the raw fetch error', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => {
+    throw new TypeError('Failed to fetch')
+  })
+  await assert.rejects(
+    wuwaRequest('roles/1501'),
+    (error) =>
+      error.message === '本地服务暂时不可用，请稍后重试' &&
+      !error.message.includes('Failed to fetch'),
+  )
+  await assert.rejects(
+    requestHarness(t, ref('account:server')).run('roles/1501'),
+    /本地服务暂时不可用/,
+  )
+})
+test('an abort reaches the caller unchanged so a cancelled run stays silent', async (t) => {
+  const aborted = Object.assign(new Error('The operation was aborted.'), {
+    name: 'AbortError',
+  })
+  t.mock.method(globalThis, 'fetch', async () => {
+    throw aborted
+  })
+  await assert.rejects(wuwaRequest('roles/1501'), (error) => error === aborted)
+  const api = requestHarness(t, ref('account:server'))
+  assert.equal(await api.run('roles/1501'), null)
+})
