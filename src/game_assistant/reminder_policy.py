@@ -56,9 +56,10 @@ def stamina_candidates(payload, rule: ReminderRule, now: datetime) -> list[dict]
     result = []
     for prefix, label, threshold in [('', '体力', rule.threshold_percent), ('city_', '都市活力', rule.city_threshold_percent)]:
         current, maximum = data.get(prefix + 'current'), data.get(prefix + 'maximum')
-        if type(current) is not int or type(maximum) is not int or maximum <= 0 or not 0 <= current <= maximum:
+        if type(current) is not int or type(maximum) is not int or maximum <= 0 or current < 0:
             continue
-        if not prefix and current == maximum and rule.notify_full:
+        # Items can lift stamina above its maximum; that is still full.
+        if not prefix and current >= maximum and rule.notify_full:
             name, title = 'full', '体力已满'
         elif threshold is not None and current * 100 >= maximum * threshold and (prefix or current < maximum):
             name, title = prefix + 'threshold', label + '达到阈值'

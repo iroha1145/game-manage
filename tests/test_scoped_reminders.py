@@ -14,6 +14,14 @@ NOW = datetime(2026, 10, 14, 8, tzinfo=timezone.utc)
 SCOPE = AccountScope('u', 'a', 'r')
 
 
+def test_stamina_pushed_over_the_cap_still_counts_as_full():
+    # Items can lift stamina above its maximum; the local reminder always treated that as full.
+    rule = ReminderRule(enabled=True, threshold_percent=90, notify_full=True)
+    value = dict(current=260, maximum=240, updated_at=NOW.isoformat())
+    assert [r['rule'] for r in stamina_candidates(value, rule, NOW)] == ['full']
+    assert stamina_candidates(dict(value, current=-1), rule, NOW) == []
+
+
 def test_threshold_edges_unknown_real_zero_and_stale_reading():
     rule = ReminderRule(enabled=True, threshold_percent=90, city_threshold_percent=90, notify_full=True)
     value = dict(current=89, maximum=100, city_current=None, city_maximum=100, updated_at=NOW.isoformat())
