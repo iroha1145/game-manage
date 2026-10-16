@@ -50,8 +50,8 @@ function resourceNote(card) {
 <template>
   <div class="overview-page">
     <header class="page-heading">
-      <div class="page-heading-copy"><p class="page-kicker"><span class="section-no">01</span><span class="eyebrow">Daily overview</span></p><h1>今日总览</h1><p class="page-description">游戏进度与近期活动，一处查看。</p></div>
-      <div class="page-meta"><span class="hero-count"><b>{{ String(games.length).padStart(2, '0') }}</b>个游戏正在关注</span><button class="ui-button" :disabled="loading || anyRefreshing || !games.length" @click="emit('refresh')"><AppIcon name="refresh" :size="15" :class="{ spinning: anyRefreshing }" /><span :class="{ 't-shimmer': anyRefreshing }">{{ anyRefreshing ? '同步中…' : refreshLabel }}</span></button></div>
+      <div class="page-heading-copy"><h1>今日总览</h1><p class="page-description">游戏进度与近期活动，一处查看。</p></div>
+      <div class="page-meta"><button class="ui-button" :disabled="loading || anyRefreshing || !games.length" @click="emit('refresh')"><AppIcon name="refresh" :size="15" :class="{ spinning: anyRefreshing }" /><span :class="{ 't-shimmer': anyRefreshing }">{{ anyRefreshing ? '同步中…' : refreshLabel }}</span></button></div>
     </header>
 
     <div v-if="fullGames.length || nearEvents.length" class="attention-strip">
@@ -60,7 +60,7 @@ function resourceNote(card) {
     </div>
     <div v-for="game in notices" :key="game.game_id" class="inline-warning" role="status"><strong>{{ game.display_name }}</strong> · {{ friendlyDataError(refreshErrors[game.game_id] || readErrors[game.game_id],accounts[game.game_id]?.state) }}</div>
 
-    <div class="section-heading"><h2>我的游戏 <span class="count-label">/ {{ String(games.length).padStart(2, '0') }}</span></h2><span class="muted small">各游戏独立同步</span></div>
+    <div class="section-heading"><h2>我的游戏</h2><span class="muted small">各游戏独立同步</span></div>
     <div class="game-summary-grid" :class="{ many: cards.length > 3 }" :style="{ '--cards': Math.min(cards.length, 4) }">
       <button v-for="(card, index) in cards" :key="card.game_id" v-spotlight class="game-summary game-theme t-item t-glare" :style="{ '--game-color': card.style.color, '--game-accent': card.style.color, '--i': index }" @click="emit('navigate', 'game', card.game_id)">
         <div class="summary-header"><GameIcon class="game-monogram" :game-id="card.game_id" :name="card.display_name" /><div class="game-identity"><h3>{{ card.display_name }}</h3><p>{{ card.platform || platform(card.game_id) }}</p></div><span class="summary-state" :class="{ warn: card.summary.stale || card.auth?.state === 'expired' || readErrors[card.game_id] || card.source?.tone === 'danger' }"><i></i>{{ status(card) }}</span></div>
@@ -86,8 +86,6 @@ function resourceNote(card) {
 </template>
 
 <style scoped>
-.hero-count { display:flex; align-items:baseline; gap:6px; color:var(--text-muted); font-size:12px; }
-.hero-count b { font-size:18px; line-height:1; font-weight:600; letter-spacing:-.02em; color:var(--text); }
 .attention-strip { display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:4px; background:color-mix(in srgb,var(--attention-bg) 55%,var(--card-bg)); border:1px solid color-mix(in srgb,var(--attention-border) 60%,var(--border)); border-radius:8px; color:var(--attention-text); }
 .attention-strip p { flex:1; font-size:13px; }.attention-strip .text-link { color:var(--attention-text); }
 .section-heading { margin:20px 0 10px; }.page-heading + .section-heading { margin-top:0; }
@@ -118,7 +116,6 @@ function resourceNote(card) {
 .news-source { display:flex; align-items:center; gap:5px; margin-top:1px; color:var(--text-muted); font-size:11px; line-height:16px; min-width:0; }.news-source i { width:6px; height:6px; flex-shrink:0; border-radius:50%; }.news-source>span { color:var(--text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-source time { margin-left:auto; flex-shrink:0; color:var(--text-faint); }
 @media(hover:hover) and (pointer:fine) { .news-summary a:hover,.news-summary a:hover span { color:var(--accent); } }
 .overview-footer { margin-top:24px; padding-top:12px; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:12px; color:var(--text-faint); font-size:11px; }.overview-footer>span { display:flex; align-items:center; gap:7px; }
-@media(max-width:1200px) { .hero-count { display:none; } }
 @media(max-width:940px) { .game-summary-grid,.game-summary-grid.many { grid-template-columns:1fr; }.overview-lower { grid-template-columns:1fr; } }
 @media(max-width:600px) { .attention-strip { flex-wrap:wrap; gap:8px; padding:10px 12px; }.attention-strip p { flex-basis:80%; }.attention-strip .text-link { margin-left:26px; }.summary-number { font-size:26px; line-height:30px; }.overview-footer { flex-wrap:wrap; } }
 @media(max-width:400px) { .overview-lower .section-heading { flex-wrap:wrap; gap:8px; padding:12px 14px; }.news-filters { width:100%; margin-left:0; }.overview-list { padding:3px 14px; } }

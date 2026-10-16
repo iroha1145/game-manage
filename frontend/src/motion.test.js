@@ -214,7 +214,7 @@ function modal(t, reducedMotion = false) {
   const open = ref(true)
   let closes = 0
   const app = createApp({ render: () => open.value ? h(WuwaRoleDialog, {
-    title: '账号档案', eyebrow: 'WUTHERING WAVES', onClose() { closes++; open.value = false },
+    title: '账号档案', onClose() { closes++; open.value = false },
   }, () => h('p', '账号详情')) : null })
   app.mount(root)
   const dialog = root.querySelector('dialog')

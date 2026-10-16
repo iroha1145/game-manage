@@ -1271,5 +1271,5 @@
 .wuwa-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; }
 .wuwa-inset { min-width:0; padding:14px; background:var(--panel-bg); border:1px solid var(--border); border-radius:9px; }
 .wuwa-tabs { display:flex; flex-wrap:wrap; gap:6px; }
-.wuwa-kicker { color:var(--text-faint); font-size:10px; letter-spacing:.08em; }
+
 .wuwa-guide .guide-heading { margin-bottom:10px; }

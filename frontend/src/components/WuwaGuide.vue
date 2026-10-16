@@ -27,7 +27,6 @@ function receiveGuide(value) {
     <header class="guide-heading">
       <WuwaIcon v-if="guide" :src="characterIcon(characterId) || namedIcon('roles', guide.name)" :name="guide.name" size="large" />
       <div class="guide-title">
-        <p class="wuwa-kicker">BUILD GUIDE</p>
         <h3>{{ guide ? `${guide.name} · 培养攻略` : '培养攻略' }}</h3>
       </div>
       <span v-if="guide" class="guide-version">{{ guide.attribute }}</span>

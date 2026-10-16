@@ -96,7 +96,7 @@ function capProps(cap) {
     </div>
 
     <header class="card-head">
-      <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><p class="eyebrow">{{ style.english }}</p><h1 class="game-name">{{ game.display_name }}</h1></div></div>
+      <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><h1 class="game-name">{{ game.display_name }}</h1></div></div>
       <span
         v-if="!game.credentials_configured && game.game_id !== 'endfield'"
         class="badge badge-danger"

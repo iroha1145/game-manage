@@ -105,7 +105,7 @@ async function closeDetail() {
 <template>
   <div class="calendar-page">
     <header class="page-heading">
-      <div class="page-heading-copy"><p class="page-kicker"><span class="section-no">02</span><span class="eyebrow">Version calendar</span></p><h1>活动日历</h1><p class="page-description">查看各游戏的活动安排与截止时间。</p></div>
+      <div class="page-heading-copy"><h1>活动日历</h1><p class="page-description">查看各游戏的活动安排与截止时间。</p></div>
       <div class="page-meta calendar-timezone"><AppIcon name="clock" :size="14" /> 北京时间 <strong>UTC+8</strong></div>
     </header>
 

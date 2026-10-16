@@ -7,7 +7,7 @@ const { dialog, closing, requestClose, backdropDown, backdropClick, animationEnd
 </script>
 <template>
   <dialog ref="dialog" class="nte-dialog t-dialog" :data-closing="closing ? '' : undefined" aria-modal="true" :aria-labelledby="titleId" @cancel.prevent="requestClose" @pointerdown="backdropDown" @click="backdropClick" @animationend="animationEnded">
-    <header class="nte-dialog-head"><div><p>NEVERNESS TO EVERNESS</p><h2 :id="titleId">{{ title }}</h2></div><button type="button" autofocus @click="requestClose">关闭详情</button></header>
+    <header class="nte-dialog-head"><div><h2 :id="titleId">{{ title }}</h2></div><button type="button" autofocus @click="requestClose">关闭详情</button></header>
     <div class="nte-dialog-body"><slot /></div>
   </dialog>
 </template>

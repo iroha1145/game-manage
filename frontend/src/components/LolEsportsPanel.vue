@@ -69,7 +69,7 @@ onBeforeUnmount(() => { disposed = true; generation++; controller?.abort() })
 </script>
 <template>
   <div class="esports-panel">
-    <header class="es-header"><div><span class="es-eyebrow">LEAGUE OF LEGENDS · ESPORTS</span><h2>{{ payload.season_year || '' }} 职业赛事</h2></div><button class="es-update" :disabled="loading" @click="load(true)">{{ loading ? '正在读取…' : '更新赛事' }}</button></header>
+    <header class="es-header"><div><h2>{{ payload.season_year || '' }} 职业赛事</h2></div><button class="es-update" :disabled="loading" @click="load(true)">{{ loading ? '正在读取…' : '更新赛事' }}</button></header>
     <p v-if="loading" role="status" class="es-note">正在读取赛事，更新最多等待约两分钟。</p><p v-if="error" role="alert" class="es-warning">{{ error }}</p><p v-if="note" role="status" class="es-note">{{ note }}</p>
     <p v-if="local?.payload && !valid" role="alert" class="es-warning">赛事数据版本不兼容，请更新服务。</p>
     <template v-else>

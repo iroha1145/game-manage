@@ -58,7 +58,7 @@ test('formal GameCard overview passes local auth gate, keeps Eagle identity sepa
  const root=mount(t,Card,props);await flush()
  assert.match(content(root),/鹰角通行证 · 鹰角甲/);assert.match(content(root),/已记录寻访 123/);assert.match(content(root),/6★ 记录 0/);assert.match(content(root),/2026-10-15 09:02/)
  button(root,'刷新寻访数据').props.onClick();assert.equal(refresh,1)
- button(root,'查看寻访详情 →').props.onClick();await flush();assert.match(content(root),/HEADHUNTING ARCHIVE/)
+ button(root,'查看寻访详情 →').props.onClick();await flush();assert.match(content(root),/寻访记录/)
  props.authAccount={configured:true,state:'expired'};await flush();assert.doesNotMatch(content(root),/鹰角甲|已记录寻访 123/)
  assert.equal(nodes(root,'button').find(n=>content(n)==='导出记录'),undefined)
 })

@@ -112,7 +112,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
 <template>
   <div class="lol-dashboard">
     <header v-if="section !== 'esports'" class="lol-header">
-      <div><span class="eyebrow">PERSONAL MATCH ARCHIVE</span><h2>{{ analysis?.account?.nickname || '我的英雄联盟' }}</h2><p>本机战绩档案<span v-if="analysis?.account"> · 等级 {{ val(analysis.account.level) }}</span> · 客户端关闭后仍可查看</p></div>
+      <div><h2>{{ analysis?.account?.nickname || '我的英雄联盟' }}</h2><p>本机战绩档案<span v-if="analysis?.account"> · 等级 {{ val(analysis.account.level) }}</span> · 客户端关闭后仍可查看</p></div>
       <button type="button" class="collect-button" :disabled="collecting" @click="collect">{{ collecting ? '正在同步…' : '同步战绩' }}</button>
     </header>
     <p v-if="collecting && section !== 'esports'" class="lol-notice" role="status">正在同步近期战绩与详情，最多等待 120 秒。</p>
@@ -154,7 +154,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
         </article>
       </template>
       <template v-else-if="section === 'hex'">
-        <section class="hex-intro lol-panel"><span class="eyebrow">HEXTECH ARAM · QUEUE 2400</span><h3>我的海克斯样本</h3><p>当前筛选内海克斯对局 {{ val(hex.games) }} 场 · 已记录强化 {{ val(hex.recorded_games) }} 场</p><p class="method-note">仅统计个人海克斯大乱斗对局。样本胜率不代表强化强度；重开与未知胜负不计入胜率。</p><p class="method-note">{{ hex.rating_note || '暂无同版本强化评级资料。' }}</p></section>
+        <section class="hex-intro lol-panel"><h3>我的海克斯样本</h3><p>当前筛选内海克斯对局 {{ val(hex.games) }} 场 · 已记录强化 {{ val(hex.recorded_games) }} 场</p><p class="method-note">仅统计个人海克斯大乱斗对局。样本胜率不代表强化强度；重开与未知胜负不计入胜率。</p><p class="method-note">{{ hex.rating_note || '暂无同版本强化评级资料。' }}</p></section>
         <section class="lol-panel"><div class="panel-heading"><h3>强化选择记录</h3><span>单局同名强化去重</span></div><div v-if="hex.augments?.length" class="lol-table-wrap"><table><thead><tr><th>强化</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="augment in hex.augments" :key="augment.id"><td>{{ augment.name || `强化 #${augment.id}` }}</td><td>{{ val(augment.games) }}</td><td>{{ val(augment.wins) }}</td><td>{{ percent(augment.winrate) }}</td></tr></tbody></table></div><p v-else class="method-note">暂无强化选择记录。</p></section>
         <section class="lol-panel"><div class="panel-heading"><h3>强化组合</h3><span>本地出现过的组合</span></div><div v-if="hex.combinations?.length" class="lol-table-wrap"><table><thead><tr><th>组合</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="(combo, i) in hex.combinations" :key="i"><td>{{ combo.names?.join(' + ') || combo.ids?.join(' + ') || '未知组合' }}</td><td>{{ val(combo.games) }}</td><td>{{ val(combo.wins) }}</td><td>{{ percent(combo.winrate) }}</td></tr></tbody></table></div><p v-else class="method-note">暂无可统计的强化组合。</p></section>
       </template>

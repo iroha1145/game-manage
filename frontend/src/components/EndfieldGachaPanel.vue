@@ -78,7 +78,7 @@ async function download() {
 <template>
   <section class="cap-card endfield-gacha" aria-labelledby="endfield-gacha-title">
     <header class="cap-title">
-      <div class="gacha-heading"><p>05 / HEADHUNTING ARCHIVE</p><h2 id="endfield-gacha-title">寻访记录</h2></div><span v-if="snap?.stale && !imageMode" class="badge badge-stale">待更新</span>
+      <div class="gacha-heading"><h2 id="endfield-gacha-title">寻访记录</h2></div><span v-if="snap?.stale && !imageMode" class="badge badge-stale">待更新</span>
       <InfoHint v-if="!imageMode" :text="cloudMode ? '官方记录有查询时限，云端档案保留已同步数据；撤销授权会禁止读取。' : '官方可查询约 90 天记录；同步后保存在本机，退出登录不会删除本机记录。'" />
       <span class="cap-meta"><template v-if="summary">共 <b>{{ summary.total }}</b> 抽<template v-if="fetchedAt"> · 同步于 {{ fetchedAt }}</template></template><button v-if="!imageMode" type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button></span>
     </header>
@@ -93,7 +93,7 @@ async function download() {
       <p v-else class="notice">当前可同步范围已读取；更早的历史仍以已保存记录为准。</p>
       <p v-if="!pools.length" class="empty">{{ cloudMode ? '本人档案' : '本机' }}暂无寻访记录。</p>
       <div v-else class="pool-grid">
-        <article v-for="(pool,index) in pools" :key="pool.key" class="pool-card"><p class="pool-index">POOL {{ String(index+1).padStart(2,'0') }}</p>
+        <article v-for="(pool,index) in pools" :key="pool.key" class="pool-card">
           <header class="pool-head">
             <h3>{{ pool.label }}</h3>
             <span v-if="pool.gaps" class="chip warn">{{ pool.pending ? '部分待同步' : '记录有缺口' }}<InfoHint v-if="!imageMode" align="end" text="记录不连续时，跨缺口的抽数以 ≥ 表示已知最少值。" /></span>
@@ -187,7 +187,6 @@ async function download() {
 @media (max-width: 600px) { .data-table th:last-child, .data-table td:last-child { display: none; } }
 .endfield-gacha { border-radius:0; box-shadow:none; border-top:2px solid var(--game-endfield); padding:22px; }
 .endfield-gacha>.cap-title { padding-bottom:16px; border-bottom:1px solid var(--border); margin-bottom:20px; gap:12px; }
-.gacha-heading>p,.pool-index { font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; color:var(--text-muted); margin-bottom:7px; font-weight:400; }
 .gacha-heading h2 { font-size:21px; letter-spacing:.03em; line-height:1.35; }
 .endfield-gacha :deep(.summary-metric),.endfield-gacha .pool-card,.endfield-gacha .panel,.endfield-gacha .panel>summary,.endfield-gacha .ui-button { border-radius:0; }
 .endfield-gacha :deep(.metric-symbol) { border-radius:0; }

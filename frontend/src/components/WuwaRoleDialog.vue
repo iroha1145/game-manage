@@ -10,7 +10,7 @@ const { dialog, closing, requestClose, backdropDown, backdropClick, animationEnd
 <template>
   <dialog ref="dialog" class="wuwa-role-dialog t-dialog" :data-closing="closing ? '' : undefined" aria-modal="true" :aria-labelledby="headingId" @cancel.prevent="requestClose" @pointerdown="backdropDown" @click="backdropClick" @animationend="animationEnded">
     <header class="role-dialog-heading">
-      <div><p class="wuwa-kicker">WUTHERING WAVES</p><h2 :id="headingId">{{ title }}</h2></div>
+      <div><h2 :id="headingId">{{ title }}</h2></div>
       <button type="button" class="ui-button small-button" autofocus @click="requestClose">关闭详情</button>
     </header>
     <div class="role-dialog-body"><slot /></div>

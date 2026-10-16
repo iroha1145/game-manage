@@ -74,7 +74,6 @@
   --ring: 0 0 0 3px color-mix(in srgb, var(--game-accent) 25%, transparent);
   --chart-1: var(--game-accent);
 }
-.game-card.game-theme .game-heading .eyebrow { color: var(--accent); }
 * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
 /* The sticky top bar must not cover whatever keyboard focus scrolls into view. */
 html { scroll-padding-top: 72px; }
@@ -121,7 +120,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }.section-heading h2 { font-size:16px; line-height:24px; font-weight:500; color:var(--text); }.count-label { margin-left:6px; color:var(--text-faint); font-size:13px; font-weight:400; }
 /* Page headings share the same compact title and metadata rhythm. */
 .page-heading { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 24px; margin-bottom:24px; }
-.page-heading-copy { min-width:0; flex:1 1 288px; }.page-kicker { display:flex; align-items:baseline; gap:8px; }.section-no { font-family:var(--font-mono); font-size:10px; line-height:14px; font-weight:500; color:var(--accent); }.page-kicker .eyebrow { font-size:10px; letter-spacing:.08em; }
+.page-heading-copy { min-width:0; flex:1 1 288px; }
 .page-heading h1 { font-size:24px; line-height:32px; font-weight:600; color:var(--text); }.page-heading .page-description { margin-top:4px; }
 .page-meta { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding-bottom:4px; color:var(--text-muted); font-size:13px; }
 .empty-page { padding:34px 16px; color:var(--text-muted); text-align:center; font-size:14px; }.empty-page button { margin-top:15px; }
