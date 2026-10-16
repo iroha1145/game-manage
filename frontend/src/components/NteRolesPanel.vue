@@ -180,7 +180,6 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .role-card.compared { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .role-top { display: flex; align-items: center; gap: 8px; }
 .avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 8px; object-fit: cover; background: var(--surface-soft); }
-.avatar-empty { display: grid; place-items: center; color: var(--text-muted); font-size: 15px; }
 .role-heading { display: grid; gap: 1px; min-width: 0; flex: 1; }
 .role-heading > strong { overflow: hidden; color: var(--text); font-size: 13px; line-height: 18px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .role-sub { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px; line-height: 16px; white-space: nowrap; }

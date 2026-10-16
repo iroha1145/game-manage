@@ -41,13 +41,6 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
 </template>
 
 <style scoped>
-.stamina-big {
-  font-size: 34px;
-  font-weight: 700;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
 .sep {
   margin: 0 4px;
   color: var(--text-muted);
