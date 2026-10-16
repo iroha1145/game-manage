@@ -108,7 +108,7 @@
   width: 0;
   height: 0;
   opacity: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   pointer-events: none;
   transition:
     transform var(--duration-fast) var(--ease-smooth-out),
