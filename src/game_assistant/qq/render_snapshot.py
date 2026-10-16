@@ -226,8 +226,10 @@ def metadata(snapshot,payload):
 
 
 def snapshot(kind,game,data,now,page,title,command):
+    # Minutes only, like the page shows: the snapshot is part of the image cache key,
+    # and a microsecond clock made every request a cache miss.
     return validate_snapshot({'schema_version':1,'kind':kind,'game':game or 'all','display_data':data,
-        'as_of':now.isoformat(),'page':page,'title':title,'next_command':command,'theme':'light'})
+        'as_of':now.replace(second=0,microsecond=0).isoformat(),'page':page,'title':title,'next_command':command,'theme':'light'})
 
 
 def calendar_snapshot(snapshots,now,page=1):

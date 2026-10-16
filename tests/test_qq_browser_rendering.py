@@ -105,6 +105,15 @@ def test_strict_snapshot_rejects_unknown_paths_credentials_and_unbounded_data():
     with pytest.raises(RenderingUnavailable):validate_snapshot(value)
 
 
+def test_identical_requests_within_a_minute_build_the_same_snapshot():
+    # The snapshot is part of the image cache key, and the page shows minutes only.
+    from datetime import timedelta, timezone
+    beijing = timezone(timedelta(hours=8))
+    first = calendar_snapshot({}, datetime(2026, 10, 16, 21, 5, 3, 120000, tzinfo=beijing))
+    again = calendar_snapshot({}, datetime(2026, 10, 16, 21, 5, 41, 7, tzinfo=beijing))
+    assert first == again and first['as_of'] == '2026-10-16T21:05:00+08:00'
+
+
 def test_projection_only_emits_component_fields_and_keeps_unknown_separate_from_zero():
     value=project({'name':'测试角色','level':0,'awaken_level':None,'uid':'private','token':'private',
         'icon_url':'https://example.com/private.png','weapon':{'name':'弧盘','password':'private'}},ROLE)
