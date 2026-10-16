@@ -225,3 +225,17 @@ test('same-account snapshot revisions reload analysis and preserve prior data on
   assert.equal(reads, 4)
   assert.match(content(root), /账号甲版本4/)
 })
+
+test('a snapshot refresh keeps the open match detail; a filter change closes it', async t => {
+  const snaps = ref({ account: { payload: { extra: { puuid: 'account-a' } }, fetched_at: 'a1' }, match: { fetched_at: 'm1' }, stats: { fetched_at: 's1' } })
+  t.mock.method(globalThis, 'fetch', async url => response(url.includes('/matches/') ? { payload: { teams: [{ team_id: 100, win: true, participants: [{ champion_name: '详情英雄', kills: 1, deaths: 0, assists: 2 }] }] } } : data()))
+  const root = mount(t, { setup: () => () => h(LolDashboard, { snaps: snaps.value }) }, {})
+  await flush(); button(root, '对局记录').props.onClick(); await flush()
+  button(root, '查看详情').props.onClick(); await flush()
+  assert.match(content(root), /详情英雄/)
+  snaps.value.match.fetched_at = 'm2'; await flush()
+  assert.match(content(root), /详情英雄/, 'the hourly snapshot refresh must not collapse the open detail')
+  const days = nodes(root, 'select').find(n => content(n.parent).includes('时间'))
+  days.props.onChange({ target: { value: '30' } }); await flush()
+  assert.doesNotMatch(content(root), /详情英雄/)
+})

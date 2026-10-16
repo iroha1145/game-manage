@@ -54,10 +54,11 @@ const heatMaximum = computed(() => Math.max(1, ...heatDays.value.map(row => row.
 function closeDetail() {
   detailGeneration++; detailController?.abort(); expanded.value = null; detail.value = null; detailLoading.value = false; detailError.value = ''
 }
-async function load() {
+async function load(resetDetail = true) {
   const current = ++generation, filters = { days: days.value, queue: queue.value }
   analysisController?.abort(); analysisController = new AbortController()
-  closeDetail(); loading.value = true; error.value = ''
+  if (resetDetail) closeDetail()
+  loading.value = true; error.value = ''
   try {
     const next = await getLolAnalysis({ ...filters, signal: analysisController.signal })
     if (disposed || current !== generation) return
@@ -97,12 +98,14 @@ watch(accountKey, () => {
   collectGeneration++; collectController?.abort()
   analysis.value = null; error.value = ''; collectError.value = ''; collectNote.value = ''; collecting.value = false
 }, { flush: 'sync' })
+// Snapshot refreshes (hourly while the client is online) keep an open match;
+// new filters or another account start from a closed list.
 watch([
   days, queue, accountKey,
   () => props.snaps.account?.fetched_at,
   () => props.snaps.match?.fetched_at,
   () => props.snaps.stats?.fetched_at,
-], load, { immediate: true })
+], (next, previous) => load(!previous || next.slice(0, 3).some((value, index) => value !== previous[index])), { immediate: true })
 onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort(); collectController?.abort(); closeDetail() })
 </script>
 
