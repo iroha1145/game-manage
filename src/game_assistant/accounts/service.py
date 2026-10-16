@@ -64,22 +64,27 @@ class AccountService:
                              for r in self.connection.execute(
                                  'SELECT role_id,display_name,is_default FROM roles WHERE account_id=? AND user_id=?',
                                  (row[0], principal.user_id))]
-            if item['provider'] == 'skland' and item['state'] == 'active':
+            if item['state'] == 'active':
                 from game_assistant.auth.store import CredentialStoreError
                 try:
                     saved = self.credentials.load_grant(principal.user_id,item['grant_id'])
+                except CredentialStoreError:
+                    # Other providers report an unreadable grant per account query (query_state).
+                    if item['provider'] == 'skland':
+                        item['state'] = 'credential_unavailable'
+                else:
+                    # A later login may stop listing a role; the runtime refuses it, so it is not offered.
                     verified = {(str(r.get('role_id')),str(r.get('server_id'))) for r in saved.get('_verified_roles',[])}
                     item['roles'] = [role for role in item['roles'] if (
                         self.connection.execute('SELECT game_uid FROM roles WHERE role_id=?',(role['role_id'],)).fetchone()[0],
                         item['server']) in verified]
                     if not item['roles']:
                         item['state'] = 'role_unavailable'
-                    parent = saved.get('_parent')
-                    item['authorization_source'] = 'passport' if parent else 'manual'
-                    if parent:
-                        item.update(parent_account_id=parent['account_id'],parent_role_id=parent['role_id'])
-                except CredentialStoreError:
-                    item['state'] = 'credential_unavailable'
+                    if item['provider'] == 'skland':
+                        parent = saved.get('_parent')
+                        item['authorization_source'] = 'passport' if parent else 'manual'
+                        if parent:
+                            item.update(parent_account_id=parent['account_id'],parent_role_id=parent['role_id'])
             result.append(item)
         return result
 
