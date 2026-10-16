@@ -60,7 +60,7 @@ function load(row){name.value=row.data.name;itemsJson.value=json(row.data.items)
 <template>
  <section v-if="!imageMode || initialAssessment" class="personal-assessment">
   <h4>个人权重评分</h4>
-  <p>按你设置的偏好权重评价当前角色装备；不是官方伤害或最优解。</p>
+  <p>按你设置的偏好权重评价当前角色装备。</p>
   <button v-if="!imageMode && !opened" type="button" :disabled="!characterId" @click="open">配置权重与 A/B 对比</button>
   <div v-if="!imageMode && opened" class="assessment-editor">
    <p role="alert" v-if="error">{{ error }}</p>

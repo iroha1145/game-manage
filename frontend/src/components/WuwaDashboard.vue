@@ -116,7 +116,7 @@ const roleNames = computed(() =>
         请先登录鸣潮账号以查看私人档案。
       </p>
       <template v-else-if="section === 'profile'">
-        <WuwaModuleCard title="账号档案" :description="current.account?.payload?.nickname || '漂泊者档案'" :snap="current.account" :metrics="[
+        <WuwaModuleCard title="账号档案" :description="current.account?.payload?.nickname || ''" :snap="current.account" :metrics="[
           { label: '联觉等级', value: current.account?.payload?.level },
           { label: '世界等级', value: current.account?.payload?.extra?.profile?.world_level },
           { label: '成就数', value: current.account?.payload?.extra?.profile?.achievement_count },
@@ -128,7 +128,7 @@ const roleNames = computed(() =>
           <WuwaModuleCard class="profile-progress" title="周期进度" inline :snap="current.progress">
             <ProgressCard :snap="current.progress" />
           </WuwaModuleCard>
-          <WuwaModuleCard class="profile-exploration" title="探索收集" description="地区探索度、残象与分类收集统计" :snap="current.exploration" :metrics="[{label:'已收录残象',value:current.exploration?.payload?.detections?.total}]">
+          <WuwaModuleCard class="profile-exploration" title="探索收集" :snap="current.exploration" :metrics="[{label:'已收录残象',value:current.exploration?.payload?.detections?.total}]">
             <template #preview><SummaryMetrics compact :metrics="(current.exploration?.payload?.country_groups || []).map(g=>({label:g.name,current:g.progress,total:100}))" /></template>
             <ExplorationCard :snap="current.exploration" />
           </WuwaModuleCard>
@@ -147,7 +147,7 @@ const roleNames = computed(() =>
       /><WuwaActivities
         v-else-if="section === 'activities'"
         :snap="current.activities"
-      /><WuwaModuleCard v-else-if="section === 'resources'" title="资源简报" description="查看各周期获取的资源；在详情中切换周、月或版本报告。" :snap="current.resources" :metrics="[
+      /><WuwaModuleCard v-else-if="section === 'resources'" title="资源简报" :snap="current.resources" :metrics="[
         {label:'当前报告贝币',value:current.resources?.payload?.current?.data?.total_coin},
         {label:'当前报告星声',value:current.resources?.payload?.current?.data?.total_star},
       ]">
@@ -158,8 +158,8 @@ const roleNames = computed(() =>
         <WuwaResources :snap="current.resources" :account-key="accountKey" />
       </WuwaModuleCard>
       <template v-else-if="accountKey">
-        <WuwaModuleCard v-if="section === 'gacha'" title="抽卡历史" description="查看已导入抽卡记录与五星统计。"><WuwaGacha :account-key="accountKey" /></WuwaModuleCard>
-        <WuwaModuleCard v-if="section === 'history'" title="成长记录" description="查看跨期深塔成绩与角色培养变化。"><WuwaHistory :account-key="accountKey" :role-names="roleNames" /></WuwaModuleCard>
+        <WuwaModuleCard v-if="section === 'gacha'" title="抽卡历史"><WuwaGacha :account-key="accountKey" /></WuwaModuleCard>
+        <WuwaModuleCard v-if="section === 'history'" title="成长记录"><WuwaHistory :account-key="accountKey" :role-names="roleNames" /></WuwaModuleCard>
       </template>
       <p v-else class="wuwa-panel">
         尚未读取到当前账号标识，请刷新数据后重试。

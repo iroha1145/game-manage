@@ -55,7 +55,7 @@ async function backup(){
       <input ref="fileInput" type="file" accept=".json,application/json" aria-label="预览抽卡文件" :disabled="busy" @change="file=$event.target.files?.[0];invalidate()" />
       <button class="ui-button small-button" :disabled="busy || !file" @click="readFile">预览文件</button>
     </div>
-    <p class="wuwa-meta">文件最大 2 MiB。mcgf/xhh 仅保留来源自报汇总，不生成逐抽记录。文件缺少区服时按当前账号区服绑定并标注；两种真实导出仍需实测核验。</p>
+    <p class="wuwa-meta">文件最大 2 MiB。mcgf/xhh 仅保留来源自报汇总，不生成逐抽记录。文件缺少区服时按当前账号区服绑定并标注。</p>
     <div v-if="source==='json_import'" class="toolbar">
       <label><input v-model="latest" type="checkbox" :disabled="busy" @change="invalidate" />我确认本段覆盖导入时最新记录</label>
       <label><input v-model="continuous" type="checkbox" :disabled="busy" @change="invalidate" />我确认本段真实逐抽连续无缺口</label>
@@ -68,7 +68,7 @@ async function backup(){
     <button class="ui-button small-button" :disabled="busy" @click="backup">导出归档（超过上限分段）</button>
     <details :open="ruleOpen" @toggle="ruleOpen=$event.target.open">
       <summary>用户规则配置</summary>
-      <p class="wuwa-meta">仅支持你明确配置的独立卡池五星重置规则，不声明官方规则，不推断 UP。未确认独立计数/重置规则时请保持未配置。</p>
+      <p class="wuwa-meta">按你设置的保底规则计算，不代表官方规则，也不推断 UP；不确定时请保持未设置。</p>
       <form class="toolbar" @submit.prevent="saveRule">
         <input v-model="pool" aria-label="规则卡池 ID" required placeholder="卡池 ID" />
         <input v-model="hard" aria-label="用户设置保底上限" type="number" min="1" max="10000" required placeholder="保底上限" />

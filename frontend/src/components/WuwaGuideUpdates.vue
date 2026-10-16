@@ -54,7 +54,7 @@ onBeforeUnmount(cancel)
 <template>
   <section class="guide-updates" aria-label="攻略更新检查" v-if="name">
     <header>
-      <div><h4>社区攻略更新</h4><p>查找 {{ name }} 的新攻略并提炼培养建议。</p></div>
+      <div><h4>社区攻略更新</h4></div>
       <button v-if="canMaintain" type="button" class="ui-button" :disabled="loading" @click="request(true)">{{ loading ? '正在检查与提炼…' : '检查更新' }}</button>
     </header>
     <p class="wuwa-meta" v-if="result?.checked_at">上次成功检查：{{ date(result.checked_at) }}（北京时间） · {{ uncollected }} 篇未收录来源</p>

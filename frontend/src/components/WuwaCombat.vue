@@ -22,15 +22,14 @@ function open(mode) { selected.value=mode; view.value='records' }
       <header class="cap-title wuwa-module-heading"><h2>{{ title }}</h2><button v-if="!imageMode" type="button" class="ui-button small-button" @click="open(mode)">查看{{ title }}</button></header>
       <template v-if="mode === 'tower'">
         <p class="wuwa-meta">深境区 · 周期结束 {{ stamp(payload.tower?.data?.season_end_at) }}（北京时间）</p>
-        <SummaryMetrics :metrics="list(deepZone?.tower_area_list).map((area,i)=>({label:area.area_name || `区域 ${i+1}`,current:area.star,total:area.max_star,note:'深境区星数'}))" />
+        <SummaryMetrics :metrics="list(deepZone?.tower_area_list).map((area,i)=>({label:area.area_name || `区域 ${i+1}`,current:area.star,total:area.max_star}))" />
         <p v-if="!deepZone" class="wuwa-muted">深境区记录暂不可用，仍可查看社区攻略。</p>
       </template>
       <template v-else-if="mode === 'hologram'">
-        <p class="wuwa-meta">{{ bosses.length ? `已记录 ${bosses.length} 位首领` : '尚无首领记录' }} · 详情中查看难度、队伍与首领攻略</p>
+        <p class="wuwa-meta">{{ bosses.length ? `已记录 ${bosses.length} 位首领` : '尚无首领记录' }}</p>
       </template>
       <template v-else>
         <SummaryMetrics :metrics="list(payload.slash?.data?.difficulty_list).map(zone=>({label:zone.difficulty_name || `难度 ${value(zone.difficulty)}`,current:zone.all_score,total:zone.max_score}))" />
-        <p class="wuwa-meta">分半场成绩、队伍与社区打法见详情</p>
       </template>
       <p v-if="payload[mode]?.data?.is_unlock === false" class="wuwa-muted">尚未解锁</p>
       <WuwaStatus :snap="payload[mode] || snap" />

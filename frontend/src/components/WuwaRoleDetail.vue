@@ -4,7 +4,6 @@ import { safeUrl } from '../calendar.js'
 import { fieldLabels, list, starCount, value } from '../wuwa-display.js'
 import WuwaFields from './WuwaFields.vue'
 import WuwaIcon from './WuwaIcon.vue'
-import InfoHint from './InfoHint.vue'
 import RoleAssessment from './RoleAssessment.vue'
 const props = defineProps({ data: { type: Object, default: () => ({}) }, imageMode:{type:Boolean,default:false} })
 provide('wuwaImageMode', computed(() => props.imageMode))
@@ -62,18 +61,6 @@ const isAttributeList = (v) =>
             <span class="wuwa-field-label" role="heading" aria-level="4">角色外观</span
             ><WuwaFields :data="data.role_skin" />
           </div>
-          <details v-if="!imageMode" data-render-collapsed class="wuwa-supplement"><summary>分支编号</summary><dl class="wuwa-kv">
-            <div>
-              <dt>当前分支（来源编号）</dt>
-              <dd>
-                {{ value(data.active_branch_id) }}
-                <InfoHint
-                  text="分支编号仅为来源标识，不代表已解锁数量或练度。"
-                  align="end"
-                />
-              </dd>
-            </div>
-          </dl></details>
         </div>
       </div>
     </section>

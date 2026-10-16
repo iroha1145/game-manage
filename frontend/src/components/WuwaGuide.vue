@@ -33,8 +33,7 @@ function receiveGuide(value) {
     </header>
     <WuwaGuideUpdates v-if="!cloudMode" :character-id="characterId" :name="original?.name || characterName" :attribute="original?.attribute || attribute" :sources="guide?.sources || []" @guide="receiveGuide" />
     <template v-if="guide">
-      <p class="guide-intro">培养建议</p>
-      <details class="guide-sources" data-render-collapsed><summary>资料详情</summary><p class="wuwa-meta">{{ guide.reviewedAt ? `资料核查于 ${guide.reviewedAt}` : guide.fetchedAt ? '原帖自动提炼，尚未人工核查' : `资料核查于 ${guideUpdatedAt}` }} · {{ reviewedCount }}/5 项已核对原帖<span v-if="reviewedCount < 5"> · 其余条目标明状态</span></p><p v-if="guide.extractionNote" class="guide-note">{{ guide.extractionNote }}</p></details>
+      <details class="guide-sources" data-render-collapsed><summary>资料详情</summary><p class="wuwa-meta">{{ guide.reviewedAt ? `资料核查于 ${guide.reviewedAt}` : guide.fetchedAt ? '原帖自动提炼，尚未人工核查' : `资料核查于 ${guideUpdatedAt}` }} · {{ reviewedCount }}/5 项已核对原帖</p><p v-if="guide.extractionNote" class="guide-note">{{ guide.extractionNote }}</p></details>
       <div class="guide-grid">
         <article v-for="(section, index) in guide.sections" :key="section.key" class="guide-card" :class="{ 'guide-incomplete': section.status !== 'reviewed' }">
           <header>
@@ -53,7 +52,6 @@ function receiveGuide(value) {
       </div>
       <details :key="guide.id" class="guide-sources">
         <summary>参考资料 · {{ guide.sources.length }} 篇</summary>
-        <p class="wuwa-meta">点击“检查更新”查看新的图文攻略。</p>
         <article v-for="source in guide.sources" :key="source.id" class="guide-source">
           <span class="guide-version">{{ guideVersion(source) }}</span>
           <a v-if="guideSourceUrl(source.url)" :href="guideSourceUrl(source.url)" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{{ source.title }} ↗</a>
@@ -84,7 +82,7 @@ function receiveGuide(value) {
 .guide-heading { justify-content: space-between; }
 .guide-title { flex: 1; }
 .guide-heading h3 { margin: 4px 0; font-size: 18px; font-weight: 500; }
-.guide-intro { line-height: 1.8; font-size: 13px; color: var(--text-muted); margin: 12px 0 4px; }
+
 .guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 .guide-card { border-radius: var(--radius-well); padding: 16px; background: var(--surface-soft); min-width: 0; display: flex; flex-direction: column; }
 .guide-card:last-child { grid-column: 1 / -1; }
