@@ -42,8 +42,7 @@ test('visual meters preserve unknowns and zero, and clamp only the graphic for o
     {label:'未知',current:null,total:100}, {label:'未给上限',current:3,total:0},
     {label:'已清空',current:0,total:240}, {label:'超出',current:120,total:100},
   ]})
-  assert.equal(nodes(root,'progress').length,2)
   assert.match(content(root),/120 \/ 100/)
-  assert.ok(nodes(root,'div').some(n=>n.props.style?.['--fill']==='100%'))
-  assert.ok(nodes(root,'div').some(n=>n.props.style?.['--fill']==='0%'))
+  // A native bar clamps a value above its max, so only the graphic stops at full.
+  assert.deepEqual(nodes(root,'progress').map(n=>[n.props.value,n.props.max]),[[0,240],[120,100]])
 })

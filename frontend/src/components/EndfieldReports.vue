@@ -39,9 +39,9 @@ const time = value => value == null || value === '' ? '未知' : displayBeijing(
 const pair = value => `${display(value?.current ?? value?.count)} / ${display(value?.total ?? value?.maximum)}`
 const overviewMetrics = computed(() => [
   { label: '理智', current: overview.value.stamina?.current, total: overview.value.stamina?.maximum, note: Number.isFinite(overview.value.stamina?.current) && Number.isFinite(overview.value.stamina?.maximum) && overview.value.stamina.maximum > 0 && overview.value.stamina.current >= overview.value.stamina.maximum ? '该次观测理智已满' : `预计回满 ${time(overview.value.stamina?.expected_full_at)}` },
-  { label: '已记录干员', value: training.value.summary?.listed_count, icon: 'user' },
-  { label: '建设地区', value: report.value.regions?.summary?.region_count, icon: 'grid' },
-  { label: '帝江号房间', value: report.value.ship?.summary?.room_count, icon: 'grid' },
+  { label: '已记录干员', value: training.value.summary?.listed_count },
+  { label: '建设地区', value: report.value.regions?.summary?.region_count },
+  { label: '帝江号房间', value: report.value.ship?.summary?.room_count },
 ])
 const progressMetrics = computed(() => rows(overview.value.progress).map(item => ({ label: item.name || item.title || '进度', current: item.cur, total: item.total,
   note: item.remaining == null ? '' : item.remaining === 0 ? '已完成' : `还需 ${item.remaining}` })))
@@ -219,8 +219,6 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 .ef-source details p { padding:6px 0; overflow-wrap:anywhere; }
 .ef-error { color:var(--danger); font-size:13px; padding:12px; border-left:2px solid var(--danger); background:var(--danger-bg); margin-bottom:16px; }
 .endfield-reports :deep(.summary-metric) { border-radius:0; box-shadow:none; }
-.endfield-reports :deep(.metric-symbol) { border-radius:0; }
-.endfield-reports :deep(.metric-symbol.ring) { border-radius:50%; }
 .endfield-reports :deep(.summary-metric .metric-copy>strong) { font-family:var(--font-mono); font-weight:500; }
 .endfield-reports :deep(.summary-metrics.rows progress::-webkit-progress-value) { background:var(--ef-cyan); }
 .endfield-reports :deep(.summary-metrics.rows progress::-moz-progress-bar) { background:var(--ef-cyan); }

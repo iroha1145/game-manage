@@ -23,7 +23,7 @@ const rows = computed(() => {
   const items = Array.isArray(payload) ? payload : []
   return items.map(it => ({ label:it.name || '未命名项目',
     ...(it.total > 0 ? {current:it.cur,total:it.total} : {value:it.cur}),
-    icon:'calendar',note:refreshText(it.refresh_at),
+    note:refreshText(it.refresh_at),
   }))
 })
 

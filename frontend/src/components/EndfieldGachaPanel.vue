@@ -189,7 +189,6 @@ async function download() {
 .endfield-gacha>.cap-title { padding-bottom:16px; border-bottom:1px solid var(--border); margin-bottom:20px; gap:12px; }
 .gacha-heading h2 { font-size:21px; letter-spacing:.03em; line-height:1.35; }
 .endfield-gacha :deep(.summary-metric),.endfield-gacha .pool-card,.endfield-gacha .panel,.endfield-gacha .panel>summary,.endfield-gacha .ui-button { border-radius:0; }
-.endfield-gacha :deep(.metric-symbol) { border-radius:0; }
 .endfield-gacha :deep(.metric-copy>strong),.endfield-gacha .pity>strong { font-family:var(--font-mono); font-weight:500; }
 .endfield-gacha .pool-card { padding:18px; background:var(--panel-bg); border-top:2px solid color-mix(in srgb,var(--game-endfield) 45%,var(--border)); }
 .endfield-gacha .pool-head { margin-bottom:18px; }

@@ -129,7 +129,7 @@ const roleNames = computed(() =>
             <ProgressCard :snap="current.progress" />
           </WuwaModuleCard>
           <WuwaModuleCard class="profile-exploration" title="探索收集" description="地区探索度、残象与分类收集统计" :snap="current.exploration" :metrics="[{label:'已收录残象',value:current.exploration?.payload?.detections?.total}]">
-            <template #preview><SummaryMetrics compact :metrics="(current.exploration?.payload?.country_groups || []).map(g=>({label:g.name,current:g.progress,total:100,icon:'grid'}))" /></template>
+            <template #preview><SummaryMetrics compact :metrics="(current.exploration?.payload?.country_groups || []).map(g=>({label:g.name,current:g.progress,total:100}))" /></template>
             <ExplorationCard :snap="current.exploration" />
           </WuwaModuleCard>
           <WuwaModuleCard class="profile-calabash" title="数据坞" inline :snap="current.calabash">

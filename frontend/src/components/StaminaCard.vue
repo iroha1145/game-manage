@@ -31,7 +31,7 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
 
     <p v-if="payload == null" class="empty">暂无数据</p>
     <template v-else>
-      <SummaryMetrics :metrics="[{label,current:payload.current,total:payload.maximum,icon:'spark'}]" />
+      <SummaryMetrics :metrics="[{label,current:payload.current,total:payload.maximum}]" />
       <p v-if="expectedFullAt" class="stamina-eta">
         预计 {{ expectedFullAt }} 恢复满
       </p>

@@ -7,15 +7,15 @@ export function nteModuleMetrics(cap,snap) {
   const metric=(label,v)=>({label,value:value(v)})
   if(cap==='account')return [metric('昵称',p.nickname),metric('等级',p.level),metric('活跃天数',p.active_days)]
   if(cap==='stamina')return [
-    {label:'本性像素',current:p.current,total:p.maximum,icon:'spark'},
-    {label:'都市活力',current:p.city_current,total:p.city_maximum,icon:'refresh'},
-    {label:'日常活跃',current:p.daily_activity,total:100,icon:'calendar'},
+    {label:'本性像素',current:p.current,total:p.maximum},
+    {label:'都市活力',current:p.city_current,total:p.city_maximum},
+    {label:'日常活跃',current:p.daily_activity,total:100},
   ]
   if(cap==='roles')return [metric('角色',p.entries?.length),metric('S 级',p.entries?.filter(r=>r.quality==='S').length)]
-  if(cap==='progress')return [{label:'成就',current:p.completed,total:p.total,icon:'shield'},metric('金奖章',p.gold),metric('银奖章',p.silver),metric('铜奖章',p.bronze)]
-  if(cap==='exploration')return (p.areas || []).map(area=>({label:area.name || '未命名区域',current:area.current,total:area.total,icon:'grid'}))
+  if(cap==='progress')return [{label:'成就',current:p.completed,total:p.total},metric('金奖章',p.gold),metric('银奖章',p.silver),metric('铜奖章',p.bronze)]
+  if(cap==='exploration')return (p.areas || []).map(area=>({label:area.name || '未命名区域',current:area.current,total:area.total}))
   if(cap==='record')return [metric('名片',p.cards?.length)]
-  if(cap==='realestate'||cap==='vehicles')return [{label:'拥有',current:p.owned_count,total:p.total,icon:'grid'}]
+  if(cap==='realestate'||cap==='vehicles')return [{label:'拥有',current:p.owned_count,total:p.total}]
   if(cap==='teams')return [metric('官方推荐',p.entries?.length)]
   if(cap==='gacha')return [metric('统计抽数',p.total_draws),metric('出 S 数',p.total_s),metric('近期评价',p.luck_title)]
   return []
