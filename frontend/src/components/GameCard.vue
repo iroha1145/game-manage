@@ -142,26 +142,26 @@ function capProps(cap) {
   border: 1px solid var(--danger-border);
   color: var(--danger);
   padding: 12px 16px;
-  font-size: 12px;
-  border-radius: 10px;
+  font-size: 13px;
+  border-radius: var(--radius-well);
   margin-bottom: 20px;
   overflow-wrap: anywhere;
 }
 
-.card-head { display:flex; align-items:center; gap:8px 12px; padding:0 0 20px; margin-bottom:20px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.card-head { display:flex; align-items:center; gap:8px 12px; margin-bottom:24px; flex-wrap:wrap; }
 .game-heading { display:flex; align-items:center; gap:12px; margin-right:auto; min-width:0; }
-.detail-monogram { display:grid; place-items:center; font-size:22px; width:42px; height:42px; border-radius:10px; box-shadow:var(--card-shadow); }
-.game-name { margin-top:3px; font-size:24px; line-height:30px; font-weight:600; letter-spacing:-.02em; }
+.detail-monogram { display:grid; place-items:center; font-size:22px; width:42px; height:42px; border-radius:var(--radius-well); }
+.game-name { font-size:24px; line-height:32px; font-weight:600; }
 
 .cap-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
   align-items: start;
 }
 .detail-navigation { display:flex; justify-content:space-between; gap:10px 16px; align-items:center; margin:0 0 16px; flex-wrap:wrap; }
 @media(max-width:950px) { .cap-list { grid-template-columns:1fr; } }
-@media(max-width:600px) { .card-head { padding-bottom:16px; margin-bottom:16px; gap:12px; }.game-heading { gap:10px; flex-basis:100%; }.game-name { font-size:22px; line-height:28px; }.detail-monogram { width:36px; height:36px; font-size:20px; }.detail-tabs button { padding:4px 9px; } }
+@media(max-width:600px) { .card-head { margin-bottom:16px; gap:12px; }.game-heading { gap:10px; flex-basis:100%; }.game-name { font-size:22px; line-height:28px; }.detail-monogram { width:36px; height:36px; font-size:20px; }.detail-tabs button { padding:4px 9px; } }
 
 .cap-coming {
   color: var(--text-muted);

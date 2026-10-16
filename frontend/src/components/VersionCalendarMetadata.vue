@@ -25,7 +25,7 @@ function sources(calendar) {
 </template>
 <style scoped>
 .version-metadata { margin:12px 0; line-height:1.7; }
-.version-metadata h3 { color:var(--game-accent); font-size:inherit; font-weight:600; }
+.version-metadata h3 { color:var(--game-accent); font-size:inherit; font-weight:500; }
 .version-metadata p { margin:5px 0; overflow-wrap:anywhere; }
 .version-sources { margin:8px 0; }
 .version-sources a { color:var(--accent); }

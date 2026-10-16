@@ -13,5 +13,5 @@ defineProps({data:{type:Object,required:true}})
  </div>
 </template>
 <style scoped>
-.render-notice{display:grid;gap:12px}.notice-section{margin-top:12px}.notice-heading{font-size:13px;font-weight:600;color:var(--text)}.notice-text{font-size:13px;line-height:1.8;color:var(--text-body);overflow-wrap:anywhere}.item{padding:8px 0;border-bottom:1px solid var(--border)}.cap-title h2{font-size:14px;font-weight:600}
+.render-notice{display:grid;gap:12px}.notice-section{margin-top:12px}.notice-heading{font-size:14px;font-weight:500;color:var(--text)}.notice-text{font-size:13px;line-height:1.8;color:var(--text-body);overflow-wrap:anywhere}.item{padding:8px 0;border-bottom:1px solid var(--border)}.cap-title h2{font-size:15px;font-weight:500}
 </style>

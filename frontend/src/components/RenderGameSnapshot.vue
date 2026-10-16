@@ -68,5 +68,5 @@ const error=computed(()=>snap.value?.state==='auth_expired'?friendlyDataError(''
  </section>
 </template>
 <style scoped>
-.render-snapshot-panel{display:grid;gap:10px;min-width:0}.snapshot-game-name{font-size:14px;font-weight:600;color:var(--accent);margin:0}
+.render-snapshot-panel{display:grid;gap:10px;min-width:0}.snapshot-game-name{font-size:15px;font-weight:500;color:var(--accent);margin:0}
 </style>
