@@ -70,10 +70,13 @@ class CloudBoundary:
                 await self.app(scope, receive, send)
             return
         request = Request(scope)
+        static = False
         async def secured_send(message):
             if message['type'] == 'http.response.start':
-                message['headers'] = list(message.get('headers', [])) + [
-                    (b'cache-control', b'no-store'), (b'pragma', b'no-cache'),
+                # Build files are named by content hash, so one name never changes meaning.
+                cache = ([(b'cache-control', b'public, max-age=31536000, immutable')] if static and message['status'] == 200
+                         else [(b'cache-control', b'no-store'), (b'pragma', b'no-cache')])
+                message['headers'] = list(message.get('headers', [])) + cache + [
                     (b'referrer-policy', b'no-referrer'), (b'x-content-type-options', b'nosniff')]
             await send(message)
         async def reject(code, status):
@@ -95,8 +98,9 @@ class CloudBoundary:
                 break
         if access is None:
             return await reject('route_not_available', 404)
+        static = access == 'public' and scope['method'] in ('GET', 'HEAD') and scope['path'].startswith('/assets/')
         service = self.owner.state.identity
-        session = None if access == 'service' else service.authenticate(request.cookies.get('__Host-ga_session'))
+        session = None if access == 'service' or static else service.authenticate(request.cookies.get('__Host-ga_session'))
         scope.setdefault('state', {})['identity_session'] = session
         try:
             if access == 'service':
