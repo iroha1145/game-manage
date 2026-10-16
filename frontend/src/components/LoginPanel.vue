@@ -7,7 +7,7 @@ const emit = defineEmits(['account-changed'])
 const GAMES = [{ id: 'wuthering_waves', name: '鸣潮' }, { id: 'nte', name: '异环' }, { id: 'endfield', name: '终末地' }]
 const LOGIN_HINTS = { endfield: '终末地使用鹰角通行证绑定的中国大陆手机号登录，目前只支持官服。' }
 const endfieldConnectionHint = computed(() => isCloudMode() ? '登录后可在下方选择鹰角授权与角色，一键连接森空岛；也可手动授权。' : '登录后可在终末地页面一键连接森空岛。')
-const STATE_LABELS = { connected: '已连接', configured: '已配置', expired: '登录已失效', unconfigured: '未登录' }
+const STATE_LABELS = { connected: '已连接', active: '已授权', configured: '已配置', expired: '登录已失效', revoked: '授权已撤销', unconfigured: '未登录' }
 const accounts = ref({})
 const statusError = ref('')
 const statusLoading = ref(false)
@@ -388,8 +388,8 @@ h3 { font-size: 15px; font-weight: 600; }
 .nickname { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-actions { display: flex; flex-shrink: 0; gap: 6px; }
 .state { font-size: 11px; font-weight: 500; line-height: 18px; border-radius: 5px; padding: 1px 7px; color: var(--text-muted); background: var(--overlay-3); }
-.connected { color: var(--success); background: var(--success-bg); }
-.expired { color: var(--danger); background: var(--danger-bg); }
+.connected, .active { color: var(--success); background: var(--success-bg); }
+.expired, .revoked { color: var(--danger); background: var(--danger-bg); }
 .configured { color: var(--stale-text); background: var(--stale-bg); }
 button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--card-bg); color: var(--text-body); padding: 5px 12px; font-size: 12px; font-weight: 500; line-height: 18px; cursor: pointer; box-shadow: var(--btn-shadow); transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), box-shadow var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
 @media (hover: hover) and (pointer: fine) { button:not(:disabled):hover { background: var(--button-hover-bg); color: var(--text); } }
