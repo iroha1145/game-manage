@@ -98,6 +98,29 @@ for (const [width, user] of [[390, 'A'], [1440, 'B']]) {
     assert.ok(paths.every(path => /^\/api\/(identity|accounts|public)(\/|$)/.test(path)))
   })
 }
+test('reloading on the accounts page keeps the first reads of its panels when the account list selects an authorization', async t => {
+  const browser = new Window({ width: 1440, height: 900 }), originalWindow = globalThis.window
+  browser.location.hash = '#/accounts'
+  globalThis.window = browser; t.after(() => { globalThis.window = originalWindow; browser.happyDOM.abort() })
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const account = { account_id: 'a1', provider: 'kuro', game: 'wuthering_waves', state: 'active', capabilities: [], roles: [{ role_id: 'r1', display_name: '角色甲', is_default: true }] }
+  const link = { link_id: 'l1', identity: { scene: 'group', group_openid: 'fixture-group', sender_openid: 'fixture-sender' } }
+  const answers = [], requests = []
+  t.mock.method(globalThis, 'fetch', (path, options = {}) => new Promise((resolve, reject) => {
+    requests.push(path)
+    const data = path === '/api/identity/me' ? { user_id: 'u1', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [account] } : path === '/api/qq/link-attempts' ? { links: [link] } : { state: 'never', payload: null }
+    answers.push(() => resolve(new Response(JSON.stringify(data))))
+    options.signal?.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+  }))
+  const root = mount(t, CloudApp)
+  // A real network answers in request order, one event-loop turn apart.
+  for (let i = 0; i < 40 && (answers.length || i < 3); i++) { answers.shift()?.(); await tick() }
+  for (let i = 0; i < 4; i++) await tick()
+  assert.ok(requests.includes('/api/qq/link-attempts'))
+  assert.match(content(root), /已关联 · 群聊/)
+  assert.deepEqual(nodes(root, 'p').filter(n => n.props.role === 'alert').map(content), [])
+  assert.match(content(nodes(root, 'section').find(n => String(n.props.class).includes('login-panel'))), /角色甲/)
+})
 test('cloud public events render the real calendar with unknown dates and source details', async t => {
   configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
   const calls=[]

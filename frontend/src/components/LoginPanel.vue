@@ -109,7 +109,7 @@ async function refreshStatus() {
     accounts.value = data.accounts || {}
     statusError.value = ''
   } catch (e) {
-    if (!disposed && requestId === statusGeneration) statusError.value = e.message
+    if (!disposed && requestId === statusGeneration && e.name !== 'AbortError') statusError.value = e.message
   } finally {
     if (!disposed && requestId === statusGeneration) statusLoading.value = false
   }

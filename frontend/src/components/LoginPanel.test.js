@@ -69,6 +69,16 @@ test('Endfield connection hint offers an explicit cloud button after login and p
   assert.match(local.endfieldConnectionHint, /一键连接森空岛/)
 })
 
+test('a cancelled cloud status read leaves no error text on the panel', async t => {
+  configureHttpClient({ mode: 'cloud' })
+  t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', async () => { throw new DOMException('会话或角色已变化', 'AbortError') })
+  const { vm } = mount(t)
+  await vm.refreshStatus()
+  assert.equal(vm.statusError, '')
+  assert.equal(vm.statusLoading, false)
+})
+
 test('NTE sends SMS only on explicit action and reuses the session until the phone changes', async (t) => {
   const requests = network(t)
   const advance = fakeClock(t)

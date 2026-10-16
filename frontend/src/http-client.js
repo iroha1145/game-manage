@@ -1,12 +1,14 @@
 // Explicit deployment mode; never infer cloud mode from API failure or hostname.
 let mode = import.meta.env?.VITE_SERVICE_MODE === 'cloud' || globalThis.document?.documentElement?.dataset.serviceMode === 'cloud' ? 'cloud' : 'local'
-let epoch = 0, csrf = '', csrfPending = null, scope = null
-const controllers = new Set(), invalidationListeners = new Set()
+let epoch = 0, scopeEpoch = 0, csrf = '', csrfPending = null, scope = null
+const controllers = new Map(), invalidationListeners = new Set()   // controller -> bound to the active account scope
 const registrationErrorCodes = new Set(['invalid_username','invalid_password','invalid_invite','registration_unavailable'])
 const cancelled = () => new DOMException('会话或角色已变化', 'AbortError')
 export const isCloudMode = () => mode === 'cloud'
 export const getAccountScope = () => scope
-export function invalidateRequests() { epoch++; for (const controller of controllers) controller.abort(); controllers.clear() }
+export function invalidateRequests() { epoch++; for (const controller of controllers.keys()) controller.abort(cancelled()); controllers.clear() }
+// An account or role switch ends only the reads routed under that scope; session-level reads do not depend on it.
+function invalidateScope() { scopeEpoch++; for (const [controller, bound] of controllers) if (bound) { controller.abort(cancelled()); controllers.delete(controller) } }
 export function invalidateSession() {
   invalidateRequests(); csrf = ''; csrfPending = null; scope = null
   for (const listener of invalidationListeners) listener()
@@ -14,7 +16,7 @@ export function invalidateSession() {
 export function subscribeSessionInvalidation(listener) { invalidationListeners.add(listener); return () => invalidationListeners.delete(listener) }
 export function configureHttpClient({ mode: next = 'local' } = {}) { invalidateSession(); mode = next }
 export function setAccountScope(next) {
-  if (JSON.stringify(next) !== JSON.stringify(scope)) invalidateRequests()
+  if (JSON.stringify(next) !== JSON.stringify(scope)) invalidateScope()
   scope = next ? { ...next } : null
 }
 export class HttpError extends Error {
@@ -71,19 +73,21 @@ function cloudPath(path, method) {
 export async function requestJson(path, options = {}) {
   const { response: returnResponse = false, body, ...rest } = options
   if (!path.startsWith('/api/') || path.includes('..') || path.includes('\\')) throw new Error('无效的服务路径')
-  const current = epoch, cloud = isCloudMode(), method = (rest.method || 'GET').toUpperCase()
+  const current = epoch, scopedCurrent = scopeEpoch, cloud = isCloudMode(), method = (rest.method || 'GET').toUpperCase()
   // Logout must finish after the UI synchronously drops the active scope. Its
   // response never carries private data and cannot restore cleared state.
   const logout = cloud && path === '/api/identity/logout' && method === 'POST'
   path = cloud ? cloudPath(path, method) : path
+  const bound = cloud && !!scope && path.startsWith(`/api/accounts/${encodeURIComponent(scope.account_id)}/roles/${encodeURIComponent(scope.role_id)}/`)
+  const stale = () => current !== epoch || (bound && scopedCurrent !== scopeEpoch)
   const headers = { Accept: 'application/json', ...rest.headers }
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
     if (cloud) headers['X-CSRF-Token'] = await obtainCsrf()
     else headers['X-Game-Assistant'] = '1'
   }
-  if (!logout && current !== epoch) throw cancelled()
+  if (!logout && stale()) throw cancelled()
   if (body !== undefined) headers['Content-Type'] ??= 'application/json'
-  const controller = new AbortController(); if (!logout) controllers.add(controller)
+  const controller = new AbortController(); if (!logout) controllers.set(controller, bound)
   const signal = rest.signal ? AbortSignal.any([controller.signal, rest.signal]) : controller.signal
   try {
     let result
@@ -95,27 +99,27 @@ export async function requestJson(path, options = {}) {
       // Keep the type: wrappers with their own wording still recognise it.
       throw error instanceof TypeError ? new TypeError('无法连接服务，请稍后重试') : error
     }
-    if (!logout && current !== epoch) throw cancelled()
+    if (!logout && stale()) throw cancelled()
     if (cloud && result.status === 401) {
       // An expired game authorization also answers 401 (Skland passport: error_code auth_expired; Wuwa detail reads:
       // detail private_query_failed). Only a website-session 401 ends the site session, and so does any 401 that is
       // unreadable or not recognised.
-      let body = null
-      try { body = await result.clone().json() } catch { /* unreadable: treated as a website-session 401 */ }
-      if (!logout && current !== epoch) throw cancelled()
-      if (body?.error_code !== 'auth_expired' && body?.detail !== 'private_query_failed') { invalidateSession(); throw new HttpError(401) }
+      let denial = null
+      try { denial = await result.clone().json() } catch { /* unreadable: treated as a website-session 401 */ }
+      if (!logout && stale()) throw cancelled()
+      if (denial?.error_code !== 'auth_expired' && denial?.detail !== 'private_query_failed') { invalidateSession(); throw new HttpError(401) }
     }
     // Legacy wrappers retain their existing error/response validation, while all
     // transports share the same headers, route boundary and invalidation engine.
     if (returnResponse) {
       if (cloud) {
         const read = result.json.bind(result)
-        result.json = async () => { const data = await read(); if (current !== epoch) throw cancelled(); return data }
+        result.json = async () => { const data = await read(); if (stale()) throw cancelled(); return data }
       }
       return result
     }
     const data = await result.json().catch(() => null)
-    if (!logout && current !== epoch) throw cancelled()
+    if (!logout && stale()) throw cancelled()
     if (!result.ok) {
       // Identity errors use detail; only fixed registration codes may cross
       // this boundary. Arbitrary backend detail never becomes display text.

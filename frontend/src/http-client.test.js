@@ -43,6 +43,34 @@ test('401 revocation invalidates private state and blocks cloud legacy routes be
   await assert.rejects(requestJson('/api/lol/collect', { method: 'POST' }), /云端/)
   assert.equal(fetched, 1)
 })
+function hungReads(t) {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const answers = new Map()
+  t.mock.method(globalThis, 'fetch', (path, options) => new Promise((resolve, reject) => {
+    answers.set(path, resolve); options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+  }))
+  return { answers, read: path => requestJson(path).then(data => ({ data }), error => ({ error })) }
+}
+test('an account switch ends only the reads routed under that account', async t => {
+  const { answers, read } = hungReads(t)
+  setAccountScope({ account_id: 'a', role_id: 'r1', provider: 'kuro' })
+  const accounts = read('/api/accounts'), links = read('/api/qq/link-attempts')
+  const snapshot = read('/api/accounts/a/roles/r1/snapshot/account'), history = read('/api/wuwa/history?kind=tower')
+  setAccountScope({ account_id: 'a', role_id: 'r2', provider: 'kuro' })
+  for (const { error } of await Promise.all([snapshot, history])) assert.equal(error?.name, 'AbortError', 'a read of the previous role survived the switch')
+  answers.get('/api/accounts')(json({ accounts: ['kept'] })); answers.get('/api/qq/link-attempts')(json({ links: ['kept'] }))
+  assert.deepEqual(await accounts, { data: { accounts: ['kept'] } }, 'the account list read was aborted by the switch')
+  assert.deepEqual(await links, { data: { links: ['kept'] } }, 'the QQ link read was aborted by the switch')
+})
+test('a session change ends every read, and an abort carries the cancellation of the project', async t => {
+  const { read } = hungReads(t)
+  setAccountScope({ account_id: 'a', role_id: 'r1', provider: 'kuro' })
+  const scoped = read('/api/accounts/a/roles/r1/snapshot/account'), session = read('/api/accounts')
+  setAccountScope({ account_id: 'a', role_id: 'r2', provider: 'kuro' })
+  const switched = await scoped
+  invalidateSession()
+  for (const { error } of [switched, await session]) { assert.equal(error?.name, 'AbortError'); assert.equal(error.message, '会话或角色已变化') }
+})
 test('an expired game authorization answers 401 without ending the website session; any other 401 still does', async t => {
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
   let cleared = 0, reply
