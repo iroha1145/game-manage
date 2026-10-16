@@ -81,3 +81,17 @@ def test_snapshot_cleanup_failure_does_not_commit_login(tmp_path, monkeypatch):
     assert response.status_code == 500
     assert not service.status()['accounts']['nte']['configured']
     assert service.store.load() == {}
+
+
+def test_login_body_limit_counts_chunked_bodies(tmp_path):
+    client, _, _, provider = client_for(tmp_path)
+    sid = client.post('/api/auth/nte/sessions', headers=HEADERS).json()['session_id']
+    body = ('{"session_id":"%s","mobile":"13800000000","captcha":{"pad":"%s"}}' % (sid, 'a' * 20000)).encode()
+    headers = {**HEADERS, 'Content-Type': 'application/json'}
+    sized = client.post('/api/auth/nte/sms', headers=headers, content=body)
+    # A generator body is sent with Transfer-Encoding: chunked and no Content-Length.
+    chunked = client.post('/api/auth/nte/sms', headers=headers,
+                          content=(body[i:i + 4096] for i in range(0, len(body), 4096)))
+    assert sized.status_code == chunked.status_code == 413
+    assert chunked.json() == {'detail': '登录请求过大'}
+    assert provider.sent == 0

@@ -1,5 +1,3 @@
-import importlib
-import importlib.util
 import pytest
 from fastapi.testclient import TestClient
 from game_assistant.api import create_app
@@ -90,8 +88,7 @@ def test_malformed_json_unicode_code_and_oversized_body_are_safe(client):
     assert not fake.calls
 
 async def test_stream_body_limit_without_content_length():
-    assert importlib.util.find_spec('game_assistant.auth.bilibili_routes'), 'Bilibili router missing'
-    middleware = importlib.import_module('game_assistant.auth.bilibili_routes').BilibiliBodyLimitMiddleware
+    from game_assistant.auth.routes import LoginBodyLimitMiddleware as middleware
     called = False; sent = []
     async def app(scope, receive, send):
         nonlocal called; called = True

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import request_validation_exception_handler
 from pydantic import BaseModel, Field
@@ -13,6 +13,33 @@ class SmsRequest(BaseModel):
     captcha: dict | None = None
 
 
+class LoginBodyLimitMiddleware:
+    """Caps login and Bilibili-source bodies by the bytes received, so chunked
+    requests without Content-Length are limited too."""
+    PREFIXES = ('/api/auth/', '/api/sources/bilibili')
+
+    def __init__(self, app, max_bytes=16384): self.app, self.max_bytes = app, max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope['type'] != 'http' or not scope['path'].startswith(self.PREFIXES):
+            return await self.app(scope, receive, send)
+        messages, total = [], 0
+        while True:
+            message = await receive()
+            if message['type'] == 'http.disconnect': return
+            total += len(message.get('body', b''))
+            if total > self.max_bytes:
+                response = JSONResponse({'detail':'登录请求过大'}, status_code=413,
+                    headers={'Cache-Control':'no-store','Pragma':'no-cache','Referrer-Policy':'no-referrer'})
+                return await response(scope, receive, send)
+            messages.append(message)
+            if not message.get('more_body', False): break
+        async def replay():
+            if messages: return messages.pop(0)
+            return await receive()
+        return await self.app(scope, replay, send)
+
+
 class LoginRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=128)
     mobile: str = Field(min_length=11, max_length=11)
@@ -21,17 +48,7 @@ class LoginRequest(BaseModel):
 
 def install_auth_routes(app, service):
     router = APIRouter(prefix='/api/auth')
-
-    @app.middleware('http')
-    async def protect_login(request: Request, call_next):
-        if request.url.path.startswith(('/api/auth/', '/api/sources/bilibili')):
-            try:
-                length = int(request.headers.get('content-length', '0') or 0)
-            except ValueError:
-                length = 16385
-            if length > 16384 or length < 0:
-                return JSONResponse({'detail': '登录请求过大'}, status_code=413)
-        return await call_next(request)
+    app.add_middleware(LoginBodyLimitMiddleware)
 
     @app.exception_handler(LoginError)
     async def login_error(request, error):
