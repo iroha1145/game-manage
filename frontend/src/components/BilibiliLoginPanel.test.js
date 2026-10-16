@@ -106,3 +106,16 @@ test('phone edit keeps deadline-based SMS cooldown advancing',async t=> {
   vm.mobile='13900000000';await nextTick();now+=61000;t.mock.timers.tick(61000);await flush()
   assert.equal(vm.cooldown,0)
 })
+
+test('typing the account into a fresh session keeps it; edits after verification reset it',async t=> {
+  const requests=network(t);const succeed=widget(t);const {vm}=await mount(t)
+  for (const [mode,field,first,second] of [['password','username','f','fake2'],['sms','mobile','1','13900000000']]) {
+    await vm.selectMode(mode);const sid=vm.session.session_id
+    vm[field]=first;await nextTick()
+    assert.equal(vm.session?.session_id,sid,`${mode}: first keystroke must not discard the session`);assert.equal(vm.error,'')
+    await vm.prepareCaptcha();succeed();await flush();assert.ok(vm.proof)
+    vm[field]=second;await nextTick()
+    assert.equal(vm.session,null);assert.match(vm.error,/输入账号已变化/)
+  }
+  assert.equal(requests.filter(r=>r.url.endsWith('/sessions')).length,3)
+})
