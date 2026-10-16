@@ -91,7 +91,8 @@ def parse_command(content):
 
 
 LINK = re.compile(r'(?:https?://|www\.)[^\s<>]+', re.I)
-DOMAIN = re.compile(r'(?<![\w@])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>]*)?', re.I)
+# ASCII lookbehind: \w would also treat Chinese text as part of the name, so 官网example.com stayed a link.
+DOMAIN = re.compile(r'(?<![A-Za-z0-9_@])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>]*)?', re.I)
 
 
 def mask_links(text):
