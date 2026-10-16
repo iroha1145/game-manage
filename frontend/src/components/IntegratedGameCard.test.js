@@ -31,3 +31,18 @@ test('integrated LOL shell exposes both announcements and local archive analysis
   assert.ok(nodes(root,'button').some(n=>content(n)==='公告与资讯'))
   assert.ok(nodes(root,'button').some(n=>content(n)==='个人总览'))
 })
+
+test('NTE guides receive the account roles for the owned-only filter', async t => {
+  const catalog = { reviewed_at:'2026-09-26', sources:[{ id:1, title:'原帖', author:'作者', version:'1.3', url:'https://www.tajiduo.com/bbs/index.html#/post?postId=1' }],
+    guides:[{ id:'甲', name:'甲', aliases:[], element:'魂', role:'主 C', status:'reviewed', source_id:1, pages:[1], sections:[] },
+            { id:'乙', name:'乙', aliases:[], element:'灵', role:'辅助', status:'reviewed', source_id:1, pages:[1], sections:[] }] }
+  t.mock.method(globalThis,'fetch',async url=>({ok:true,json:async()=>url.endsWith('/guides') ? catalog : { id:1, images:[], paragraphs:[] }}))
+  const root=mount(t,Card,{game:game('nte',['roles']),externalSnapshots:{roles:{payload:{schema_version:1,entries:[{name:'甲'}]}}}})
+  nodes(root,'button').find(n=>content(n)==='角色攻略').props.onClick();await nextTick()
+  nodes(root,'button').find(n=>content(n)==='查看角色攻略').props.onClick()
+  for (let i=0;i<3;i++) { await new Promise(setImmediate); await nextTick() }
+  nodes(root,'input').find(n=>n.props.type==='checkbox').props['onUpdate:modelValue'](true);await nextTick()
+  const listed=nodes(root,'button').map(n=>n.props['aria-label']).filter(label=>/^查看.攻略$/.test(label||''))
+  assert.deepEqual(listed,['查看甲攻略'])
+  assert.doesNotMatch(content(root),/尚无角色资料/)
+})

@@ -124,7 +124,7 @@ function capProps(cap) {
     <WuwaDashboard v-if="game.game_id === 'wuthering_waves'" :snaps="externalSnapshots" :configured="game.credentials_configured" :initial-section="initialSection" @calendar="emit('calendar')" />
     <LolDashboard v-else-if="game.game_id === 'league_of_legends'" :snaps="externalSnapshots" :esports-browse="esportsBrowse" @esports-snapshot="emit('esports-snapshot', $event)" @esports-browse="emit('esports-browse', $event)" @refresh="emit('refresh')" />
     <EndfieldDashboard v-else-if="game.game_id === 'endfield'" :snaps="externalSnapshots" :initial-section="initialSection" @calendar="emit('calendar')" />
-    <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides /></NteModuleCard>
+    <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" /></NteModuleCard>
     <div v-else class="cap-list">
       <template v-for="(cap, index) in visibleCaps" :key="cap">
         <NteModuleCard v-if="game.game_id === 'nte' && capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
