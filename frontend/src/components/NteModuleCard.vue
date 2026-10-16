@@ -11,7 +11,7 @@ const props=defineProps({capability:{type:String,required:true},snap:{default:nu
 const opened=ref(false),title=computed(()=>nteModuleTitles[props.capability]||props.capability)
 const metrics=computed(()=>nteModuleMetrics(props.capability,props.snap))
 const inline=computed(()=>['stamina','record'].includes(props.capability))
-const error=computed(()=>props.snap?.error||props.snap?.source_status?.error)
+const error=computed(()=>props.snap?.poll_status?.error)
 const readAt=computed(()=>props.capability==='stamina' ? props.snap?.payload?.updated_at || props.snap?.fetched_at : props.snap?.fetched_at)
 const previews=computed(()=>props.capability==='guides' ? ['黑羽','残虹','灵可','伊洛伊','娜娜莉'].map(name=>({name,icon:nteRoleIcon(name)}))
   : props.capability==='roles' && props.snap?.payload?.schema_version===1 ? (props.snap.payload.entries || []).slice(0,8).map(role=>({name:role.name,icon:nteRoleIcon(role.id)})) : [])
