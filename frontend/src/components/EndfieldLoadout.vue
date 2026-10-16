@@ -25,18 +25,18 @@ const time=value=>value == null || value === '' ? '未知' : displayBeijing(valu
       </section>
       <div class="loadout-assembly">
         <section class="loadout-module weapon-module" aria-label="武器与基质">
-          <header><span aria-hidden="true">01</span><h3>武器与基质</h3></header>
+          <header><h3>武器与基质</h3></header>
           <div class="weapon-line"><EndfieldArtwork class="weapon-art" :src="operator.weapon?.icon_url" :name="named(operator.weapon)" /><div class="weapon-copy"><h4>{{ named(operator.weapon) }}</h4><dl class="item-marks"><div><dt>等级</dt><dd>LV. {{ display(operator.weapon?.level) }}</dd></div><div><dt>精炼</dt><dd>{{ display(operator.weapon?.refine_level) }}</dd></div><div><dt>突破</dt><dd>{{ display(operator.weapon?.breakthrough_level) }}</dd></div></dl></div></div>
           <div class="gem-line"><EndfieldArtwork :src="operator.weapon?.gem?.icon_url" :name="named(operator.weapon?.gem)" /><div><p><span>基质</span> {{ named(operator.weapon?.gem) }}</p><ul v-if="rows(operator.weapon?.gem?.terms).length" class="gem-terms"><li v-for="(term,index) in rows(operator.weapon.gem.terms)" :key="index">{{ named(term) }} <b>{{ display(term.cost) }}</b></li></ul></div></div>
         </section>
         <section class="loadout-module equipment-module" aria-label="四槽装备">
-          <header><span aria-hidden="true">02</span><h3>装备</h3></header>
+          <header><h3>装备</h3></header>
           <ul class="equipment-slots"><li v-for="slot in slots" :key="slot.id" :class="{'slot-unknown':!slot.item}"><span class="slot-label">{{ slot.label }}</span><EndfieldArtwork :src="slot.item?.icon_url" :name="slot.item ? named(slot.item) : slot.label" /><h4>{{ slot.item ? named(slot.item) : '资料未知' }}</h4><p v-if="slot.item" class="slot-level"><span>等级</span> LV. {{ display(slot.item.level) }}</p><p v-else class="slot-level">未提供该槽位资料</p></li></ul>
           <ul v-if="extraEquipment.length" class="extra-equipment"><li v-for="(item,index) in extraEquipment" :key="item.id || index"><EndfieldArtwork :src="item.icon_url" :name="named(item)" /><div><p class="slot-label">{{ item.slot_label || item.slot_name || item.slot || '来源未标槽位' }}</p><h4>{{ named(item) }}</h4><p class="slot-level">等级 LV. {{ display(item.level) }}</p></div></li></ul>
         </section>
       </div>
     </div>
-    <section class="loadout-module skills-module" aria-label="干员技能"><header><span aria-hidden="true">03</span><h3>技能</h3></header><p v-if="!rows(operator.skills).length" class="module-empty">技能资料未知</p><ul v-else class="skill-slots"><li v-for="(skill,index) in rows(operator.skills)" :key="skill.id || index"><div class="skill-art"><EndfieldArtwork :src="skill.icon_url" :name="named(skill)" /><span class="skill-level" :aria-label="`等级 ${display(skill.level)}`">LV. {{ display(skill.level) }}</span></div><div><h4>{{ named(skill) }}</h4><p v-if="skill.mastery != null" class="skill-mastery">专精 {{ display(skill.mastery) }}</p></div></li></ul></section>
+    <section class="loadout-module skills-module" aria-label="干员技能"><header><h3>技能</h3></header><p v-if="!rows(operator.skills).length" class="module-empty">技能资料未知</p><ul v-else class="skill-slots"><li v-for="(skill,index) in rows(operator.skills)" :key="skill.id || index"><div class="skill-art"><EndfieldArtwork :src="skill.icon_url" :name="named(skill)" /><span class="skill-level" :aria-label="`等级 ${display(skill.level)}`">LV. {{ display(skill.level) }}</span></div><div><h4>{{ named(skill) }}</h4><p v-if="skill.mastery != null" class="skill-mastery">专精 {{ display(skill.mastery) }}</p></div></li></ul></section>
     <EndfieldTacticalItem :item="operator.tactical_item" />
   </div>
 </template>
@@ -56,7 +56,7 @@ const time=value=>value == null || value === '' ? '未知' : displayBeijing(valu
 .loadout-assembly{display:grid;gap:24px;min-width:0}
 .loadout-module{min-width:0}
 .loadout-module>header{display:flex;gap:10px;align-items:center;margin-bottom:12px}
-.loadout-module>header>span{font-size:12px;color:var(--text-faint)}
+.loadout-module>
 .loadout-module h3{font-size:14px;font-weight:500}
 .weapon-line{display:flex;gap:18px;align-items:center;min-width:0}
 .weapon-art{width:88px;height:92px}

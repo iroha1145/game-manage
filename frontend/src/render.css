@@ -19,3 +19,5 @@ body { margin:0; }
 .render-image .wuwa-table-wrap,.render-image .table-scroll { overflow:visible; max-height:none; }
 .render-image .asset-name,.render-image .wuwa-role strong { white-space:normal; overflow:visible; text-overflow:clip; }
 .render-missing-image { font-size:12px; color:var(--text-muted); }
+/* The NTE gacha image stacks the community card and the ledger card; the web page spaces them with a grid gap. */
+.render-image .community-stats + .ledger { margin-top:16px; }

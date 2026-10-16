@@ -11,12 +11,12 @@ const active=computed(()=>effect(props.item?.active_effect)), passive=computed((
 const hasParameters=computed(()=>[active.value,passive.value].some(value=>value && /\{[^{}]+\}/.test(value)))
 </script>
 <template>
-  <section class="ef-tactical"><header><span aria-hidden="true">04</span><h3>战术道具</h3></header><template v-if="item"><div class="tactical-heading"><EndfieldArtwork :src="item.icon_url" :name="text(item.name) || '战术道具'" /><div><strong>{{ text(item.name) || '名称未提供' }}</strong><p>稀有度 {{ display(item.rarity) }}</p></div></div><details v-if="active || passive" class="tactical-effects"><summary>查看效果说明</summary><dl><div v-if="active"><dt>主动效果</dt><dd>{{ active }}</dd></div><div v-if="passive"><dt>被动效果</dt><dd>{{ passive }}</dd></div></dl><p v-if="hasParameters" class="tactical-note">效果包含来源参数，未代入数值。</p></details><p v-else class="tactical-note">来源未提供效果说明。</p></template><p v-else class="tactical-note">来源未提供战术道具，无法判断当前装备状态。</p></section>
+  <section class="ef-tactical"><header><h3>战术道具</h3></header><template v-if="item"><div class="tactical-heading"><EndfieldArtwork :src="item.icon_url" :name="text(item.name) || '战术道具'" /><div><strong>{{ text(item.name) || '名称未提供' }}</strong><p>稀有度 {{ display(item.rarity) }}</p></div></div><details v-if="active || passive" class="tactical-effects"><summary>查看效果说明</summary><dl><div v-if="active"><dt>主动效果</dt><dd>{{ active }}</dd></div><div v-if="passive"><dt>被动效果</dt><dd>{{ passive }}</dd></div></dl><p v-if="hasParameters" class="tactical-note">效果包含来源参数，未代入数值。</p></details><p v-else class="tactical-note">来源未提供效果说明。</p></template><p v-else class="tactical-note">来源未提供战术道具，无法判断当前装备状态。</p></section>
 </template>
 <style scoped>
 .ef-tactical{min-width:0;padding:0;margin-top:24px}
 header{display:flex;gap:10px;align-items:center;margin-bottom:12px}
-header>span{font-size:12px;color:var(--text-faint)}
+
 h3{font-size:14px;margin:0;font-weight:500}
 .tactical-heading{display:flex;gap:12px;align-items:center;min-width:0}
 .tactical-heading>.endfield-artwork{width:44px;height:44px;background:transparent}
