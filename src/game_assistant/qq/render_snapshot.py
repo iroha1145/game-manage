@@ -4,7 +4,7 @@ Account scopes/authorization versions remain solely in the renderer envelope.
 No raw cached account payload, credentials, source HTML, or user paths reach DOM.
 """
 from .assets import safe_public_url
-from .commands import GAME_NAMES
+from .commands import GAME_NAMES, mask_links
 from .browser_rendering import validate_snapshot
 from .rendering import RenderingUnavailable
 from ..accounts.models import QueryResult
@@ -62,8 +62,7 @@ _TECHNICAL = re.compile(r'^(?:(?:缓存状态|快照状态|公共快照状态|�
 def _clean_text(value):
     """Pure text cleaning; typed field bounds are enforced by display_text."""
     text=re.sub(r'(?<!\d)\d{7,}(?!\d)','***',str(value))
-    text=re.sub(r'(?:https?://|www\.)[^\s<>]+','[链接未启用]',text,flags=re.I)
-    text=re.sub(r'(?<![\w@])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>]*)?','[链接未启用]',text,flags=re.I)
+    text=mask_links(text)
     text=re.sub(r'<@[^>]*>','',text)
     text=''.join(char for char in text if char=='\n' or not unicodedata.category(char).startswith('C')).strip()
     text=re.sub(r'(?:[A-Za-z]:[\\/]|/(?:home|Users|private|data)/)[^\s，；]+','[路径已隐藏]',text)

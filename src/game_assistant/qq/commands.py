@@ -90,12 +90,20 @@ def parse_command(content):
     return Command('help')
 
 
+LINK = re.compile(r'(?:https?://|www\.)[^\s<>]+', re.I)
+DOMAIN = re.compile(r'(?<![\w@])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>]*)?', re.I)
+
+
+def mask_links(text):
+    """Unapproved URLs and bare domains never reach QQ as links."""
+    return DOMAIN.sub('[链接未启用]', LINK.sub('[链接未启用]', text))
+
+
 def safe_text(text, *, urls_approved=False):
     # Always mask long numerical identifiers, including identifiers embedded in nicknames.
     text = re.sub(r'(?<!\d)\d{7,}(?!\d)', '***', str(text))
     if not urls_approved:
-        text = re.sub(r'(?:https?://|www\.)[^\s<>]+', '[链接未启用]', text, flags=re.I)
-        text = re.sub(r'(?<![\w@])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s<>]*)?', '[链接未启用]', text, flags=re.I)
+        text = mask_links(text)
     # Prevent platform mention tags / control characters copied from upstream data.
     text = re.sub(r'<@[^>]*>', '', text)
     return ''.join(c for c in text if c=='\n' or ord(c)>=32)[:1800]
