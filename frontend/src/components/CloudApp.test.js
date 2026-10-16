@@ -121,6 +121,30 @@ test('reloading on the accounts page keeps the first reads of its panels when th
   assert.deepEqual(nodes(root, 'p').filter(n => n.props.role === 'alert').map(content), [])
   assert.match(content(nodes(root, 'section').find(n => String(n.props.class).includes('login-panel'))), /角色甲/)
 })
+test('after the cookie switches to another user, the account panels start over instead of showing the previous user', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const rows = { A: [{ account_id: 'a1', provider: 'kuro', game: 'wuthering_waves', state: 'active', capabilities: [], roles: [{ role_id: 'r1', display_name: '甲的昵称', is_default: true }] }],
+    B: [{ account_id: 'b1', provider: 'tajiduo', game: 'nte', state: 'active', capabilities: [], roles: [{ role_id: 'r2', display_name: '乙的昵称', is_default: true }] }] }
+  let who = 'A'
+  t.mock.method(globalThis, 'fetch', async path => new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: who, is_admin: false }
+    : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: rows[who] } : { state: 'never', payload: null })))
+  const root = mount(t, CloudApp); await tick(); await tick()
+  t.mock.timers.tick(30000); await tick()
+  nodes(root, 'button').find(n => content(n) === '账号与授权').props.onClick(); await tick(); await tick()
+  const panel = label => nodes(root, 'section').find(n => n.props['aria-label'] === label || String(n.props.class).includes(label))
+  const login = panel('login-panel'), settings = panel('本人游戏授权')
+  assert.match(content(login), /甲的昵称/)
+  nodes(login, 'button').find(n => content(n) === '登录').props.onClick(); await tick()
+  assert.ok(nodes(login, 'input').some(n => n.props.id === 'community-mobile'), "user A's login form is open")
+  // Another tab signs in as B; this tab notices at its minute check and swaps the user in one synchronous step.
+  who = 'B'; t.mock.timers.tick(30000); for (let i = 0; i < 6; i++) await tick()
+  assert.match(content(root), /乙的昵称/)
+  assert.doesNotMatch(content(panel('login-panel')), /甲的昵称/, "user A's nickname is still shown to user B")
+  assert.ok(!nodes(panel('login-panel'), 'input').some(n => n.props.id === 'community-mobile'), "user A's login form is still open for user B")
+  assert.notEqual(panel('login-panel'), login, 'the community-login panel was patched, not mounted again')
+  assert.notEqual(panel('本人游戏授权'), settings, 'the authorization list was patched, not mounted again')
+})
 test('cloud public events render the real calendar with unknown dates and source details', async t => {
   configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
   const calls=[]
