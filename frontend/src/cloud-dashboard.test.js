@@ -108,3 +108,16 @@ test('rejected refresh preserves snapshots; logout or disposal drops a pending r
   finish({ state: 'queued' }); await pendingDispose; t.mock.timers.tick(60000); await flush()
   assert.equal(reads, 0); assert.deepEqual(dashboard.state.refreshing, {})
 })
+
+test('the error of a failed session check does not outlive the next successful one', async t => {
+  let online = true
+  const dashboard = createCloudDashboard({ getMe: async () => { if (!online) throw new TypeError('无法连接服务，请稍后重试'); return { user_id: 'A' } },
+    obtainCsrf: async () => 'csrf', getAccounts: async () => ({ accounts: [account] }) })
+  t.after(dashboard.dispose)
+  await dashboard.initialize()
+  online = false; await dashboard.initialize()
+  assert.equal(dashboard.state.error, '无法连接服务，请稍后重试')
+  assert.equal(dashboard.state.user.user_id, 'A', 'the signed-in page stays while the service is unreachable')
+  online = true; await dashboard.initialize()
+  assert.equal(dashboard.state.error, '', 'the banner of a past failure is still shown')
+})

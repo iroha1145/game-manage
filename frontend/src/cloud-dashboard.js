@@ -25,7 +25,7 @@ export function createCloudDashboard(overrides = {}) {
       const user = await api.getMe(); if (!current(version)) return
       await api.obtainCsrf(true); if (!current(version)) return
       if (state.user && state.user.user_id !== user.user_id) clear()
-      state.user = user; await loadAccounts()
+      state.user = user; state.error = ''; await loadAccounts()
     }
     catch (error) { if (current(version) && error.status !== 401 && error.name !== 'AbortError') state.error = error.message }
     finally { state.ready = true; if (current(version)) state.loading = false }
