@@ -1,12 +1,16 @@
 import json
 
 import httpx
+import pytest
 import respx
 
 from game_assistant.adapters.wuthering_waves.adapter import WutheringWavesAdapter
 from game_assistant.config import Settings
 from game_assistant.models import Capability, GameEvent, ProgressItem
 from game_assistant.models import CalabashData, ExplorationData
+from game_assistant.registry import GameRegistry
+from game_assistant.scheduler import PollingScheduler
+from game_assistant.snapshots import SnapshotStore
 
 # 实测响应形状（2026-09-13），见 endpoints.py 注释
 # 账号 UID 和昵称为合成测试数据；仅保留已校准的响应字段结构。
@@ -158,6 +162,43 @@ async def test_fetch_stamina_ok():
     assert "serverId=76402e5b20be2c39f095a152090afddc" in body
     assert "type=2" in body and "sizeType=1" in body
     assert get_route.calls.call_count == 0  # 体力不走 getData
+
+
+@pytest.mark.parametrize("data", [
+    {"hasSignIn": True},
+    {"energyData": None},
+    {"energyData": {"cur": "n/a", "total": "n/a"}},
+    {"energyData": {"cur": 0, "total": 0}},
+])
+@respx.mock
+async def test_fetch_stamina_widget_without_energy_is_invalid_data_not_zero(data):
+    # 旧版仅 token 账号走 widget；缺 energyData 不能变成 0/0 的成功结果
+    respx.post(ROLE_LIST_URL).mock(
+        return_value=httpx.Response(200, json=ROLE_LIST_RAW))
+    respx.post(WIDGET_REFRESH_URL).mock(return_value=httpx.Response(
+        200, json={"code": 200, "msg": "success", "data": data}))
+    a = WutheringWavesAdapter(Settings(wuwa_token="tok", wuwa_user_id="123"))
+    r = await a.fetch(Capability.STAMINA)
+    assert r.ok is False and r.payload is None
+    assert r.error_kind == "invalid_data"
+
+
+@respx.mock
+async def test_garbled_widget_energy_keeps_the_last_good_stamina_snapshot():
+    respx.post(ROLE_LIST_URL).mock(
+        return_value=httpx.Response(200, json=ROLE_LIST_RAW))
+    refresh = respx.post(WIDGET_REFRESH_URL).mock(
+        return_value=httpx.Response(200, json=WIDGET_RAW))
+    registry = GameRegistry()
+    registry.register(WutheringWavesAdapter(Settings(wuwa_token="tok", wuwa_user_id="123")))
+    store = SnapshotStore(":memory:")
+    scheduler = PollingScheduler(registry, store, Settings())
+    assert (await scheduler.poll_once("wuthering_waves", Capability.STAMINA)).ok
+    good = store.get("wuthering_waves", "stamina")
+    assert json.loads(good["payload"])["current"] == 180
+    refresh.respond(200, json={"code": 200, "msg": "success", "data": {"hasSignIn": True}})
+    assert not (await scheduler.poll_once("wuthering_waves", Capability.STAMINA)).ok
+    assert store.get("wuthering_waves", "stamina") == good
 
 
 def test_capabilities_events_after_stamina_no_activity():
