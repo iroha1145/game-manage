@@ -147,3 +147,9 @@ async def test_gacha_name_lookup_network_failure_can_use_ids():
     result = await adapter().fetch(Capability.GACHA)
     assert result.ok
     assert '1019' in result.payload.pools[0].details[0].name
+
+
+def test_role_text_with_a_bare_ampersand_is_kept():
+    from game_assistant.adapters.neverness.parse import _plain
+    assert _plain('攻击&防御') == '攻击&防御'
+    assert _plain('<p>攻击&amp;防御</p>') == '攻击&防御'

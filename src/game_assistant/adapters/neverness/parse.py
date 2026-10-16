@@ -160,7 +160,8 @@ class _PlainText(HTMLParser):
 
 def _plain(value):
     if _text(value) is None: return None
-    parser = _PlainText(); parser.feed(value)
+    # close() flushes text HTMLParser holds back after a bare '&' (it might start an entity).
+    parser = _PlainText(); parser.feed(value); parser.close()
     return ''.join(parser.parts).strip() or None
 
 
