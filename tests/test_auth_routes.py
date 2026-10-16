@@ -1,6 +1,8 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from game_assistant.api import create_app
+from game_assistant.auth.providers import AuthError
 from game_assistant.auth.service import LoginService
 from game_assistant.auth.store import CredentialStore
 from game_assistant.config import Settings
@@ -95,3 +97,35 @@ def test_login_body_limit_counts_chunked_bodies(tmp_path):
     assert sized.status_code == chunked.status_code == 413
     assert chunked.json() == {'detail': '登录请求过大'}
     assert provider.sent == 0
+
+
+class RejectingProvider(Provider):
+    """Fails one login step the way the real providers do: AuthError with the upstream code."""
+    def __init__(self, step, code):
+        super().__init__()
+        self.step, self.code = step, code
+
+    async def send_sms(self, context, mobile, captcha=None):
+        if self.step == 'sms':
+            raise AuthError('上游拒绝了请求', self.code)
+        await super().send_sms(context, mobile, captcha)
+
+    async def login(self, context, mobile, code):
+        raise AuthError('上游拒绝了请求', self.code)
+
+
+@pytest.mark.parametrize('step,code,status', [('sms', 429, 429), ('login', 429, 429),
+                                              ('sms', 270, 400), ('login', 130, 400)])
+def test_only_an_upstream_rate_limit_keeps_its_429_status(tmp_path, step, code, status):
+    client, service, _, _ = client_for(tmp_path)
+    service.providers['nte'] = RejectingProvider(step, code)
+    sid = client.post('/api/auth/nte/sessions', headers=HEADERS).json()['session_id']
+    body = {'session_id': sid, 'mobile': '13800000000'}
+    response = client.post('/api/auth/nte/sms', headers=HEADERS, json=body)
+    if step == 'login':
+        assert response.status_code == 200
+        response = client.post('/api/auth/nte/login', headers=HEADERS, json={**body, 'code': '123456'})
+    assert response.status_code == status
+    assert response.json() == {'detail': '上游拒绝了请求'}
+    # The login page starts its cooldown on 429 and reads Retry-After, as for the local limiter.
+    assert response.headers.get('retry-after') == ('60' if status == 429 else None)
