@@ -73,7 +73,10 @@ def install_endfield_skland_routes(app, settings):
 
     @router.delete("/connection")
     async def connection():
-        return await service.disconnect()
+        try:
+            return await service.disconnect()
+        except SklandError as exc:
+            raise _http_error(exc) from None
 
     @router.get("/card")
     async def card():

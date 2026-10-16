@@ -602,3 +602,22 @@ def test_installer_follows_login_service_and_passport_route_is_protected(tmp_pat
     assert client.get("/api/endfield/skland/status").json()["passport_available"] is False
     settings.endfield_hg_token, settings.endfield_uid, settings.endfield_role_id = "hg", "uid", "r1"
     assert client.get("/api/endfield/skland/status").json()["passport_available"] is True
+
+
+def test_disconnect_reports_a_failed_credential_save(tmp_path):
+    settings = Settings(db_path=str(tmp_path / "db"))
+    app = create_app(registry=FakeRegistry(DummyAdapter()), store=SnapshotStore(settings.db_path),
+                     settings=settings, start_scheduler=False)
+    service = app.state.endfield_skland
+    service.client = FakeClient()
+    client = TestClient(app, base_url="http://127.0.0.1:8010", raise_server_exceptions=False)
+    headers = {"X-Game-Assistant": "1"}
+    assert client.post("/api/endfield/skland/connect", headers=headers, json={"cred": "account-one"}).status_code == 200
+
+    def locked(_value):
+        raise CredentialStoreError("locked")
+    service.store.save = locked
+    response = client.delete("/api/endfield/skland/connection", headers=headers)
+    assert response.status_code == 400
+    assert response.json() == {"detail": "本机森空岛凭据保存失败，原连接已保留"}
+    assert client.get("/api/endfield/skland/status").json()["connected"] is True
