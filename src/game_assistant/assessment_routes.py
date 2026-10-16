@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from .assessment import AssessmentModel, Configuration, assess, compare
 from .assessment_store import AssessmentStore
 from .assessment_equipped import equipped_configuration
+from .assessment_nte_math import validate_profile
 from .accounts.models import AccountScope
 from .identity.dependencies import require_user
 from .wuwa_role_detail import archived_role_detail
@@ -77,6 +78,10 @@ def install_assessment_routes(app,accounts=None,private_root=None,snapshots=None
     @router.put('/{game}/{character}/model')
     async def model(request:Request,game:Literal['nte','wuthering_waves'],character:Character,authorization=Depends(owner)):
         value=validate(AssessmentModel,await read_body(request,authorization,game),game,character)
+        # A weight on a catalog row that cannot take it would make every later score unscorable.
+        if value.nte_profile is not None and value.nte_spec is not None:
+            try: validate_profile(value.nte_profile,value.nte_spec)
+            except ValueError: raise HTTPException(422,'invalid_input') from None
         return store.save(authorization[0],value,'model')
 
     @router.post('/{game}/{character}/configurations',status_code=201)

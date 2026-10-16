@@ -98,3 +98,18 @@ def test_projection_uses_current_scope_model_and_strips_unrelated_private_data(t
     assert projected['display_data']['detail']['assessment']['value'] is None
     assert 'token' not in projected['display_data']['detail']
     store.close()
+
+
+def test_nte_model_whose_weights_do_not_fit_its_catalog_is_refused(identity,tmp_path):
+    # Saved, such a model would make every later NTE score unscorable (INVALID_WEIGHT).
+    from tests.test_personal_assessment import nte_model
+    class NteAccounts(Accounts):
+        def describe(self,scope): return dict(game='nte',version=1)
+    client=identity[3]; store=install_assessment_routes(client.app,NteAccounts(),tmp_path/'private')
+    register(identity)
+    path='/api/accounts/owned/roles/role/assessment/nte/c1/model'
+    good=nte_model().model_dump(mode='json')
+    main_weight_on_a_sub_only_row=dict(good,nte_profile=dict(good['nte_profile'],mainstat_weights={'attack':'1'}))
+    assert write(client,path,main_weight_on_a_sub_only_row,method='put').status_code==422
+    assert write(client,path,good,method='put').status_code==200
+    store.close()
