@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as api from './api.js'
 import { getAuthStatus } from './auth-api.js'
 import { createDashboard, readRoute, gameStyle } from './dashboard.js'
@@ -9,9 +9,21 @@ import AppIcon from './components/AppIcon.vue'
 import GameIcon from './components/GameIcon.vue'
 import OverviewPage from './components/OverviewPage.vue'
 import CalendarPage from './components/CalendarPage.vue'
-import GameCard from './components/GameCard.vue'
 import LoginPanel from './components/LoginPanel.vue'
 import BilibiliSourcePanel from './components/BilibiliSourcePanel.vue'
+
+// Game pages carry every game module plus the icon and guide catalogs (about
+// three quarters of the script); the overview, calendar and accounts need none of it.
+const GameCard = defineAsyncComponent({
+  loader: () => import('./components/GameCard.vue'),
+  // The launcher rebuilds the UI on update, so a tab opened earlier can ask for a
+  // chunk that no longer exists; only a reload picks up the new build.
+  errorComponent: {
+    inheritAttrs: false,
+    render: () => h('div', { class: 'empty-page' }, [h('p', '界面已更新，请刷新页面后再打开游戏档案。'),
+      h('button', { class: 'ui-button', onClick: () => window.location.reload() }, '刷新页面')]),
+  },
+})
 
 const dashboard = createDashboard({ ...api, getAuthStatus })
 const state = dashboard.state
