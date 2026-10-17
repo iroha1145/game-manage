@@ -2,13 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
 const Item=await loadVue(new URL('./EndfieldTacticalItem.vue',import.meta.url))
-const ReadOnly=await loadVue(new URL('./CloudReadOnlyDetails.vue',import.meta.url))
 
 test('tactical item preserves zero rarity and literal effect templates without inventing owned date',t=>{
   const item={name:'合成战术设备',rarity:0,icon_url:'https://bbs.hycdn.cn/item.png',active_effect:'造成 {damage:0%} 伤害\n剩余 0 次',passive_effect:'<b>来源文本</b>'}
   const root=mount(t,Item,{item})
-  assert.match(content(root),/稀有度 0/);assert.match(content(root),/造成 \{damage:0%\} 伤害 剩余 0 次/)
-  assert.match(content(root),/<b>来源文本<\/b>/);assert.equal(nodes(root,'b').length,0)
+  assert.match(content(root),/稀有度 0/);assert.match(content(root),/主动效果 造成 \{damage:0%\} 伤害 剩余 0 次/)
+  assert.match(content(root),/被动效果 <b>来源文本<\/b>/);assert.equal(nodes(root,'b').length,0)
   assert.equal(nodes(root,'img')[0].props.src,item.icon_url)
   assert.doesNotMatch(content(root),/获得于|装备于|拥有于/)
 })
@@ -22,31 +21,8 @@ test('unknown tactical data and unsafe icons do not imply unequipped state or re
   assert.equal(nodes(unknown,'img').length,0)
 })
 
-test('cloud independent operator details consume the same tactical contract',t=>{
-  const root=mount(t,ReadOnly,{kind:'operators',result:{payload:{name:'干员甲',tactical_item:{name:'云端道具',rarity:0,active_effect:'主动 {0}',passive_effect:'被动 {1}'}}}})
-  assert.match(content(root),/云端道具/);assert.match(content(root),/稀有度 0/)
-  assert.match(content(root),/主动效果 主动 \{0\}/);assert.match(content(root),/被动效果 被动 \{1\}/)
-})
 
-test('cloud operator obtained time preserves its own date and never uses outer fetch time',t=>{
- for(const obtained_at of ['2025-12-31T17:02:00Z',null,undefined]) {
-  const root=mount(t,ReadOnly,{kind:'operators',result:{fetched_at:'2026-10-15T01:00:00Z',payload:{name:'干员甲',obtained_at}}})
-  assert.match(content(root),obtained_at?/获得时间 2026-01-01 01:02（北京时间）/:/获得时间 未知（北京时间）/)
-  assert.doesNotMatch(content(root),/获得时间 2026-10-15/)
- }
-})
 
-test('cloud operator endpoint envelope is authoritative including explicit null and supports legacy wrappers',t=>{
- const operator={name:'真实契约干员',obtained_at:'2025-12-31T17:02:00Z',weapon:{name:'契约武器'},tactical_item:{name:'契约道具',rarity:0}}
- for(const result of [{operator,fetched_at:'2026-10-15T00:00:00Z'},{payload:{operator}}, {payload:operator},operator]) {
-  const root=mount(t,ReadOnly,{kind:'operators',result})
-  assert.match(content(root),/真实契约干员 · 干员配装/);assert.match(content(root),/契约武器/);assert.match(content(root),/契约道具/)
-  assert.match(content(root),/获得时间 2026-01-01 01:02/)
- }
- const root=mount(t,ReadOnly,{kind:'operators',result:{operator:null,...operator,payload:operator,fetched_at:'2026-10-15T00:00:00Z'}})
- assert.match(content(root),/获得时间 未知/);assert.match(content(root),/来源未提供战术道具/)
- assert.doesNotMatch(content(root),/真实契约干员|契约武器|契约道具|2026-01-01|2026-10-15/)
-})
 
 test('tactical display removes only verified flat paired color markers and leaves source parameters untouched',t=>{
  const active_effect='恢复 <@ba.vup>{triggerheal2:0%}</>；<@tips.purple>无限制支援主控干员</>，<@tips.orange>用尽后恢复次数</>。'

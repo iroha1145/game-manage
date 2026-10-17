@@ -142,7 +142,7 @@ test('honor category, search and time controls keep totals and distinguish no re
   nodes(root,'select')[1].props['onUpdate:modelValue']('oldest');await nextTick()
   assert.deepEqual(headings(),['探索甲','探索乙','战斗甲','未分类奖章'])
   nodes(root,'select')[0].props['onUpdate:modelValue']('"探索"');nodes(root,'input')[0].props.onInput({target:{value:'甲'}});await nextTick()
-  assert.deepEqual(headings(),['探索甲']);assert.match(content(root),/显示 1 \/ 4/);assert.match(content(root),/来源成就总数 99/)
+  assert.deepEqual(headings(),['探索甲']);assert.match(content(root),/显示 1 \/ 4/);assert.match(content(root),/来源成就总数 99/);assert.match(content(root),/奖章分类/)
   assert.match(content(root),/获得于 2025-10-15 08:00/)
   nodes(root,'input')[0].props.onInput({target:{value:'不存在'}});await nextTick()
   assert.match(content(root),/没有匹配的奖章/);assert.doesNotMatch(content(root),/当前档案没有奖章记录/)
@@ -156,4 +156,13 @@ test('legacy regional collections use the observed game labels',t=>{
   const root=mount(t,Reports,{view:'regions',payload:{regions:[{levels:[{id:'map01_lv001',puzzles:{count:0}}]}]}})
   for(const label of ['醚质','宝箱','装备制造模板','维修灵感点','协议采录桩'])assert.ok(content(root).includes(label))
   assert.doesNotMatch(content(root),/谜质|储藏箱|装备箱|片段|黑盒/)
+})
+
+test('the source footer of every view says a profile is waiting for an update only when it is, with its own fetch time',t=>{
+  for(const view of ['overview','operators','regions','ship','honor']) for(const stale of [true,false]) {
+    const footer=nodes(mount(t,Reports,{payload:{ship:[],achievements:{medals:[]}},view,fetchedAt:'2025-12-31T01:00:00Z',stale}),'footer').find(node=>node.props.class==='ef-source')
+    assert.match(content(footer),/同步于 2025-12-31 09:00/)
+    assert.equal(content(footer).includes('正在显示已有资料，等待更新'),stale,`${view} stale=${stale}`)
+    assert.equal(content(footer).includes('已采集资料'),!stale,`${view} stale=${stale}`)
+  }
 })

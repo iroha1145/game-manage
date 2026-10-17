@@ -47,8 +47,3 @@ export function challengeReport(value, kind) {
 export function retainedChallenge(previous, error) {
   return previous ? { ...previous, stale: true, error } : null
 }
-
-export function challengeEnvelope(value) {
-  if (!value?.payload || typeof value.payload !== 'object') return value
-  return {...value,...value.payload,stale:!!(value.stale || value.payload.stale),error:value.error || value.payload.error}
-}

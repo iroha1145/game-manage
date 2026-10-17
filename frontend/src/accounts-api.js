@@ -6,7 +6,6 @@ export const revokeAuthorization = id => requestJson(accountPath(id) + '/authori
 const scoped = (id, role) => `${accountPath(id)}/roles/${encodeURIComponent(role)}`
 export const getAccountSnapshot = (id, role, cap) => requestJson(`${scoped(id, role)}/snapshot/${encodeURIComponent(cap)}`)
 export const refreshAccount = (id, role, cap) => requestJson(`${scoped(id, role)}/refresh/${encodeURIComponent(cap)}`, { method: 'POST' })
-export const getAccountDetail = (id, role, path) => requestJson(`${scoped(id, role)}/${path}`)
 export const getPublicSnapshot = (game, cap) => requestJson(`/api/public/games/${encodeURIComponent(game)}/${encodeURIComponent(cap)}`)
 export const connectCloudSkland = (cred, device_id = '', options = {}) => requestJson('/api/accounts/auth/skland/connect', { ...options, method: 'POST', body: { cred, device_id } })
 export const connectCloudSklandPassport = (account_id, role_id, options = {}) => requestJson('/api/accounts/auth/skland/passport', { ...options, method: 'POST', body: { account_id, role_id } })

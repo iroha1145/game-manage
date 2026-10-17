@@ -4,7 +4,7 @@ import { rows, displayValue as display, sourceName as named } from '../endfield-
 import { displayBeijing } from '../time.js'
 import EndfieldArtwork from './EndfieldArtwork.vue'
 import EndfieldTacticalItem from './EndfieldTacticalItem.vue'
-const props=defineProps({operator:{type:Object,required:true},titleSuffix:{type:String,default:''}})
+const props=defineProps({operator:{type:Object,required:true}})
 const slotDefinitions=[['bodyEquip','护甲'],['armEquip','护手'],['firstAccessory','配件一'],['secondAccessory','配件二']]
 const equipment=computed(()=>rows(props.operator.equipment))
 const slots=computed(()=>slotDefinitions.map(([id,label])=>({id,label,item:equipment.value.find(item=>item.slot===id)})))
@@ -18,7 +18,7 @@ const time=value=>value == null || value === '' ? '未知' : displayBeijing(valu
       <section class="loadout-hero" aria-label="干员档案">
         
         <EndfieldArtwork class="loadout-portrait" role portrait :operator-id="operator.char_id || operator.id" :src="operator.avatar_url" :name="operator.name || '干员'" />
-        <div class="hero-identity"><p class="hero-class">{{ named(operator.profession) }} / {{ named(operator.property) }}</p><h3>{{ operator.name || '干员' }}{{ titleSuffix }}</h3>
+        <div class="hero-identity"><p class="hero-class">{{ named(operator.profession) }} / {{ named(operator.property) }}</p><h3>{{ operator.name || '干员' }}</h3>
           <dl class="operator-marks"><div><dt>等级</dt><dd><small>LV.</small>{{ display(operator.level) }}</dd></div><div><dt>潜能</dt><dd>{{ display(operator.potential) }}</dd></div><div><dt>精英阶段</dt><dd>{{ display(operator.evolve_phase ?? operator.phase) }}</dd></div></dl>
           <p class="obtained-time">获得时间 {{ time(operator.obtained_at) }}（北京时间）</p>
         </div>
