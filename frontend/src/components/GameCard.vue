@@ -1,10 +1,11 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { gameStyle } from '../dashboard.js'
-import { vGlide } from '../motion.js'
+import { vGlide, vParallax } from '../motion.js'
 import { lazyPage } from '../lazy-page.js'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
+import GameArt from './GameArt.vue'
 import SourceStatusPanel from './SourceStatusPanel.vue'
 import AnnouncementList from './AnnouncementList.vue'
 import NteDataCard from './NteDataCard.vue'
@@ -42,6 +43,14 @@ const nteGuideId=ref(''), nteFocusId=ref('')
 function openNteGuide(id){nteGuideId.value=id;activeSection.value='guides'}
 function openNteRole(id){nteFocusId.value=id;nteGuideId.value='';activeSection.value='characters'}
 const style = computed(() => gameStyle(props.game.game_id))
+// The hero names whose data this is: the game role's nickname and level. Endfield's account
+// snapshot is the Hypergryph passport, which stays apart from the Skland role, so it is not shown.
+const identity = computed(() => {
+  if (!['wuthering_waves', 'nte'].includes(props.game.game_id)) return ''
+  const account = props.externalSnapshots.account?.payload
+  if (!account || typeof account !== 'object') return ''
+  return [account.nickname, Number.isFinite(account.level) ? `Lv.${account.level}` : ''].filter(Boolean).join(' · ')
+})
 const groups = computed(() => [
   { id: 'all', label: '全部', caps: props.game.capabilities },
   { id: 'overview', label: '概览', caps: ['account', 'stamina', 'progress', 'record'] },
@@ -95,8 +104,9 @@ function capProps(cap) {
       {{ errorNotice }}
     </div>
 
-    <header class="card-head">
-      <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><h1 class="game-name">{{ game.display_name }}</h1></div></div>
+    <header v-parallax class="card-head game-hero">
+      <GameArt :variant="game.game_id" />
+      <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><h1 class="game-name">{{ game.display_name }}</h1><p v-if="identity" class="game-identity-line">{{ identity }}</p></div></div>
       <span
         v-if="!game.credentials_configured && game.game_id !== 'endfield'"
         class="badge badge-danger"
@@ -147,18 +157,27 @@ function capProps(cap) {
   overflow-wrap: anywhere;
 }
 
-.card-head { display:flex; align-items:center; gap:8px 12px; margin-bottom:24px; flex-wrap:wrap; }
-.game-heading { display:flex; align-items:center; gap:12px; margin-right:auto; min-width:0; }
-.detail-monogram { display:grid; place-items:center; font-size:22px; width:42px; height:42px; border-radius:var(--radius-well); }
-.game-name { font-size:24px; line-height:32px; font-weight:600; }
+/* Hero: a dark stage with the game's original artwork; the page's one saturated surface. */
+.card-head { position:relative; display:flex; align-items:center; gap:10px 12px; min-height:168px; margin-bottom:24px; padding:28px 28px 28px 30px; flex-wrap:wrap; overflow:hidden; isolation:isolate; border-radius:var(--radius-card); color:#fff; background:radial-gradient(90% 160% at 100% 0%, color-mix(in srgb, var(--game-vivid) 34%, #161827) 0%, #151827 52%, #0f111a 100%); box-shadow:0 1px 2px rgba(20, 24, 40, .2), 0 26px 56px -32px color-mix(in srgb, var(--game-vivid) 70%, #0f111a); }
+.card-head :deep(.game-art) { z-index:-1; }
+.card-head > :not(.game-art) { position:relative; }
+.game-heading { display:flex; align-items:center; gap:16px; margin-right:auto; min-width:0; }
+.detail-monogram { display:grid; place-items:center; font-size:24px; width:56px; height:56px; border-radius:16px; box-shadow:0 0 0 1px rgba(255, 255, 255, .18), 0 12px 24px -10px var(--game-vivid); }
+.game-name { font-size:32px; line-height:40px; font-weight:600; letter-spacing:-.02em; }
+.game-identity-line { margin-top:2px; color:rgba(255, 255, 255, .72); font-size:13px; }
+.card-head .refresh-btn { background:rgba(255, 255, 255, .14); border-color:rgba(255, 255, 255, .22); color:#fff; box-shadow:inset 0 1px 0 rgba(255, 255, 255, .18); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); }
+@media(hover:hover) and (pointer:fine) { .card-head .refresh-btn:hover:not(:disabled) { background:rgba(255, 255, 255, .22); border-color:rgba(255, 255, 255, .3); color:#fff; } }
+.card-head .refresh-btn .t-shimmer { background-image:linear-gradient(90deg, rgba(255, 255, 255, .6) 0%, #fff 45%, rgba(255, 255, 255, .6) 65%); }
+.card-head :focus-visible { outline-color:#fff; }
+.card-head .badge-danger { background:rgba(255, 138, 128, .18); color:#ffc2bb; }
 
 .cap-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 20px;
   align-items: start;
 }
 .detail-navigation { display:flex; justify-content:space-between; gap:10px 16px; align-items:center; margin:0 0 16px; flex-wrap:wrap; }
 @media(max-width:950px) { .cap-list { grid-template-columns:1fr; } }
-@media(max-width:600px) { .card-head { margin-bottom:16px; gap:12px; }.game-heading { gap:10px; flex-basis:100%; }.game-name { font-size:22px; line-height:28px; }.detail-monogram { width:36px; height:36px; font-size:20px; }.detail-tabs button { padding:4px 9px; } }
+@media(max-width:600px) { .card-head { min-height:150px; margin-bottom:16px; padding:22px 18px; gap:12px; }.card-head :deep(.game-art) { opacity:.6; }.game-heading { gap:12px; flex-basis:100%; }.game-name { font-size:26px; line-height:32px; }.detail-monogram { width:44px; height:44px; font-size:20px; border-radius:13px; }.detail-tabs button { padding:4px 10px; } }
 </style>
