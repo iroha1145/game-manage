@@ -141,7 +141,6 @@ function capProps(cap) {
 
 <style scoped>
 .detail-articles{grid-column:1/-1}
-.detail-cap-realestate, .detail-cap-vehicles, .detail-cap-teams, .detail-cap-roles, .detail-cap-gacha, .detail-cap-exploration { grid-column: 1 / -1; }
 .game-card {
   min-width: 0;
 }
