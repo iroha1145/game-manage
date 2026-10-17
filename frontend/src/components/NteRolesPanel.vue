@@ -160,21 +160,21 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
 .muted { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .toolbar input[type=search] { min-width: 150px; }
-.favorite-filter { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--text-body); font-size: 13px; cursor: pointer; }
+.favorite-filter { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text-body); font-size: 13px; cursor: pointer; }
 .favorite-filter:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); color: var(--accent-strong); }
 .favorite-filter:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-.notice { margin: 0 0 8px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--surface-soft); color: var(--text-muted); font-size: 13px; }
+.notice { margin: 0 0 8px; padding: 8px 14px; border-radius: var(--radius-well); background: var(--surface-soft); color: var(--text-muted); font-size: 13px; }
 
 /* Comparison: a one-line strip until two roles are picked, then the table. */
-.compare-tray { margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius-well); background: var(--surface-soft); }
+.compare-tray { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-tile); background: var(--surface-soft); }
 .compare-heading { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 28px; font-size: 12px; }
-.compare-heading > strong { color: var(--text); font-size: 14px; font-weight: 500; }
+.compare-heading > strong { color: var(--text); font-size: 14px; font-weight: 600; }
 .compare-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .compare-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.compare-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 6px 0 8px; border: 0; border-radius: var(--radius-chip); background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 500; }
+.compare-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 6px 0 10px; border: 0; border-radius: var(--radius-chip); background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 500; }
 .compare-chip:not(:disabled):active { transform: scale(var(--scale-medium)); }
-.clear-compare { margin-left: auto; min-height: 24px; padding: 2px 8px; }
-.comparison-scroll { overflow-x: auto; margin: 6px -12px -6px; padding: 0 12px 6px; }
+.clear-compare { margin-left: auto; min-height: 24px; padding: 2px 10px; }
+.comparison-scroll { overflow-x: auto; margin: 6px -14px -6px; padding: 0 14px 6px; }
 .comparison-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-control); }
 .comparison-scroll table { min-width: 460px; table-layout: fixed; font-variant-numeric: tabular-nums; }
 .comparison-scroll :is(th, td) { padding-top: 4px; padding-bottom: 4px; line-height: 18px; }
@@ -183,44 +183,50 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .comparison-scroll tbody th { color: var(--text-muted); font-size: 13px; font-weight: 400; }
 .comparison-scroll .group-row th { padding-top: 10px; color: var(--text); font-size: 12px; font-weight: 500; }
 
-/* Role cards: portrait, name and rank on one line; actions top-right; the
-   level chips double as the disclosure for the full sheet. */
-.role-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; align-items: start; }
-.role-card { min-width: 0; padding: 8px 10px; border-radius: var(--radius-well); background: var(--surface-soft); }
-.role-card.compared { background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft)); }
-.role-top { display: flex; align-items: center; gap: 8px; }
-.avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--radius-control); object-fit: cover; background: var(--surface-soft); }
-.role-heading { display: grid; gap: 1px; min-width: 0; flex: 1; }
-.role-heading > strong { overflow: hidden; color: var(--text); font-size: 14px; line-height: 20px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.role-sub { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; line-height: 18px; white-space: nowrap; }
-.rank { padding: 0 5px; border-radius: var(--radius-chip); background: var(--overlay-3); color: var(--text-body); font-size: 12px; font-weight: 500; line-height: 18px; }
+/* Role cards: a rounded-square portrait with the name and rank beside it and the
+   actions under the name; the level chips double as the disclosure for the full sheet. */
+.role-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 12px; align-items: start; }
+.role-card { min-width: 0; padding: 14px; border-radius: var(--radius-tile); background: var(--surface-soft); }
+.role-card.compared { background: color-mix(in srgb, var(--game-vivid) 9%, var(--surface-soft)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--game-vivid) 42%, transparent); }
+.role-top { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "avatar heading" "avatar actions"; align-items: center; gap: 6px 14px; }
+.role-top > .avatar, .role-top > .nte-icon { grid-area: avatar; align-self: start; }
+.role-top > .nte-icon { --size: 60px; }
+.avatar { width: 60px; height: 60px; flex-shrink: 0; border-radius: 30%; object-fit: cover; background: var(--card-bg); }
+.role-heading { grid-area: heading; display: grid; gap: 3px; min-width: 0; }
+.role-heading > strong { overflow: hidden; color: var(--text); font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
+.role-sub { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; line-height: 18px; white-space: nowrap; }
+.rank { padding: 0 8px; border-radius: var(--radius-chip); background: var(--overlay-3); color: var(--text-body); font-size: 12px; font-weight: 600; line-height: 18px; }
 /* Letters mix toward the text colour: lighter at night, darker by day, so the
    small glyph keeps its contrast on the tint in both themes. */
-.rank-S { background: color-mix(in srgb, var(--chart-4) 18%, transparent); color: color-mix(in srgb, var(--chart-4) 60%, var(--text)); }
-.rank-A { background: color-mix(in srgb, var(--chart-5) 16%, transparent); color: color-mix(in srgb, var(--chart-5) 75%, var(--text)); }
+.rank-S { background: color-mix(in srgb, var(--chart-1) 16%, transparent); color: color-mix(in srgb, var(--chart-1) 55%, var(--text)); }
+.rank-A { background: color-mix(in srgb, var(--chart-2) 16%, transparent); color: color-mix(in srgb, var(--chart-2) 55%, var(--text)); }
 .level { color: var(--text-body); font-variant-numeric: tabular-nums; }
-.role-actions { display: flex; gap: 4px; margin-left: auto; align-self: flex-start; }
+.role-actions { grid-area: actions; display: flex; align-items: center; gap: 6px; }
+.role-actions .small-button { background: var(--card-bg); }
 /* Quiet until used: 24 bordered buttons would outweigh the data. */
-.role-actions .icon-button { width: 28px; height: 28px; border-color: transparent; border-radius: var(--radius-control); background: transparent; color: var(--text-faint); }
+.role-actions .icon-button { width: 30px; height: 30px; border-color: transparent; background: var(--card-bg); box-shadow: none; color: var(--text-faint); }
 @media (hover: hover) and (pointer: fine) { .role-actions .icon-button:not(:disabled):not([aria-pressed=true]):hover { background: var(--hover-bg); color: var(--text); } }
 .role-actions .icon-button:disabled { opacity: .4; cursor: not-allowed; }
 .role-actions .icon-button[aria-pressed=true] { border-color: transparent; background: var(--accent-soft); color: var(--accent-strong); }
-.role-actions .favorite[aria-pressed=true] { background: color-mix(in srgb, var(--chart-4) 16%, transparent); color: var(--chart-4); }
+.role-actions .favorite[aria-pressed=true] { background: color-mix(in srgb, var(--chart-4) 18%, var(--card-bg)); color: var(--chart-4); }
 .role-actions .favorite[aria-pressed=true] svg { fill: currentColor; }
 .role-actions .icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.role-more { margin-top: 6px; }
-.role-more > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 -4px; padding: 2px 4px; border-radius: var(--radius-control); list-style: none; cursor: pointer; }
+.role-card > .chip-list { margin-top: 10px; }
+.role-card .chip { background: var(--card-bg); box-shadow: none; }
+.role-more { margin-top: 10px; }
+.role-more > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 -6px; padding: 4px 6px; border-radius: var(--radius-control); list-style: none; cursor: pointer; }
 .role-more > summary::-webkit-details-marker { display: none; }
 .role-more > summary > svg { margin-left: auto; color: var(--text-faint); }
 .role-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (hover: hover) and (pointer: fine) { .role-more > summary:hover { background: var(--hover-bg); } .role-more > summary:hover > svg { color: var(--text-body); } }
-.detail-body { display: grid; gap: 8px; margin-top: 6px; padding-top: 8px; }
-.detail-group h4 { margin: 0 0 3px; color: var(--text-muted); font-size: 12px; font-weight: 500; }
+.detail-body { display: grid; gap: 10px; margin-top: 8px; padding-top: 4px; }
+.detail-group { padding: 12px 14px; border-radius: var(--radius-well); background: var(--card-bg); }
+.detail-group h4 { margin: 0 0 4px; color: var(--text-muted); font-size: 12px; font-weight: 500; }
 .weapon { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; }
 .weapon > strong { margin-right: 2px; color: var(--text); font-weight: 500; }
 .detail-rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 12px; margin: 0; }
 .role-detail-view .detail-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.detail-rows > div { display: flex; justify-content: space-between; gap: 6px; min-width: 0; padding: 1px 0; font-size: 13px; line-height: 20px; }
+.detail-rows > div { display: flex; justify-content: space-between; gap: 6px; min-width: 0; padding: 2px 0; font-size: 13px; line-height: 20px; }
 .detail-rows dt { overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
 .detail-rows dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 560px) {

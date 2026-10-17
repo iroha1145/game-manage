@@ -13,9 +13,10 @@ const ledgerOpen = ref(false)
 </template>
 <style scoped>
 .nte-gacha-panel { display:grid; gap:16px; min-width:0 }
-.community-gacha > summary { display:flex; align-items:center; gap:8px; min-height:40px; padding:8px 14px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--card-bg); color:var(--text); font-size:14px; font-weight:500; list-style:none; cursor:pointer }
+/* The ledger is one white row until it is opened. */
+.community-gacha > summary { display:flex; align-items:center; gap:8px; min-height:52px; padding:10px 20px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); color:var(--text); font-size:15px; font-weight:600; list-style:none; cursor:pointer }
 .community-gacha > summary::-webkit-details-marker { display:none }
 .community-gacha > summary > svg { margin-left:auto; color:var(--text-faint) }
-.community-gacha[open] > summary { margin-bottom:8px }
-@media (hover:hover) and (pointer:fine) { .community-gacha > summary:hover { background:var(--button-hover-bg) } .community-gacha > summary:hover > svg { color:var(--text-body) } }
+.community-gacha[open] > summary { margin-bottom:12px }
+@media (hover:hover) and (pointer:fine) { .community-gacha > summary:hover { box-shadow:var(--card-hover-shadow) } .community-gacha > summary:hover > svg { color:var(--text-body) } }
 </style>

@@ -17,7 +17,7 @@ function selectGuide(id){targetId.value='';selected.value=id}
 const catalog = ref(null), selected = ref('黑羽'), search = ref(''), ownedOnly = ref(false)
 const catalogLoading = ref(true), catalogError = ref(''), source = ref(null), sourceLoading = ref(false), sourceError = ref('')
 const page = ref(1), imageFailed = ref(false)
-const sourcePanel = ref(null)
+const sourcePanel = ref(null), roleList = ref(null)
 let requestId = 0, disposed = false, sourceController = null
 const catalogController = new AbortController()
 const isOwned = guide => ownedGuideRoles('nte',guide,props.roles).length>0
@@ -55,6 +55,8 @@ async function loadSource(refresh = false) {
 watch(() => guide.value?.source_id, () => { source.value = null; sourceError.value = ''; loadSource() })
 watch(() => guide.value?.id, () => { page.value = guide.value?.pages?.[0] || 1 })
 watch(currentImage, () => { imageFailed.value = false })
+// The roles form one row; the chosen one stays in view when a link from the roster opens its guide.
+watch(() => guide.value?.id, async () => { await nextTick(); roleList.value?.querySelector?.('[aria-pressed="true"]')?.scrollIntoView?.({ inline: 'center', block: 'nearest' }) })
 async function showPage(value) { page.value = value; await nextTick(); sourcePanel.value?.scrollIntoView?.({ behavior:'smooth', block:'start' }) }
 onMounted(loadCatalog)
 onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort(); catalogController.abort() })
@@ -72,10 +74,10 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
       <p v-else-if="!guides.length" class="notice">没有匹配的角色，试试其他关键词。</p>
       <nav v-if="!guide && guides.length && !targetId" class="role-list" aria-label="攻略角色候选"><button v-for="item in guides" :key="item.id" :aria-label="`查看${item.name}攻略`" @click="selectGuide(item.id)">{{ item.name }}</button></nav>
       <div v-if="guide" class="guides-layout">
-        <nav class="role-list" aria-label="攻略角色列表"><button v-for="item in guides" :key="item.id" :aria-pressed="guide.id === item.id" :aria-label="`查看${item.name}攻略`" @click="selectGuide(item.id)"><NteIcon :src="nteRoleIcon(item.name)" :name="item.name" /><span><strong>{{ item.name }}</strong><small>{{ item.element }} · {{ item.role }}</small></span><span class="guide-dot" :class="{ reviewed:item.status === 'reviewed' }" :title="item.status === 'reviewed' ? '已整理摘要' : '原图索引'" /></button></nav>
+        <nav ref="roleList" class="role-list" aria-label="攻略角色列表"><button v-for="item in guides" :key="item.id" :aria-pressed="guide.id === item.id" :aria-label="`查看${item.name}攻略`" @click="selectGuide(item.id)"><NteIcon :src="nteRoleIcon(item.name)" :name="item.name" /><span><strong>{{ item.name }}</strong><small>{{ item.element }} · {{ item.role }}</small></span><span class="guide-dot" :class="{ reviewed:item.status === 'reviewed' }" :title="item.status === 'reviewed' ? '已整理摘要' : '原图索引'" /></button></nav>
         <div class="guide-main">
           <button v-for="role in owned" :key="entryCharacterId(role)" type="button" :aria-label="`查看本人${characterLabel('nte',role)}`" @click="emit('role',entryCharacterId(role))">查看本人 {{ characterLabel('nte',role) }} 面板</button>
-          <header class="role-heading"><div><p class="kicker">{{ guide.element }} · {{ guide.role }}</p><h3>{{ guide.name }} <span>培养攻略</span></h3></div><span class="version">V{{ sourceMeta?.version || '未知' }} 资料</span></header>
+          <header class="role-heading"><NteIcon :src="nteRoleIcon(guide.name)" :name="guide.name" size="xl" /><div><p class="kicker">{{ guide.element }} · {{ guide.role }}</p><h3>{{ guide.name }} <span>培养攻略</span></h3></div><span class="version">V{{ sourceMeta?.version || '未知' }} 资料</span></header>
           <p class="provenance">{{ sourceMeta?.author }}</p>
           <details data-render-collapsed><summary>资料详情</summary><p v-if="guide.reviewed_at">摘要核对于 {{ guide.reviewed_at }}</p>
           <p v-if="source?.summary_changed" class="notice warning" role="status">原帖有更新，文字摘要待复核；以下为此前核对内容，请优先查看最新原图。</p>
@@ -102,68 +104,80 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
 
 <style scoped>
 .nte-guides { color:var(--text); min-width:0; }
-.guides-head { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:6px 0 20px; }
-.kicker { color:var(--accent); font-size:12px; margin:0 0 6px; }
-.guides-head h2 { font-size:16px; line-height:24px; margin-bottom:4px; font-weight:500; }
+.guides-head { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:4px 0 16px; }
+.kicker { color:var(--accent); font-size:12px; margin:0 0 4px; font-weight:500; }
+.guides-head h2 { font-size:18px; line-height:26px; margin-bottom:2px; font-weight:600; letter-spacing:-.01em; }
 .muted, .provenance, .source-status { color:var(--text-muted); font-size:12px; line-height:1.8; }
 .catalog-count { font-size:12px; color:var(--text-muted); text-align:right; }
-.catalog-count b { display:block; color:var(--accent); font-weight:500; margin-top:4px; }
-.guides-filters { display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-bottom:20px; font-size:13px; }
+.catalog-count b { display:block; color:var(--accent); font-weight:500; margin-top:2px; }
+.guides-filters { display:flex; align-items:center; gap:12px 20px; flex-wrap:wrap; margin-bottom:16px; font-size:13px; }
 .guides-filters label { display:flex; align-items:center; gap:9px; }
 .search-label { flex:1; min-width:240px; }
-.search-label input { flex:1; max-width:340px; min-height:36px; background:var(--card-bg,var(--bg)); border:1px solid var(--border); border-radius:var(--radius-control); padding:7px 12px; font:inherit; font-size:13px; color:var(--text); }
+.search-label input { flex:1; max-width:360px; min-height:36px; background:var(--card-bg); border:1px solid var(--border); border-radius:999px; padding:7px 16px; font:inherit; font-size:13px; color:var(--text); box-shadow:var(--btn-shadow); }
 .guides-filters input[type=checkbox] { accent-color:var(--accent); }
-.guides-layout { display:grid; grid-template-columns:190px minmax(0,1fr); gap:24px; align-items:start; }
-.role-list { display:grid; gap:4px; position:sticky; top:18px; max-height:78vh; overflow:auto; padding-right:4px; }
-.role-list button { display:flex; gap:10px; align-items:center; text-align:left; padding:10px; border:0; border-radius:var(--radius-control); background:transparent; color:var(--text); cursor:pointer; }
-.role-list button[aria-pressed=true] { background:var(--accent-soft); }
-.role-list strong { display:block; font-size:13px; font-weight:500; }
-.role-list small { display:block; color:var(--text-muted); font-size:12px; margin-top:2px; }
-.guide-dot { width:5px; height:5px; border-radius:50%; background:var(--border); margin-left:auto; flex-shrink:0; }
-.guide-dot.reviewed { background:var(--accent); }
+.guides-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:18px; align-items:start; }
+/* The roles are one scrolling row of portrait tiles; the chosen one is the saturated tile. */
+.role-list { display:flex; gap:10px; overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x proximity; padding:6px 4px 12px; margin:0 -4px; scrollbar-width:none; }
+.role-list::-webkit-scrollbar { display:none; }
+.role-list button { position:relative; flex:0 0 auto; display:grid; justify-items:center; align-content:start; gap:8px; width:100px; padding:14px 6px 12px; border:0; border-radius:var(--radius-tile); background:var(--card-bg); box-shadow:var(--card-shadow); color:var(--text); text-align:center; cursor:pointer; scroll-snap-align:start; }
+.role-list .nte-icon { --size:56px; }
+.role-list strong { display:block; max-width:88px; overflow:hidden; font-size:13px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.role-list small { display:block; max-width:88px; margin-top:2px; overflow:hidden; color:var(--text-muted); font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.role-list button[aria-pressed=true] { background:linear-gradient(160deg,color-mix(in srgb,var(--game-vivid) 80%,black),color-mix(in srgb,var(--game-vivid-2) 72%,black)); color:#fff; box-shadow:0 18px 34px -20px var(--game-vivid); }
+.role-list button[aria-pressed=true] small { color:rgba(255,255,255,.86); }
+@media(hover:hover) and (pointer:fine) { .role-list button:not([aria-pressed=true]):hover { transform:translateY(-3px); box-shadow:var(--card-hover-shadow); } }
+.role-list button:active { transform:scale(var(--scale-small)); }
+.guide-dot { position:absolute; top:10px; right:10px; width:7px; height:7px; border-radius:50%; background:var(--border-strong); flex-shrink:0; }
+.guide-dot.reviewed { background:var(--game-vivid); }
+.role-list button[aria-pressed=true] .guide-dot.reviewed { background:#fff; }
+/* Before one is chosen, the matches are plain pills. */
+.nte-guides > .role-list { flex-wrap:wrap; overflow:visible; padding:0; margin:0 0 14px; }
+.nte-guides > .role-list button { width:auto; padding:6px 14px; border-radius:999px; font-size:13px; }
 .guide-main { min-width:0; }
-.guide-main > button { min-height:32px; margin:0 8px 12px 0; padding:4px 12px; border:1px solid var(--border); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text-body); font-size:13px; font-weight:500; line-height:20px; cursor:pointer; }
-.role-heading { display:flex; justify-content:space-between; gap:12px; align-items:center; }
-.role-heading h3 { font-size:16px; line-height:24px; font-weight:500; }
-.role-heading h3 span { color:var(--text-muted); font-size:14px; font-weight:400; margin-left:7px; }
-.version { border-radius:var(--radius-chip); background:var(--accent-soft); padding:4px 8px; font-size:12px; color:var(--accent); white-space:nowrap; }
+.guide-main > button { min-height:32px; margin:0 8px 12px 0; padding:4px 14px; border:1px solid var(--border); border-radius:999px; background:var(--card-bg); box-shadow:var(--btn-shadow); color:var(--text); font-size:13px; font-weight:500; line-height:20px; cursor:pointer; }
+.role-heading { display:flex; gap:16px; align-items:center; padding:16px 18px; border-radius:var(--radius-card); background:linear-gradient(150deg,color-mix(in srgb,var(--game-vivid) 16%,var(--card-bg)),var(--card-bg) 70%); box-shadow:var(--card-shadow); }
+.role-heading > div { min-width:0; flex:1; }
+.role-heading h3 { font-size:22px; line-height:30px; font-weight:600; letter-spacing:-.02em; }
+.role-heading h3 span { color:var(--text-muted); font-size:14px; font-weight:400; margin-left:7px; letter-spacing:0; }
+.version { border-radius:var(--radius-chip); background:var(--card-bg); box-shadow:inset 0 0 0 1px var(--border); padding:3px 12px; font-size:12px; color:var(--text-body); white-space:nowrap; }
 .provenance { margin-top:12px; }
-.notice { padding:12px 14px; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-control); font-size:13px; line-height:1.7; margin-bottom:14px; }
-.warning { border-color:var(--attention-border); color:var(--attention-text); }
+.notice { padding:12px 16px; background:var(--card-bg); border-radius:var(--radius-well); box-shadow:var(--card-shadow); font-size:13px; line-height:1.7; margin-bottom:14px; }
+.warning { color:var(--attention-text); background:var(--attention-bg); box-shadow:none; }
 .error { color:var(--danger); }
 .source-status { margin:10px 0; }
-.advice-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-.advice-card { border:1px solid var(--border); border-radius:var(--radius-card); padding:16px; background:var(--card-bg); min-width:0; display:flex; flex-direction:column; }
-.advice-card:last-child { grid-column:1/-1; }
+/* Five advice cards: two wide ones, then three narrower; each wears a series swatch in order. */
+.advice-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:14px; margin-top:14px; }
+.advice-card { grid-column:span 3; border-radius:var(--radius-card); padding:18px; background:var(--card-bg); box-shadow:var(--card-shadow); min-width:0; display:flex; flex-direction:column; }
+.advice-card:nth-child(n+3) { grid-column:span 2; }
+.advice-card:nth-child(1) { --series:var(--chart-1); } .advice-card:nth-child(2) { --series:var(--chart-2); } .advice-card:nth-child(3) { --series:var(--chart-3); } .advice-card:nth-child(4) { --series:var(--chart-4); } .advice-card:nth-child(5) { --series:var(--chart-5); }
 .advice-card header { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
-.advice-card h4 { margin:0; font-size:14px; font-weight:500; }
-.advice-card ul { list-style:none; padding-left:0; display:grid; gap:8px; font-size:13px; line-height:1.8; }
+.advice-card header::before { content:''; width:10px; height:10px; border-radius:3px; background:var(--series,var(--accent)); }
+.advice-card h4 { margin:0; font-size:15px; font-weight:600; }
+.advice-card ul { list-style:none; padding-left:0; display:grid; gap:10px; font-size:13px; line-height:1.8; }
 .section-note { font-size:12px; line-height:1.8; color:var(--text-muted); margin-top:12px; }
 .advice-card button { align-self:flex-start; margin-top:auto; padding-top:14px; border:0; background:none; color:var(--accent); font-size:13px; font-weight:500; cursor:pointer; }
 .advice-card button:disabled { color:var(--text-muted); cursor:default; opacity:.6; }
-.source-card { margin-top:20px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--card-bg); padding:16px; }
+.source-card { margin-top:18px; border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); padding:18px; }
 .source-card>header { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:12px; }
-.source-card h4 { margin:0 0 6px; font-size:14px; font-weight:500; }
+.source-card h4 { margin:0 0 6px; font-size:15px; font-weight:600; }
 .source-card a { color:var(--accent); font-size:13px; line-height:1.7; }
-.source-card button, .notice button { min-height:32px; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-control); padding:4px 12px; color:var(--text-body); font-size:13px; font-weight:500; line-height:20px; cursor:pointer; }
+.source-card button, .notice button { min-height:32px; background:var(--card-bg); border:1px solid var(--border); border-radius:999px; padding:4px 14px; color:var(--text-body); font-size:13px; font-weight:500; line-height:20px; cursor:pointer; }
 .source-card button:disabled { opacity:.5; }
 .image-toolbar { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:16px 0 12px; font-size:12px; color:var(--text-muted); }
-.image-toolbar button[aria-pressed=true] { color:var(--accent); border-color:var(--accent); }
+.image-toolbar button { min-width:32px; padding:4px 10px; }
+.image-toolbar button[aria-pressed=true] { color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
 .image-toolbar a { margin-left:auto; font-size:12px; }
 .image-caption { font-size:12px; color:var(--text-muted); margin-bottom:10px; }
-.guide-image { display:block; width:100%; height:auto; border-radius:var(--radius-control); background:var(--card-bg); }
+.guide-image { display:block; width:100%; height:auto; border-radius:var(--radius-tile); background:var(--surface-soft); }
 .original-text { margin-top:16px; font-size:13px; }
 .original-text summary { color:var(--text-muted); cursor:pointer; }
 .original-text p { margin-top:12px; line-height:1.8; overflow-wrap:anywhere; }
 .nte-guides button:focus-visible, .nte-guides a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
-@media(max-width:1050px) { .guides-layout { grid-template-columns:155px minmax(0,1fr); gap:16px; } .advice-grid { grid-template-columns:1fr; } }
+@media(max-width:1050px) { .advice-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .advice-card, .advice-card:nth-child(n+3) { grid-column:span 1; } .advice-card:last-child { grid-column:1/-1; } }
 @media(max-width:650px) {
   .guides-head { align-items:flex-start; }
   .catalog-count { line-height:1.6; }
-  .guides-layout { grid-template-columns:minmax(0,1fr); }
-  .role-list { display:flex; position:static; max-height:none; overflow-x:auto; padding-bottom:8px; }
-  .role-list button { flex-shrink:0; padding:8px; }
-  .role-list .guide-dot { display:none; }
+  .role-heading { flex-wrap:wrap; padding:14px; }
   .role-heading h3 span { font-size:12px; }
   .source-card { padding:14px; }
   .source-card>header { align-items:flex-start; }
@@ -171,6 +185,7 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
   .image-toolbar a { flex-basis:100%; margin-top:6px; }
   .search-label { min-width:100%; }
   .search-label input { min-width:0; }
-  .advice-card { padding:14px; }
+  .advice-grid { grid-template-columns:minmax(0,1fr); }
+  .advice-card, .advice-card:nth-child(n+3) { grid-column:1/-1; padding:14px; }
 }
 </style>

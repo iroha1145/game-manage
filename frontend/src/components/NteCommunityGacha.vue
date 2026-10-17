@@ -4,6 +4,7 @@ import { displayBeijing } from '../time.js'
 import { safeUrl } from '../calendar.js'
 import { finiteValue } from '../dashboard.js'
 import { vGlide } from '../motion.js'
+import { gachaRating, gachaTone, luckTone, officialPullIcon } from '../nte-charts.js'
 import InfoHint from './InfoHint.vue'
 
 const props = defineProps({ snap: { type: Object, default: null }, roles: { type: Array, default: () => [] }, imageMode:{type:Boolean,default:false} })
@@ -19,14 +20,12 @@ const show = value => known(value) ? value : '未知'
 const average = value => known(value) ? Number(value.toFixed(1)) : '未知'
 const scale = pool => known(pool?.guarantee) && pool.guarantee > 0 ? pool.guarantee : null
 const officialTitle = computed(() => !legacy.value && typeof props.snap?.payload?.luck_title === 'string' ? props.snap.payload.luck_title : '')
-const titleTone = computed(() => { const code = props.snap?.payload?.luck_type; return code >= 1 && code <= 5 ? 'short' : code >= 6 && code <= 10 ? 'medium' : code >= 11 && code <= 15 ? 'long' : 'unknown' })
+const titleTone = computed(() => luckTone(props.snap?.payload?.luck_type))
 const fetched = computed(() => props.snap?.fetched_at ? displayBeijing(props.snap.fetched_at) : '未提供')
 const roleIcons = computed(() => new Map(props.roles.map(role => [String(role.id), role.icon_url])))
 function icon(entry) {
   const id = String(entry.item_id || '')
-  const cdn = 'https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character'
-  const official = /^fork_[a-zA-Z0-9_-]+$/.test(id) ? `${cdn}/fork/${id}.png` : /^\d+$/.test(id) ? `${cdn}/tall/${id}.PNG` : null
-  for (const raw of [roleIcons.value.get(id), official]) {
+  for (const raw of [roleIcons.value.get(id), officialPullIcon(id)]) {
     const url = safeUrl(raw)
     if (url && !failedImages.has(raw) && !failedImages.has(url)) return url
   }
@@ -39,10 +38,7 @@ function barStyle(entry, pool) {
   return { width: `${Math.min(100, entry.pity / limit * 100)}%` }
 }
 // Verified against Tajiduo scard/main.149e4946.js: no local rarity thresholds.
-const rating = entry => ({ 1: '超欧', 2: '欧', 3: '非', 4: '超非' })[entry.lucky_type] || ''
-function tone(entry) {
-  return ({ 0: 'medium', 1: 'short', 2: 'short', 3: 'medium', 4: 'long' })[entry.lucky_type] || 'unknown'
-}
+const rating = gachaRating, tone = gachaTone
 function obtained(value) {
   if (typeof value !== 'string' || !value.trim()) return '时间未提供'
   const normalized = value.replace(' ', 'T')
@@ -93,69 +89,72 @@ function obtained(value) {
 </template>
 
 <style scoped>
-/* The rating hues follow the Tajiduo community page. Bars are tints of them on the card colour,
-   so the text on a bar stays readable without a shadow in both themes. */
-.community-stats { --bar-green:color-mix(in srgb,#04c8a3 50%,var(--card-bg)); --bar-yellow:color-mix(in srgb,#edbc49 50%,var(--card-bg)); --bar-red:color-mix(in srgb,#e55961 50%,var(--card-bg)); --rating-bg:var(--card-bg); --rating-short:#3aebc0; --rating-long:#ff7c86; --rating-medium:#f5d46e; min-width:0; color:var(--text); }
-:root[data-theme="light"] .community-stats { --bar-green:#8fdcc7; --bar-yellow:#f3cf73; --bar-red:#f2a1a7; --rating-short:#0b7d61; --rating-long:#c23c48; --rating-medium:#836000; }
+/* The rating hues follow the Tajiduo community page. Bars are tints of the
+   series colours on the card colour, so the text on a bar stays readable in
+   both themes; the rating words take the text-safe status colours. */
+.community-stats { --bar-short:color-mix(in srgb,var(--chart-3) 40%,var(--card-bg)); --bar-medium:color-mix(in srgb,var(--chart-4) 42%,var(--card-bg)); --bar-long:color-mix(in srgb,var(--chart-8) 36%,var(--card-bg)); min-width:0; color:var(--text); }
 
 /* Header: title, source tag and the official rating on one line, read time right. */
 .stats-header { position:relative; }
-.stats-header h2 { font-size:16px; line-height:24px; font-weight:500; }
-.source-tag { padding:0 6px; border-radius:var(--radius-chip); background:var(--overlay-3); color:var(--text-body); font-size:12px; font-weight:400; line-height:20px; }
-.luck-title { display:inline-flex; align-items:baseline; gap:6px; padding:1px 8px; border-radius:var(--radius-chip); color:var(--text); line-height:20px; }
+.stats-header h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.01em; }
+.source-tag { padding:0 8px; border-radius:var(--radius-chip); background:var(--overlay-3); color:var(--text-body); font-size:12px; font-weight:400; line-height:20px; }
+.luck-title { display:inline-flex; align-items:baseline; gap:6px; padding:1px 10px; border-radius:var(--radius-chip); color:var(--text); line-height:20px; }
 .luck-title small { font-size:12px; font-weight:400; }
-.luck-title strong { font-size:13px; font-weight:500; }
+.luck-title strong { font-size:13px; font-weight:600; }
 .luck-title.unknown { color:var(--text-muted); }
 .read-time time { color:var(--text-muted); font-variant-numeric:tabular-nums; }
 
-/* Pool totals: three compact tiles, count on the left, S stats stacked right. */
-.pool-overview { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap:8px; }
-.pool-stat { display:grid; grid-template-columns:1fr auto; grid-template-areas:"name name" "total stats"; align-items:end; gap:2px 12px; min-width:0; padding:12px 14px; border-radius:var(--radius-control); background:var(--surface-soft); }
-.pool-stat.active { background:var(--accent-soft); }
+/* Pool totals: a tile per pool, the count large on the left, S stats stacked right. */
+.pool-overview { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap:12px; }
+.pool-stat { display:grid; grid-template-columns:1fr auto; grid-template-areas:"name name" "total stats"; align-items:end; gap:4px 12px; min-width:0; padding:16px 18px; border-radius:var(--radius-tile); background:var(--surface-soft); }
+.pool-stat.active { background:linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 20%, var(--card-bg)), color-mix(in srgb, var(--game-vivid-2) 10%, var(--card-bg)) 85%); }
 .pool-stat h3 { grid-area:name; overflow:hidden; color:var(--text-muted); font-size:12px; font-weight:500; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
 .draw-total { grid-area:total; display:flex; align-items:baseline; gap:4px; }
-.draw-total strong { font-size:22px; line-height:28px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
-.draw-total > span { color:var(--text-muted); font-size:13px; }
-.pool-stat dl { grid-area:stats; display:grid; gap:1px; margin:0 0 3px; }
+.draw-total strong { font-size:32px; line-height:38px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.draw-total > span { color:var(--text-muted); font-size:14px; }
+.pool-stat dl { grid-area:stats; display:grid; gap:1px; margin:0 0 4px; }
 .pool-stat dl > div { display:flex; align-items:baseline; justify-content:flex-end; gap:8px; }
 .pool-stat dt { color:var(--text-muted); font-size:12px; line-height:18px; }
-.pool-stat dd { min-width:2.5em; margin:0; color:var(--text); font-size:13px; font-weight:500; line-height:18px; text-align:right; font-variant-numeric:tabular-nums; }
+.pool-stat dd { min-width:2.5em; margin:0; color:var(--text); font-size:13px; font-weight:600; line-height:18px; text-align:right; font-variant-numeric:tabular-nums; }
 
-/* S history: tabs and heading share one line; each pull is one ~34px row. */
-.history-panel { margin-top:20px; }
-.history-bar { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin-bottom:12px; }
-.history-bar h3 { margin-left:auto; font-size:14px; font-weight:500; white-space:nowrap; }
+/* S history: tabs and heading share one line; each pull is one ~36px row. */
+.history-panel { margin-top:22px; }
+.history-bar { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin-bottom:14px; }
+.history-bar h3 { margin-left:auto; font-size:14px; font-weight:600; white-space:nowrap; }
 .history-bar h3 span { margin-left:4px; color:var(--text-muted); font-size:12px; font-weight:400; }
-.pull-list { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
-.pull-row { display:grid; grid-template-columns:28px minmax(72px, 112px) minmax(0, 1fr) auto; align-items:center; gap:10px; min-width:0; min-height:32px; }
-.reward-icon { display:grid; place-items:center; width:28px; height:28px; overflow:hidden; border-radius:var(--radius-control); background:var(--accent-soft); }
+.pull-list { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.pull-row { display:grid; grid-template-columns:36px minmax(72px, 128px) minmax(0, 1fr) auto; align-items:center; gap:12px; min-width:0; min-height:36px; }
+.reward-icon { display:grid; place-items:center; width:36px; height:36px; overflow:hidden; border-radius:30%; background:linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 24%, var(--card-bg)), color-mix(in srgb, var(--game-vivid) 9%, var(--card-bg))); }
 .reward-icon img { width:100%; height:100%; object-fit:cover; }
-.reward-icon > span { color:var(--game-nte); font-size:12px; }
-.pull-name { min-width:0; overflow:hidden; color:var(--text); font-size:13px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.reward-icon > span { color:color-mix(in srgb, var(--game-vivid) 58%, var(--text)); font-size:12px; font-weight:600; }
+/* A picture the bot could not fetch is swapped for its name; keep that readable in the tile. */
+.reward-icon :deep(.render-missing-image) { display:-webkit-box; padding:0 3px; overflow:hidden; font-size:11px; line-height:1.2; text-align:center; overflow-wrap:anywhere; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.pull-name { min-width:0; overflow:hidden; color:var(--text); font-size:14px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
 .pull-time { color:var(--text-muted); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.bar-track { position:relative; height:26px; min-width:0; border-radius:var(--radius-control); background:var(--overlay-2); }
+.bar-track { position:relative; height:30px; min-width:0; border-radius:var(--radius-control); background:var(--track); }
 .pull-bar { position:absolute; inset:0 auto 0 0; height:100%; max-width:100%; border-radius:var(--radius-control); box-sizing:border-box; transition:width var(--duration-slow) var(--ease-smooth-out); }
-.bar-values { position:relative; display:flex; align-items:center; gap:4px; height:100%; padding:0 10px; color:var(--text); }
-.bar-values strong { font-size:15px; font-weight:500; line-height:1; font-variant-numeric:tabular-nums; }
+.bar-values { position:relative; display:flex; align-items:center; gap:4px; height:100%; padding:0 12px; color:var(--text); }
+.bar-values strong { font-size:15px; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; }
 .bar-values > span { font-size:12px; white-space:nowrap; }
-.bar-values .rating { margin-left:6px; padding:0 6px; border-radius:var(--radius-chip); background:var(--rating-bg); color:var(--text); font-size:12px; line-height:18px; }
-.rating.short { color:var(--rating-short); }.rating.long { color:var(--rating-long); }.rating.medium { color:var(--rating-medium); }
-.short { background-color:var(--bar-green); }.medium { background-color:var(--bar-yellow); }.long { background-color:var(--bar-red); }.unknown { color:var(--text-muted); background-color:var(--overlay-2); }
-.bar-legend { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin-top:12px; color:var(--text-muted); font-size:12px; }
-.bar-legend > span { display:flex; align-items:center; gap:5px; }
-.bar-legend i { width:7px; height:7px; border-radius:2px; }
+.bar-values .rating { margin-left:6px; padding:0 8px; border-radius:var(--radius-chip); background:var(--card-bg); color:var(--text); font-size:12px; font-weight:500; line-height:20px; }
+.rating.short { color:var(--success); }.rating.long { color:var(--danger); }.rating.medium { color:var(--stale-text); }
+.short { background-color:var(--bar-short); }.medium { background-color:var(--bar-medium); }.long { background-color:var(--bar-long); }.unknown { color:var(--text-muted); background-color:var(--overlay-2); }
+.bar-legend { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; margin-top:14px; color:var(--text-muted); font-size:12px; }
+.bar-legend > span { display:flex; align-items:center; gap:6px; }
+.bar-legend i { width:8px; height:8px; border-radius:3px; }
 .empty { padding:18px 0; color:var(--text-muted); font-size:13px; line-height:1.7; text-align:center; }
 @media (max-width:560px) {
-  .pool-overview { grid-template-columns:repeat(auto-fit, minmax(96px, 1fr)); gap:6px; }
-  .pool-stat { grid-template-columns:minmax(0, 1fr); grid-template-areas:"name" "total" "stats"; padding:10px 8px; }
+  .pool-overview { grid-template-columns:repeat(auto-fit, minmax(96px, 1fr)); gap:8px; }
+  .pool-stat { grid-template-columns:minmax(0, 1fr); grid-template-areas:"name" "total" "stats"; padding:12px 10px; }
+  .draw-total strong { font-size:26px; line-height:32px; }
   .pool-stat dl > div { justify-content:space-between; gap:4px; }
   .pool-stat dt { white-space:nowrap; }
   .pool-stat dd { min-width:0; }
   .history-bar h3 { margin-left:0; }
-  .pull-row { grid-template-columns:28px minmax(0, 1fr) auto; grid-template-areas:"icon name time" "icon bar bar"; gap:2px 10px; }
+  .pull-row { grid-template-columns:36px minmax(0, 1fr) auto; grid-template-areas:"icon name time" "icon bar bar"; gap:2px 10px; }
   .reward-icon { grid-area:icon; align-self:start; margin-top:2px; }
   .pull-name { grid-area:name; }
   .pull-time { grid-area:time; }
-  .bar-track { grid-area:bar; height:24px; }
+  .bar-track { grid-area:bar; height:28px; }
 }
 </style>
