@@ -1,17 +1,49 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { nextTick } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
-import { collectVersionCalendars } from '../calendar.js'
+import { calendarRange, collectVersionCalendars } from '../calendar.js'
 
 const Page = await loadVue(new URL('./CalendarPage.vue', import.meta.url))
 const Version = await loadVue(new URL('./VersionCalendarContent.vue', import.meta.url))
+const Timeline = await loadVue(new URL('./CalendarTimelineContent.vue', import.meta.url))
 const games = [{ game_id: 'nte', display_name: '异环' }]
 const snapshots = { nte: { events: { version: '1.4', payload: [
   { name: '跨年活动', version: '1.4', start_at: '2026-12-20T10:00:00+08:00', end_at: '2027-02-05T10:00:00+08:00' },
   { name: '异常日期', version: '1.4', start_at: '2027-02-05T10:00:00+08:00', end_at: '2026-12-20T10:00:00+08:00' },
   { name: '未公布日期', version: '1.4' },
 ] } } }
+
+test('switching game or range resets timeline scrolling but refreshing the same window preserves it', async t => {
+  const asOf=Date.parse('2026-10-17T12:00:00+08:00')
+  const event={id:'event',gameId:'nte',gameName:'异环',name:'活动',start_at:'2026-10-01',end_at:'2026-11-01'}
+  const props=reactive({events:[event],range:calendarRange(asOf,'month'),rangeMode:'month',asOf})
+  const root=mount(t,Timeline,props)
+  const viewport=nodes(root,'div').find(node=>node.props.class==='calendar-content')
+  viewport.scrollLeft=450;viewport.scrollTop=180
+  props.events=[{...event}];props.asOf+=60000;await nextTick()
+  assert.deepEqual([viewport.scrollLeft,viewport.scrollTop],[450,180])
+  props.events=[{...event,gameId:'wuthering_waves',gameName:'鸣潮'}];await nextTick()
+  assert.deepEqual([viewport.scrollLeft,viewport.scrollTop],[0,0])
+  viewport.scrollLeft=300;viewport.scrollTop=80
+  props.range=calendarRange(asOf,'fortnight');props.rangeMode='fortnight';await nextTick()
+  assert.deepEqual([viewport.scrollLeft,viewport.scrollTop],[0,0])
+})
+
+test('all three games illustrate undated activities without inventing a time bar or adding pictures to bot output', t => {
+  const asOf=Date.parse('2026-10-17T12:00:00+08:00')
+  for (const gameId of ['wuthering_waves','nte','endfield']) {
+    const event={id:gameId,gameId,gameName:gameId,name:'日期待定的活动',category:'角色活动',source_post_id:'notice'}
+    const snapshots={[gameId]:{news:{payload:[{id:'notice',images:[`https://example.com/${gameId}.jpg`]}]}}}
+    const root=mount(t,Timeline,{events:[event],snapshots,range:calendarRange(asOf,'month'),asOf})
+    const unplaced=nodes(root,'button').find(node=>node.props.class==='unplaced-event')
+    assert.equal(nodes(unplaced,'img')[0].props.src,`https://example.com/${gameId}.jpg`)
+    assert.match(content(unplaced),/日期待定的活动.*时间待定/)
+    assert.equal(nodes(root,'button').filter(node=>node.props.class?.includes('timeline-event')).length,0)
+    const image=mount(t,Timeline,{events:[event],snapshots,range:calendarRange(asOf,'month'),asOf,mode:'image'})
+    assert.equal(nodes(image,'img').length,0)
+  }
+})
 
 test('screen and image compact bars retain category, uncertain states and confirmed remaining days without detailed dates', t => {
   const asOf=Date.parse('2026-10-15T12:00:00+08:00')

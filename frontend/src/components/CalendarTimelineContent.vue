@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import GameIcon from './GameIcon.vue'
 import ArtworkImage from './ArtworkImage.vue'
 import { eventArtwork } from '../event-artwork.js'
@@ -8,6 +8,18 @@ import { presentationGroups, activityBoundaryDays } from '../calendar-presentati
 import { gameStyle, gameVars } from '../dashboard.js'
 const props = defineProps({ events:{type:Array,default:()=>[]}, snapshots:{type:Object,default:()=>({})}, range:{type:Object,default:null}, asOf:{type:Number,required:true}, rangeMode:{type:String,default:'rolling'}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showUnplaced:{type:Boolean,default:true} })
 const emit = defineEmits(['select'])
+const viewport = ref(null)
+// A different game or date window starts at its own origin. Refreshing the same data
+// and the minute clock preserve the position the reader has chosen.
+watch([
+  () => props.range?.start, () => props.range?.end, () => props.rangeMode,
+  () => [...new Set(props.events.map(event => event.gameId || event.game_id || ''))].sort().join(':'),
+], () => {
+  if (props.mode !== 'image' && viewport.value) {
+    viewport.value.scrollLeft = 0
+    viewport.value.scrollTop = 0
+  }
+}, { flush:'post' })
 const today = computed(() => beijingDayStart(props.asOf))
 const todayPosition = computed(() => props.range ? (props.asOf-props.range.start)/(props.range.end-props.range.start)*100 : 0)
 const todayVisible = computed(() => props.range && props.asOf>=props.range.start && props.asOf<props.range.end)
@@ -37,7 +49,7 @@ const eventDescription = event => [event.name||'未命名活动',event.gameName,
 function selectEvent(event, interaction) { if (props.mode!=='image') emit('select',event,interaction) }
 </script>
 <template>
-  <div class="calendar-content" :class="{ 'image-mode': mode === 'image' }">
+  <div ref="viewport" class="calendar-content" :class="{ 'image-mode': mode === 'image' }">
 <div v-if="range" class="timeline-scroll" :tabindex="mode === 'image' ? undefined : 0" role="region" aria-label="活动日期横轴，可横向和纵向滚动" :style="{ '--day-count': range.days.length, '--timeline-min': `${184 + range.days.length * (rangeMode === 'fortnight' ? 39 : 26)}px` }">
         <div :key="range.start" class="timeline-canvas t-panel">
           <div class="timeline-header" data-render-block><div class="timeline-label header-label"><span>游戏</span><small v-if="mode === 'image'">{{ rangeMode === 'month' ? '当月时间轴' : rangeMode === 'rolling' ? '近 30 天时间轴' : rangeMode === 'version' ? '版本活动时间轴' : '14 天时间轴' }}</small></div><div class="date-track"><div v-for="day in range.days" :key="day.timestamp" class="date-cell" :class="{ weekend: day.weekend, 'is-today': day.timestamp === today, 'is-month-start': day.day === 1, 'is-boundary': boundaryDays.has(day.timestamp) }" :title="`${day.month} 月 ${day.day} 日`"><small>{{ day.weekday }}</small><strong><template v-if="day.day===1 && mode==='image'">{{ day.month }}/<br>1</template><template v-else>{{ day.day === 1 ? `${day.month}/1` : day.day }}</template></strong><span v-if="day.timestamp === today" class="day-today">今天</span></div></div></div>
@@ -60,13 +72,13 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
         </div>
       </div>
     <p v-if="!range && !events.length" class="calendar-empty">{{ emptyTitle }}</p>
-<section v-if="undated.length || invalid.length" class="calendar-unplaced" aria-label="待确认的时间"><div class="unplaced-heading"><h2>待确认的时间</h2></div><div class="unplaced-grid"><div v-for="bucket in [{ title: '日期未提供', events: undated }, { title: '日期异常', events: invalid }]" v-show="bucket.events.length" :key="bucket.title" class="unplaced-bucket"><h3>{{ bucket.title }} <span>{{ bucket.events.length }}</span></h3><component :is="mode === 'image' ? 'article' : 'button'" v-for="event in bucket.events" :key="event.id" data-render-block :type="mode === 'image' ? undefined : 'button'" class="unplaced-event" :aria-label="`查看活动详情：${event.name || '未命名活动'}`" @click="selectEvent(event, $event)"><span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.category }} · {{ stateLabel(event) }}</small></span></component></div></div></section>
+<section v-if="undated.length || invalid.length" class="calendar-unplaced" aria-label="待确认的时间"><div class="unplaced-heading"><h2>待确认的时间</h2></div><div class="unplaced-grid"><div v-for="bucket in [{ title: '日期未提供', events: undated }, { title: '日期异常', events: invalid }]" v-show="bucket.events.length" :key="bucket.title" class="unplaced-bucket"><h3>{{ bucket.title }} <span>{{ bucket.events.length }}</span></h3><component :is="mode === 'image' ? 'article' : 'button'" v-for="event in bucket.events" :key="event.id" data-render-block :type="mode === 'image' ? undefined : 'button'" class="unplaced-event" :aria-label="`查看活动详情：${event.name || '未命名活动'}`" @click="selectEvent(event, $event)"><ArtworkImage v-if="mode !== 'image'" class="unplaced-artwork" :candidates="eventArtwork(event, snapshots)" decorative /><span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.category }} · {{ stateLabel(event) }}</small></span></component></div></div></section>
   </div>
 </template>
 <style scoped>
 .timeline-scroll { overflow:visible; flex:none; min-height:140px; scrollbar-color: var(--scrollbar) var(--bg); scrollbar-width: thin; }
 .timeline-canvas { min-width: var(--timeline-min); }
-.timeline-header, .timeline-group { display: grid; grid-template-columns: 184px minmax(0, 1fr); }
+.timeline-header, .timeline-group { display: grid; grid-template-columns: var(--timeline-label-width) minmax(0, 1fr); }
 /* The date header stays put over the bars that scroll beneath it. */
 .timeline-header { position: sticky; top: 0; z-index: 5; background: var(--card-bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .timeline-label { position: sticky; left: 0; z-index: 3; background: var(--card-bg); border-right: 1px solid var(--border); }
@@ -139,11 +151,14 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .unplaced-bucket h3 { font-size: 12px; color: var(--text-muted); margin: 0 0 10px; font-weight: 500; }
 .unplaced-bucket h3 span { margin-left: 6px; color: var(--text); }
 .unplaced-event { transition:background-color var(--duration-quick) var(--ease-smooth-out); display:flex; justify-content:space-between; gap:20px; align-items:center; padding:8px 0; width:100%; border:0; border-top:1px solid var(--overlay-3); color:var(--text); background:transparent; text-align:left; }
-.unplaced-event > span:first-child { display:flex; flex-wrap:wrap; align-items:center; gap:3px 8px; }
+.unplaced-event > span { display:flex; flex-wrap:wrap; align-items:center; gap:3px 8px; }
+.calendar-content:not(.image-mode) .unplaced-event > span { min-width:0; overflow-wrap:anywhere; }
+.unplaced-artwork { width:64px; height:48px; flex:none; border-radius:8px; }
+.unplaced-event:has(.unplaced-artwork) { justify-content:flex-start; gap:10px; min-height:64px; }
 .unplaced-event strong { font-weight: 500; font-size: 13px; }
 .unplaced-event small { color: var(--text-muted); font-size: 12px; }
 
-.calendar-content { min-width:0; display:flex; flex-direction:column; flex:1; min-height:0; }
+.calendar-content { --timeline-label-width:184px; min-width:0; display:flex; flex-direction:column; flex:1; min-height:0; }
 .calendar-content:not(.image-mode) { overflow:auto; }
 .calendar-unplaced { margin:12px 16px; }
 .calendar-content button { cursor:pointer; font-family:inherit; }
@@ -164,6 +179,12 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .image-mode .calendar-unplaced { margin:12px 0; }
 
 /* Screen banners retain their real date width; the left shade protects labels over any artwork. */
+.calendar-content:not(.image-mode) .group-track { overflow:clip; }
+.calendar-content:not(.image-mode) .timeline-event:not(.is-short):not(.is-point) { overflow:clip; }
+.calendar-content:not(.image-mode) .timeline-event:not(.is-short) .event-summary { position:sticky; left:calc(var(--timeline-label-width) + 8px); max-width:min(300px,calc(var(--calendar-width,100vw) - var(--timeline-label-width) - 34px)); }
+.calendar-content:not(.image-mode) .timeline-event:not(.is-short):has(.event-artwork) .event-summary { padding:3px 5px; border-radius:5px; background:rgba(7,13,22,.64); }
+.calendar-content:not(.image-mode) .group-label > .game-monogram,.calendar-content:not(.image-mode) .group-label > div { position:sticky; top:94px; }
+.calendar-content:not(.image-mode) .calendar-unplaced { position:sticky; left:16px; flex:none; }
 .calendar-content:not(.image-mode) .timeline-group { border-top:8px solid var(--surface-soft); }
 .calendar-content:not(.image-mode) .group-track { padding:8px 0; }
 .group-category { display:block; margin-top:7px; color:var(--game-accent); font-size:12px; font-weight:600; line-height:1.5; }
@@ -185,13 +206,15 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .calendar-content:not(.image-mode) .timeline-event.is-ended:has(.event-artwork) { opacity:.88; }
 
 @media(max-width:760px) {
-  .timeline-header,.timeline-group { grid-template-columns:142px minmax(0,1fr); }
+  .calendar-content { --timeline-label-width:142px; }
+  .calendar-content:not(.image-mode) { --timeline-label-width:124px; }
   .header-label { padding:15px; }
   .group-label { padding:0 10px; gap:7px; }
   .game-monogram { width:24px; height:24px; font-size:12px; }
   .group-label strong { font-size:12px; }
   .calendar-unplaced { padding:18px; }
   .unplaced-event { gap:10px; align-items:start; }
+  .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) :is(.event-category,.event-status,.event-remaining) { font-size:12px; }
 }
 @media(prefers-reduced-motion:reduce) { .timeline-event { transition:none; } }
 </style>

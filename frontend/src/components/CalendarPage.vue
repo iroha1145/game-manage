@@ -33,10 +33,13 @@ const agendaElement = ref(null)
 let selectedTrigger = null
 const boardElement = ref(null)
 const boardTop = ref(240)
+const boardWidth = ref(0)
 let layoutObserver
 function fitWindow() {
   if (typeof window === 'undefined' || !boardElement.value?.getBoundingClientRect) return
-  boardTop.value = Math.round(boardElement.value.getBoundingClientRect().top + window.scrollY)
+  const bounds = boardElement.value.getBoundingClientRect()
+  boardTop.value = Math.round(bounds.top + window.scrollY)
+  boardWidth.value = Math.round(bounds.width)
 }
 let timer
 onMounted(() => {
@@ -129,7 +132,7 @@ async function closeDetail() {
     </header>
 
     <div class="calendar-layout">
-      <section ref="boardElement" class="calendar-board" aria-label="游戏活动时间轴" :aria-busy="loading" :style="{'--calendar-top':`${boardTop}px`}">
+      <section ref="boardElement" class="calendar-board" aria-label="游戏活动时间轴" :aria-busy="loading" :style="{'--calendar-top':`${boardTop}px`, '--calendar-width':boardWidth ? `${boardWidth}px` : undefined}">
         <div class="calendar-toolbar">
           <div class="calendar-navigation">
             <div v-if="mode !== 'version'" class="calendar-arrows"><button type="button" aria-label="上一时间范围" @click="shift(-1)"><AppIcon name="chevron" :size="15" class="previous-arrow" /></button><button type="button" aria-label="下一时间范围" @click="shift(1)"><AppIcon name="chevron" :size="15" class="next-arrow" /></button></div>
@@ -286,6 +289,8 @@ async function closeDetail() {
   .calendar-filters { justify-content: space-between; flex-wrap:wrap; width: 100%; }
   .range-toggle { flex:1 1 100%; }
   .range-toggle > button { flex:1; }
+  .range-toggle > button,.calendar-arrows button,.today-button,.detail-close { min-height:44px; }
+  .calendar-arrows button,.detail-close { min-width:44px; }
   .calendar-meta { padding: 0 16px 16px; flex-direction: column; }
   .calendar-detail { padding: 18px; }
   .calendar-detail dl { grid-template-columns: 1fr; }
