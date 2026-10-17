@@ -5,7 +5,6 @@ import { vGlide } from '../motion.js'
 import { lazyPage } from '../lazy-page.js'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
-import SourceStatusPanel from './SourceStatusPanel.vue'
 import AnnouncementList from './AnnouncementList.vue'
 import NteDataCard from './NteDataCard.vue'
 import NteAssetsPanel from './NteAssetsPanel.vue'
@@ -25,7 +24,6 @@ const props = defineProps({
   cloudRole: String,
   cloudScope: Object,
   isAdmin: Boolean,
-  showSourceStatus: { type: Boolean, default: false },
   esportsBrowse: Object,
   game: { type: Object, required: true },
   externalSnapshots: { type: Object, required: true },
@@ -103,7 +101,6 @@ function capProps(cap) {
       >
         未配置凭据
       </span>
-      <SourceStatusPanel v-if="showSourceStatus" :game="game" :collection="collectionStatus" />
       <button
         type="button"
         class="ui-button refresh-btn"
