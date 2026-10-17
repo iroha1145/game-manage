@@ -15,7 +15,7 @@ const props = defineProps({ snapshot: {type:Object,required:true} })
 // The whole page is an image: components that ask for image mode (GameIcon in the calendar) get it for every kind.
 provide('wuwaImageMode', true)
 const data = computed(() => props.snapshot.display_data)
-const gameTheme = computed(() => ({ '--game-accent': gameStyle(props.snapshot.game).color }))
+const gameTheme = computed(() => { const style = gameStyle(props.snapshot.game); return { '--game-accent': style.color, '--game-vivid': style.vivid, '--game-vivid-2': style.vivid2 } })
 const calendars = computed(() => props.snapshot.kind === 'calendar' ? collectVersionCalendars(data.value.games, data.value.snapshots, '', Date.parse(props.snapshot.as_of)) : [])
 </script>
 <template>

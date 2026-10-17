@@ -90,7 +90,7 @@ function capProps(cap) {
 </script>
 
 <template>
-  <section class="game-card game-theme" :class="`game-${game.game_id}`" :style="{ '--game-accent': style.color }">
+  <section class="game-card game-theme" :class="`game-${game.game_id}`" :style="{ '--game-accent': style.color, '--game-vivid': style.vivid, '--game-vivid-2': style.vivid2 }">
     <div v-if="errorNotice" class="error-bar" role="alert">
       {{ errorNotice }}
     </div>

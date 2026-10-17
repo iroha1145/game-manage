@@ -5,16 +5,17 @@ import { capabilityLabel } from './cloud-display.js'
 
 const PUBLIC_CAPS = new Set(['events', 'announcement', 'news', 'teams', 'esports'])
 export const GAME_STYLE = {
-  wuthering_waves: { mark: '鸣', icon: '/game-icons/wuthering_waves-mark.svg', iconLight: '/game-icons/wuthering_waves-mark-light.svg', color: 'var(--game-wuwa)', english: 'WUTHERING WAVES', resource: '结晶波片' },
-  nte: { mark: '异', icon: '/game-icons/nte-mark.svg', iconLight: '/game-icons/nte-mark-light.svg', color: 'var(--game-nte)', english: 'NEVERNESS TO EVERNESS', resource: '本性像素' },
-  league_of_legends: { mark: 'L', icon: '/game-icons/league_of_legends-mark.svg', iconLight: '/game-icons/league_of_legends-mark-light.svg', color: 'var(--game-lol)', english: 'LEAGUE OF LEGENDS' },
-  endfield: { mark: '终', icon: '/game-icons/endfield-mark.svg', iconLight: '/game-icons/endfield-mark-light.svg', color: 'var(--game-endfield)', english: 'ARKNIGHTS: ENDFIELD', resource: '理智' },
+  wuthering_waves: { mark: '鸣', icon: '/game-icons/wuthering_waves-mark.svg', iconLight: '/game-icons/wuthering_waves-mark-light.svg', color: 'var(--game-wuwa)', vivid: 'var(--game-wuwa-vivid)', vivid2: 'var(--game-wuwa-2)', english: 'WUTHERING WAVES', resource: '结晶波片' },
+  nte: { mark: '异', icon: '/game-icons/nte-mark.svg', iconLight: '/game-icons/nte-mark-light.svg', color: 'var(--game-nte)', vivid: 'var(--game-nte-vivid)', vivid2: 'var(--game-nte-2)', english: 'NEVERNESS TO EVERNESS', resource: '本性像素' },
+  league_of_legends: { mark: 'L', icon: '/game-icons/league_of_legends-mark.svg', iconLight: '/game-icons/league_of_legends-mark-light.svg', color: 'var(--game-lol)', vivid: 'var(--game-lol-vivid)', vivid2: 'var(--game-lol-2)', english: 'LEAGUE OF LEGENDS' },
+  endfield: { mark: '终', icon: '/game-icons/endfield-mark.svg', iconLight: '/game-icons/endfield-mark-light.svg', color: 'var(--game-endfield)', vivid: 'var(--game-endfield-vivid)', vivid2: 'var(--game-endfield-2)', english: 'ARKNIGHTS: ENDFIELD', resource: '理智' },
 }
 // Versioned private payloads: an old snapshot shape is shown as missing, never misread.
 const VERSIONED_GAMES = new Set(['nte', 'endfield'])
 export const ENDFIELD_SPECIAL_POOL = 'E_CharacterGachaPoolType_Special'
-// Colours are theme variables (style.css), so each game keeps a readable accent by day and by night.
-export const gameStyle = (id) => GAME_STYLE[id] || { mark: '游', color: 'var(--text-muted)', english: 'MY GAME', resource: '体力' }
+// Colours are theme variables (style.css): `color` is the ink step that reads as text by day and by night;
+// `vivid` and `vivid2` are the brighter pair for fills, art and charts.
+export const gameStyle = (id) => GAME_STYLE[id] || { mark: '游', color: 'var(--text-muted)', vivid: 'var(--accent-fill)', vivid2: 'var(--chart-7)', english: 'MY GAME', resource: '体力' }
 export const finiteValue = (value) => typeof value === 'number' && Number.isFinite(value) ? value : null
 // Numbers, or numeric strings (some sources send stats as text); anything else is unknown.
 const numberOf = (value) => typeof value === 'number' || (typeof value === 'string' && value.trim() !== '') ? finiteValue(Number(value)) : null
