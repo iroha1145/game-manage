@@ -261,7 +261,7 @@ button.ov-next:active { transform:scale(var(--scale-small)); }
 
 @media(max-width:1180px) { .ov-top { grid-template-columns:repeat(2, minmax(0, 1fr)); }.ov-hero { grid-column:1 / -1; grid-row:auto; } }
 @media(max-width:940px) { .game-summary-grid,.game-summary-grid.many { grid-template-columns:1fr; } }
-@media(max-width:720px) { .ov-top { grid-template-columns:1fr; gap:14px; }.ov-hero { padding:24px 20px; min-height:300px; }.ov-hero-copy { max-width:100%; }.ov-date { font-size:32px; line-height:38px; }.ov-hero :deep(.game-art) { opacity:.55; }.event-card { width:236px; }.ov-news { padding:18px 16px 8px; } }
+@media(max-width:720px) { .ov-top { grid-template-columns:1fr; gap:14px; }.ov-hero { padding:24px 20px; min-height:300px; }.ov-hero-copy { max-width:100%; }.ov-date { font-size:32px; line-height:38px; }.ov-hero :deep(.game-art) { opacity:.42; }.ov-hero :deep(.game-art svg) { inset:auto -38% -22% auto; width:150%; height:auto; aspect-ratio:3 / 2; }.event-card { width:236px; }.ov-news { padding:18px 16px 8px; } }
 @media(max-width:600px) { .summary-number { font-size:28px; line-height:34px; }.overview-footer { flex-wrap:wrap; } }
 @media(max-width:400px) { .ov-news .section-heading { flex-wrap:wrap; gap:8px; }.news-filters { width:100%; margin-left:0; } }
 @media(prefers-reduced-motion:reduce) { .game-summary:active,.event-card:active,button.ov-next:active { transform:none; } }
