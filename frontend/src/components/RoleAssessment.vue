@@ -96,23 +96,28 @@ function load(row){name.value=row.data.name;itemsJson.value=json(row.data.items)
  </section>
 </template>
 <style scoped>
-.personal-assessment{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
-.personal-assessment h4{margin:0;color:var(--text);font-size:14px;font-weight:500}
+/* A tone-step well: the score first, the editor and its inputs as white controls. */
+.personal-assessment{padding:16px 18px;border-radius:var(--radius-tile);background:var(--surface-soft);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.personal-assessment h4{margin:0;color:var(--text);font-size:15px;font-weight:600;letter-spacing:-.01em}
 .personal-assessment h5{margin:12px 0 4px;color:var(--text);font-size:13px;font-weight:500}
 .personal-assessment strong{font-weight:500}
 .personal-assessment p{margin:6px 0}
 .assessment-editor label{display:block;margin:8px 0}
 .assessment-editor textarea{display:block;width:100%;min-width:0;box-sizing:border-box;font:12px/1.6 var(--font-mono);background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control);padding:8px 10px}
-.personal-assessment button,.personal-assessment select,.personal-assessment input:not([type=checkbox]){margin:3px;padding:4px 10px;min-height:32px;color:var(--text);background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-control);font-size:13px}
-.personal-assessment button{color:var(--text-body);font-weight:500;line-height:20px}
+.personal-assessment button,.personal-assessment select,.personal-assessment input:not([type=checkbox]){margin:3px;padding:4px 12px;min-height:32px;color:var(--text);background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-control);font-size:13px}
+.personal-assessment button{border-radius:999px;color:var(--text-body);font-weight:500;line-height:20px}
 .personal-assessment input[type=checkbox]{margin:3px 6px 3px 3px}
 @media(hover:hover) and (pointer:fine){.personal-assessment button:not(:disabled):hover{background:var(--button-hover-bg);color:var(--text)}}
 @media(pointer:coarse){.personal-assessment button,.personal-assessment select,.personal-assessment input:not([type=checkbox]){min-height:44px}}
 .personal-assessment table{border-collapse:collapse;font-size:13px;width:100%;text-align:left}
 .personal-assessment th{color:var(--text-muted);font-size:12px;font-weight:500}
-.personal-assessment pre{margin:6px 0;padding:8px 10px;border-radius:var(--radius-control);background:var(--surface-soft);font:12px/1.6 var(--font-mono);white-space:pre-wrap}
+.personal-assessment pre{margin:6px 0;padding:8px 10px;border-radius:var(--radius-control);background:var(--card-bg);font:12px/1.6 var(--font-mono);white-space:pre-wrap}
 .field-row,.stat-row{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
-.equipment-input{border-radius:var(--radius-well);background:var(--surface-soft);padding:12px;margin:8px 0}
+.equipment-input{border-radius:var(--radius-well);background:var(--card-bg);padding:12px;margin:8px 0}
 .stat-row input{width:100px}
+/* The score line leads the result: big, with the reason in the normal size beside it. */
+.assessment-result{margin-top:10px;padding:12px 14px;border-radius:var(--radius-well);background:var(--card-bg)}
+.assessment-result>p:first-child{margin-top:0;color:var(--text);font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.02em}
+.assessment-result>p:first-child span{color:var(--text-muted);font-size:13px;font-weight:400;letter-spacing:0}
 .assessment-result td,.assessment-result th{padding:4px 8px 4px 0;border-bottom:1px solid var(--border)}
 </style>

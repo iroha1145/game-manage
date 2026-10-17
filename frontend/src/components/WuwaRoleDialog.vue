@@ -18,17 +18,19 @@ const { dialog, closing, requestClose, backdropDown, backdropClick, animationEnd
 </template>
 
 <style scoped>
-.wuwa-role-dialog { position: fixed; inset: 0; margin: auto; width: min(1180px, calc(100vw - 48px)); max-width: none; max-height: calc(100dvh - 48px); padding: 0; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--card-bg); color: var(--text); box-shadow: var(--popover-shadow); }
+.wuwa-role-dialog { position: fixed; inset: 0; margin: auto; width: min(1180px, calc(100vw - 48px)); max-width: none; max-height: calc(100dvh - 48px); padding: 0; border: 1px solid var(--card-border); border-radius: var(--radius-shell); background: var(--card-bg); color: var(--text); box-shadow: var(--popover-shadow); }
 .wuwa-role-dialog[open] { display: flex; flex-direction: column; }
-.wuwa-role-dialog::backdrop { background: var(--scrim); }
-.role-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 26px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.role-dialog-heading h2 { font-size: 18px; font-weight: 500; margin: 2px 0 0; }
-.role-dialog-body { overflow-y: auto; overscroll-behavior: contain; padding: 20px 26px 28px; min-height: 0; }
-/* The dialog is the card: panels inside it lose their own frame. */
-.role-dialog-body :deep(:is(.wuwa-panel, .cap-card)) { padding: 0; border: 0; border-radius: 0; background: none; }
+.wuwa-role-dialog::backdrop { background: var(--scrim); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.role-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 26px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.role-dialog-heading h2 { font-size: 19px; line-height: 28px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
+.role-dialog-body { overflow-y: auto; overscroll-behavior: contain; padding: 22px 26px 28px; min-height: 0; }
+/* The dialog is the card: the page it hosts loses its own frame. Cards a page
+   draws for itself (a bento inside) keep theirs. */
+.role-dialog-body > :deep(:is(.wuwa-panel, .cap-card)),
+.role-dialog-body > :deep(.wuwa-board > .wuwa-panel) { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 .role-dialog-body :deep(.wuwa-panel .cap-title > :where(h2, h3)) { font-size: 16px; line-height: 24px; }
 @media (max-width: 640px) {
-  .wuwa-role-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+  .wuwa-role-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: var(--radius-card); }
   .role-dialog-heading, .role-dialog-body { padding: 16px; }
   .role-dialog-heading h2 { font-size: 18px; }
 }

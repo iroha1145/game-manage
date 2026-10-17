@@ -4,7 +4,13 @@ const cloudMode = isCloudMode()
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
 import { value, list, stamp } from '../wuwa-display.js'
+import { poolPulls, rarityTotals, recentGold } from '../wuwa-charts.js'
+import { namedIcon } from '../wuwa-icons.js'
 import WuwaDrawTable from './WuwaDrawTable.vue'
+import BarChart from './BarChart.vue'
+import DonutChart from './DonutChart.vue'
+import HRail from './HRail.vue'
+import WuwaIcon from './WuwaIcon.vue'
 import InfoHint from './InfoHint.vue'
 import WuwaGachaImport from './WuwaGachaImport.vue'
 import WuwaGachaSummary from './WuwaGachaSummary.vue'
@@ -121,11 +127,27 @@ function sourceTime(v) {
   const match = typeof v === 'string' ? v.match(SOURCE_TIME) : null
   return match ? `${match[1]} ${match[2]}` : value(v)
 }
+// Rarity colours: fills use the vivid gold, never the text ink.
 const RARITY_SERIES = {
-  3: 'var(--text-faint)',
-  4: 'var(--chart-5)',
-  5: 'var(--game-wuwa)',
+  3: 'color-mix(in srgb, var(--text-faint) 45%, var(--track))',
+  4: 'var(--chart-7)',
+  5: 'var(--wuwa-vivid)',
 }
+const rarityParts = computed(() =>
+  rarityTotals(archive.value?.pools).map(({ rarity, value }) => ({
+    label: rarity === 'unknown' ? '稀有度未知' : `${rarity} 星`,
+    value,
+    color: RARITY_SERIES[rarity] || 'var(--border-strong)',
+  })),
+)
+const pullBars = computed(() => poolPulls(archive.value?.pools))
+const goldShare = computed(() => {
+  const total = archive.value?.total, gold = archive.value?.gold_total
+  return typeof total === 'number' && total > 0 && typeof gold === 'number' ? `${((gold / total) * 100).toFixed(1)}%` : null
+})
+// The five-star rail: newest first, the latest one saturated. Icons only on the web page.
+const goldRail = computed(() => recentGold(archive.value?.gold, 12))
+const goldIcon = (row) => namedIcon(row.resource_type === '武器' ? 'weapons' : 'roles', row.name)
 function rarities(pool) {
   return Object.entries(pool.rarity_distribution || {})
     .map(([rarity, count]) => ({
@@ -219,6 +241,27 @@ function rarities(pool) {
           >未完整获取卡池 {{ archive.coverage.failed_pools.join('、') }}</span
         >
       </p></details>
+      <div v-if="list(archive.pools).length" class="wuwa-bento gacha-overview">
+        <section class="wuwa-panel span-4 is-hero gacha-total">
+          <header class="cap-title"><h3>已导入记录</h3></header>
+          <p class="gacha-count"><b>{{ value(archive.total) }}</b><small>抽</small></p>
+          <ul class="chip-list">
+            <li class="chip">五星 <b>{{ value(archive.gold_total) }}</b></li>
+            <li v-if="goldShare" class="chip">五星占比 <b>{{ goldShare }}</b></li>
+          </ul>
+        </section>
+        <section class="wuwa-panel span-4">
+          <header class="cap-title"><h3>稀有度分布</h3></header>
+          <DonutChart v-if="rarityParts.length" :segments="rarityParts" label="已导入记录的稀有度分布" :size="112" :stroke="14">
+            <small class="ring-cap">稀有度</small>
+          </DonutChart>
+          <p v-else class="wuwa-muted">暂无稀有度记录</p>
+        </section>
+        <section class="wuwa-panel span-4">
+          <header class="cap-title"><h3>各池抽数</h3></header>
+          <BarChart :items="pullBars" label="各卡池已导入抽数" unit=" 抽" :height="112" />
+        </section>
+      </div>
       <WuwaGachaSummary :archive="archive" :image-mode="imageMode" />
       <section class="wuwa-section">
         <h3 class="wuwa-subhead">
@@ -267,7 +310,16 @@ function rarities(pool) {
           >
         </h3>
         <template v-if="imageMode"><section v-for="group in goldGroups" :key="group.key" class="wuwa-section wuwa-pool-records"><h4 class="wuwa-subhead">{{ group.name }}</h4><WuwaDrawTable :rows="group.rows" :pool-names="poolNames" /></section><p v-if="!goldGroups.length" class="empty">暂无五星记录</p></template>
-        <WuwaDrawTable v-else :rows="list(archive.gold)" :pool-names="poolNames" />
+        <HRail v-else-if="goldRail.length" label="最近五星记录" class="gold-rail">
+          <article v-for="(row, i) in goldRail" :key="row.draw_id || i" class="gold-card" :class="{ 'is-latest': i === 0 }">
+            <WuwaIcon :src="goldIcon(row)" :name="row.name || '五星'" size="large" />
+            <strong>{{ row.name || '名称未知' }}</strong>
+            <span class="wuwa-meta">{{ poolNames[row.pool] || value(row.pool) }}</span>
+            <span class="wuwa-meta">{{ sourceTime(row.time) }}</span>
+            <span v-if="i === 0" class="badge gold-latest">最近一次</span>
+          </article>
+        </HRail>
+        <WuwaDrawTable v-if="!imageMode" :rows="list(archive.gold)" :pool-names="poolNames" />
       </section>
       <details open class="wuwa-section wuwa-records-all">
         <summary>{{ imageMode ? '已导入记录（本次读取）' : '全部记录（当前页）' }}</summary>

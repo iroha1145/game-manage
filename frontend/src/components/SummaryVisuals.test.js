@@ -9,7 +9,11 @@ test('Wuwa stamina and periodic progress are visible without opening a dialog', 
     stamina: { payload: { current: 0, maximum: 240 } },
     progress: { payload: [{ name: '每日活跃', cur: 60, total: 100 }, { name: '未知挑战', cur: null, total: 30 }] },
   } })
-  assert.ok(nodes(root, 'progress').some(n => n.props.value === 0 && n.props.max === 240))
+  // The stamina picture is a ring gauge (role=meter) instead of a native progress bar; it still carries 0 of 240.
+  const meters = []
+  const walk = n => { if (n.props.role === 'meter') meters.push(n); n.children.forEach(walk) }
+  walk(root)
+  assert.ok(meters.some(n => n.props['aria-valuenow'] === 0 && n.props['aria-valuemax'] === 240))
   assert.match(content(root), /每日活跃/)
   assert.match(content(root), /未知 \/ 30/)
   assert.equal(nodes(root, 'dialog').length, 0)

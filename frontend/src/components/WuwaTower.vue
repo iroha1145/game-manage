@@ -2,7 +2,9 @@
 import { computed, ref } from 'vue'
 import { list, value, stamp } from '../wuwa-display.js'
 import { vGlide } from '../motion.js'
+import { share } from '../chart-math.js'
 import InfoHint from './InfoHint.vue'
+import RingGauge from './RingGauge.vue'
 const props = defineProps({
   roleNames: { type: Object, default: () => ({}) },
   data: { default: null },
@@ -18,6 +20,10 @@ const hasMissingFloorCaps = computed(() =>
     list(area.floor_list).some((floor) => floor.max_star == null),
   ),
 )
+const percent = (area) => {
+  const r = share(area.star, area.max_star)
+  return r == null ? '—' : `${Math.round(r * 100)}%`
+}
 // Star glyphs only when both counts are small whole numbers; otherwise text.
 const glyphs = (floor) => {
   const got = Number(floor.star),
@@ -69,13 +75,26 @@ const glyphs = (floor) => {
           :key="i"
           class="wuwa-tile"
         >
-          <header class="wuwa-tile-head">
-            <h3>{{ area.area_name || `区域 ${i + 1}` }}</h3>
-            <span v-if="area.max_star != null" class="wuwa-tile-end wuwa-gold"
-              >{{ value(area.star) }} / {{ value(area.max_star) }} 星</span
-            ><span v-else-if="area.star != null" class="wuwa-tile-end wuwa-gold"
-              >已得 {{ value(area.star) }} 星</span
+          <header class="wuwa-tile-head tower-area-head">
+            <RingGauge
+              v-if="area.max_star != null && area.star != null"
+              :value="area.star"
+              :max="area.max_star"
+              :label="`${area.area_name || `区域 ${i + 1}`} 星数`"
+              :size="48"
+              :stroke="5"
+              color="var(--wuwa-vivid)"
             >
+              <span class="ring-pct">{{ percent(area) }}</span>
+            </RingGauge>
+            <div class="tower-area-title">
+              <h3>{{ area.area_name || `区域 ${i + 1}` }}</h3>
+              <span v-if="area.max_star != null" class="wuwa-gold"
+                >{{ value(area.star) }} / {{ value(area.max_star) }} 星</span
+              ><span v-else-if="area.star != null" class="wuwa-gold"
+                >已得 {{ value(area.star) }} 星</span
+              >
+            </div>
           </header>
           <table v-if="list(area.floor_list).length" class="data-table wuwa-floors">
             <tbody>

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { value, list, stamp, sourceDateTime, starCount } from './wuwa-display.js'
+import { value, count, list, stamp, sourceDateTime, starCount } from './wuwa-display.js'
 
 test('unknown presentation never turns zero or false into missing data', () => {
   assert.equal(value(0), 0)
@@ -36,4 +36,12 @@ test('star counts are whole numbers from one to six', () => {
   assert.equal(starCount(5), 5)
   assert.equal(starCount('4'), 4)
   for (const v of [0, 7, 4.5, null, undefined, 'x', -1]) assert.equal(starCount(v), 0, String(v))
+})
+
+test('counts group digits but leave zero, text and unknown as value() shows them', () => {
+  assert.equal(count(1288), '1,288')
+  assert.equal(count(0), '0')
+  assert.equal(count(96.4), '96.4')
+  assert.equal(count(null), '未知')
+  assert.equal(count('20%'), '20%')
 })

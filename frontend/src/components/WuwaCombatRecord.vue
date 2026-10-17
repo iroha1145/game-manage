@@ -1,7 +1,8 @@
 <script setup>
 import { computed } from 'vue'
 import { list, value } from '../wuwa-display.js'
-import { percentOf } from '../dashboard.js'
+import { share } from '../chart-math.js'
+import RingGauge from './RingGauge.vue'
 import WuwaTower from './WuwaTower.vue'
 import WuwaStatus from './WuwaStatus.vue'
 import WuwaFields from './WuwaFields.vue'
@@ -29,6 +30,13 @@ const bossGroups = computed(() => {
   }
   return [...groups.values()]
 })
+const amount = (v) => (typeof v === 'number' ? v.toLocaleString('zh-CN') : value(v))
+const percent = (done, cap) => {
+  const r = share(done, cap)
+  return r == null ? '—' : `${Math.round(r * 100)}%`
+}
+// The two halves of a challenge as parts of its score; unknown halves take no room.
+const halfShare = (half) => (typeof half.score === 'number' && half.score > 0 ? half.score : 0)
 const roleName = (role) =>
   role.role_name ||
   role.name ||
@@ -36,7 +44,7 @@ const roleName = (role) =>
   `角色 ${role.role_id ?? '未知'}`
 </script>
 <template>
-  <div class="wuwa-stack">
+  <div class="wuwa-board">
     <p v-if="snap?.stale || snap?.error" class="wuwa-banner">
       <WuwaStatus :snap="snap" />
     </p>
@@ -67,6 +75,7 @@ const roleName = (role) =>
           class="wuwa-tile wuwa-disclosure"
         >
           <summary>
+            <span class="boss-mark" aria-hidden="true">{{ group.name.slice(0, 1) }}</span>
             <strong>{{ group.name }}</strong>
             <span class="wuwa-meta">{{ group.records.length }} 条记录</span>
           </summary>
@@ -106,20 +115,25 @@ const roleName = (role) =>
           :key="i"
           class="wuwa-slash-zone"
         >
-          <div class="bar-row wuwa-slash-total">
-            <span class="k">{{
-              zone.difficulty_name || `难度 ${value(zone.difficulty)}`
-            }}</span
-            ><span class="meter"
-              ><i
-                :style="{
-                  '--pct': (percentOf(zone.all_score, zone.max_score) ?? 0) + '%',
-                  '--series': 'var(--game-wuwa)',
-                }"
-              ></i></span
-            ><span class="v"
-              >{{ value(zone.all_score) }}<small> / {{ value(zone.max_score) }}</small></span
+          <div class="slash-zone-head">
+            <RingGauge
+              :value="zone.all_score"
+              :max="zone.max_score"
+              :label="zone.difficulty_name || `难度 ${value(zone.difficulty)}`"
+              :size="88"
+              :stroke="9"
+              color="var(--wuwa-vivid)"
             >
+              <span class="ring-pct">{{ percent(zone.all_score, zone.max_score) }}</span>
+            </RingGauge>
+            <div class="slash-copy">
+              <span class="k">{{
+                zone.difficulty_name || `难度 ${value(zone.difficulty)}`
+              }}</span>
+              <strong class="slash-score"
+                >{{ amount(zone.all_score) }}<small> / {{ amount(zone.max_score) }}</small></strong
+              >
+            </div>
           </div>
           <div class="wuwa-tiles wuwa-slash">
             <section
@@ -131,19 +145,35 @@ const roleName = (role) =>
                 <h3>{{ challenge.challenge_name }}</h3>
                 <span class="wuwa-tile-end wuwa-score"
                   ><span class="wuwa-meta">得分 </span
-                  >{{ value(challenge.score) }}</span
+                  >{{ amount(challenge.score) }}</span
                 ><span class="badge wuwa-rank"
                   >评级 {{ value(challenge.rank) }}</span
                 >
               </header>
+              <div
+                v-if="list(challenge.half_list).filter((half) => halfShare(half)).length > 1"
+                class="stack-bar"
+                aria-hidden="true"
+              >
+                <i
+                  v-for="(half, k) in list(challenge.half_list)"
+                  v-show="halfShare(half)"
+                  :key="k"
+                  :style="{ flex: halfShare(half), '--series': `var(--chart-${k + 1})` }"
+                ></i>
+              </div>
               <ul class="wuwa-halves">
-                <li v-for="(half, k) in list(challenge.half_list)" :key="k">
+                <li
+                  v-for="(half, k) in list(challenge.half_list)"
+                  :key="k"
+                  :style="{ '--series': `var(--chart-${k + 1})` }"
+                >
                   <span class="wuwa-half-name">{{
                     half.half_name || `第 ${k + 1} 半场`
                   }}</span
                   ><b class="wuwa-half-score"
                     ><span class="wuwa-meta">得分 </span
-                    >{{ value(half.score) }}</b
+                    >{{ amount(half.score) }}</b
                   >
                   <ul v-if="list(half.role_list).length" class="chip-list">
                     <li

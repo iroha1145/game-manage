@@ -18,9 +18,9 @@ const tokens = computed(() => tokenizeGuide(props.text, props.sectionKey, props.
 </template>
 <style scoped>
 .guide-visual-flow { line-height: 2; padding: 12px 0; color: var(--text); overflow-wrap: anywhere; }
-.guide-entity { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; vertical-align: middle; gap: 4px; padding: 4px; margin: 3px; font-size: 12px; line-height: 1.5; text-align: center; max-width: 126px; }
+.guide-entity { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; vertical-align: middle; gap: 4px; padding: 6px 8px; margin: 3px; border-radius: var(--radius-well); background: var(--card-bg); font-size: 12px; line-height: 1.5; text-align: center; max-width: 126px; }
 .guide-connector { font-size: 13px; color: var(--text-muted); white-space: pre-wrap; }
-.visual-echo_stats .guide-entity { flex-direction: row; padding: 2px 4px; }
+.visual-echo_stats .guide-entity { flex-direction: row; padding: 3px 8px 3px 4px; }
 .visual-skill_priority .guide-entity { min-width: 72px; }
 @media (max-width:640px) { .guide-entity { max-width: 112px; margin: 2px; padding: 4px; } }
 </style>
