@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
 import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { invalidateSession } from '../http-client.js'
 const Assessment=await loadVue(new URL('./RoleAssessment.vue',import.meta.url))
 const Details=await loadVue(new URL('./NteEquippedDetails.vue',import.meta.url))
 
@@ -171,4 +172,20 @@ test('a read of the old character neither fills the new character nor frees the 
   assert.equal(button('保存配置').props.disabled, true, 'the old read finished and freed the new action')
   await answer('POST /score', scored('9.00')); await newScore; await settle()
   assert.match(content(root), /已评分.*9.00/); assert.equal(button('保存配置').props.disabled, false)
+})
+
+test('a request cut off by the session ending neither shows its error nor frees the action that follows', async t => {
+  const { root, button, press, click, settle, answer } = editor(t, { held: ['POST /score', 'GET /equipped'] })
+  await click(open)
+  const cutOff = press('评价当前输入'); await settle()
+  invalidateSession(); await settle()
+  assert.ok(button(open), 'the editor closes with the session')
+  await click(open)
+  const next = press('读取已采集装备副本'); await settle()
+  assert.equal(button('保存配置').props.disabled, true)
+  await answer('POST /score', scored('10.00')); await cutOff; await settle()
+  assert.doesNotMatch(content(root), /会话或角色已变化|已评分/)
+  assert.equal(button('保存配置').props.disabled, true, 'the cut-off request finished and freed the action that follows')
+  await answer('GET /equipped', { configuration: { items: [equipment('100')], observed_at: null }, assessment: scored('7.00') }); await next; await settle()
+  assert.match(content(root), /已评分.*7.00/); assert.equal(button('保存配置').props.disabled, false)
 })
