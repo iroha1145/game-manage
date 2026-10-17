@@ -76,7 +76,7 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
       <span v-if="snap?.stale && !imageMode" class="badge badge-stale">缓存已过期</span>
       <span v-if="payload && !legacy && capability !== 'teams'" class="owned-count">
         <span class="owned-label">拥有</span><b>{{ display(data.owned_count) }}</b><small>/ {{ display(data.total) }}</small>
-        <span v-if="ownedShare !== null" class="owned-ring" aria-hidden="true"><RingGauge :value="ownedShare" :max="100" label="拥有" :size="36" :stroke="5" color="var(--chart-1)" /></span>
+        <span v-if="ownedShare !== null" class="owned-ring" aria-hidden="true"><RingGauge :value="ownedShare" :max="100" label="拥有" :size="36" :stroke="5" color="var(--game-vivid)" /></span>
       </span>
       <span v-if="payload && !legacy && capability === 'vehicles' && (data.show_name || data.show_id)" class="chip">展示载具：{{ data.show_name || data.show_id }}</span>
       <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}</span>

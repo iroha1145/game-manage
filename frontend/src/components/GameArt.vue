@@ -8,11 +8,12 @@ const props = defineProps({ variant: { type: String, default: 'orbit' } })
 const id = useId()
 const uid = name => `${name}-${id}`
 const motif = computed(() => ({ wuthering_waves: 'waves', nte: 'halo', league_of_legends: 'hex', endfield: 'grid' })[props.variant] || props.variant)
+// The planets sit in the right half of the frame: hero text runs along the left.
 const planets = [
-  { game: 'wuwa', x: 168, y: 118, r: 17, delay: 0 },
-  { game: 'nte', x: 418, y: 158, r: 13, delay: -2 },
-  { game: 'lol', x: 262, y: 252, r: 10, delay: -4 },
-  { game: 'endfield', x: 362, y: 84, r: 8, delay: -6 },
+  { game: 'wuwa', x: 236, y: 110, r: 17, delay: 0 },
+  { game: 'nte', x: 438, y: 162, r: 13, delay: -2 },
+  { game: 'lol', x: 300, y: 254, r: 10, delay: -4 },
+  { game: 'endfield', x: 392, y: 82, r: 8, delay: -6 },
 ]
 // Hexagon corners for a flat-topped cell of radius r at (x, y).
 const hex = (x, y, r) => Array.from({ length: 6 }, (_, i) => {
@@ -36,12 +37,12 @@ const cells = [[300, 120, 1], [345, 146, 0], [345, 94, 2], [390, 120, 0], [255, 
           <circle v-for="p in planets" :key="`g-${p.game}`" :cx="p.x" :cy="p.y" :r="p.r * 4.2" :style="{ fill: `var(--game-${p.game}-vivid)` }" opacity=".22" class="art-blur" />
         </g>
         <g class="plx-layer" style="--plx-range:14px" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.2">
-          <ellipse cx="300" cy="170" rx="112" ry="44" transform="rotate(-16 300 170)" />
-          <ellipse cx="300" cy="170" rx="168" ry="70" transform="rotate(-16 300 170)" />
-          <ellipse cx="300" cy="170" rx="226" ry="98" transform="rotate(-16 300 170)" stroke="rgba(255,255,255,.1)" />
+          <ellipse cx="336" cy="170" rx="112" ry="44" transform="rotate(-16 336 170)" />
+          <ellipse cx="336" cy="170" rx="168" ry="70" transform="rotate(-16 336 170)" />
+          <ellipse cx="336" cy="170" rx="226" ry="98" transform="rotate(-16 336 170)" stroke="rgba(255,255,255,.1)" />
         </g>
-        <circle cx="300" cy="170" r="70" :fill="`url(#${uid('glow')})`" opacity=".55" />
-        <circle cx="300" cy="170" r="16" fill="#fff" opacity=".92" />
+        <circle cx="336" cy="170" r="70" :fill="`url(#${uid('glow')})`" opacity=".55" />
+        <circle cx="336" cy="170" r="16" fill="#fff" opacity=".92" />
         <g class="plx-layer" style="--plx-range:36px">
           <g v-for="p in planets" :key="p.game" class="art-float" :style="{ animationDelay: `${p.delay}s` }">
             <circle :cx="p.x" :cy="p.y" :r="p.r" :fill="`url(#${uid(`planet-${p.game}`)})`" />

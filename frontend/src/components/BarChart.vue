@@ -10,7 +10,7 @@ const props = defineProps({
   height: { type: Number, default: 128 },
   // The bar the story is about keeps the series colour; the others step back.
   highlight: { type: Number, default: -1 },
-  color: { type: String, default: 'var(--chart-1)' },
+  color: { type: String, default: 'var(--game-vivid, var(--chart-1))' },
 })
 const known = value => typeof value === 'number' && Number.isFinite(value)
 const top = computed(() => niceCeil(Math.max(0, ...props.items.filter(item => known(item.value)).map(item => item.value))))

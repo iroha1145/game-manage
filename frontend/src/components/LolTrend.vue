@@ -1,7 +1,7 @@
 <script setup>
 import { computed, useId } from 'vue'
 import { parseBeijingTime } from '../calendar.js'
-const props = defineProps({ rows: { type: Array, default: () => [] }, metric: String, label: String, min: { type: Number, default: 0 }, max: { type: Number, default: 100 }, unit: { type: String, default: '' }, color: { type: String, default: 'var(--chart-1)' } })
+const props = defineProps({ rows: { type: Array, default: () => [] }, metric: String, label: String, min: { type: Number, default: 0 }, max: { type: Number, default: 100 }, unit: { type: String, default: '' }, color: { type: String, default: 'var(--game-vivid, var(--chart-1))' } })
 const gradient = `lol-trend-${useId()}`
 const ordered = computed(() => props.rows.filter(row => parseBeijingTime(row.date) != null).toSorted((a, b) => a.date.localeCompare(b.date)))
 const points = computed(() => {

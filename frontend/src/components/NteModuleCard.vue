@@ -120,7 +120,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
     <div v-else-if="capability === 'progress'" class="progress-body">
       <div class="progress-hero">
         <progress v-if="progress.ring.known" class="sr-only" :value="progress.ring.current" :max="progress.ring.total" aria-label="成就总进度" />
-        <span aria-hidden="true"><RingGauge v-bind="ring(progress.ring)" label="成就总进度" :size="108" :stroke="11" color="var(--chart-1)"><b class="ring-pct large">{{ percent(progress.ring) }}</b></RingGauge></span>
+        <span aria-hidden="true"><RingGauge v-bind="ring(progress.ring)" label="成就总进度" :size="108" :stroke="11" color="var(--game-vivid)"><b class="ring-pct large">{{ percent(progress.ring) }}</b></RingGauge></span>
         <div class="hero-copy">
           <span class="kicker">成就</span>
           <strong class="big">{{ show(p.completed) }}<small>/ {{ show(p.total) }}</small></strong>
@@ -156,7 +156,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
       <p v-if="!areas.length" class="module-state">暂无探索数据</p>
       <ul v-else class="area-grid">
         <li v-for="area in areas" :key="area.key" class="area-tile">
-          <RingGauge v-bind="ring(area)" :label="area.name || '区域探索'" :size="68" :stroke="8" color="var(--chart-1)"><b class="ring-pct">{{ percent(area) }}</b></RingGauge>
+          <RingGauge v-bind="ring(area)" :label="area.name || '区域探索'" :size="68" :stroke="8" color="var(--game-vivid)"><b class="ring-pct">{{ percent(area) }}</b></RingGauge>
           <span class="own-copy"><strong class="area-name" :title="area.name">{{ show(area.name) }}</strong><span class="mid">{{ show(area.current) }}<small>/ {{ show(area.total) }}</small></span><em v-if="area.over" class="target-met">已达目标</em></span>
           <ul v-if="area.details.length" class="bar-list area-details">
             <li v-for="item in area.details" :key="item.key" class="bar-row" :title="item.name"><span class="k">{{ show(item.name) }}</span><span class="meter" aria-hidden="true"><i :style="{ '--pct': `${item.pct ?? 0}%` }" /></span><span class="v">{{ show(item.current) }}<small>/{{ show(item.total) }}</small></span></li>
@@ -167,7 +167,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 
     <div v-else-if="capability === 'realestate' || capability === 'vehicles'" class="assets-body">
       <div class="own-head">
-        <RingGauge v-bind="ring(owned)" label="拥有" :size="64" :stroke="7" color="var(--chart-1)"><b class="ring-pct">{{ percent(owned) }}</b></RingGauge>
+        <RingGauge v-bind="ring(owned)" label="拥有" :size="64" :stroke="7" color="var(--game-vivid)"><b class="ring-pct">{{ percent(owned) }}</b></RingGauge>
         <span class="own-copy"><span class="kicker">拥有</span><strong class="big">{{ show(p.owned_count) }}<small>/ {{ show(p.total) }}</small></strong></span>
         <span v-if="capability === 'vehicles' && (p.show_name || p.show_id)" class="chip game">展示载具：{{ p.show_name || p.show_id }}</span>
       </div>
@@ -219,7 +219,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
         <div v-if="luckSegments.length" class="gacha-luck"><span class="kicker">出 S 评价分布</span><DonutChart :segments="luckSegments" label="出 S 评价分布" unit=" 次" :size="96" :stroke="14"><b class="donut-total">{{ gacha.pulls }}</b><small>次出 S</small></DonutChart></div>
         <ul v-if="gacha.pools.some(pool => pool.reach)" class="gacha-reach">
           <li v-for="pool in gacha.pools.filter(item => item.reach)" :key="pool.key" class="own-ring">
-            <RingGauge v-bind="ring(pool.reach)" :label="`${pool.name}出 S 平均抽数`" :size="64" :stroke="7" color="var(--chart-1)"><b class="ring-pct">{{ percent(pool.reach) }}</b></RingGauge>
+            <RingGauge v-bind="ring(pool.reach)" :label="`${pool.name}出 S 平均抽数`" :size="64" :stroke="7" color="var(--game-vivid)"><b class="ring-pct">{{ percent(pool.reach) }}</b></RingGauge>
             <span class="own-copy"><span class="kicker">{{ pool.name }}</span><strong class="mid">{{ pool.average }}<small>/ 保底 {{ pool.guarantee }} 抽</small></strong></span>
           </li>
         </ul>

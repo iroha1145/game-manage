@@ -8,7 +8,7 @@ const props = defineProps({
   label: { type: String, required: true },
   unit: { type: String, default: '' },
   height: { type: Number, default: 96 },
-  color: { type: String, default: 'var(--chart-1)' },
+  color: { type: String, default: 'var(--game-vivid, var(--chart-1))' },
   area: { type: Boolean, default: true },
   // A fixed domain (0–100 for a rate) keeps small swings from looking dramatic.
   min: { type: Number, default: null },

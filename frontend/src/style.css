@@ -81,7 +81,8 @@
 }
 /* Define derived tokens at the game boundary so dialogs and controls inherit
    the game colour instead of root's already-resolved aliases. --game-vivid and
-   --game-vivid-2 come from gameStyle() next to --game-accent. */
+   --game-vivid-2 come from gameStyle() next to --game-accent. The --chart-*
+   order stays as validated: a single-series chart takes --game-vivid itself. */
 .game-theme {
   --accent: var(--game-accent);
   --accent-fill: var(--game-accent);
@@ -93,7 +94,6 @@
   --nav-active-bg: var(--accent-soft);
   --nav-game-active-bg: var(--accent-soft);
   --ring: 0 0 0 3px color-mix(in srgb, var(--game-accent) 25%, transparent);
-  --chart-1: var(--game-vivid, var(--game-accent));
 }
 * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
 /* The floating top bar must not cover whatever keyboard focus scrolls into view. */

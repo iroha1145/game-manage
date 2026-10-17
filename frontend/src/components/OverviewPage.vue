@@ -170,7 +170,9 @@ const accentVars = style => ({ '--game-color': style.color, '--game-accent': sty
 .ov-top { display:grid; grid-template-columns:minmax(0, 1.75fr) minmax(280px, 1fr); grid-template-rows:auto auto; gap:20px; }
 .ov-hero { position:relative; grid-row:span 2; min-height:340px; overflow:hidden; isolation:isolate; padding:30px 32px; border-radius:var(--radius-card); color:#fff; background:radial-gradient(120% 140% at 0% 0%, #2a2f4d 0%, #151827 46%, #0f111a 100%); box-shadow:0 1px 2px rgba(20, 24, 40, .2), 0 28px 60px -30px rgba(15, 17, 26, .7); }
 .ov-hero::after { content:''; position:absolute; inset:0; z-index:-1; opacity:.18; mix-blend-mode:overlay; pointer-events:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
-.ov-hero :deep(.game-art) { z-index:-1; }
+.ov-hero :deep(.game-art) { z-index:-2; }
+/* A dark wash under the copy keeps the text readable whatever the artwork puts behind it. */
+.ov-hero::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg, rgba(15, 17, 26, .78) 0%, rgba(15, 17, 26, .45) 38%, transparent 64%); }
 .ov-hero-copy { position:relative; display:flex; flex-direction:column; align-items:flex-start; height:100%; max-width:min(440px, 62%); }
 .ov-title { display:inline-flex; align-items:center; padding:3px 12px; border-radius:999px; background:rgba(255, 255, 255, .12); border:1px solid rgba(255, 255, 255, .16); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); font-size:13px; line-height:20px; font-weight:500; letter-spacing:0; }
 .ov-date { margin-top:18px; font-size:40px; line-height:46px; font-weight:600; letter-spacing:-.03em; text-wrap:balance; }

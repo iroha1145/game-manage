@@ -102,7 +102,7 @@ const medals = computed(() => [
 
     <template v-else-if="capability === 'progress'">
       <div class="progress-top">
-        <span aria-hidden="true"><RingGauge v-bind="ring(data.completed, data.total)" label="成就总进度" :size="120" :stroke="12" color="var(--chart-1)"><b class="ring-pct large">{{ centre(data.completed, data.total) }}</b></RingGauge></span>
+        <span aria-hidden="true"><RingGauge v-bind="ring(data.completed, data.total)" label="成就总进度" :size="120" :stroke="12" color="var(--game-vivid)"><b class="ring-pct large">{{ centre(data.completed, data.total) }}</b></RingGauge></span>
         <div class="progress-copy">
           <span class="k">已达成</span>
           <progress v-if="measurable(data.completed, data.total)" class="sr-only" :value="data.completed" :max="data.total" aria-label="成就总进度" />
@@ -125,7 +125,7 @@ const medals = computed(() => [
       <ul v-else class="area-grid">
         <li v-for="(area, i) in data.areas" :key="area.id ?? i" class="area">
           <div class="area-head">
-            <span aria-hidden="true"><RingGauge v-bind="ring(area.current, area.total)" :label="area.name || '区域探索'" :size="72" :stroke="8" color="var(--chart-1)"><b class="ring-pct">{{ centre(area.current, area.total) }}</b></RingGauge></span>
+            <span aria-hidden="true"><RingGauge v-bind="ring(area.current, area.total)" :label="area.name || '区域探索'" :size="72" :stroke="8" color="var(--game-vivid)"><b class="ring-pct">{{ centre(area.current, area.total) }}</b></RingGauge></span>
             <div class="area-row">
               <strong class="k" :title="area.name">{{ display(area.name) }}</strong>
               <progress v-if="measurable(area.current, area.total)" class="sr-only" :value="area.current" :max="area.total" :aria-label="area.name || '区域探索'" />
@@ -229,7 +229,7 @@ progress.sr-only { position: absolute; width: 1px; height: 1px; }
 .area-details { display: grid; gap: 2px; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--border); list-style: none; font-size: 12px; line-height: 20px; }
 .area-details > li { display: grid; grid-template-columns: 64px minmax(40px, 1fr) auto; align-items: center; gap: 10px; min-width: 0; }
 .area-details .k { overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
-.area-details .meter { height: 6px; --series: var(--chart-1); }
+.area-details .meter { height: 6px; --series: var(--game-vivid); }
 .area-details .v { color: var(--text-body); text-align: right; font-variant-numeric: tabular-nums; }
 .area-details .v small { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
 .target-met { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: var(--radius-chip); background: var(--success-bg); color: var(--success); font-size: 12px; font-weight: 500; line-height: 18px; }
