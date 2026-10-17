@@ -406,11 +406,11 @@ def test_role_continuations_use_stable_selected_id_not_roster_or_ambiguous_name(
     assert role_snapshot('wuthering_waves',row,NOW,detail=detail) is None
 
 
-async def test_migrated_kind_without_snapshot_never_uses_legacy_template():
+async def test_payload_without_shared_snapshot_is_refused():
     renderer=BrowserRenderer()
-    renderer.render_summary=lambda *args:pytest.fail('legacy render called for migrated content')
-    with pytest.raises(RenderingUnavailable,match='shared_content_unavailable'):
-        await renderer.render_summary_async(SCOPE,QueryResult({'text':'角色','shared_required':True},None,'ok',False),budget_seconds=1)
+    for payload in ({'text':'角色','shared_required':True},{'text':'角色'}):
+        with pytest.raises(RenderingUnavailable,match='shared_content_unavailable'):
+            await renderer.render_summary_async(SCOPE,QueryResult(payload,None,'ok',False),budget_seconds=1)
 
 
 async def test_hung_context_cleanup_recycles_browser_with_bounded_wait():

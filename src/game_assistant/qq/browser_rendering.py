@@ -1,7 +1,6 @@
 """Built shared Vue components in isolated Chromium contexts; no network/profile.
 
 Browser and font installation are deployment prerequisites, never runtime downloads.
-The legacy renderer remains available only for kinds not migrated to shared Vue.
 """
 import asyncio
 from io import BytesIO
@@ -236,9 +235,7 @@ class BrowserRenderer(SummaryRenderer):
     async def render_summary_async(self, scope, result, *, budget_seconds):
         deadline=time.monotonic()+min(10,budget_seconds)
         snapshot=result.payload.get('render_snapshot')
-        if snapshot is None:
-            if result.payload.get('shared_required'):raise RenderingUnavailable('qq_browser_shared_content_unavailable')
-            return await asyncio.to_thread(self.render_summary,scope,result)
+        if snapshot is None:raise RenderingUnavailable('qq_browser_shared_content_unavailable')
         if not self.enabled:raise RenderingUnavailable(self.disabled_reason or 'qq_browser_disabled')
         snapshot=validate_snapshot(snapshot)
         self._check_font()

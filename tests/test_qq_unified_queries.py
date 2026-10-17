@@ -308,27 +308,6 @@ def test_long_overview_keeps_every_section_in_one_bounded_document():
     assert len(first)<=1800 and 'page' not in card
 
 
-async def test_actual_presentation_renders_overview_and_six_roles():
-    from io import BytesIO
-    from PIL import Image
-    from game_assistant.qq.rendering import SummaryRenderer
-    from tests.qq_test_fonts import cjk_font_path
-    font=cjk_font_path()
-    query=CachedQuery()
-    for game,provider,account in [('wuthering_waves','kuro','ww'),('nte','tajiduo','nte'),('endfield','hypergryph','hg'),('endfield','skland','sk')]:
-        payload={'base':{'name':'森空岛玩家','level':50}} if provider=='skland' else {'nickname':'测试玩家','level':80}
-        query.add(game,provider,account,{'account':payload})
-    query.data[('ww','roles')]=QueryResult([{'name':f'角色{n}','level':80,'attribute':'衍射','chain':0} for n in range(7)],'2026-10-14T00:00:00Z','ok',None)
-    api=service(query)
-    renderer=SummaryRenderer(font_path=font)
-    for command,game in [('overview',None),('roles','wuthering_waves')]:
-        context={};reply=api.query(IDENTITY,command,game,image_context=context)
-        png=renderer.render_summary(AccountScope('u','ww','default-role'),QueryResult({'card':context['card']},None,'ok',None))
-        image=Image.open(BytesIO(png))
-        assert image.width<=1080 and image.height<=16000 and len(png)<=524288
-        assert len(reply['text'])<=1800 and 'page' not in context['card']
-
-
 async def test_unlink_and_relink_same_user_still_invalidates_inflight_private_card(tmp_path):
     from game_assistant.identity.store import IdentityStore
     from game_assistant.qq.bindings import QqBindingService

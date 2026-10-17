@@ -1,16 +1,15 @@
-"""Synthetic Endfield reports: provider isolation, uncertainty, and full images."""
+"""Synthetic Endfield reports: provider isolation, uncertainty, and full documents."""
 from copy import deepcopy
 from dataclasses import asdict
 from io import BytesIO
 from types import SimpleNamespace
 
-from PIL import Image, ImageDraw
+from PIL import Image
 import pytest
 from pydantic import ValidationError
 
 from game_assistant.accounts.models import QueryResult
 from game_assistant.qq.cards import card_to_text, validate_card_document
-from game_assistant.qq.card_rendering import render_card
 from game_assistant.qq.commands import parse_command
 from game_assistant.qq.endfield_presentation import (
     overview_document, training_document, operator_document,
@@ -19,7 +18,6 @@ from game_assistant.qq.endfield_presentation import (
 from game_assistant.qq.presentation import long_document
 from game_assistant.qq.query_routes import QueryBody
 from tests.test_qq_unified_queries import CachedQuery, IDENTITY, service, no_external_network
-from tests.qq_test_fonts import cjk_font
 
 NOW = '2026-10-15T02:30:00+00:00'
 
@@ -159,36 +157,12 @@ async def test_endfield_render_rechecks_secondary_scope_before_returning_image()
     assert 'image' not in result and '变更' in result['text']
 
 
-@pytest.mark.parametrize('kind', ['overview','operator','training','regions','ship','gacha'])
-def test_six_synthetic_images_meet_transport_limits_without_network(kind,monkeypatch):
-    import socket
-    monkeypatch.setattr(socket,'create_connection',lambda *args,**kwargs:pytest.fail('unexpected network'))
-    builders={'overview':lambda:overview_document(snapshot()),'operator':lambda:operator_document(snapshot(),'陈千语'),
-              'training':lambda:training_document(snapshot()),'regions':lambda:regions_document(snapshot()),
-              'ship':lambda:ship_document(snapshot()),'gacha':lambda:gacha_document(snapshot(synthetic_gacha()))}
-    card=long_document(builders[kind]())
-    data=render_card(card,font=cjk_font(),budget_seconds=10)
-    image=Image.open(BytesIO(data))
-    assert image.width==1080 and image.width*image.height<=16_000_000 and len(data)<=1_048_576
-    with pytest.raises(ValueError,match='pixel_limit'):
-        render_card(card,font=cjk_font(),max_pixels=100,budget_seconds=10)
-
-
-def test_full_roster_grid_keeps_all_names_and_fixed_field_baselines(monkeypatch):
+def test_full_roster_keeps_all_names():
     source=synthetic_account(60)
     source['operators'][1]['name']='合成的较长干员名称用于检验两行布局'
     card=long_document(training_document(snapshot(source)))
-    drawn=[];original=ImageDraw.ImageDraw.text
-    def capture(self,position,text,*args,**kwargs):
-        drawn.append((position,text,kwargs['font'].size))
-        return original(self,position,text,*args,**kwargs)
-    monkeypatch.setattr(ImageDraw.ImageDraw,'text',capture)
-    data=render_card(card,font=cjk_font(),budget_seconds=10)
-    assert len(card['sections'][1]['rows'])==60 and '合成干员59' in [item[1] for item in drawn]
-    positions=[position[1] for position,text,size in drawn if text.startswith('等级 ')][:4]
-    assert len(set(positions))==1
-    assert min(size for _,_,size in drawn)>=22
-    assert Image.open(BytesIO(data)).height>2400
+    rows=card['sections'][1]['rows']
+    assert len(rows)==60 and '合成干员59' in [row['title'] for row in rows]
 
 
 def test_unrenderable_large_roster_has_explicit_limit_notice():
@@ -197,11 +171,10 @@ def test_unrenderable_large_roster_has_explicit_limit_notice():
     assert len(card['sections'][1]['rows'])<=256
 
 
-def test_public_operator_catalog_matches_name_after_unmapped_game_id_and_renders(monkeypatch):
+def test_public_operator_catalog_matches_name_after_unmapped_game_id():
     from game_assistant.qq.assets import PublicAssetCache, sanitize_image
     from game_assistant.qq.public_asset_catalog import CATALOG
     from game_assistant.qq.presentation import image_ref
-    from game_assistant.qq.card_rendering_v3 import EndfieldLayout
     cache=PublicAssetCache();catalog=CATALOG['games']['endfield']['role']
     marker=BytesIO();Image.new('RGB',(120,120),(12,94,163)).save(marker,format='PNG')
     refs={}
@@ -217,15 +190,6 @@ def test_public_operator_catalog_matches_name_after_unmapped_game_id_and_renders
     detail=operator_document(snapshot(source),'佩丽卡',cache)
     assert detail['image']==image_ref(cache,'endfield','portrait','佩丽卡')
     assert detail['image']!=refs['佩丽卡']
-    loaded=[];original=EndfieldLayout.avatar
-    def avatar(self,ref,*args,**kwargs):
-        original(self,ref,*args,**kwargs)
-        if ref in refs.values() and self.images.get(ref) is not None:loaded.append(ref)
-    monkeypatch.setattr(EndfieldLayout,'avatar',avatar)
-    data=render_card(card,font=cjk_font(),budget_seconds=10,asset_cache=cache)
-    assert set(loaded)==set(refs.values())
-    colors=Image.open(BytesIO(data)).convert('RGB').getcolors(16_000_000)
-    assert any(color==(12,94,163) for _,color in colors)
 
 
 def test_ambiguous_endministrator_never_chooses_a_gender_but_explicit_variant_is_allowed():

@@ -1,6 +1,6 @@
 import asyncio
 from io import BytesIO
-import threading
+import json
 
 from PIL import Image
 import pytest
@@ -21,7 +21,7 @@ def result(text='昵称：测试\n等级：0', timestamp='2026-10-12T12:00:00Z')
 
 def test_cache_includes_account_and_snapshot():
     module = renderer_module()
-    cache = module.SummaryRenderer(font_path=cjk_font())
+    cache = module.SummaryRenderer()
     scope = AccountScope('user', 'account', 'role')
     keys = {cache.cache_key(s, r) for s, r in (
         (scope, result()), (AccountScope('other', 'account', 'role'), result()),
@@ -29,49 +29,44 @@ def test_cache_includes_account_and_snapshot():
         (AccountScope('user', 'account', 'other'), result()),
         (scope, result(timestamp='2026-10-12T12:01:00Z')), (scope, result('等级：1')))}
     assert len(keys) == 6
-    png = cache.render_summary(scope, result())
-    assert png.startswith(b'\x89PNG\r\n\x1a\n')
-    assert Image.open(BytesIO(png)).width <= 1080
-    assert len(png) <= cache.max_bytes
-    cache.render_summary(AccountScope('other', 'account', 'role'), result('其他用户'))
-    assert len(cache.cache) == 2
-    cache.invalidate_account('user', 'account')
-    assert len(cache.cache) == 1
     assert cache.cache_key(scope, QueryResult({'text': '摘要', 'grant_version': 1}, None, 'ok', None)) != cache.cache_key(scope, QueryResult({'text': '摘要', 'grant_version': 2}, None, 'ok', None))
 
 
 def test_missing_fields_render_unknown():
-    module = renderer_module()
     original = QueryResult({'nickname': None, 'level': 0}, None, 'ok', None)
     text = render_result('异环', original, 'account')
     assert '昵称：未知' in text and '等级：0' in text and '完整性：未知' in text
-    cache = module.SummaryRenderer(font_path=cjk_font())
-    png = cache.render_summary(AccountScope('user', 'account', 'role'), result(text))
-    assert Image.open(BytesIO(png)).height > 100
 
 
-def test_no_cjk_font_or_arbitrary_payload_returns_safe_failure(tmp_path):
+async def test_no_cjk_font_or_arbitrary_payload_returns_safe_failure(tmp_path, monkeypatch):
+    from datetime import datetime
+    from game_assistant.qq.browser_rendering import BrowserRenderer
+    from game_assistant.qq.render_snapshot import calendar_snapshot
     module = renderer_module()
-    cache = module.SummaryRenderer(font_path=str(tmp_path / 'missing.ttf'))
-    with pytest.raises(module.RenderingUnavailable):
-        cache.render_summary(AccountScope('user', 'account', 'role'), result())
-    cache = module.SummaryRenderer(font_path=cjk_font())
-    with pytest.raises(module.RenderingUnavailable):
-        cache.render_summary(AccountScope('user', 'account', 'role'), QueryResult({'token': 'secret'}, None, 'ok', None))
+    now = datetime.fromisoformat('2026-10-12T20:00:00+08:00')
+    snapshot = calendar_snapshot({'nte': QueryResult([], now.isoformat(), 'ok', True)}, now)
+    scope = AccountScope('user', 'account', 'role')
+    missing, present = BrowserRenderer(font_path=str(tmp_path / 'missing.ttf')), BrowserRenderer(font_path=cjk_font())
+    for renderer in (missing, present):
+        monkeypatch.setattr(renderer, '_start', lambda: pytest.fail('browser started before the envelope was accepted'))
+    with pytest.raises(module.RenderingUnavailable, match='cjk_font'):
+        await missing.render_summary_async(scope, QueryResult({'text': '摘要', 'render_snapshot': snapshot}, None, 'ok', None), budget_seconds=1)
+    with pytest.raises(module.RenderingUnavailable, match='safe_summary_required'):
+        await present.render_summary_async(scope, QueryResult({'token': 'secret', 'render_snapshot': snapshot}, None, 'ok', None), budget_seconds=1)
 
 
 async def test_render_queue_does_not_exceed_reply_window():
     module = renderer_module()
-    started, finish = threading.Event(), threading.Event()
+    started, finish = asyncio.Event(), asyncio.Event()
     scope = AccountScope('user', 'account', 'role')
     class SlowRenderer:
-        def render_summary(self, scope, query):
+        async def render_summary_async(self, scope, query, *, budget_seconds):
             started.set()
-            finish.wait(2)
+            await finish.wait()
             return b'png'
     queue = module.RenderQueue(SlowRenderer(), queue_limit=1)
     first = asyncio.create_task(queue.render(scope, result(), budget_seconds=0.1))
-    await asyncio.to_thread(started.wait, 1)
+    await asyncio.wait_for(started.wait(), 1)
     try:
         assert await queue.render(scope, result(), budget_seconds=0.01) is None
         assert await first is None
@@ -81,16 +76,6 @@ async def test_render_queue_does_not_exceed_reply_window():
         finish.set()
         await queue.aclose()
     assert await queue.render(scope, result(), budget_seconds=0) is None
-
-
-async def test_multi_user_rendering_isolated_and_cache_bounded():
-    module = renderer_module()
-    renderer = module.SummaryRenderer(font_path=cjk_font(), cache_entries=2)
-    queue = module.RenderQueue(renderer)
-    values = await asyncio.gather(*(queue.render(AccountScope(str(n), str(n), str(n)), result(f'账号：{n}'), budget_seconds=3) for n in range(3)))
-    assert all(values) and len(set(values)) == 3
-    assert len(renderer.cache) == 2
-    await queue.aclose()
 
 
 def test_named_role_filters_only_owned_cached_list():
@@ -190,7 +175,9 @@ async def test_official_image_upload_does_not_send_message_and_obeys_deadline():
             calls.append((path, body))
             return {'file_info': 'opaque', 'ttl': 60} if path.endswith('/files') else {'id': 'image-id'}
     client = OfficialQqClient('app', 'fixture-secret', None, None, sdk=SimpleNamespace(QQApiClient=API))
-    png = renderer_module().SummaryRenderer(font_path=cjk_font()).render_summary(AccountScope('u', 'a', 'r'), result())
+    image = BytesIO()
+    Image.new('RGB', (1080, 160), '#f5f7fb').save(image, 'PNG')
+    png = image.getvalue()
     assert await client.send_image(message, png, 1) == 'image-id'
     assert calls[0] == ('/v2/groups/group/files', {'file_type': 1, 'file_data': base64.b64encode(png).decode('ascii'), 'srv_send_msg': False})
     assert calls[1] == ('/v2/groups/group/messages', {'msg_type': 7, 'media': {'file_info': 'opaque'}, 'msg_id': 'msg', 'msg_seq': 1})
@@ -257,25 +244,40 @@ async def test_central_render_rechecks_revoke_and_unlink_after_await(tmp_path, c
     assert 'image' not in response and 'PRIVATE' not in response['text']
 
 
-async def test_central_png_envelope_contains_only_safe_summary(tmp_path):
+async def test_central_png_envelope_contains_only_safe_summary(tmp_path, monkeypatch):
     import base64
     from types import SimpleNamespace
+    from unittest.mock import AsyncMock
     from tests.test_account_queries import query_fixture
+    from tests.test_qq_browser_image_encoding import renderer_boundary
     from game_assistant.qq.query_routes import QqQueryService
     from game_assistant.qq.models import QqIdentity
     from game_assistant.identity.models import Principal
     accounts, scope, store, query = await query_fixture(tmp_path)
     store.save_scoped(scope, 'account', '{"nickname":"玩家","level":0,"token":"private-token","uid":"123456789"}', 1)
     module = renderer_module()
+    # The production renderer and queue; only the Chromium page is a stand-in.
+    renderer = renderer_boundary(monkeypatch, {'png': 200})[0]
+    renderer.cache_entries = 16
+    renderer._browser.close = AsyncMock()
+    envelopes = []
+    render = renderer.render_summary_async
+    async def capture(scope, result, **kwargs):
+        envelopes.append(result.payload)
+        return await render(scope, result, **kwargs)
+    monkeypatch.setattr(renderer, 'render_summary_async', capture)
     service = QqQueryService(SimpleNamespace(resolve_qq_identity=lambda i: Principal('a', False)), query, None,
-                             render_queue=module.RenderQueue(module.SummaryRenderer(font_path=cjk_font())))
+                             render_queue=module.RenderQueue(renderer))
     identity = QqIdentity('app', 'group', 'g', 's')
     text_only = await service.query_reply(identity, 'summary', 'nte')
-    assert set(text_only) == {'text'}
+    assert set(text_only) == {'text'} and not envelopes
     response = await service.query_reply(identity, 'summary', 'nte', image_requested=True, budget_seconds=3)
     assert set(response) == {'text', 'image'}
     assert 'private-token' not in response['text'] and '123456789' not in response['text']
+    projected = json.dumps(envelopes[0]['render_snapshot'], ensure_ascii=False)
+    assert '玩家' in projected and 'private-token' not in projected and '123456789' not in projected
     assert Image.open(BytesIO(base64.b64decode(response['image']))).width <= 1080
+    assert len(renderer.cache) == 1
     accounts.revoke(Principal('a', False), scope.account_id)
     assert not service.render_queue.renderer.cache
     await service.aclose()
@@ -303,57 +305,18 @@ async def test_internal_image_opt_in_and_invalid_image_falls_back():
     await http.aclose()
 
 
-def test_actual_encoded_bytes_are_capped():
-    module = renderer_module()
-    renderer = module.SummaryRenderer(font_path=cjk_font(), max_bytes=100)
-    with pytest.raises(module.RenderingUnavailable, match='size_limit'):
-        renderer.render_summary(AccountScope('u', 'a', 'r'), result())
-
-
-async def test_invalidation_during_cpu_render_does_not_reinsert_cache():
-    import time
-    module = renderer_module()
-    renderer = module.SummaryRenderer(font_path=cjk_font())
-    started, finish = threading.Event(), threading.Event()
-    original_font = renderer._font
-    def delayed_font():
-        started.set()
-        finish.wait(1)
-        return original_font()
-    renderer._font = delayed_font
-    queue = module.RenderQueue(renderer)
-    task = asyncio.create_task(queue.render(AccountScope('u', 'a', 'r'), result(), budget_seconds=2))
-    await asyncio.to_thread(started.wait, 1)
-    try:
-        start = time.monotonic()
-        renderer.invalidate_account('u', 'a')
-        assert time.monotonic() - start < 0.1
-    finally:
-        finish.set()
-    await task
-    assert len(renderer.cache) == 0
-    await queue.aclose()
-
-
 def test_cloud_shutdown_drains_pending_render_and_removes_listener(tmp_path):
-    import time
     from fastapi.testclient import TestClient
     from tests.test_account_queries import cloud_settings
     from game_assistant.cloud_app import create_cloud_app
-    settings = cloud_settings(tmp_path, qq_app_id='app', qq_service_token='fixture', qq_images_enabled=True, qq_image_font_path=cjk_font())
+    settings = cloud_settings(tmp_path, qq_app_id='app', qq_service_token='fixture', qq_images_enabled=True)
     app = create_cloud_app(settings, start_scheduler=False)
     with TestClient(app, base_url='https://cloud.example') as client:
         service = app.state.qq_query
         queue = service.render_queue
-        # CI runs the backend tests before building the frontend; the render must not depend on that build.
-        (tmp_path / 'dist').mkdir()
-        (tmp_path / 'dist/render.html').write_text('<!doctype html>')
-        queue.renderer.dist = tmp_path / 'dist'
-        original_font = queue.renderer._font
-        def slow_font():
-            time.sleep(0.25)
-            return original_font()
-        queue.renderer._font = slow_font
+        async def slow_render(*args, **kwargs):
+            await asyncio.sleep(0.25)
+        queue.renderer.render_summary_async = slow_render
         async def render_late():
             return await queue.render(AccountScope('fixture', 'fixture', 'fixture'), result(), budget_seconds=0.01)
         assert client.portal.call(render_late) is None

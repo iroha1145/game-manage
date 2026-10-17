@@ -1,18 +1,15 @@
-"""Six-star coverage, fair bounded cards and credential-free synthetic rendering."""
+"""Six-star coverage and fair bounded cards from credential-free synthetic data."""
 from copy import deepcopy
-from io import BytesIO
 
-from PIL import Image
 import pytest
 
 from game_assistant.accounts.models import QueryResult
 from game_assistant.endfield_gacha import _pool_summary
 from game_assistant.endfield_reports import build_gacha_report
-from game_assistant.qq.card_rendering import render_card
 from game_assistant.qq.cards import card_to_text
 from game_assistant.qq.endfield_presentation import gacha_document, operator_document
 from game_assistant.qq.presentation import long_document
-from tests.test_qq_endfield_reports import cjk_font, snapshot, synthetic_account
+from tests.test_qq_endfield_reports import snapshot, synthetic_account
 from tests.test_qq_unified_queries import CachedQuery, IDENTITY, service, no_external_network
 
 
@@ -70,7 +67,7 @@ def test_single_pool_preserves_all_report_history_and_states_earlier_omission():
     assert '合成轮换1' in str(card) and '其他或未知 1' in str(card)
 
 
-def test_six_pool_long_card_keeps_every_stat_and_fair_counts_then_really_renders():
+def test_six_pool_long_card_keeps_every_stat_and_fair_counts():
     query=CachedQuery();query.add('endfield','hypergryph','hg',{'gacha':stress_gacha()})
     context={};service(query).query(IDENTITY,'gacha','endfield',image_context=context)
     card=context['card'];stats,detail=_coverage(card)
@@ -79,9 +76,6 @@ def test_six_pool_long_card_keeps_every_stat_and_fair_counts_then_really_renders
     for index in range(6):
         assert f'合成卡池{index+1:02}' in text and f'2026-10-14 {index+8:02}:00' in text
     assert len(text)<=1800 and '逐条明细见图片或网站' in text
-    png=render_card(card,font=cjk_font(),max_bytes=524288,budget_seconds=10)
-    image=Image.open(BytesIO(png));image.load()
-    assert image.width==1080 and image.width*image.height<=16000000 and len(png)<=524288
     assert query.refreshes==[]
 
 

@@ -1,16 +1,11 @@
 """Long cached challenge reports retain all independently timed categories."""
 from copy import deepcopy
-from io import BytesIO
-
-from PIL import Image
 
 from game_assistant.endfield_challenges import build_challenge_report
-from game_assistant.qq.card_rendering import render_card
 from game_assistant.qq.cards import card_to_text
 from game_assistant.qq.endfield_presentation import challenge_document
 from game_assistant.qq.presentation import long_document
 from tests.test_qq_endfield_challenges import setup, synthetic_challenges
-from tests.test_qq_endfield_reports import cjk_font
 from tests.test_qq_unified_queries import IDENTITY, service, no_external_network
 
 
@@ -72,7 +67,7 @@ def test_normal_report_preserves_every_detail_and_exact_hierarchy_counts(tmp_pat
     assert '省略' not in text and '首次通关：未知' in text and '记录结果：0' in text
 
 
-def test_forty_war_weeks_keep_later_categories_times_and_render_within_budget(tmp_path):
+def test_forty_war_weeks_keep_later_categories_and_times(tmp_path):
     card,text=query_card(tmp_path,stress_challenges())
     counts=coverage(card)
     shown,total=map(int,counts['战争']['周次'].split(' / '))
@@ -83,9 +78,6 @@ def test_forty_war_weeks_keep_later_categories_times_and_render_within_budget(tm
     for moment in ('09:30','10:30','11:30'):assert '2026-10-14 '+moment in text
     assert '最近读取失败，显示旧观测' in text and '最高值：0' in text and '挑战次数：未知' in text
     assert_final_coverage(card)
-    png=render_card(card,font=cjk_font(),max_bytes=524288,budget_seconds=5)
-    picture=Image.open(BytesIO(png))
-    assert picture.width==1080 and picture.width*picture.height<=16000000 and len(png)<=524288
 
 
 def test_three_large_categories_receive_details_without_losing_summary_fields(tmp_path):

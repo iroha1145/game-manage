@@ -35,7 +35,3 @@ def cjk_font_path():
         except (OSError, ValueError):
             continue
     pytest.skip('Install a supported system CJK font to verify real QQ image rendering')
-
-
-def cjk_font(size=30):
-    return _load(cjk_font_path(), size)

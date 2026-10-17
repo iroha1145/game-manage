@@ -1,20 +1,15 @@
 """Observed ship conversion, bounded medal categories and scoped tactical items."""
 from copy import deepcopy
-from io import BytesIO
 
-from PIL import Image
 import pytest
 
 from game_assistant.adapters.endfield.skland_parse import parse_operator
 from game_assistant.qq.assets import PublicAssetCache
-from game_assistant.qq.card_rendering import render_card
-from game_assistant.qq.card_rendering_v3 import EndfieldLayout
 from game_assistant.qq.cards import card_to_text
 from game_assistant.qq.endfield_presentation import honor_document, operator_document, ship_document
 from game_assistant.qq.presentation import long_document
-from game_assistant.qq.rendering import TEMPLATE_VERSION
 from tests.test_qq_endfield_cached_details import fixture
-from tests.test_qq_endfield_reports import cjk_font, snapshot, synthetic_account
+from tests.test_qq_endfield_reports import snapshot, synthetic_account
 from tests.test_qq_endfield_visual_honor import synthetic_honor
 from tests.test_qq_unified_queries import CachedQuery, IDENTITY, service, no_external_network
 
@@ -67,25 +62,6 @@ def test_ship_percentages_share_rounding_keep_raw_values_and_unknown(mood,trust,
     assert '不按时间外推' in card_to_text(card) and source==before
 
 
-def test_ship_render_emphasizes_percentages_and_keeps_unknown_track(monkeypatch):
-    seen=[];operations=[];original=EndfieldLayout.text;original_paint=EndfieldLayout.paint
-    def capture(self,value,x,y,width,size,*args,**kwargs):
-        seen.append((value,size));return original(self,value,x,y,width,size,*args,**kwargs)
-    monkeypatch.setattr(EndfieldLayout,'text',capture)
-    def paint(self,height):
-        operations.extend(self.ops);return original_paint(self,height)
-    monkeypatch.setattr(EndfieldLayout,'paint',paint)
-    card=long_document(ship_document(snapshot()))
-    png=render_card(card,font=cjk_font(),max_bytes=524288)
-    assert ('85%',36) in seen and ('0%',36) in seen
-    assert any('心情原始值 8500' in text and size==22 for text,size in seen)
-    assert any(text=='未知' and size==36 for text,size in seen)
-    for color in ('#ffd000','#58d5de'):
-        assert any(op[0]=='rect' and op[2]==color and op[1][3]-op[1][1]==8 and op[1][2]-op[1][0]>100 for op in operations)
-    assert Image.open(BytesIO(png)).width==1080 and len(png)<=524288
-    assert TEMPLATE_VERSION=='qq-unified-3-endfield-6'
-
-
 def assert_honor_counts(card):
     summary=next(section for section in card['sections'] if section.get('category')=='ef_honor_groups')
     grids=[section for section in card['sections'] if section.get('category')=='ef_medals']
@@ -115,9 +91,6 @@ def test_honor_stress_real_query_keeps_all_category_stats_before_fair_details():
     assert [section['category'] for section in card['sections'][:2]]==['ef_honor','ef_honor_groups']
     for name in counts:assert name in reply['text']
     assert '分类统计优先' in reply['text'] and '省略' in reply['text'] and len(reply['text'])<=1800
-    png=render_card(card,font=cjk_font(),max_bytes=524288)
-    image=Image.open(BytesIO(png))
-    assert image.width*image.height<=16000000 and len(png)<=524288
     assert query.refreshes==[]
 
 
@@ -162,5 +135,3 @@ def test_long_tactical_effects_are_measured_and_omissions_are_explicit():
     assert len([field for field in section['fields'] if field['label'].startswith('主动效果')])==4
     assert all(len(field['value'])<=180 for field in section['fields'])
     assert any('过长效果已省略尾部' in notice for notice in card['notices'])
-    png=render_card(card,font=cjk_font(),max_bytes=524288)
-    assert len(png)<=524288

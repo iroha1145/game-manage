@@ -1,21 +1,17 @@
 """Industrial Endfield reports keep source uncertainty and offline boundaries."""
 from copy import deepcopy
 from dataclasses import asdict
-from io import BytesIO
 
-from PIL import Image, ImageDraw
 import pytest
 from pydantic import ValidationError
 
-from game_assistant.qq.assets import PublicAssetCache, sanitize_image
-from game_assistant.qq.card_rendering import render_card
-from game_assistant.qq.card_rendering_v3 import EndfieldLayout
+from game_assistant.qq.assets import PublicAssetCache
 from game_assistant.qq.cards import card_to_text
 from game_assistant.qq.commands import parse_command
-from game_assistant.qq.endfield_presentation import honor_document, operator_document, overview_document
+from game_assistant.qq.endfield_presentation import honor_document, operator_document
 from game_assistant.qq.presentation import long_document, asset_refs
 from game_assistant.qq.query_routes import QueryBody
-from tests.test_qq_endfield_reports import cjk_font, snapshot, synthetic_account
+from tests.test_qq_endfield_reports import snapshot, synthetic_account
 from tests.test_qq_unified_queries import CachedQuery, IDENTITY, service, no_external_network
 
 
@@ -66,26 +62,7 @@ def test_honor_icons_only_use_safe_refs_and_do_not_modify_source():
     assert not asset_refs(card) and source==before and 'private' not in str(card)
 
 
-def test_industrial_render_uses_square_frames_and_no_initial_letter_placeholders(monkeypatch):
-    operations=[];original=EndfieldLayout.paint
-    def capture(self,height):
-        operations.extend(self.ops)
-        return original(self,height)
-    monkeypatch.setattr(EndfieldLayout,'paint',capture)
-    card=long_document(overview_document(snapshot()))
-    png=render_card(card,font=cjk_font(),budget_seconds=10)
-    assert Image.open(BytesIO(png)).width==1080
-    texts=[operation[2] for operation in operations if operation[0]=='text']
-    assert '01' in texts and 'DAILY OPERATIONS' in texts
-    assert '每日活跃' in texts and '60/100' in texts
-    assert '图标暂无' not in texts and '每' not in texts and '终' not in texts
-    assert all(operation[3]==0 for operation in operations if operation[0]=='rect')
-    # The daily metric now creates an actual nonzero progress fill.
-    assert any(operation[0]=='rect' and operation[2]=='#ffd000' and operation[1][2]-operation[1][0]>100
-               and operation[1][3]-operation[1][1]==8 for operation in operations)
-
-
-def test_portrait_catalog_precedes_avatar_url_and_failed_portrait_uses_small_avatar(monkeypatch):
+def test_portrait_catalog_precedes_avatar_url():
     cache=PublicAssetCache();source=synthetic_account()
     operator=source['operators'][1]
     operator['avatar_url']='https://web.hycdn.cn/public/small-avatar.png'
@@ -94,69 +71,3 @@ def test_portrait_catalog_precedes_avatar_url_and_failed_portrait_uses_small_ava
     avatar_ref=cache.register_url(operator['avatar_url'])
     assert card['image']==portrait_ref and card['sections'][0]['image']==avatar_ref
     assert asset_refs(card)=={portrait_ref,avatar_ref}
-    marker=BytesIO();Image.new('RGB',(120,120),(12,94,163)).save(marker,format='PNG')
-    cache._store(avatar_ref,sanitize_image(marker.getvalue()))
-    uses=[];original=EndfieldLayout.avatar
-    def capture(self,ref,title,x,y,width,height,**kwargs):
-        uses.append((ref,width,height));return original(self,ref,title,x,y,width,height,**kwargs)
-    monkeypatch.setattr(EndfieldLayout,'avatar',capture)
-    render_card(card,font=cjk_font(),budget_seconds=10,asset_cache=cache)
-    assert uses==[(avatar_ref,144,144)]
-    marker=BytesIO();Image.new('RGB',(303,386),(163,94,12)).save(marker,format='PNG')
-    cache._store(portrait_ref,sanitize_image(marker.getvalue(),portrait=True))
-    uses.clear();render_card(card,font=cjk_font(),budget_seconds=10,asset_cache=cache)
-    assert uses==[(portrait_ref,304,392)]
-
-
-@pytest.mark.parametrize('art',['portrait','avatar','none'])
-@pytest.mark.parametrize('obtained,expected',[
-    ('2026-01-22T02:51:00+00:00','2026-01-22 10:51'),(None,'未知')])
-def test_operator_acquisition_time_draws_one_full_width_line_inside_dossier(monkeypatch,art,obtained,expected):
-    cache=PublicAssetCache();source=synthetic_account()
-    source['operators'][1]['obtained_at']=obtained
-    card=long_document(operator_document(snapshot(source),'佩丽卡',cache),asset_cache=cache)
-    if art!='none':
-        marker=BytesIO();size=(303,386) if art=='portrait' else (120,120)
-        Image.new('RGB',size,(12,94,163)).save(marker,format='PNG')
-        ref=card['image'] if art=='portrait' else card['sections'][0]['image']
-        cache._store(ref,sanitize_image(marker.getvalue(),portrait=art=='portrait'))
-    drawn=[];operations=[];original_draw=ImageDraw.ImageDraw.text;original_paint=EndfieldLayout.paint
-    def capture_draw(self,position,value,*args,**kwargs):
-        drawn.append((position,value,kwargs['font']))
-        return original_draw(self,position,value,*args,**kwargs)
-    def capture_paint(self,height):
-        operations.extend(self.ops)
-        return original_paint(self,height)
-    monkeypatch.setattr(ImageDraw.ImageDraw,'text',capture_draw)
-    monkeypatch.setattr(EndfieldLayout,'paint',capture_paint)
-    png=render_card(card,font=cjk_font(),max_bytes=524288,asset_cache=cache)
-    date=[item for item in drawn if item[1].startswith('获得时间')]
-    assert len(date)==1 and date[0][1]=='获得时间 '+expected
-    position,text,font=date[0]
-    assert font.size>=22 and position[0]+font.getlength(text)<=1026
-    assert not any(item[0][1]==position[1] and item[1]!=text for item in drawn)
-    # The complete date belongs to the operator dossier, before the next
-    # section, regardless of portrait availability or an unknown value.
-    dossier=next(item for item in drawn if item[1]=='OPERATOR DOSSIER')
-    next_section=next(item for item in drawn if item[1]=='02')
-    assert dossier[0][1]<position[1]<next_section[0][1]
-    portraits=[op for op in operations if op[0]=='image']
-    assert len(portraits)==(0 if art=='none' else 1)
-    if portraits:assert portraits[0][1][2:]==((304,392) if art=='portrait' else (144,144))
-    image=Image.open(BytesIO(png))
-    assert image.width==1080 and image.width*image.height<=16000000 and len(png)<=524288
-
-
-def test_honor_image_retains_more_than_ten_medals_within_transport_budget(monkeypatch):
-    texts=[];original=EndfieldLayout.text
-    def capture(self,value,*args,**kwargs):
-        texts.append(value);return original(self,value,*args,**kwargs)
-    monkeypatch.setattr(EndfieldLayout,'text',capture)
-    card=long_document(honor_document(snapshot(synthetic_honor(12))))
-    png=render_card(card,font=cjk_font(),budget_seconds=10)
-    image=Image.open(BytesIO(png))
-    assert sum(len(section['rows']) for section in card['sections'] if section.get('category')=='ef_medals')==12 and '合成勋章11' in card_to_text(card)
-    assert image.width==1080 and image.width*image.height<=16_000_000 and len(png)<=1_048_576
-    assert '2026-10-15 09:00' in texts and '2026-10-' not in texts
-    with pytest.raises(ValueError,match='pixel_limit'):
-        render_card(card,font=cjk_font(),max_pixels=100,budget_seconds=10)

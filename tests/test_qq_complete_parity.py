@@ -201,11 +201,10 @@ def test_typed_assets_only_prefetch_actually_visible_urls_and_deduplicate_safely
     assert list(shared.asset_urls(shared.game_snapshot(panels,NOW)))==[icon]
 
 
-async def test_shared_required_missing_snapshot_cannot_use_pillow_template():
+async def test_shared_required_missing_snapshot_is_refused():
     from game_assistant.accounts.models import AccountScope
     from game_assistant.qq.browser_rendering import BrowserRenderer
     renderer=BrowserRenderer()
-    renderer.render_summary=lambda *args:pytest.fail('legacy renderer called')
     with pytest.raises(RenderingUnavailable,match='shared_content_unavailable'):
         await renderer.render_summary_async(AccountScope('u','a','r'),QueryResult({'shared_required':True},None,'ok',False),budget_seconds=1)
 

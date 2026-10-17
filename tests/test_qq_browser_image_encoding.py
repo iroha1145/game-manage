@@ -171,3 +171,22 @@ async def test_another_accounts_change_mid_render_still_returns_the_image(monkey
     page.evaluate = evaluate
     await renderer.render_summary_async(AccountScope('u', 'a', 'r'), result, budget_seconds=10)
     assert len(renderer.cache) == 1
+
+
+async def test_cached_images_are_keyed_per_user_and_dropped_with_any_scoped_account(monkeypatch, tmp_path):
+    renderer, context, result, calls, outputs = renderer_boundary(monkeypatch, {'png': 200})
+    (tmp_path / 'render.html').write_text('<!doctype html>')
+    renderer.dist = tmp_path
+    monkeypatch.setattr(renderer, 'cache_key', BrowserRenderer.cache_key.__get__(renderer))
+    renderer.cache_entries = 2
+    scopes = [{'account_id': 'a', 'role_id': 'r', 'grant_version': 1}, {'account_id': 'b', 'role_id': 's', 'grant_version': 1}]
+    shared = QueryResult({**result.payload, 'text': '同一份数据', 'scopes': scopes}, result.fetched_at, result.state, result.complete)
+    for user in ('u', 'v', 'w'):
+        await renderer.render_summary_async(AccountScope(user, 'a', 'r'), shared, budget_seconds=10)
+    # Identical display data never reaches another user through the cache.
+    assert len(calls) == 3 and len(renderer.cache) == 2
+    assert [owner for owner, _, _ in renderer.cache.values()] == [('v', frozenset('ab')), ('w', frozenset('ab'))]
+    renderer.invalidate_account('w', 'c')
+    assert len(renderer.cache) == 2
+    renderer.invalidate_account('w', 'b')
+    assert [owner[0] for owner, _, _ in renderer.cache.values()] == ['v']
