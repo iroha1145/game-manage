@@ -1,6 +1,6 @@
 <script setup>
 import { computed, provide } from 'vue'
-import { gameStyle } from '../dashboard.js'
+import { gameVars } from '../dashboard.js'
 import { collectCalendarEvents, versionCalendarRange } from '../calendar.js'
 import { friendlyDataError } from '../cloud-display.js'
 import AccountCard from './AccountCard.vue'
@@ -55,7 +55,7 @@ const range=computed(()=>versionCalendarRange(events.value,props.asOf))
 const error=computed(()=>snap.value?.state==='auth_expired'?friendlyDataError('',snap.value.state):'')
 </script>
 <template>
- <section class="render-snapshot-panel game-theme" :style="{'--game-accent':gameStyle(panel.game).color}" data-render-block>
+ <section class="render-snapshot-panel game-theme" :style="gameVars(panel.game)" data-render-block>
   <h2 class="snapshot-game-name">{{ gameTitle || '游戏数据' }}</h2>
   <p v-if="error" class="error-bar" role="status">{{ error }}</p>
   <CalendarTimelineContent v-if="['events','recent_events'].includes(cap)" :events="events" :range="range" :as-of="asOf" range-mode="version" mode="image" />

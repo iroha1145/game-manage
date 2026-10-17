@@ -7,6 +7,9 @@ export const value = (v) =>
         ? '是'
         : '否'
       : v
+/** A number with thousands separators; anything else reads as `value` does. */
+export const count = (v) =>
+  typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString('zh-CN') : value(v)
 export const list = (v) =>
   Array.isArray(v) ? v.filter((item) => item != null) : []
 export const stamp = (v) => formatBeijingDateTime(v)

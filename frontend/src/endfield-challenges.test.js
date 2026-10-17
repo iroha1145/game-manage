@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { challengeReport, retainedChallenge } from './endfield-challenges.js'
+import { challengeReport, retainedChallenge, stageStates } from './endfield-challenges.js'
 const fetched_at='2026-10-15T01:02:00Z'
 test('challenge projection distinguishes uncollected, unsupported, empty and wrong category',()=>{
  assert.equal(challengeReport({kind:'war',records:[]},'war').available,false)
@@ -22,4 +22,10 @@ test('report is authoritative and outer retained failure keeps old observation t
  const old={kind:'monument',report,fetched_at,stale:false}
  const result=challengeReport(retainedChallenge(old,'失败'),'monument')
  assert.equal(result.records[0].name,'报告');assert.equal(result.stale,true);assert.equal(result.fetched_at,fetched_at);assert.equal(old.stale,false)
+})
+
+test('stage states count cleared, open and unobserved stages without treating missing as open', () => {
+ const groups=[{stages:[{passed:true},{passed:false},{passed:null}]},{stages:[{passed:true}]},{}]
+ assert.deepEqual(stageStates(groups),{passed:2,failed:1,unknown:1})
+ assert.deepEqual(stageStates(undefined),{passed:0,failed:0,unknown:0})
 })

@@ -5,9 +5,10 @@ import VersionCalendarContent from './VersionCalendarContent.vue'
 import VersionCalendarMetadata from './VersionCalendarMetadata.vue'
 import AppIcon from './AppIcon.vue'
 import MenuSelect from './MenuSelect.vue'
-import { calendarRange, calendarBoundary, collectCalendarEvents, collectVersionCalendars, eventGeometry, eventStatus, formatBeijingDateTime, versionCalendarRange, safeUrl, shiftCalendarAnchor } from '../calendar.js'
-import { gameStyle } from '../dashboard.js'
-import { prefersReducedMotion, vGlide } from '../motion.js'
+import DonutChart from './DonutChart.vue'
+import { DAY_MS, calendarRange, calendarBoundary, collectCalendarEvents, collectVersionCalendars, eventGeometry, eventStatus, formatBeijingDateTime, versionCalendarRange, safeUrl, shiftCalendarAnchor } from '../calendar.js'
+import { gameStyle, gameVars as themeVars } from '../dashboard.js'
+import { prefersReducedMotion, vGlide, vReveal } from '../motion.js'
 import { collectionState, hasFreshPublicFallback } from '../snapshot-state.js'
 import CloudSnapshotStatus from './CloudSnapshotStatus.vue'
 
@@ -26,6 +27,7 @@ const filter = ref(props.initialGameId === 'all' ? '' : props.initialGameId)
 const gameOptions = computed(() => [{ value: '', label: '全部游戏' }, ...props.games.map(game => ({ value: game.game_id, label: game.display_name }))])
 const selectedId = ref(null)
 const detailElement = ref(null)
+const agendaElement = ref(null)
 let selectedTrigger = null
 const boardElement = ref(null)
 const boardTop = ref(240)
@@ -84,6 +86,19 @@ const readRetainedMessage = computed(() => failedReads.value.every(failure => fa
 function gameAccent(id) {
   return gameStyle(id === 'lol' ? 'league_of_legends' : id).color
 }
+const gameVars = id => themeVars(id === 'lol' ? 'league_of_legends' : id)
+// Counts for the tiles above the board, over every event the current view collects.
+const statusCounts = computed(() => ({
+  ongoing: events.value.filter(event => event.status === '进行中').length,
+  soon: events.value.filter(event => event.status === '进行中' && event.geometry.end !== null && event.geometry.end - now.value <= 3 * DAY_MS).length,
+  upcoming: events.value.filter(event => event.status === '未开始').length,
+}))
+const gameSplit = computed(() => filteredGames.value.map(game => ({ label: game.display_name, value: events.value.filter(event => event.gameId === game.game_id).length, color: gameStyle(game.game_id).vivid2 })).filter(part => part.value))
+// The side column's list while nothing is selected: what ends first in this view, then what starts next.
+const agenda = computed(() => [
+  ...visibleEvents.value.filter(event => event.status === '进行中' && event.geometry.end != null).sort((a, b) => a.geometry.end - b.geometry.end),
+  ...visibleEvents.value.filter(event => event.status === '未开始').sort((a, b) => (a.geometry.start ?? Infinity) - (b.geometry.start ?? Infinity)),
+].slice(0, 6))
 function shift(direction) { anchor.value = shiftCalendarAnchor(anchor.value, mode.value, direction) }
 function goToday() { now.value = Date.now(); anchor.value = now.value }
 function setMode(value) { mode.value = value }
@@ -97,7 +112,9 @@ async function selectEvent(event, interaction) {
 async function closeDetail() {
   selectedId.value = null
   await nextTick()
+  // A detail opened from the side list replaced that list; focus returns to its heading.
   if (selectedTrigger?.isConnected) selectedTrigger.focus()
+  else agendaElement.value?.focus?.({ preventScroll: true })
   selectedTrigger = null
 }
 </script>
@@ -109,40 +126,54 @@ async function closeDetail() {
       <div class="page-meta calendar-timezone"><AppIcon name="clock" :size="14" /> 北京时间</div>
     </header>
 
-    <section ref="boardElement" class="calendar-board" aria-label="游戏活动时间轴" :aria-busy="loading" :style="{'--calendar-top':`${boardTop}px`}">
-      <div class="calendar-toolbar">
-        <div class="calendar-navigation">
-          <div v-if="mode !== 'version'" class="calendar-arrows"><button type="button" aria-label="上一时间范围" @click="shift(-1)"><AppIcon name="chevron" :size="15" class="previous-arrow" /></button><button type="button" aria-label="下一时间范围" @click="shift(1)"><AppIcon name="chevron" :size="15" class="next-arrow" /></button></div>
-          <h2 aria-live="polite">{{ rangeTitle }}</h2>
-          <button v-if="mode !== 'version'" class="today-button" type="button" @click="goToday">今天</button>
+    <div class="calendar-layout">
+      <section ref="boardElement" class="calendar-board" aria-label="游戏活动时间轴" :aria-busy="loading" :style="{'--calendar-top':`${boardTop}px`}">
+        <div class="calendar-toolbar">
+          <div class="calendar-navigation">
+            <div v-if="mode !== 'version'" class="calendar-arrows"><button type="button" aria-label="上一时间范围" @click="shift(-1)"><AppIcon name="chevron" :size="15" class="previous-arrow" /></button><button type="button" aria-label="下一时间范围" @click="shift(1)"><AppIcon name="chevron" :size="15" class="next-arrow" /></button></div>
+            <h2 aria-live="polite">{{ rangeTitle }}</h2>
+            <button v-if="mode !== 'version'" class="today-button" type="button" @click="goToday">今天</button>
+          </div>
+          <div class="calendar-filters">
+            <div v-glide class="range-toggle segmented" aria-label="显示范围"><button type="button" :aria-pressed="mode === 'version'" @click="setMode('version')">版本</button><button type="button" :aria-pressed="mode === 'rolling'" @click="setMode('rolling')">近 30 天</button><button type="button" :aria-pressed="mode === 'month'" @click="setMode('month')">整月</button><button type="button" :aria-pressed="mode === 'fortnight'" @click="setMode('fortnight')">14 天</button></div>
+            <MenuSelect v-model="filter" label="筛选游戏" align="end" :options="gameOptions" />
+          </div>
         </div>
-        <div class="calendar-filters">
-          <div v-glide class="range-toggle segmented" aria-label="显示范围"><button type="button" :aria-pressed="mode === 'version'" @click="setMode('version')">版本</button><button type="button" :aria-pressed="mode === 'rolling'" @click="setMode('rolling')">近 30 天</button><button type="button" :aria-pressed="mode === 'month'" @click="setMode('month')">整月</button><button type="button" :aria-pressed="mode === 'fortnight'" @click="setMode('fortnight')">14 天</button></div>
-          <MenuSelect v-model="filter" label="筛选游戏" align="end" :options="gameOptions" />
+        <div class="calendar-meta"><span><strong>{{ visibleEvents.length }}</strong> 项活动<span v-if="events.length > visibleEvents.length"> · 共 {{ events.length }} 项</span></span><div class="calendar-legend"><span><i class="legend-range" />活动区间</span><span><i class="legend-point" />日期标记</span><span><i class="legend-today" />现在</span></div></div>
+        <p v-if="failedCollectionAlerts.length" class="calendar-read-error" role="status">{{ failedCollectionNames }} · 活动更新暂不可用。{{ collectionRetainedMessage }}</p>
+        <p v-if="failedReads.length" class="calendar-read-error" role="status">{{ failedReadNames }} · 活动读取失败。{{ readRetainedMessage }}</p>
+        <p v-if="missingGames.length && !loading" class="calendar-missing" role="status">{{ missingGames.join('、') }} · 尚未取得活动，请稍后刷新。</p>
+        <p v-if="neverGames.length && !loading" class="calendar-missing" role="status">{{ neverGames.join('、') }} · 等待活动更新。</p>
+        <details v-if="showSourceStatus || staleGames.length || failedReads.length || partialCollections.length || versionCalendars.length" class="calendar-source-states"><summary>数据来源详情</summary><p v-if="staleGames.length" class="calendar-stale">数据可能过期 · {{ staleGames.join('、') }}</p><p v-for="failure in partialCollections" :key="failure.id">{{ failure.name }} · 部分来源不可用，显示可用来源数据。</p><p v-for="failure in failedReads" :key="failure.id">{{ failure.name }}：{{ failure.error }}</p><div v-if="showSourceStatus" v-for="game in filteredGames" :key="game.game_id"><strong>{{ game.display_name }}</strong><CloudSnapshotStatus :snapshots="snapshots[game.game_id] || {}" :capabilities="['events']" /></div><VersionCalendarMetadata :calendars="versionCalendars" /></details>
+        <p v-if="loading && !events.length" class="calendar-empty" role="status">加载中…</p>
+        <VersionCalendarContent v-else-if="mode === 'version'" :calendars="versionCalendars" :as-of="now" :selected-id="selectedId" :empty-title="emptyTitle" :show-source-details="false" @select="selectEvent" />
+        <CalendarTimelineContent v-else :events="events" :range="range" :as-of="now" :range-mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="selectEvent" />
+      </section>
+      <aside class="calendar-aside">
+        <section v-if="selected" ref="detailElement" class="calendar-detail t-panel" aria-labelledby="calendar-detail-title" tabindex="-1" :style="gameVars(selected.gameId)" @keydown.esc.stop="closeDetail">
+          <div class="detail-heading"><div><p class="eyebrow">{{ selected.gameName }} / {{ selected.category }}</p><h2 id="calendar-detail-title">{{ selected.name || '未命名活动' }}</h2></div><button type="button" class="detail-close" aria-label="关闭活动详情" @click="closeDetail"><AppIcon name="close" :size="16" /></button></div>
+          <div class="detail-status"><span>{{ selected.status }}</span><span v-if="selected.geometry.reason">{{ selected.geometry.reason }}</span><span v-if="selected.stale" class="calendar-stale">数据可能过期</span></div>
+          <dl><div><dt>开始时间</dt><dd>{{ calendarBoundary(selected, 'start') }}</dd><small v-if="selected.geometry.approximateStart">仅知开始日期 {{ selected.start_date }}，具体时刻未知</small><small v-if="selected.start_at && selected.geometry.start === null">原始值：{{ selected.start_at }}</small></div><div><dt>截止时间</dt><dd>{{ calendarBoundary(selected, 'end') }}</dd><small v-if="selected.end_at && selected.geometry.end === null">原始值：{{ selected.end_at }}</small><small v-if="selected.end_at && selected.end_precision === 'version_end'">{{ selected.end_text }}，时刻取自下个版本的维护预告</small></div><div><dt>来源标题</dt><dd>{{ selected.source_name ? selected.source_name + ' · ' : '' }}{{ selected.source_title || '未提供' }}</dd></div><div><dt>数据更新时间</dt><dd>{{ formatBeijingDateTime(selected.fetchedAt) }}</dd></div></dl>
+          <p v-if="selected.source_note" class="source-id">{{ selected.source_note }}</p>
+          <p v-if="selected.geometry.clippedStart || selected.geometry.clippedEnd" class="clipping-note">时间条已按显示范围裁剪{{ selected.geometry.clippedStart ? '左侧' : '' }}{{ selected.geometry.clippedStart && selected.geometry.clippedEnd ? '和' : '' }}{{ selected.geometry.clippedEnd ? '右侧' : '' }}；以上为完整起止时间。</p>
+          <a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer" class="source-link">查看原始公告 ↗</a>
+        </section>
+        <section v-else class="calendar-agenda" aria-labelledby="calendar-agenda-title">
+          <h2 id="calendar-agenda-title" ref="agendaElement" tabindex="-1">即将截止</h2>
+          <p class="agenda-sub">点一项查看起止时间和来源</p>
+          <ul v-if="agenda.length" class="agenda-list">
+            <li v-for="event in agenda" :key="event.id"><button type="button" class="agenda-item" :style="gameVars(event.gameId)" @click="selectEvent(event, $event)"><span class="agenda-pill">{{ event.gameName }} · {{ event.status }}</span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.status === '未开始' ? `${calendarBoundary(event, 'start')} 开始` : `${calendarBoundary(event, 'end')} 截止` }}</small><AppIcon name="arrow" :size="14" /></button></li>
+          </ul>
+          <p v-else class="agenda-empty">{{ loading ? '加载中…' : '当前范围内没有进行中或即将开始的活动。' }}</p>
+        </section>
+        <div v-if="events.length" class="calendar-stats">
+          <article v-reveal class="calendar-stat"><span>进行中</span><p><b>{{ statusCounts.ongoing }}</b><small>项</small></p></article>
+          <article v-reveal class="calendar-stat" :class="{ hot: statusCounts.soon }"><span>3 天内截止</span><p><b>{{ statusCounts.soon }}</b><small>项</small></p></article>
+          <article v-reveal class="calendar-stat"><span>未开始</span><p><b>{{ statusCounts.upcoming }}</b><small>项</small></p></article>
+          <article v-if="gameSplit.length" v-reveal class="calendar-split"><DonutChart :segments="gameSplit" label="各游戏的活动数" unit=" 项" :size="92" :stroke="12"><b class="split-total">{{ events.length }}</b><small class="split-unit">项</small></DonutChart></article>
         </div>
-      </div>
-      <div class="calendar-meta"><span><strong>{{ visibleEvents.length }}</strong> 项活动<span v-if="events.length > visibleEvents.length"> · 共 {{ events.length }} 项</span></span><div class="calendar-legend"><span><i class="legend-range" />活动区间</span><span><i class="legend-point" />日期标记</span><span><i class="legend-today" />现在</span></div></div>
-      <p v-if="failedCollectionAlerts.length" class="calendar-read-error" role="status">{{ failedCollectionNames }} · 活动更新暂不可用。{{ collectionRetainedMessage }}</p>
-      <p v-if="failedReads.length" class="calendar-read-error" role="status">{{ failedReadNames }} · 活动读取失败。{{ readRetainedMessage }}</p>
-      <p v-if="missingGames.length && !loading" class="calendar-missing" role="status">{{ missingGames.join('、') }} · 尚未取得活动，请稍后刷新。</p>
-      <p v-if="neverGames.length && !loading" class="calendar-missing" role="status">{{ neverGames.join('、') }} · 等待活动更新。</p>
-      <details v-if="showSourceStatus || staleGames.length || failedReads.length || partialCollections.length || versionCalendars.length" class="calendar-source-states"><summary>数据来源详情</summary><p v-if="staleGames.length" class="calendar-stale">数据可能过期 · {{ staleGames.join('、') }}</p><p v-for="failure in partialCollections" :key="failure.id">{{ failure.name }} · 部分来源不可用，显示可用来源数据。</p><p v-for="failure in failedReads" :key="failure.id">{{ failure.name }}：{{ failure.error }}</p><div v-if="showSourceStatus" v-for="game in filteredGames" :key="game.game_id"><strong>{{ game.display_name }}</strong><CloudSnapshotStatus :snapshots="snapshots[game.game_id] || {}" :capabilities="['events']" /></div><VersionCalendarMetadata :calendars="versionCalendars" /></details>
-      <p v-if="loading && !events.length" class="calendar-empty" role="status">加载中…</p>
-
-      <VersionCalendarContent v-else-if="mode === 'version'" :calendars="versionCalendars" :as-of="now" :selected-id="selectedId" :empty-title="emptyTitle" :show-source-details="false" @select="selectEvent" />
-      <CalendarTimelineContent v-else :events="events" :range="range" :as-of="now" :range-mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="selectEvent" />
-    </section>
-
-
-
-    <section v-if="selected" ref="detailElement" class="calendar-detail t-panel" aria-labelledby="calendar-detail-title" tabindex="-1" :style="{ '--game-accent': gameAccent(selected.gameId) }" @keydown.esc.stop="closeDetail">
-      <div class="detail-heading"><div><p class="eyebrow">{{ selected.gameName }} / {{ selected.category }}</p><h2 id="calendar-detail-title">{{ selected.name || '未命名活动' }}</h2></div><button type="button" class="detail-close" aria-label="关闭活动详情" @click="closeDetail"><AppIcon name="close" :size="16" /></button></div>
-      <div class="detail-status"><span>{{ selected.status }}</span><span v-if="selected.geometry.reason">{{ selected.geometry.reason }}</span><span v-if="selected.stale" class="calendar-stale">数据可能过期</span></div>
-      <dl><div><dt>开始时间</dt><dd>{{ calendarBoundary(selected, 'start') }}</dd><small v-if="selected.geometry.approximateStart">仅知开始日期 {{ selected.start_date }}，具体时刻未知</small><small v-if="selected.start_at && selected.geometry.start === null">原始值：{{ selected.start_at }}</small></div><div><dt>截止时间</dt><dd>{{ calendarBoundary(selected, 'end') }}</dd><small v-if="selected.end_at && selected.geometry.end === null">原始值：{{ selected.end_at }}</small><small v-if="selected.end_at && selected.end_precision === 'version_end'">{{ selected.end_text }}，时刻取自下个版本的维护预告</small></div><div><dt>来源标题</dt><dd>{{ selected.source_name ? selected.source_name + ' · ' : '' }}{{ selected.source_title || '未提供' }}</dd></div><div><dt>数据更新时间</dt><dd>{{ formatBeijingDateTime(selected.fetchedAt) }}</dd></div></dl>
-      <p v-if="selected.source_note" class="source-id">{{ selected.source_note }}</p>
-      <p v-if="selected.geometry.clippedStart || selected.geometry.clippedEnd" class="clipping-note">时间条已按显示范围裁剪{{ selected.geometry.clippedStart ? '左侧' : '' }}{{ selected.geometry.clippedStart && selected.geometry.clippedEnd ? '和' : '' }}{{ selected.geometry.clippedEnd ? '右侧' : '' }}；以上为完整起止时间。</p>
-      <a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer" class="source-link">查看原始公告 ↗</a>
-    </section>
+      </aside>
+    </div>
   </div>
 </template>
 
@@ -150,30 +181,46 @@ async function closeDetail() {
 .calendar-page { min-width: 0; display: grid; gap: 20px; color: var(--text); }
 .calendar-page > .page-heading { margin-bottom: 0; }
 .calendar-timezone { gap: 6px; white-space: nowrap; }
-.calendar-board { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: visible; min-width: 0; display:flex; flex-direction:column; min-height:max(460px,calc(100dvh - var(--calendar-top) - 24px)); }
+/* Board on the left; on the right the selected event's detail, or what ends first, then the counts. */
+.calendar-layout { display:grid; grid-template-columns:minmax(0, 2.2fr) minmax(280px, 1fr); gap:20px; align-items:start; }
+.calendar-aside { position:sticky; top:16px; display:grid; gap:16px; min-width:0; }
+/* Counts under the side list, and the split by game. */
+.calendar-stats { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
+.calendar-stat, .calendar-split { min-width:0; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
+.calendar-stat { display:flex; flex-direction:column; justify-content:space-between; gap:6px; padding:14px 16px; border-radius:var(--radius-tile); }
+.calendar-stat > span { color:var(--text-muted); font-size:12px; font-weight:500; }
+.calendar-stat p { display:flex; align-items:baseline; gap:4px; }
+.calendar-stat b { font-size:26px; line-height:30px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
+.calendar-stat small, .split-unit { color:var(--text-muted); font-size:12px; }
+.calendar-stat.hot { background:var(--stale-bg); border-color:var(--attention-border); }
+.calendar-stat.hot b { color:var(--stale-text); }
+.calendar-split { grid-column:1 / -1; padding:14px 18px; display:flex; align-items:center; border-radius:var(--radius-tile); }
+.calendar-split :deep(.donut-chart) { width:100%; }
+.split-total { font-size:22px; font-weight:600; letter-spacing:-.02em; }
+.calendar-board { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); box-shadow: var(--card-shadow); overflow: visible; min-width: 0; display:flex; flex-direction:column; min-height:max(460px,calc(100dvh - var(--calendar-top) - 24px)); }
 .calendar-board > .version-calendars { flex:none; }
 .calendar-board :deep(.calendar-content:not(.image-mode)) { flex:none; min-height:320px; max-height:max(320px,calc(100dvh - var(--calendar-top) - 180px)); overflow:auto; }
 .calendar-board > :not(.calendar-content):not(.version-calendars){flex-shrink:0}
 .calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 18px 20px 12px; }
 .calendar-navigation, .calendar-filters { display: flex; align-items: center; gap: 12px; }
-.calendar-navigation h2 { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.calendar-navigation h2 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .calendar-arrows { display: flex; gap: 4px; }
 .calendar-page button, .calendar-page select { cursor: pointer; font-family: inherit; }
-.calendar-arrows button, .today-button, .detail-close { border: 1px solid var(--border); background: var(--card-bg); color: var(--text-body); border-radius: var(--radius-control); transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
+.calendar-arrows button, .today-button, .detail-close { border: 1px solid var(--border); background: var(--card-bg); box-shadow: var(--btn-shadow); color: var(--text-body); border-radius: var(--radius-control); transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
 @media (hover: hover) and (pointer: fine) { .calendar-arrows button:hover, .today-button:hover, .detail-close:hover { background: var(--button-hover-bg); color: var(--text); } }
-.calendar-arrows button:active, .today-button:active, .detail-close:active { transform: scale(var(--scale-medium)); }
-.calendar-arrows button { display: grid; place-items: center; height: 30px; width: 30px; padding: 0; }
+.calendar-arrows button:active, .today-button:active, .detail-close:active { transform: translateY(1px); }
+.calendar-arrows button { display: grid; place-items: center; height: 36px; width: 36px; padding: 0; }
 .previous-arrow { transform: rotate(90deg); }
 .next-arrow { transform: rotate(-90deg); }
-.today-button { min-height: 32px; padding: 5px 12px; font-size: 13px; font-weight: 500; }
+.today-button { min-height: 36px; padding: 6px 14px; font-size: 13px; font-weight: 500; }
 .calendar-meta { display: flex; justify-content: space-between; gap: 12px; padding: 0 20px 14px; font-size: 12px; color: var(--text-muted); }
 .calendar-meta strong { color: var(--text); font-size: 13px; font-weight: 500; }
 .calendar-legend { display: flex; gap: 16px; }
 .calendar-legend span { display: flex; align-items: center; gap: 6px; }
 .calendar-legend i { display: inline-block; }
-.legend-range { width: 12px; height: 7px; border-radius: 2px; background: var(--text-faint); }
+.legend-range { width: 16px; height: 8px; border-radius: 3px; background: color-mix(in srgb, var(--text-muted) 45%, var(--track)); }
 .legend-point { width: 6px; height: 6px; background: var(--text-muted); transform: rotate(45deg); }
-.legend-today { width: 2px; height: 10px; background: var(--accent); }
+.legend-today { width: 2px; height: 12px; border-radius: 2px; background: var(--accent); }
 .calendar-stale { color: var(--stale-text); font-size: 12px; }
 .calendar-board > .calendar-stale { margin: 0 20px 16px; padding: 10px 12px; background: var(--stale-bg); border: 1px solid color-mix(in srgb, var(--stale-text) 22%, transparent); border-radius: var(--radius-well); font-size: 13px; }
 .calendar-read-error, .calendar-missing { margin: 0 20px 10px; padding: 8px 12px; font-size: 13px; line-height: 1.6; border-radius: var(--radius-well); }
@@ -181,15 +228,18 @@ async function closeDetail() {
 .calendar-source-states > summary { cursor:pointer; }
 .calendar-source-states > div { margin-top:10px; }
 .calendar-read-error { background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger); }
-.calendar-missing { color: var(--text-muted); border: 1px dashed var(--border-strong); }
-.calendar-detail { background: var(--card-bg); border: 1px solid color-mix(in srgb, var(--game-accent) 38%, var(--border)); border-radius: var(--radius-card); padding: 24px; scroll-margin: 80px; }
-.detail-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
-.detail-heading h2 { margin-top: 4px; font-size: 20px; font-weight: 500; line-height: 1.4; }
-.detail-close { display: grid; place-items: center; height: 32px; width: 32px; padding: 0; flex-shrink: 0; }
-.detail-status { display: flex; gap: 8px; margin: 14px 0 22px; color: var(--text-body); font-size: 12px; font-weight: 500; flex-wrap: wrap; }
-.detail-status > span { background: var(--overlay-3); padding: 1px 8px; border-radius: var(--radius-chip); line-height: 20px; }
-.detail-status > span:first-child { background: color-mix(in srgb, var(--game-accent) 14%, transparent); color: var(--text); }
-.calendar-detail dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin: 0; }
+.calendar-missing { color: var(--text-muted); background: var(--surface-soft); }
+/* Detail: the event's game tone as a header panel inside a white card (mockup .event-detail). */
+.calendar-detail { position: relative; overflow: hidden; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); box-shadow: var(--card-shadow); padding: 7px 7px 22px; scroll-margin: 24px; }
+.calendar-detail > :not(.detail-heading) { margin-left: 16px; margin-right: 16px; }
+.detail-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding: 18px 16px 22px 18px; border-radius: 18px; background: var(--game-tone); }
+.detail-heading .eyebrow { color: var(--game-accent); }
+.detail-heading h2 { margin-top: 6px; font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.4; }
+.detail-close { display: grid; place-items: center; height: 40px; width: 40px; padding: 0; flex-shrink: 0; border-color: transparent; background: color-mix(in srgb, var(--card-bg) 70%, transparent); }
+.detail-status { display: flex; gap: 8px; margin-top: 16px; margin-bottom: 20px; color: var(--text-body); font-size: 12px; font-weight: 500; flex-wrap: wrap; }
+.detail-status > span { background: var(--surface-soft); padding: 2px 10px; border-radius: var(--radius-chip); line-height: 20px; }
+.detail-status > span:first-child { background: var(--game-tone); color: var(--game-accent); }
+.calendar-detail dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .calendar-detail dt { color: var(--text-muted); font-size: 12px; margin-bottom: 6px; }
 .calendar-detail dd { margin: 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .calendar-detail dl small { display: block; color: var(--text-muted); margin-top: 6px; }
@@ -198,7 +248,26 @@ async function closeDetail() {
 .calendar-page button:focus-visible, .calendar-page select:focus-visible, .timeline-scroll:focus-visible, .calendar-detail:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) { .unplaced-event:hover { background-color: var(--overlay-2); } .source-link:hover { color: var(--accent-strong); } }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+/* Side list (mockup .agenda-card): a warm panel of white rows, each opening its event's detail. */
+.calendar-agenda { padding:22px 20px 20px; border:1px solid var(--border); border-radius:var(--radius-card); background:var(--control-track); }
+.calendar-agenda h2 { font-size:17px; font-weight:600; letter-spacing:-.02em; outline:none; }
+.calendar-agenda h2:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
+.agenda-sub { margin-top:4px; color:var(--text-muted); font-size:12px; }
+.agenda-list { display:grid; gap:10px; margin-top:16px; }
+.agenda-item { position:relative; display:grid; justify-items:start; gap:6px; width:100%; min-height:84px; padding:14px 40px 14px 14px; border:1px solid var(--card-border); border-radius:16px; background:var(--card-bg); color:var(--text); text-align:left; }
+.agenda-item > svg { position:absolute; right:14px; top:16px; color:var(--text-muted); transition:transform var(--duration-fast) var(--ease-smooth-out), color var(--duration-quick) var(--ease-smooth-out); }
+@media (hover: hover) and (pointer: fine) { .agenda-item:hover { border-color:var(--border-strong); } .agenda-item:hover > svg { color:var(--accent); transform:translateX(2px); } }
+.agenda-item:active { transform:translateY(1px); }
+.agenda-pill { max-width:100%; overflow:hidden; padding:2px 7px; border-radius:var(--radius-chip); background:var(--game-tone); color:var(--game-accent); font-size:12px; white-space:nowrap; text-overflow:ellipsis; }
+.agenda-item strong { font-size:14px; font-weight:600; line-height:1.4; }
+.agenda-item small { color:var(--text-muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.agenda-empty { margin-top:16px; color:var(--text-muted); font-size:13px; line-height:1.8; }
+@media (max-width: 1250px) { .calendar-layout { grid-template-columns:minmax(0, 1fr); } .calendar-aside { position:static; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); align-items:start; } .calendar-aside > .calendar-detail { grid-column:1 / -1; } }
 @media (max-width: 760px) {
+  .calendar-aside { grid-template-columns:minmax(0, 1fr); }
+  .calendar-stats { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
+  .calendar-stat { padding:14px; }
+  .calendar-stat b { font-size:24px; line-height:28px; }
   .calendar-toolbar { padding: 16px; gap: 14px; }
   .calendar-navigation { gap: 8px; width: 100%; }
   .calendar-navigation h2 { font-size: 15px; }

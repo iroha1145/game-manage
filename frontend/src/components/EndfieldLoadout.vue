@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { rows, displayValue as display, sourceName as named } from '../endfield-reports.js'
 import { displayBeijing } from '../time.js'
+import HRail from './HRail.vue'
 import EndfieldArtwork from './EndfieldArtwork.vue'
 import EndfieldTacticalItem from './EndfieldTacticalItem.vue'
 const props=defineProps({operator:{type:Object,required:true}})
@@ -14,118 +15,105 @@ const time=value=>value == null || value === '' ? '未知' : displayBeijing(valu
 </script>
 <template>
   <div class="ef-loadout">
-    <div class="loadout-top">
-      <section class="loadout-hero" aria-label="干员档案">
-        
-        <EndfieldArtwork class="loadout-portrait" role portrait :operator-id="operator.char_id || operator.id" :src="operator.avatar_url" :name="operator.name || '干员'" />
-        <div class="hero-identity"><p class="hero-class">{{ named(operator.profession) }} / {{ named(operator.property) }}</p><h3>{{ operator.name || '干员' }}</h3>
-          <dl class="operator-marks"><div><dt>等级</dt><dd><small>LV.</small>{{ display(operator.level) }}</dd></div><div><dt>潜能</dt><dd>{{ display(operator.potential) }}</dd></div><div><dt>精英阶段</dt><dd>{{ display(operator.evolve_phase ?? operator.phase) }}</dd></div></dl>
-          <p class="obtained-time">获得时间 {{ time(operator.obtained_at) }}（北京时间）</p>
-        </div>
-      </section>
-      <div class="loadout-assembly">
-        <section class="loadout-module weapon-module" aria-label="武器与基质">
-          <header><h3>武器与基质</h3></header>
-          <div class="weapon-line"><EndfieldArtwork class="weapon-art" :src="operator.weapon?.icon_url" :name="named(operator.weapon)" /><div class="weapon-copy"><h4>{{ named(operator.weapon) }}</h4><dl class="item-marks"><div><dt>等级</dt><dd>LV. {{ display(operator.weapon?.level) }}</dd></div><div><dt>精炼</dt><dd>{{ display(operator.weapon?.refine_level) }}</dd></div><div><dt>突破</dt><dd>{{ display(operator.weapon?.breakthrough_level) }}</dd></div></dl></div></div>
-          <div class="gem-line"><EndfieldArtwork :src="operator.weapon?.gem?.icon_url" :name="named(operator.weapon?.gem)" /><div><p><span>基质</span> {{ named(operator.weapon?.gem) }}</p><ul v-if="rows(operator.weapon?.gem?.terms).length" class="gem-terms"><li v-for="(term,index) in rows(operator.weapon.gem.terms)" :key="index">{{ named(term) }} <b>{{ display(term.cost) }}</b></li></ul></div></div>
-        </section>
-        <section class="loadout-module equipment-module" aria-label="四槽装备">
-          <header><h3>装备</h3></header>
-          <ul class="equipment-slots"><li v-for="slot in slots" :key="slot.id" :class="{'slot-unknown':!slot.item}"><span class="slot-label">{{ slot.label }}</span><EndfieldArtwork :src="slot.item?.icon_url" :name="slot.item ? named(slot.item) : slot.label" /><h4>{{ slot.item ? named(slot.item) : '资料未知' }}</h4><p v-if="slot.item" class="slot-level"><span>等级</span> LV. {{ display(slot.item.level) }}</p><p v-else class="slot-level">未提供该槽位资料</p></li></ul>
-          <ul v-if="extraEquipment.length" class="extra-equipment"><li v-for="(item,index) in extraEquipment" :key="item.id || index"><EndfieldArtwork :src="item.icon_url" :name="named(item)" /><div><p class="slot-label">{{ item.slot_label || item.slot_name || item.slot || '来源未标槽位' }}</p><h4>{{ named(item) }}</h4><p class="slot-level">等级 LV. {{ display(item.level) }}</p></div></li></ul>
-        </section>
+    <section class="loadout-hero" aria-label="干员档案">
+      <EndfieldArtwork class="loadout-portrait" role portrait :operator-id="operator.char_id || operator.id" :src="operator.avatar_url" :name="operator.name || '干员'" />
+      <div class="hero-identity"><p class="hero-class">{{ named(operator.profession) }} / {{ named(operator.property) }}</p><h3>{{ operator.name || '干员' }}</h3>
+        <dl class="operator-marks"><div><dt>等级</dt><dd><small>LV.</small>{{ display(operator.level) }}</dd></div><div><dt>潜能</dt><dd>{{ display(operator.potential) }}</dd></div><div><dt>精英阶段</dt><dd>{{ display(operator.evolve_phase ?? operator.phase) }}</dd></div></dl>
+        <p class="obtained-time">获得时间 {{ time(operator.obtained_at) }}（北京时间）</p>
       </div>
+    </section>
+    <div class="loadout-assembly">
+      <section class="loadout-module weapon-module" aria-label="武器与基质">
+        <header><h3>武器与基质</h3></header>
+        <div class="weapon-line"><EndfieldArtwork class="weapon-art" :src="operator.weapon?.icon_url" :name="named(operator.weapon)" /><div class="weapon-copy"><h4>{{ named(operator.weapon) }}</h4><dl class="item-marks"><div><dt>等级</dt><dd>LV. {{ display(operator.weapon?.level) }}</dd></div><div><dt>精炼</dt><dd>{{ display(operator.weapon?.refine_level) }}</dd></div><div><dt>突破</dt><dd>{{ display(operator.weapon?.breakthrough_level) }}</dd></div></dl></div></div>
+        <div class="gem-line"><EndfieldArtwork :src="operator.weapon?.gem?.icon_url" :name="named(operator.weapon?.gem)" /><div><p><span>基质</span> {{ named(operator.weapon?.gem) }}</p><ul v-if="rows(operator.weapon?.gem?.terms).length" class="gem-terms"><li v-for="(term,index) in rows(operator.weapon.gem.terms)" :key="index">{{ named(term) }} <b>{{ display(term.cost) }}</b></li></ul></div></div>
+      </section>
+      <section class="loadout-module equipment-module" aria-label="四槽装备">
+        <header><h3>装备</h3></header>
+        <ul class="equipment-slots"><li v-for="slot in slots" :key="slot.id" :class="{'slot-unknown':!slot.item}"><span class="slot-label">{{ slot.label }}</span><EndfieldArtwork :src="slot.item?.icon_url" :name="slot.item ? named(slot.item) : slot.label" /><h4>{{ slot.item ? named(slot.item) : '资料未知' }}</h4><p v-if="slot.item" class="slot-level"><span>等级</span> LV. {{ display(slot.item.level) }}</p><p v-else class="slot-level">未提供该槽位资料</p></li></ul>
+        <ul v-if="extraEquipment.length" class="extra-equipment"><li v-for="(item,index) in extraEquipment" :key="item.id || index"><EndfieldArtwork :src="item.icon_url" :name="named(item)" /><div><p class="slot-label">{{ item.slot_label || item.slot_name || item.slot || '来源未标槽位' }}</p><h4>{{ named(item) }}</h4><p class="slot-level">等级 LV. {{ display(item.level) }}</p></div></li></ul>
+      </section>
     </div>
-    <section class="loadout-module skills-module" aria-label="干员技能"><header><h3>技能</h3></header><p v-if="!rows(operator.skills).length" class="module-empty">技能资料未知</p><ul v-else class="skill-slots"><li v-for="(skill,index) in rows(operator.skills)" :key="skill.id || index"><div class="skill-art"><EndfieldArtwork :src="skill.icon_url" :name="named(skill)" /><span class="skill-level" :aria-label="`等级 ${display(skill.level)}`">LV. {{ display(skill.level) }}</span></div><div><h4>{{ named(skill) }}</h4><p v-if="skill.mastery != null" class="skill-mastery">专精 {{ display(skill.mastery) }}</p></div></li></ul></section>
+    <section class="loadout-module skills-module" aria-label="干员技能"><header><h3>技能</h3></header><p v-if="!rows(operator.skills).length" class="module-empty">技能资料未知</p>
+      <HRail v-else label="干员技能"><ul class="skill-slots" role="list"><li v-for="(skill,index) in rows(operator.skills)" :key="skill.id || index"><div class="skill-art"><EndfieldArtwork :src="skill.icon_url" :name="named(skill)" /><span class="skill-level" :aria-label="`等级 ${display(skill.level)}`">LV. {{ display(skill.level) }}</span></div><div class="skill-copy"><h4>{{ named(skill) }}</h4><p v-if="skill.mastery != null" class="skill-mastery">专精 {{ display(skill.mastery) }}</p></div></li></ul></HRail></section>
     <EndfieldTacticalItem :item="operator.tactical_item" />
   </div>
 </template>
 <style scoped>
-.ef-loadout{--accent:var(--game-endfield);--accent-soft:color-mix(in srgb,var(--game-endfield) 8%,var(--card-bg));display:grid;gap:28px;min-width:0}
-.loadout-top{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(0,1.3fr);gap:32px;align-items:start}
-.loadout-hero{position:relative;min-width:0}
-.loadout-portrait{width:100%;height:280px;background:transparent;font-size:28px}
-.hero-identity{position:relative;padding:14px 0 0}
-.hero-class{font-size:12px;color:var(--text-muted);line-height:1.7}
-.hero-identity h3{font-size:16px;font-weight:500;line-height:1.5;overflow-wrap:anywhere;margin:4px 0 16px}
-.operator-marks{display:flex;gap:26px;flex-wrap:wrap}
-.operator-marks dt{font-size:12px;color:var(--text-muted);margin-bottom:4px}
-.operator-marks dd{margin:0;font-size:22px;font-weight:600;line-height:28px;font-variant-numeric:tabular-nums}
-.operator-marks small{font-size:12px;font-weight:400;color:var(--text-muted);margin-right:4px}
-.obtained-time{font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:16px;overflow-wrap:anywhere}
-.loadout-assembly{display:grid;gap:24px;min-width:0}
-.loadout-module{min-width:0}
+/* A bento in its own right: the portrait card, the weapon and equipment cards beside it, then skills and the tactical item. The portrait sits on the game tone. */
+.ef-loadout{--lo-tone:var(--game-tone,var(--game-endfield-tone));--lo-ink:var(--game-accent,var(--game-endfield));--accent:var(--lo-ink);--accent-soft:var(--lo-tone);display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;min-width:0}
+.ef-loadout>*{grid-column:1/-1;min-width:0}
+.loadout-hero,.loadout-module{position:relative;min-width:0;border:1px solid var(--card-border);border-radius:var(--radius-card);background:var(--card-bg);box-shadow:var(--card-shadow)}
+.loadout-module{padding:20px}
 .loadout-module>header{display:flex;gap:10px;align-items:center;margin-bottom:12px}
-.loadout-module>
-.loadout-module h3{font-size:14px;font-weight:500}
+.loadout-module h3{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.loadout-hero{grid-column:span 5;overflow:hidden;display:grid;grid-template-rows:auto 1fr;padding:6px}
+.loadout-portrait{width:100%;height:314px;border-radius:17px}
+.hero-identity{position:relative;display:grid;gap:4px;padding:6px 16px 16px}
+.hero-class{font-size:12px;color:var(--text-muted);line-height:1.7}
+.hero-identity h3{font-size:24px;font-weight:600;line-height:1.3;letter-spacing:-.02em;overflow-wrap:anywhere;margin:0 0 10px}
+.operator-marks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.operator-marks>div{padding:10px 12px;border-radius:var(--radius-well);background:var(--surface-soft)}
+.operator-marks dt{font-size:12px;color:var(--text-muted);margin-bottom:2px}
+.operator-marks dd{margin:0;font-size:28px;font-weight:550;line-height:32px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.operator-marks small{font-size:13px;font-weight:500;letter-spacing:0;color:var(--text-muted);margin-right:3px}
+.obtained-time{font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:10px;overflow-wrap:anywhere}
+.loadout-assembly{grid-column:span 7;display:grid;gap:16px;align-content:start;min-width:0}
 .weapon-line{display:flex;gap:18px;align-items:center;min-width:0}
-.weapon-art{width:88px;height:92px}
+.weapon-art{width:96px;height:96px;border-radius:var(--radius-tile)}
 .weapon-copy{min-width:0;flex:1}
 .ef-loadout h4{margin:0;font-size:13px;font-weight:500;line-height:1.6;overflow-wrap:anywhere}
-.weapon-copy h4{font-size:16px;margin-bottom:8px}
-.item-marks{display:flex;gap:18px;flex-wrap:wrap}
-.item-marks>div{display:flex;gap:7px;align-items:baseline;font-size:13px;line-height:1.8}
+.weapon-copy h4{font-size:18px;font-weight:600;letter-spacing:-.01em;margin-bottom:8px}
+.item-marks{display:flex;gap:8px;flex-wrap:wrap}
+.item-marks>div{display:grid;gap:0;min-width:76px;padding:6px 12px;border-radius:var(--radius-well);background:var(--surface-soft)}
 .item-marks dt{font-size:12px;color:var(--text-muted)}
-.item-marks dd{margin:0;font-variant-numeric:tabular-nums}
-.gem-line{display:flex;align-items:center;gap:12px;margin-top:14px;min-width:0}
-.gem-line>.endfield-artwork{width:34px;height:34px;background:transparent;font-size:18px}
+.item-marks dd{margin:0;font-size:16px;font-weight:600;line-height:22px;font-variant-numeric:tabular-nums}
+.gem-line{display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px;border-radius:var(--radius-tile);background:var(--surface-soft);min-width:0}
+.gem-line>.endfield-artwork{width:38px;height:38px;border-radius:var(--radius-control)}
 .gem-line>div{min-width:0}
 .gem-line p{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
 .gem-line p>span{color:var(--text-muted);margin-right:6px}
-.gem-terms{display:flex;gap:4px 12px;flex-wrap:wrap;font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:4px}
+.gem-terms{display:flex;gap:4px 8px;flex-wrap:wrap;font-size:12px;line-height:1.8;color:var(--text-muted);margin-top:4px}
+.gem-terms li{padding:0 10px;border-radius:var(--radius-chip);background:var(--card-bg)}
 .gem-terms b{color:var(--text);font-weight:500;margin-left:4px}
-.equipment-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.equipment-slots>li{position:relative;min-width:0}
+.equipment-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.equipment-slots>li{position:relative;min-width:0;padding:10px;border-radius:var(--radius-tile);background:var(--surface-soft)}
 .slot-label{font-size:12px;line-height:1.6;color:var(--text-muted)}
-.equipment-slots .endfield-artwork{width:100%;height:76px;margin:6px 0 10px;background:var(--surface-soft);font-size:24px}
+.equipment-slots .endfield-artwork{width:100%;height:68px;margin:6px 0 8px;border-radius:var(--radius-well)}
 .equipment-slots h4{font-size:13px;min-height:21px}
-.slot-level{font-size:12px;line-height:1.7;color:var(--text-muted);margin-top:4px;overflow-wrap:anywhere}
+.slot-level{font-size:12px;line-height:1.7;color:var(--text-muted);margin-top:2px;overflow-wrap:anywhere}
 .slot-level>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
-.slot-unknown .endfield-artwork{opacity:.5}
+.equipment-slots>li.slot-unknown{background:transparent;box-shadow:inset 0 0 0 1px var(--border-strong)}
+.slot-unknown .endfield-artwork{opacity:.45}
 .slot-unknown h4{color:var(--text-muted);font-weight:400}
-.extra-equipment{display:grid;gap:10px;margin-top:16px}
-.extra-equipment>li{display:flex;align-items:center;gap:12px;min-width:0}
-.extra-equipment .endfield-artwork{width:42px;height:42px;background:transparent}
+.extra-equipment{display:grid;gap:10px;margin-top:12px}
+.extra-equipment>li{display:flex;align-items:center;gap:12px;min-width:0;padding:10px;border-radius:var(--radius-tile);background:var(--surface-soft)}
+.extra-equipment .endfield-artwork{width:44px;height:44px;border-radius:var(--radius-control)}
 .extra-equipment>li>div{min-width:0}
-.skill-slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:18px 24px}
-.skill-slots>li{display:flex;gap:12px;align-items:center;min-width:0}
+.skills-module{grid-column:span 8;overflow:hidden}
+.ef-loadout>.ef-tactical{grid-column:span 4}
+.skills-module :deep(.h-rail){--rail-gap:12px;--rail-pad-block:6px;--rail-pad:2px}
+.skill-slots{display:contents;list-style:none;padding:0;margin:0}
+.skill-slots>li{flex:0 0 auto;scroll-snap-align:start;display:flex;gap:12px;align-items:center;width:208px;padding:12px;border-radius:var(--radius-tile);background:var(--surface-soft);min-width:0}
 .skill-art{position:relative;flex-shrink:0;padding-bottom:10px}
-.skill-art>.endfield-artwork{width:52px;height:52px;background:var(--accent-soft);font-size:24px}
-.skill-level{position:absolute;bottom:0;left:0;min-width:100%;padding:0 4px;border-radius:var(--radius-chip);text-align:center;background:var(--game-endfield);color:var(--accent-ink);font-size:12px;font-weight:500;line-height:20px;white-space:nowrap}
-.skill-slots>li>div:last-child{min-width:0}
-.skill-slots h4{font-size:13px}
-.skill-mastery{font-size:12px;color:var(--text-muted);margin-top:4px}
+.skill-art>.endfield-artwork{width:54px;height:54px;border-radius:var(--radius-control)}
+.skill-level{position:absolute;bottom:0;left:50%;transform:translateX(-50%);min-width:44px;padding:0 6px;border-radius:var(--radius-chip);text-align:center;background:var(--lo-tone);color:var(--lo-ink);box-shadow:0 0 0 2px var(--surface-soft);font-size:12px;font-weight:600;line-height:20px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.skill-copy{min-width:0}
+.skill-slots h4{font-size:13px;font-weight:600}
+.skill-mastery{font-size:12px;color:var(--text-muted);margin-top:2px}
 .module-empty{font-size:13px;color:var(--text-muted);line-height:1.7;padding:8px 0}
-.ef-loadout>.ef-tactical{margin:0}
-@media(max-width:1050px){
-  .loadout-top{gap:24px}
-  .equipment-slots{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-  .equipment-slots>li{display:grid;grid-template-columns:54px minmax(0,1fr);column-gap:10px;align-items:start}
-  .equipment-slots .slot-label{grid-column:2;grid-row:1}
-  .equipment-slots .endfield-artwork{grid-row:1/4;height:65px;margin:0}
-  .equipment-slots h4{min-height:0}
-  .equipment-slots .slot-level{grid-column:2;margin-top:2px}
-  .operator-marks{gap:18px}
-  .skill-slots{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+/* A bot image is one still frame: flat fills, no shadows or washes (they inflate the PNG). */
+:global(.render-image) .loadout-hero,:global(.render-image) .loadout-module{box-shadow:none;border-color:var(--border)}
+@media(max-width:900px){
+  .loadout-hero,.loadout-assembly,.skills-module,.ef-loadout>.ef-tactical{grid-column:1/-1}
+  .loadout-portrait{height:274px}
 }
-@media(max-width:640px){
-  .ef-loadout{gap:24px}
-  .loadout-top{grid-template-columns:1fr;gap:24px}
-  .loadout-hero{display:grid;grid-template-columns:112px minmax(0,1fr);align-items:end;padding-top:14px}
-  .loadout-portrait{height:205px}
-  .hero-identity{padding:8px 0 4px 14px}
-  .hero-identity h3{margin:4px 0 16px}
-  .operator-marks{gap:16px}
-  .operator-marks dd{font-size:20px}
-  .obtained-time{margin-top:14px}
-  .loadout-assembly{gap:24px}
-  .weapon-art{width:82px;height:86px}
-  .item-marks{gap:6px 16px}
-  .equipment-slots{gap:16px 12px}
-  .equipment-slots>li{grid-template-columns:48px minmax(0,1fr);column-gap:8px}
-  .equipment-slots .endfield-artwork{height:62px}
-  .skill-slots{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px}
-  .skill-slots>li{gap:10px}
-  .skill-art>.endfield-artwork{width:48px;height:48px}
+@media(max-width:600px){
+  .loadout-module{padding:16px;border-radius:22px}
+  .loadout-hero{border-radius:22px}
+  .equipment-slots{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .weapon-art{width:76px;height:76px}
+  .weapon-line{gap:14px}
+  .skill-slots>li{width:188px}
 }
 </style>

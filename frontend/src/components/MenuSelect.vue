@@ -177,7 +177,7 @@ onBeforeUnmount(() => { if (open.value) listen(false) })
 
 <style scoped>
 .menu-select { display: inline-flex; position: relative; min-width: 0; max-width: 100%; vertical-align: middle; }
-.menu-select-trigger { display: inline-flex; align-items: center; gap: 6px; width: 100%; min-width: 0; min-height: 32px; padding: 4px 8px 4px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card-bg); color: var(--text-body); font-size: 13px; font-weight: 400; line-height: 20px; text-align: left; }
+.menu-select-trigger { display: inline-flex; align-items: center; gap: 6px; width: 100%; min-width: 0; min-height: 36px; padding: 6px 10px 6px 13px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card-bg); box-shadow: var(--btn-shadow); color: var(--text-body); font-size: 13px; font-weight: 400; line-height: 20px; text-align: left; }
 .menu-select-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-select-trigger svg { flex-shrink: 0; color: var(--text-faint); transition: transform var(--duration-fast) var(--ease-smooth-out); }
 .open .menu-select-trigger { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); color: var(--accent-strong); }
@@ -187,13 +187,13 @@ onBeforeUnmount(() => { if (open.value) listen(false) })
 @media (hover: hover) and (pointer: fine) { .menu-select-trigger:not(:disabled):hover { background: var(--button-hover-bg); color: var(--text); } }
 @media (pointer: coarse) { .menu-select-trigger { min-height: 40px; } }
 
-/* Floating list: same surface and clock as Option Pro's select (200ms in). */
-.menu-select-list { position: fixed; inset: auto; z-index: 60; color: var(--text-body); max-width: calc(100% - 24px); margin: 0; padding: 4px; overflow-y: auto; list-style: none; border: 1px solid var(--border-strong); border-radius: var(--radius-well); background: var(--card-bg); box-shadow: var(--popover-shadow); transform-origin: top left; animation: menu-select-in var(--duration-fast) var(--ease-smooth-out); }
+/* Floating list: a white popover with a hairline that opens from its trigger in 250ms. */
+.menu-select-list { position: fixed; inset: auto; z-index: 60; color: var(--text-body); max-width: calc(100% - 24px); margin: 0; padding: 6px; overflow-y: auto; list-style: none; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); box-shadow: var(--popover-shadow); transform-origin: top left; animation: menu-select-in var(--duration-fast) var(--ease-smooth-out); }
 .menu-select-list.up { transform-origin: bottom left; }
 .menu-select-list.end { transform-origin: top right; }
 .menu-select-list.end.up { transform-origin: bottom right; }
 @keyframes menu-select-in { from { opacity: 0; transform: scale(var(--scale-medium)); } }
-li { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 32px; padding: 6px 8px 6px 10px; border-radius: var(--radius-chip); color: var(--text-body); font-size: 13px; line-height: 20px; white-space: nowrap; cursor: default; user-select: none; }
+li { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 36px; padding: 7px 10px 7px 12px; border-radius: 9px; color: var(--text-body); font-size: 13px; line-height: 20px; white-space: nowrap; cursor: default; user-select: none; }
 li[data-active] { background: var(--accent-soft); color: var(--accent-strong); }
 li[aria-selected="true"] { font-weight: 500; }
 li svg { flex-shrink: 0; color: var(--accent); }

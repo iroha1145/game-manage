@@ -30,3 +30,12 @@ test('portrait fallback can use the reviewed catalog avatar and resets for a new
   await nextTick()
   assert.equal(nodes(root, 'img')[0].props.src, other.portrait)
 })
+
+test('the fallback tile shows the first whole character of the name, even outside the BMP, and is hidden from assistive tech', () => {
+  const root = mount({ after() {} }, Artwork, { name: '𠮷野家' })
+  const letter = nodes(root, 'span').find(node => node.props['aria-hidden'])
+  assert.equal(content(letter), '𠮷')
+  assert.equal(content(mount({ after() {} }, Artwork, { name: '' })), '')
+  assert.ok(String(nodes(root, 'span')[0].props.class).includes('endfield-artwork'))
+  assert.ok(!String(nodes(root, 'span')[0].props.class).includes('has-image'))
+})

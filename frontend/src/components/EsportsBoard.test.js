@@ -44,3 +44,14 @@ test('mobile filter disclosure has an explicit operable expanded state', async t
   toggle.props.onClick(); await flush()
   assert.equal(toggle.props['aria-expanded'], true)
 })
+
+test('a match opened on its own shows a pip for each game a side needs to win the series and fills the ones won', async t => {
+  const payload = { tournaments: [{ id: 't', name: 'Worlds' }], teams: [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }],
+    matches: [{ id: 'bo5', tournament_id: 't', team_a_id: 'a', team_b_id: 'b', team_a_name: 'Alpha', team_b_name: 'Beta', status: 'completed', best_of: 5, score_a: 3, score_b: 1, winner_team_id: 'a' }] }
+  const root = mount(t, (await loadVue(new URL('./EsportsMatchDetail.vue', import.meta.url))), { payload, match: payload.matches[0] })
+  const pips = nodes(root, 'span').filter(n => String(n.props.class ?? '') === 'es-pips')
+  assert.equal(pips.length, 2)
+  const filled = pips.map(group => nodes(group, 'i').map(n => String(n.props.class ?? '').includes('won')))
+  assert.deepEqual(filled, [[true, true, true], [true, false, false]])
+  assert.match(content(root), /3 : 1/)
+})

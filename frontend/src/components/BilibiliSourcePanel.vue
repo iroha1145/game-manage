@@ -120,17 +120,17 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
 </template>
 
 <style scoped>
-.bili-panel { margin-top:24px; padding:0 16px; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-card); font-size:13px; color:var(--text); }
+.bili-panel { margin-top:28px; padding:0 20px; background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-card); box-shadow:var(--card-shadow); font-size:13px; color:var(--text); }
 /* Always open: the source status and its controls are what this card is for. */
-.bili-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; min-height:40px; }
-.bili-head h2 { margin:0; color:var(--text); font-size:16px; font-weight:500; }
+.bili-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; min-height:56px; cursor:pointer; }
+.bili-head h2 { margin:0; color:var(--text); font-size:15px; font-weight:600; }
 .bili-body { padding-bottom:14px; }
 .bili-intro { display:flex; align-items:center; gap:2px; margin-bottom:8px; }
 .bili-alert { margin:0 0 8px; color:var(--warning-text); }
 .muted { color:var(--text-muted); }
-.bili-status { padding:9px 0; border-bottom:1px solid var(--border); }
+.bili-status { padding:14px 16px; margin-top:8px; border-radius:var(--radius-tile); background:var(--surface-soft); }
 .bili-status-head { display:flex; align-items:center; gap:8px; }
-.bili-status-head strong { font-size:14px; font-weight:500; }
+.bili-status-head strong { font-size:14px; font-weight:600; }
 .status-line { margin:4px 0 0; color:var(--text-muted); }
 .status-line.warning { color:var(--warning-text); }
 .bili-kv { margin:6px 0 0; }

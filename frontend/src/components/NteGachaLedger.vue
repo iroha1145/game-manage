@@ -3,9 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { isCloudMode } from '../http-client.js'
 const cloudMode = isCloudMode()
 import { getLedgerSummary, getLedgerRecords, previewLedger, importLedger, getLedgerRules, saveLedgerRule, exportLedger, pityLabel, ledgerDate, poolLabel, requirementLabel, resultLabel } from '../nte-gacha-api.js'
+import { gauge } from '../nte-charts.js'
 import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
+import RingGauge from './RingGauge.vue'
 
 const props = defineProps({ accountId: { type: String, default: '' }, snapshot:{type:Object,default:null}, imageMode:{type:Boolean,default:false} })
 const summary = ref(null), records = ref([]), recordTotal = ref(0), rules = ref([])
@@ -114,6 +116,11 @@ function selectRule(value) {
   ruleNote.value = existing?.source_note || ''; ruleConfirmed.value = false
 }
 function nextExport() { exportStart.value = exportNext.value + 1; download() }
+// How far the current pity is towards the hard pity the reader set; unknown without a rule and a complete record.
+function pityGauge(item) {
+  const count = item.pity?.count, left = item.pity?.hard_pity_remaining
+  return Number.isInteger(count) && Number.isInteger(left) && left >= 0 && count + left > 0 ? gauge(count, count + left) : null
+}
 </script>
 
 <template>
@@ -160,6 +167,7 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
       <div v-if="summary?.pools?.length" class="pool-grid">
         <article v-for="item in summary.pools" :key="item.pool_id" class="pool-card">
           <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">按用户规则</span><button type="button" v-if="!imageMode && ruleable(item.pool_id)" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
+          <span v-if="!imageMode && pityGauge(item)" class="pity-ring" aria-hidden="true"><RingGauge :value="pityGauge(item).current" :max="pityGauge(item).total" label="垫抽进度" :size="84" :stroke="9" color="var(--game-vivid)"><b class="ring-pct">{{ Math.round(pityGauge(item).pct) }}%</b></RingGauge></span>
           <dl class="kv-grid pity-kv"><div><dt>当前垫抽</dt><dd>{{ pityLabel(item.pity) }}</dd></div><div><dt>距所设 S 保底</dt><dd>{{ item.pity?.hard_pity_remaining == null ? '未知' : `${item.pity.hard_pity_remaining} 抽` }}</dd></div></dl>
           <p class="muted">已导入 {{ item.total_pulls }} 次计数抽取<template v-if="item.pity?.as_of"><span class="sep" aria-hidden="true" />记录范围：{{ ledgerDate(item.pity.latest_record_at || item.pity.as_of) }}</template></p>
           <details v-if="!imageMode && (item.pity?.basis || item.pity?.missing_requirements?.length)" data-render-collapsed><summary>计算详情</summary><p v-if="item.pity?.basis" class="muted">{{ requirementLabel(item.pity.basis) }}</p><ul v-if="item.pity?.missing_requirements?.length" class="requirements"><li v-for="(note, index) in item.pity.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul></details>
@@ -189,44 +197,43 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
 </template>
 
 <style scoped>
-.ledger { display:grid; gap:10px; min-width:0; }
+.ledger { display:grid; gap:12px; min-width:0; }
 .ledger > * { min-width:0; }
-.ledger h2 { font-size:16px; line-height:24px; font-weight:500; }
-.ledger h3 { font-size:14px; font-weight:500; }
+.ledger h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.01em; }
+.ledger h3 { font-size:14px; font-weight:600; }
 .ledger-head { position:relative; margin-bottom:0; }
 .saved-count { display:inline-flex; align-items:center; gap:4px; margin-left:4px; color:var(--text-muted); font-size:12px; font-weight:400; }
-.saved-count b { color:var(--text); font-size:15px; font-weight:500; font-variant-numeric:tabular-nums; }
+.saved-count b { color:var(--text); font-size:20px; line-height:24px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
 .head-actions { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; margin-left:auto; }
 .export-warning { flex-basis:100%; margin:0; color:var(--stale-text); font-size:12px; }
 .check { display:inline-flex; align-items:center; gap:6px; color:var(--text-body); font-size:13px; font-weight:400; cursor:pointer; }
 .ledger input[type=checkbox] { margin:0; accent-color:var(--accent); }
-.ledger input:not([type=checkbox]):not([type=file]) { min-height:32px; max-width:100%; padding:4px 8px; border:1px solid var(--border); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text); font-size:13px; }
+.ledger input:not([type=checkbox]):not([type=file]) { min-height:34px; max-width:100%; padding:4px 12px; border:1px solid var(--border); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text); font-size:13px; }
 .export-controls { position:relative; margin:0; font-size:13px; color:var(--text-body); }
 .export-controls input[type=number] { width:88px; margin:0 4px; }
-.notice { padding:8px 12px; border-radius:var(--radius-control); background:var(--surface-soft); color:var(--text-body); font-size:13px; line-height:1.6; }
+.notice { padding:10px 14px; border-radius:var(--radius-well); background:var(--surface-soft); color:var(--text-body); font-size:13px; line-height:1.6; }
 .notice.error { background:var(--danger-bg); color:var(--danger); }
 .muted { color:var(--text-muted); font-size:12px; line-height:1.6; }
 
-/* Import and rule panels: collapsed one-line disclosures until needed. They sit
-   in the ledger card, so they take a tone step instead of an outline. */
-.panel { border-radius:var(--radius-well); background:var(--surface-soft); }
-.panel > summary { display:flex; align-items:center; gap:8px; min-height:36px; padding:6px 10px 6px 12px; border-radius:var(--radius-well); color:var(--text); font-size:14px; font-weight:500; list-style:none; cursor:pointer; }
+/* Import and rule panels: collapsed one-line disclosures until needed, soft tiles with a hairline. */
+.panel { border-radius:var(--radius-tile); background:var(--surface-soft); box-shadow:inset 0 0 0 1px var(--overlay-2); }
+.panel > summary { display:flex; align-items:center; gap:8px; min-height:44px; padding:8px 14px 8px 16px; border-radius:var(--radius-tile); color:var(--text); font-size:14px; font-weight:600; list-style:none; cursor:pointer; }
 .panel > summary::-webkit-details-marker { display:none; }
 .panel > summary > svg { margin-left:auto; color:var(--text-faint); }
-.panel > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.panel > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius-tile); }
 @media (hover:hover) and (pointer:fine) { .panel > summary:hover { background:var(--hover-bg); } }
-.panel-body { display:grid; gap:10px; padding:4px 12px 12px; font-size:13px; }
+.panel-body { display:grid; gap:12px; padding:4px 16px 16px; font-size:13px; }
 .file-row, .panel-actions { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
 .file-picker { display:inline-flex; flex-wrap:wrap; align-items:center; gap:8px; color:var(--text-body); font-size:13px; }
 .file-picker input { max-width:100%; color:var(--text-muted); font-size:13px; }
-.file-picker input::file-selector-button { margin-right:8px; padding:3px 10px; border:1px solid var(--border-strong); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text-body); font:inherit; cursor:pointer; }
+.file-picker input::file-selector-button { margin-right:8px; padding:4px 14px; border:1px solid var(--border-strong); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text-body); font:inherit; cursor:pointer; }
 .file-name { color:var(--text-muted); font-size:12px; }
 .coverage { display:grid; gap:4px; }
 .coverage label { display:flex; align-items:flex-start; gap:8px; color:var(--text-body); line-height:20px; }
 .coverage input { margin-top:3px !important; }
-.preview { display:grid; gap:6px; padding:8px 10px; border-radius:var(--radius-control); background:var(--card-bg); line-height:1.6; }
+.preview { display:grid; gap:6px; padding:10px 14px; border-radius:var(--radius-well); background:var(--card-bg); box-shadow:inset 0 0 0 1px var(--overlay-2); line-height:1.6; }
 .preview-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
-.preview-head strong { font-weight:500; }
+.preview-head strong { font-weight:600; }
 .preview .warn { color:var(--warning-text); }
 .preview ul { margin:0; padding-left:18px; list-style:disc; color:var(--text-muted); }
 .preview > button { justify-self:start; }
@@ -235,27 +242,33 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
 .source-help p { margin-top:4px; }
 .source-help a { color:var(--accent); }
 
-/* Pool cards: header with the rule action, then pity numbers first. */
-.pool-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap:8px; }
-.pool-card { display:grid; gap:6px; min-width:0; padding:12px 14px; border-radius:var(--radius-well); background:var(--surface-soft); font-size:13px; overflow-wrap:anywhere; }
+/* Pool cards: the ring towards the hard pity beside the pity numbers. */
+.pool-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap:12px; }
+.pool-card { display:grid; gap:8px; min-width:0; padding:16px 18px; border-radius:var(--radius-tile); background:var(--surface-soft); box-shadow:inset 0 0 0 1px var(--overlay-2); font-size:13px; overflow-wrap:anywhere; }
+.pool-card:has(.pity-ring) { grid-template-columns:auto minmax(0, 1fr); column-gap:16px; }
+.pool-card:has(.pity-ring) > :not(.pity-ring):not(.pity-kv) { grid-column:1 / -1; }
+.pity-ring { grid-row:2 / span 1; align-self:center; }
+.ring-pct { color:var(--text); font-size:15px; font-weight:600; letter-spacing:-.01em; }
 .pool-card-head { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
 .pool-card-head > button { margin-left:auto; }
 .pity-kv { --kv-min:100px; }
+.pity-kv dd { font-size:20px; line-height:26px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+.pool-card .kv-grid.tiles > div, .pity-kv > div { padding:0; background:none; }
 .sep::before { content:'·'; margin:0 6px; color:var(--text-faint); }
 .requirements { margin:0; padding-left:16px; list-style:disc; color:var(--text-muted); font-size:12px; line-height:1.6; }
 
-.rule-form { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px 12px; }
+.rule-form { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px 14px; }
 .rule-form label,.rule-form .field { display:grid; gap:4px; color:var(--text-muted); font-size:12px; }
-.rule-reward { color:var(--text); font-size:13px; line-height:32px; }
+.rule-reward { color:var(--text); font-size:13px; line-height:34px; }
 .rule-form .menu-select { display:flex; width:100%; }
 .rule-form .wide { grid-column:1 / -1; }
 .rule-form .check { display:flex; align-items:center; color:var(--text-body); font-size:13px; }
 
-.records-toolbar { margin:4px 0 0; }
+.records-toolbar { margin:6px 0 0; }
 .records-toolbar h3 { margin-right:4px; }
 .records-table { overflow-x:auto; }
 .records-table td, .records-table th { white-space:nowrap; font-variant-numeric:tabular-nums; }
-.empty { position:relative; display:flex; align-items:center; justify-content:center; gap:4px; padding:12px 0; color:var(--text-muted); font-size:13px; }
+.empty { position:relative; display:flex; align-items:center; justify-content:center; gap:4px; padding:14px 0; color:var(--text-muted); font-size:13px; }
 .pagination { display:flex; align-items:center; justify-content:center; gap:10px; color:var(--text-muted); font-size:13px; font-variant-numeric:tabular-nums; }
 @media (max-width:650px) {
   .rule-form { grid-template-columns:1fr; }

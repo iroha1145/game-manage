@@ -38,3 +38,47 @@ export function gachaPools(summary) {
       history_limit: number(pool.history_limit), four_star:number(pool.four_star), unknown_rarity:number(pool.unknown_rarity) }
   })
 }
+
+// How many pulls a 6★ took, in the wording the ledger can prove: exact, a known minimum, or unknown (null).
+export function sixPullsParts(item) {
+  if (item?.pulls == null || (item.status !== 'exact' && item.status !== 'lower_bound')) return null
+  return { prefix: item.status === 'exact' ? '' : '≥', count: item.pulls, unit: '抽' }
+}
+export const sixPullsText = item => { const parts = sixPullsParts(item); return parts ? `${parts.prefix}${parts.count} ${parts.unit}` : '未知' }
+
+// 6★ across all pools, newest first. An unknown time sorts last; equal times keep their pool order.
+export function recentSixStars(pools, limit = Infinity) {
+  const items = []
+  for (const pool of rows(pools)) for (const item of rows(pool.history)) items.push({ ...item, pool_key: pool.key, pool_label: pool.label })
+  return items
+    .map((item, index) => ({ item, index, at: Number.isFinite(item.obtained_at) ? item.obtained_at : null }))
+    .sort((a, b) => (a.at == null) - (b.at == null) || (b.at ?? 0) - (a.at ?? 0) || a.index - b.index)
+    .slice(0, limit).map(({ item }) => item)
+}
+
+// One count summed over every pool. A single pool without it makes the whole total unknown, never a partial sum.
+export function poolTotal(pools, field) {
+  const values = rows(pools).map(pool => number(pool[field]))
+  return values.length && values.every(value => value != null) ? values.reduce((sum, value) => sum + value, 0) : null
+}
+
+// The pool that was pulled from most recently, as an index into `pools`; -1 when no pool says when.
+export function latestPoolIndex(pools) {
+  const list = rows(pools)
+  let best = -1
+  list.forEach((pool, index) => {
+    const at = number(pool.newest_at)
+    if (at != null && (best < 0 || at > number(list[best].newest_at))) best = index
+  })
+  return best
+}
+
+// Column spans (of 12) for pool cards so every row fills the width: up to three to a row
+// (four when there are only four), the cards shared out as evenly as the count allows.
+export function poolSpans(count) {
+  const total = Number.isInteger(count) && count > 0 ? count : 0
+  if (!total) return []
+  const perRow = total <= 4 ? total : 3, rows = Math.ceil(total / perRow)
+  const base = Math.floor(total / rows), extra = total % rows
+  return Array.from({ length: rows }, (_, row) => Array(base + (row < extra ? 1 : 0)).fill(12 / (base + (row < extra ? 1 : 0)))).flat()
+}

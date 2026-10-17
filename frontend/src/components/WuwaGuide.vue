@@ -81,13 +81,13 @@ function receiveGuide(value) {
 .guide-heading, .guide-card header { display: flex; align-items: center; gap: 12px; }
 .guide-heading { justify-content: space-between; }
 .guide-title { flex: 1; }
-.guide-heading h3 { margin: 4px 0; font-size: 18px; font-weight: 500; }
+.guide-heading h3 { margin: 4px 0; font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -.02em; }
 
 .guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
-.guide-card { border-radius: var(--radius-well); padding: 16px; background: var(--surface-soft); min-width: 0; display: flex; flex-direction: column; }
+.guide-card { border-radius: var(--radius-tile); padding: 16px 18px; background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); min-width: 0; display: flex; flex-direction: column; }
 .guide-card:last-child { grid-column: 1 / -1; }
-.guide-card h4 { margin: 0; color: var(--text); font-size: 14px; font-weight: 500; }
-.guide-number { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.guide-card h4 { margin: 0; color: var(--text); font-size: 15px; font-weight: 600; }
+.guide-number { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: var(--radius-chip); background: var(--game-tone, var(--accent-soft)); color: var(--game-accent, var(--accent)); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .guide-advice { line-height: 1.8; font-size: 14px; color: var(--text); overflow-wrap: anywhere; margin: 12px 0; }
 .guide-note { color: var(--stale-text); line-height: 1.7; font-size: 13px; }
 .guide-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 12px; margin-top: auto; font-size: 12px; color: var(--text-muted); }
@@ -97,7 +97,7 @@ function receiveGuide(value) {
 .wuwa-guide a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .guide-card footer a { margin-left: auto; }
 .guide-locator { margin-top: 8px; font-size: 12px; }
-.guide-sources { margin-top: 16px; border-radius: var(--radius-well); padding: 12px 16px; background: var(--surface-soft); }
+.guide-sources { margin-top: 16px; border-radius: var(--radius-tile); padding: 12px 18px; background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .guide-sources summary { cursor: pointer; }
 .guide-source { padding: 14px 0; border-bottom: 1px solid var(--border); }
 .guide-source:last-child { border-bottom: 0; padding-bottom: 0; }

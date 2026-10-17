@@ -1,9 +1,12 @@
 <script setup>
 import { isCloudMode } from '../http-client.js'
 const cloudMode = isCloudMode()
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
 import { fieldLabels, list, stamp, value } from '../wuwa-display.js'
+import { historySubject, levelSeries, seasonStars } from '../wuwa-charts.js'
+import BarChart from './BarChart.vue'
+import TrendChart from './TrendChart.vue'
 import WuwaTower from './WuwaTower.vue'
 import WuwaFields from './WuwaFields.vue'
 import WuwaRoleDetail from './WuwaRoleDetail.vue'
@@ -83,6 +86,19 @@ const nestedDeltas = (delta) =>
     ([, d]) => !isScalar(d?.before) || !isScalar(d?.after),
   )
 const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
+const titleOf = (item) =>
+  item.payload?.name ||
+  item.payload?.data?.role?.role_name ||
+  item.payload?.role?.role_name ||
+  `角色 ${item.subject}`
+// Charts need history: a role's level line from its second observation on, the
+// deep zone's stars from the second season on. One record alone stays a plain row.
+const levels = computed(() => levelSeries(archive.value?.items))
+const seasons = computed(() => (kind.value === 'tower' ? seasonStars(archive.value?.items) : []))
+const trendFor = (item) => {
+  const series = levels.value.get(historySubject(item))
+  return series && series.id === item.id ? series.points : null
+}
 </script>
 <template>
   <section class="wuwa-panel">
@@ -130,20 +146,19 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
       ><p v-if="!list(archive.items).length" class="wuwa-notice">
         暂无记录，请刷新数据或回补历史。
       </p>
-      <ul v-else class="wuwa-history">
-        <li v-for="item in list(archive.items)" :key="item.id">
+      <template v-else>
+      <section v-if="seasons.length > 1" class="wuwa-panel history-chart">
+        <header class="cap-title"><h3>每期深境区星数</h3></header>
+        <BarChart :items="seasons" label="每期深境区星数" unit=" 星" :height="96" :highlight="seasons.length - 1" />
+      </section>
+      <ul class="wuwa-history">
+        <li v-for="item in list(archive.items)" :key="item.id" class="wuwa-history-item">
           <header class="wuwa-history-head">
+            <span v-if="kind !== 'tower'" class="boss-mark" aria-hidden="true">{{ titleOf(item).slice(0, 1) }}</span>
             <h3 v-if="kind === 'tower'">
               赛季结束 {{ stamp(item.season) }}（北京时间）
             </h3>
-            <h3 v-else>
-              {{
-                item.payload?.name ||
-                item.payload?.data?.role?.role_name ||
-                item.payload?.role?.role_name ||
-                `角色 ${item.subject}`
-              }}
-            </h3>
+            <h3 v-else>{{ titleOf(item) }}</h3>
             <span
               class="badge"
               :class="item.delta == null ? 'wuwa-badge-off' : 'wuwa-badge-on'"
@@ -155,6 +170,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
               >记录时间 {{ stamp(item.observed_at) }}（北京时间）</span
             >
           </header>
+          <TrendChart v-if="trendFor(item)" class="history-trend" :points="trendFor(item)" :label="`${titleOf(item)} 等级`" unit=" 级" :digits="0" :height="56" />
           <table
             v-if="scalarDeltas(item.delta).length"
             class="data-table wuwa-deltas"
@@ -212,6 +228,7 @@ const signed = (n) => (typeof n === 'number' && n > 0 ? `+${n}` : n)
           </details>
         </li>
       </ul>
+      </template>
       <nav class="wuwa-pager" aria-label="历史分页">
         <button
           type="button"

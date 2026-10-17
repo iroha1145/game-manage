@@ -8,14 +8,14 @@ import NteCommunityGacha from './NteCommunityGacha.vue'
 import NteGachaLedger from './NteGachaLedger.vue'
 import { collectVersionCalendars } from '../calendar.js'
 import { displayBeijing } from '../time.js'
-import { gameStyle } from '../dashboard.js'
+import { gameVars } from '../dashboard.js'
 import RenderGameSnapshot from './RenderGameSnapshot.vue'
 import RenderNotice from './RenderNotice.vue'
 const props = defineProps({ snapshot: {type:Object,required:true} })
 // The whole page is an image: components that ask for image mode (GameIcon in the calendar) get it for every kind.
 provide('wuwaImageMode', true)
 const data = computed(() => props.snapshot.display_data)
-const gameTheme = computed(() => ({ '--game-accent': gameStyle(props.snapshot.game).color }))
+const gameTheme = computed(() => gameVars(props.snapshot.game))
 const calendars = computed(() => props.snapshot.kind === 'calendar' ? collectVersionCalendars(data.value.games, data.value.snapshots, '', Date.parse(props.snapshot.as_of)) : [])
 </script>
 <template>

@@ -3,6 +3,10 @@ import { computed, ref, watch } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
 import { friendlyDataError } from '../cloud-display.js'
 import { list, value, sourceDateTime } from '../wuwa-display.js'
+import { sourceShares } from '../wuwa-charts.js'
+import { vGlide, vReveal } from '../motion.js'
+import DonutChart from './DonutChart.vue'
+import HRail from './HRail.vue'
 import WuwaStatus from './WuwaStatus.vue'
 import WuwaFields from './WuwaFields.vue'
 const props = defineProps({
@@ -94,75 +98,30 @@ function trend(v) {
   const n = typeof v === 'number' ? v : Number.parseFloat(String(v ?? ''))
   return !Number.isFinite(n) || n === 0 ? '' : n > 0 ? 'is-up' : 'is-down'
 }
+// Each currency: the total, its change on the last report, and the sources as parts of a whole.
 const totals = computed(() => {
   const data = current.value?.data || {}
   return [
     ['coin_list', '贝币', data.total_coin, data.coin_inc, '贝币来源'],
     ['star_list', '星声', data.total_star, data.star_inc, '星声来源'],
-  ].map(([key, name, total, inc, title], n) => {
-    const rows = list(data[key])
-    const sum = rows.reduce(
-      (acc, r) => acc + (typeof r?.num === 'number' ? r.num : 0),
-      0,
-    )
-    const base = typeof total === 'number' && total > 0 ? total : sum
-    return {
-      key,
-      name,
-      total,
-      inc,
-      title,
-      rows: rows.map((r, i) => ({
-        type: r.type || '未知来源',
-        num: r.num,
-        pct:
-          typeof r.num === 'number' && base > 0
-            ? Math.max(0, Math.min(100, Math.round((r.num / base) * 100)))
-            : null,
-        series: `var(--chart-${(i + n * 3) % 6 + 1})`,
-      })),
-    }
-  })
+  ].map(([key, name, total, inc, title]) => ({
+    key,
+    name,
+    total,
+    inc,
+    title,
+    segments: sourceShares(data[key]).map((part, i) => ({ ...part, color: `var(--chart-${i + 1})` })),
+  }))
 })
 </script>
 <template>
-  <section class="wuwa-panel">
-    <header class="cap-title">
+  <section class="wuwa-board">
+    <header class="wuwa-board-head">
       <h2>资源简报</h2>
       <WuwaStatus v-if="snap?.stale || snap?.error" :snap="snap" />
     </header>
-    <div v-if="!imageMode" class="wuwa-periods">
-      <div
-        v-for="(name, kind) in kinds"
-        :key="kind"
-        class="wuwa-period-group"
-        role="group"
-        :aria-label="`${name}报告`"
-      >
-        <span class="wuwa-period-label" aria-hidden="true">{{ name }}报告</span
-        ><button
-          v-for="p in periods.filter((p) => p.kind === kind)"
-          :key="p.period"
-          type="button"
-          class="wuwa-chip-button"
-          :aria-pressed="
-            current?.kind === kind &&
-            String(current?.period) === String(p.period)
-          "
-          @click="select(p)"
-        >
-          {{ p.title || `${name} ${p.period}` }}</button
-        ><span v-if="!periods.some((p) => p.kind === kind)" class="wuwa-meta"
-          >无可用周期</span
-        >
-      </div>
-    </div>
-    <p v-if="pending" role="status" class="wuwa-meta">正在读取所选周期…</p>
-    <p v-if="error || snap?.payload?.error" role="alert" class="wuwa-error">
-      {{ imageMode ? friendlyDataError(error || snap?.payload?.error,snap?.state) : error || snap?.payload?.error }}
-    </p>
-    <template v-if="current?.data">
-      <header class="wuwa-report-head">
+    <div class="wuwa-panel wuwa-report" :class="{ 'is-hero': current?.data }">
+      <header v-if="current?.data" class="wuwa-report-head">
         <h3>
           {{
             selected?.title ||
@@ -185,11 +144,45 @@ const totals = computed(() => {
         </span>
         <WuwaStatus :snap="current" />
       </header>
-      <p v-if="pending || error" class="wuwa-warning wuwa-meta">
+      <HRail v-if="!imageMode" label="资源报告周期" class="wuwa-periods">
+        <div
+          v-for="(name, kind) in kinds"
+          :key="kind"
+          class="wuwa-period-group"
+          role="group"
+          :aria-label="`${name}报告`"
+        >
+          <span class="wuwa-period-label" aria-hidden="true">{{ name }}报告</span
+          ><span v-if="!periods.some((p) => p.kind === kind)" class="wuwa-meta"
+            >无可用周期</span
+          ><div v-else v-glide class="segmented">
+            <button
+              v-for="p in periods.filter((p) => p.kind === kind)"
+              :key="p.period"
+              type="button"
+              :aria-pressed="
+                current?.kind === kind &&
+                String(current?.period) === String(p.period)
+              "
+              @click="select(p)"
+            >
+              {{ p.title || `${name} ${p.period}` }}
+            </button>
+          </div>
+        </div>
+      </HRail>
+      <p v-if="pending" role="status" class="wuwa-meta">正在读取所选周期…</p>
+      <p v-if="error || snap?.payload?.error" role="alert" class="wuwa-error">
+        {{ imageMode ? friendlyDataError(error || snap?.payload?.error,snap?.state) : error || snap?.payload?.error }}
+      </p>
+      <p v-if="current?.data && (pending || error)" class="wuwa-warning wuwa-meta">
         当前仍显示上一份报告。
       </p>
-      <div class="wuwa-tiles wuwa-currencies">
-        <section v-for="c in totals" :key="c.key" class="wuwa-currency wuwa-cq">
+      <p v-if="!current?.data" class="wuwa-muted">{{ periods.length ? '暂无报告，请选择其他周期。' : '暂无报告，请刷新数据。' }}</p>
+    </div>
+    <template v-if="current?.data">
+      <div class="wuwa-bento">
+        <section v-for="c in totals" :key="c.key" v-reveal class="wuwa-panel span-6 wuwa-currency">
           <dl class="wuwa-total">
             <dt>{{ c.name }}</dt>
             <dd>
@@ -200,58 +193,54 @@ const totals = computed(() => {
             </dd>
           </dl>
           <h4 class="sr-only">{{ c.title }}</h4>
-          <ul v-if="c.rows.length" class="bar-list wuwa-bars with-note">
-            <li v-for="(r, i) in c.rows" :key="i" class="bar-row has-note">
-              <span class="k">{{ r.type }}</span
-              ><span class="meter"
-                ><i :style="{ '--pct': (r.pct ?? 0) + '%', '--series': r.series }"></i></span
-              ><span class="v">{{ amount(r.num) }}</span
-              ><span class="note">{{ r.pct == null ? '' : `${r.pct}%` }}</span>
-            </li>
-          </ul>
+          <DonutChart v-if="c.segments.length" :segments="c.segments" :label="c.title" :size="132" :stroke="16">
+            <small class="ring-cap">来源</small>
+            <b class="donut-total">{{ c.segments.length }}</b>
+          </DonutChart>
           <p v-else class="wuwa-muted">未提供明细</p>
         </section>
       </div>
-      <p v-if="current.data.copy_writing" class="wuwa-note">
-        {{ current.data.copy_writing }}
-      </p>
-      <details
-        v-if="list(current.data.item_list).length"
-        class="wuwa-supplement"
-      >
-        <summary>全部资源类别与明细</summary>
-        <table v-if="itemRows" class="data-table wuwa-items">
-          <thead>
-            <tr>
-              <th>类别</th>
-              <th class="num">数量</th>
-              <th>来源明细</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(r, i) in itemRows" :key="i">
-              <td>{{ r.type || '未知类别' }}</td>
-              <td class="num">{{ amount(r.num) }}</td>
-              <td>
-                <ul v-if="list(r.detail).length" class="chip-list">
-                  <li v-for="(d, j) in list(r.detail)" :key="j" class="chip">
-                    {{ d.type || '未知来源' }} <b>{{ amount(d.num) }}</b>
-                  </li>
-                </ul>
-                <span v-else class="wuwa-muted">暂无条目</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <WuwaFields v-else :data="current.data.item_list" />
-      </details>
-      <details v-if="current.data.recommend" class="wuwa-supplement">
-        <summary>
-          {{ current.data.recommend.post_title || '推荐说明' }}
-        </summary>
-        <p class="wuwa-description">{{ current.data.recommend.content }}</p>
-      </details>
+      <section v-if="current.data.copy_writing || list(current.data.item_list).length || current.data.recommend" class="wuwa-panel">
+        <p v-if="current.data.copy_writing" class="wuwa-note">
+          {{ current.data.copy_writing }}
+        </p>
+        <details
+          v-if="list(current.data.item_list).length"
+          class="wuwa-supplement"
+        >
+          <summary>全部资源类别与明细</summary>
+          <table v-if="itemRows" class="data-table wuwa-items">
+            <thead>
+              <tr>
+                <th>类别</th>
+                <th class="num">数量</th>
+                <th>来源明细</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(r, i) in itemRows" :key="i">
+                <td>{{ r.type || '未知类别' }}</td>
+                <td class="num">{{ amount(r.num) }}</td>
+                <td>
+                  <ul v-if="list(r.detail).length" class="chip-list">
+                    <li v-for="(d, j) in list(r.detail)" :key="j" class="chip">
+                      {{ d.type || '未知来源' }} <b>{{ amount(d.num) }}</b>
+                    </li>
+                  </ul>
+                  <span v-else class="wuwa-muted">暂无条目</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <WuwaFields v-else :data="current.data.item_list" />
+        </details>
+        <details v-if="current.data.recommend" class="wuwa-supplement">
+          <summary>
+            {{ current.data.recommend.post_title || '推荐说明' }}
+          </summary>
+          <p class="wuwa-description">{{ current.data.recommend.content }}</p>
+        </details>
+      </section>
     </template>
-    <p v-else class="wuwa-muted">{{ periods.length ? '暂无报告，请选择其他周期。' : '暂无报告，请刷新数据。' }}</p>
   </section>
 </template>

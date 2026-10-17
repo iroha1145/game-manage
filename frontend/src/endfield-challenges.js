@@ -47,3 +47,10 @@ export function challengeReport(value, kind) {
 export function retainedChallenge(previous, error) {
   return previous ? { ...previous, stale: true, error } : null
 }
+
+/** How many stages in the (already projected) groups are cleared, open, or not observed. */
+export function stageStates(groups) {
+  const states = { passed: 0, failed: 0, unknown: 0 }
+  for (const group of rows(groups)) for (const stage of rows(group.stages)) states[stage.passed === true ? 'passed' : stage.passed === false ? 'failed' : 'unknown']++
+  return states
+}

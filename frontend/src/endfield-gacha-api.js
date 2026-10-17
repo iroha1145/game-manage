@@ -21,3 +21,16 @@ export function pullDate(value) {
   return pullDateFormatter.format(new Date(value))
 }
 export const rarityLabel = value => Number.isInteger(value) ? `${value}★` : '稀有度未知'
+
+const pullDayFormatter = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric' })
+/** A pull's Beijing calendar day for compact cards, e.g. 10月16日. */
+export function pullDay(value) {
+  if (!Number.isFinite(value)) return '时间未提供'
+  return pullDayFormatter.format(new Date(value))
+}
+
+/** The pity count split for a big numeral: `≥` marks a known minimum; the unit stays small. */
+export function pityParts(pity) {
+  if (!pity || !Number.isInteger(pity.count)) return null
+  return { prefix: pity.status === 'exact' ? '' : '≥', count: pity.count, unit: '抽' }
+}

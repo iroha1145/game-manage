@@ -20,13 +20,13 @@ const measurable = metric => Number.isFinite(metric.current) && metric.current >
 </template>
 
 <style scoped>
-/* Tiles sit inside a card: a tone step and no outline. The bar is the only
-   progress mark, so the tile carries no icon or ring. */
-.summary-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:8px;margin:16px 0 4px}
-.summary-metric{display:grid;align-content:start;gap:10px;padding:14px 16px;background:var(--surface-soft);border-radius:var(--radius-control);min-width:0}
-.metric-copy{min-width:0}.metric-copy>span{display:block;color:var(--text-muted);font-size:12px;line-height:18px;margin-bottom:4px}.metric-copy>strong{display:block;font-size:22px;font-weight:600;line-height:28px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.metric-copy small{font-size:13px;font-weight:400;color:var(--text-muted)}.metric-copy p{font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.6}
-progress,.unknown-track{width:100%;height:4px;border:0;border-radius:999px;overflow:hidden;background:var(--track);appearance:none}progress::-webkit-progress-bar{background:var(--track)}progress::-webkit-progress-value{background:var(--accent);border-radius:999px}progress::-moz-progress-bar{background:var(--accent);border-radius:999px}.unknown-track{opacity:.5}
-.compact{grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr))}.compact .summary-metric{padding:12px}.compact .metric-copy>strong{font-size:18px;line-height:24px;font-weight:500}
-.rows{grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))}.rows .summary-metric{padding:12px 14px;gap:8px}.rows .metric-copy{display:flex;align-items:baseline;justify-content:space-between;gap:6px;flex-wrap:wrap}.rows .metric-copy>span{margin:0;flex:1;min-width:95px}.rows .metric-copy strong{font-size:16px;line-height:24px;font-weight:500}.rows .metric-copy p{width:100%;margin:0}
+/* Tiles sit inside a card as a tone step: a big number, its label, and one
+   progress bar in the game's line colour. */
+.summary-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr));gap:10px;margin:16px 0 4px}
+.summary-metric{display:grid;align-content:start;gap:12px;padding:16px 16px 15px;background:var(--surface-soft);border-radius:var(--radius-well);min-width:0}
+.metric-copy{min-width:0}.metric-copy>span{display:block;color:var(--text-muted);font-size:12px;line-height:18px;margin-bottom:4px}.metric-copy>strong{display:block;font-size:26px;font-weight:550;line-height:32px;letter-spacing:-.03em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.metric-copy small{font-size:13px;font-weight:500;letter-spacing:0;color:var(--text-muted)}.metric-copy p{font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.6}
+progress,.unknown-track{width:100%;height:6px;border:0;border-radius:6px;overflow:hidden;background:var(--track);appearance:none}progress::-webkit-progress-bar{background:var(--track)}progress::-webkit-progress-value{background:var(--game-vivid,var(--game-endfield-vivid));border-radius:6px}progress::-moz-progress-bar{background:var(--game-vivid,var(--game-endfield-vivid));border-radius:6px}.unknown-track{opacity:.5}
+.compact{grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr))}.compact .summary-metric{padding:13px 14px}.compact .metric-copy>strong{font-size:20px;line-height:26px}
+.rows{grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))}.rows .summary-metric{padding:12px 14px;gap:8px}.rows .metric-copy{display:flex;align-items:baseline;justify-content:space-between;gap:6px;flex-wrap:wrap}.rows .metric-copy>span{margin:0;flex:1;min-width:95px}.rows .metric-copy strong{font-size:17px;line-height:24px}.rows .metric-copy p{width:100%;margin:0}
 @media(max-width:500px){.summary-metrics{grid-template-columns:1fr}.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>

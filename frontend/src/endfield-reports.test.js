@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { selectOperators, selectMedals, profileReport, operatorImage, operatorArtwork } from './endfield-reports.js'
+import { selectOperators, selectMedals, profileReport, operatorImage, operatorArtwork, rarityParts, phaseParts, medalCategoryParts, recentMedals, platedSummary } from './endfield-reports.js'
 
 test('operator filters combine name rarity and profession; stable numeric sorting preserves zero and unknown last', () => {
   const items = [{ id:'missing',name:'未知',rarity:6,profession:'近卫' },{id:'zero',name:'管理员零',level:0,rarity:6,profession:'近卫'},
@@ -98,4 +98,34 @@ test('honor filters intersect while time sorting leaves unknown dates last and n
  assert.deepEqual(selectMedals(items,{search:'甲',category:'探索'}).map(item=>item.id),['a'])
  assert.deepEqual(selectMedals(items,{category:null}).map(item=>item.id),['u'])
  assert.equal(items[0].id,'u')
+})
+
+test('rarity and phase counts become ordered chart parts and ignore unusable entries', () => {
+  assert.deepEqual(rarityParts({ 4: 6, 6: 2, 5: 8 }).map(part => [part.label, part.value]), [['6★', 2], ['5★', 8], ['4★', 6]])
+  assert.deepEqual(phaseParts({ 3: 5, 0: 2, 4: 6 }).map(part => [part.key, part.label, part.value]), [['0', '精英阶段 0', 2], ['3', '精英阶段 3', 5], ['4', '精英阶段 4', 6]])
+  assert.deepEqual(rarityParts({ 6: 0 }).map(part => part.value), [0])
+  for (const bad of [null, undefined, [], 'x', { x: 1 }, { 6: null }, { 6: -1 }, { 6: '2' }]) assert.deepEqual(rarityParts(bad), [])
+})
+
+test('medal categories sort by count, name the unclassified ones and fold the long tail', () => {
+  const items = ['探索', '探索', '战斗', null, '建设', '收集', '社交', '社交', '成长'].map(category => ({ category }))
+  const parts = medalCategoryParts(items)
+  // Equal counts follow Chinese collation; the unclassified bucket sorts after named ones.
+  assert.deepEqual(parts.map(part => [part.label, part.value]), [['社交', 2], ['探索', 2], ['成长', 1], ['建设', 1], ['其他分类', 3]])
+  assert.equal(parts.reduce((sum, part) => sum + part.value, 0), items.length)
+  assert.deepEqual(medalCategoryParts(items, 20).at(-1), { key: null, label: '未提供分类', value: 1 })
+  const unclassified = medalCategoryParts([{ category: null }, { category: '  ' }, {}])
+  assert.deepEqual(unclassified.map(part => [part.label, part.value]), [['未提供分类', 3]])
+  assert.deepEqual(medalCategoryParts([]), [])
+})
+
+test('recent medals need a real acquisition time and come newest first', () => {
+  const items = [{ name: '无时间' }, { name: '旧', obtained_at: '2026-01-01T00:00:00Z' }, { name: '新', obtained_at: '2026-10-01T00:00:00Z' }, { name: '坏', obtained_at: 'x' }]
+  assert.deepEqual(recentMedals(items).map(item => item.name), ['新', '旧'])
+  assert.equal(recentMedals(items, 1).length, 1)
+})
+
+test('plating counts separate reported false from not reported', () => {
+  assert.deepEqual(platedSummary([{ is_plated: true }, { is_plated: false }, {}, { is_plated: 'yes' }]), { plated: 1, known: 2, listed: 4 })
+  assert.deepEqual(platedSummary(undefined), { plated: 0, known: 0, listed: 0 })
 })
