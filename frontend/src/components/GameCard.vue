@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { gameStyle } from '../dashboard.js'
+import { gameStyle, gameVars } from '../dashboard.js'
 import { vGlide, vParallax } from '../motion.js'
 import { lazyPage } from '../lazy-page.js'
 import AppIcon from './AppIcon.vue'
@@ -99,7 +99,7 @@ function capProps(cap) {
 </script>
 
 <template>
-  <section class="game-card game-theme" :class="`game-${game.game_id}`" :style="{ '--game-accent': style.color, '--game-vivid': style.vivid, '--game-vivid-2': style.vivid2 }">
+  <section class="game-card game-theme" :class="`game-${game.game_id}`" :style="gameVars(game.game_id)">
     <div v-if="errorNotice" class="error-bar" role="alert">
       {{ errorNotice }}
     </div>

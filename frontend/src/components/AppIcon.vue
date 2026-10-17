@@ -19,6 +19,7 @@ const paths = {
   plus: 'M12 5v14 M5 12h14',
   chevron: 'm6 9 6 6 6-6',
   check: 'm5 12.5 4.5 4.5L19 7.5',
+  search: 'M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0 M20 20l-4-4',
 }
 const path = computed(() => paths[props.name] || paths.grid)
 </script>

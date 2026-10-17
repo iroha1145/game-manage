@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import GameIcon from './GameIcon.vue'
 import { beijingDayStart, eventGeometry, eventStatus, groupCalendarEvents } from '../calendar.js'
-import { gameStyle } from '../dashboard.js'
+import { gameStyle, gameVars } from '../dashboard.js'
 const props = defineProps({ events:{type:Array,default:()=>[]}, range:{type:Object,default:null}, asOf:{type:Number,required:true}, rangeMode:{type:String,default:'rolling'}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showUnplaced:{type:Boolean,default:true} })
 const emit = defineEmits(['select'])
 const today = computed(() => beijingDayStart(props.asOf))
@@ -23,7 +23,7 @@ const groups = computed(() => groupCalendarEvents(events.value.filter(event => e
 const undated = computed(() => props.showUnplaced ? events.value.filter(event => event.geometry.kind==='undated') : [])
 const invalid = computed(() => props.showUnplaced ? events.value.filter(event => event.geometry.kind==='invalid') : [])
 const gameAccent = id => gameStyle(id==='lol' ? 'league_of_legends' : id).color
-const groupVars = id => { const style = gameStyle(id==='lol' ? 'league_of_legends' : id); return { '--game-accent': style.color, '--game-vivid': style.vivid, '--game-vivid-2': style.vivid2 } }
+const groupVars = id => gameVars(id==='lol' ? 'league_of_legends' : id)
 const barStyle = event => ({left:event.geometry.left+'%',width:event.geometry.kind==='range' ? event.geometry.width+'%' : undefined})
 function stateLabel(event) {
   const state=event.status==='更新后开放' && event.start_precision!=='relative' ? '时刻待定' : event.status

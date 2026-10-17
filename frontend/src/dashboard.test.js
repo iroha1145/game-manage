@@ -191,6 +191,7 @@ test('news are sorted by timestamp, unsafe links omitted and duplicate sources m
 test('hash routes support calendar game links and fail closed on malformed locations', () => {
   assert.deepEqual(readRoute('#/calendar?game=nte'), { page: 'calendar', game: 'nte' })
   assert.deepEqual(readRoute('#/game/wuthering_waves'), { page: 'game', game: 'wuthering_waves' })
+  assert.deepEqual(readRoute('#/game/wuthering_waves?tab=gacha'), { page: 'game', game: 'wuthering_waves', tab: 'gacha' })
   assert.deepEqual(readRoute('#/accounts'), { page: 'accounts', game: '' })
   assert.deepEqual(readRoute('#/game/%E0%A4'), { page: 'overview', game: '' })
 })

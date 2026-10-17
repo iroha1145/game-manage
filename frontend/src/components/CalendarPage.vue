@@ -7,7 +7,7 @@ import AppIcon from './AppIcon.vue'
 import MenuSelect from './MenuSelect.vue'
 import DonutChart from './DonutChart.vue'
 import { DAY_MS, calendarRange, calendarBoundary, collectCalendarEvents, collectVersionCalendars, eventGeometry, eventStatus, formatBeijingDateTime, versionCalendarRange, safeUrl, shiftCalendarAnchor } from '../calendar.js'
-import { gameStyle } from '../dashboard.js'
+import { gameStyle, gameVars as themeVars } from '../dashboard.js'
 import { prefersReducedMotion, vGlide, vReveal } from '../motion.js'
 import { collectionState, hasFreshPublicFallback } from '../snapshot-state.js'
 import CloudSnapshotStatus from './CloudSnapshotStatus.vue'
@@ -85,7 +85,7 @@ const readRetainedMessage = computed(() => failedReads.value.every(failure => fa
 function gameAccent(id) {
   return gameStyle(id === 'lol' ? 'league_of_legends' : id).color
 }
-const gameVars = id => { const style = gameStyle(id === 'lol' ? 'league_of_legends' : id); return { '--game-accent': style.color, '--game-vivid': style.vivid, '--game-vivid-2': style.vivid2 } }
+const gameVars = id => themeVars(id === 'lol' ? 'league_of_legends' : id)
 // Counts for the tiles above the board, over every event the current view collects.
 const statusCounts = computed(() => ({
   ongoing: events.value.filter(event => event.status === '进行中').length,
