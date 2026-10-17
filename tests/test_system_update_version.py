@@ -123,9 +123,9 @@ def test_git_state_handles_other_owner_without_persisting_trust_or_running_fsmon
     head = git('rev-parse', 'HEAD')
     hook = tmp_path / 'fsmonitor'
     invoked = tmp_path / 'fsmonitor-ran'
-    hook.write_text(f'#!/bin/sh\ntouch "{invoked}"\n')
+    hook.write_text(f'#!/bin/sh\ntouch "{invoked.as_posix()}"\n')
     hook.chmod(0o700)
-    git('config', 'core.fsmonitor', str(hook))
+    git('config', 'core.fsmonitor', hook.as_posix())
     config_before = (root / '.git/config').read_bytes()
     monkeypatch.setenv('GIT_TEST_ASSUME_DIFFERENT_OWNER', '1')
     # Git's ownership guard is active, as it is for root-owned Linux releases.

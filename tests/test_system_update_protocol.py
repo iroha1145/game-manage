@@ -21,7 +21,8 @@ def test_bounded_atomic_json_and_private_file_mode(tmp_path):
     assert read_json(path) == {'schema': 1, 'next': True}
 
 
-@pytest.mark.parametrize('raw', ['[]', 'null', '{', '{"time":NaN}', '{"time":Infinity}', 'x' * (MAX_JSON_BYTES+1)])
+@pytest.mark.parametrize('raw', ['[]', 'null', '{', '{"time":NaN}', '{"time":Infinity}', 'x' * (MAX_JSON_BYTES+1)],
+                         ids=['list', 'null', 'malformed', 'nan', 'infinity', 'oversized'])
 def test_malformed_or_oversized_json_is_not_an_empty_state(tmp_path, raw):
     path = tmp_path / 'status.json'
     path.write_text(raw)

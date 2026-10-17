@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -466,13 +467,13 @@ def test_transient_command_has_lifecycle_binding_and_is_fully_reaped_before_retu
     monkeypatch.setattr(worker.sys, 'platform', 'linux')
     monkeypatch.setattr(worker.os, 'geteuid', lambda:0, raising=False)
     original = Path.is_file
-    monkeypatch.setattr(Path, 'is_file', lambda path:True if str(path)=='/sys/fs/cgroup/cgroup.controllers' else original(path))
+    monkeypatch.setattr(Path, 'is_file', lambda path:True if path.as_posix()=='/sys/fs/cgroup/cgroup.controllers' else original(path))
     def command(argv, **kwargs):
         calls.append(argv)
         stdout = 'LoadState=loaded\nActiveState=inactive\nControlGroup=\n' if argv[:2]==['systemctl','show'] else ''
         return SimpleNamespace(returncode=0,stdout=stdout)
     monkeypatch.setattr(run, '_run', command)
-    result = run(['/usr/bin/true'],cwd=tmp_path,user=65534,group=65534,
+    result = run([sys.executable, '-c', 'pass'],cwd=tmp_path,user=65534,group=65534,
                  write_paths=(tmp_path,),env={'PATH':'/usr/bin:/bin'})
     assert result.returncode == 0
     systemd = next(argv for argv in calls if argv[0]=='systemd-run')
