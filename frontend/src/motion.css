@@ -145,6 +145,33 @@
 }
 .t-glare:focus-visible::after { opacity: 1; }
 
+/* ── Scroll reveal (v-reveal) ─────────────────────────────────────── */
+/* The attribute only exists while a below-the-fold card waits and rises; the
+   transition is !important for that window so a card's own hover transition
+   cannot cut the rise short, and v-reveal removes it when the rise ends. */
+[data-reveal] {
+  transition:
+    opacity var(--duration-very-slow) var(--ease-smooth-out) var(--reveal-delay, 0ms),
+    transform 700ms var(--ease-smooth-out) var(--reveal-delay, 0ms),
+    filter var(--duration-very-slow) var(--ease-smooth-out) var(--reveal-delay, 0ms) !important;
+}
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translate3d(0, var(--distance-large), 0) scale(var(--scale-large));
+  filter: blur(var(--blur-large));
+}
+/* Keyboard focus never lands on something invisible. */
+[data-reveal="pending"]:focus-within { opacity: 1; transform: none; filter: none; }
+/* Chart marks (.t-draw) wait with their card and draw in as it rises. */
+[data-reveal="pending"] .t-draw { animation-play-state: paused; }
+@media print { [data-reveal] { opacity: 1 !important; transform: none !important; filter: none !important; } }
+
+/* ── Parallax layers (v-parallax on an ancestor sets --plx) ───────── */
+.plx-layer {
+  transform: translate3d(0, calc(var(--plx, 0) * var(--plx-range, 40px)), 0);
+  will-change: transform;
+}
+
 /* Native dialogs keep focus containment until their short exit finishes. */
 .t-dialog { --dialog-shift:8px; --dialog-scale:.99; }
 .t-dialog[open] { animation:t-dialog-enter var(--duration-fast) var(--ease-smooth-out); }

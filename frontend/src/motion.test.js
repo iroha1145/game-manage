@@ -21,7 +21,7 @@ function flushFrames() {
 after(() => window.happyDOM.close())
 
 const { createApp, h, nextTick, ref, withDirectives } = await import('vue')
-const { vGlide, vSpotlight } = await import('./motion.js')
+const { vGlide, vSpotlight, vReveal, vParallax } = await import('./motion.js')
 const { loadVue } = await import('./test-utils/vue.js')
 const WuwaRoleDialog = await loadVue(new URL('./components/WuwaRoleDialog.vue', import.meta.url))
 const style = document.createElement('style')
@@ -279,4 +279,135 @@ test('unmounting during dialog exit cancels the deferred close', async t => {
   dialog.dispatchEvent(new window.AnimationEvent('animationend', { animationName: 't-dialog-exit' }))
   assert.equal(closes(), 0)
   assert.equal(document.body.style.overflow, '')
+})
+
+function box(el, rect) {
+  el.getBoundingClientRect = () => ({ left: 0, right: 300, width: 300, height: 200, ...rect, bottom: (rect.top ?? 0) + (rect.height ?? 200) })
+  return el
+}
+
+test('scroll reveal hides only below-the-fold cards of a live page, then hands them back', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  t.mock.method(globalThis, 'matchMedia', () => ({ matches: false }))
+  Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true })
+  const observed = new Set()
+  let notify = null
+  globalThis.IntersectionObserver = class {
+    constructor(callback) { notify = callback }
+    observe(el) { observed.add(el) }
+    unobserve(el) { observed.delete(el) }
+  }
+  t.after(() => { delete globalThis.IntersectionObserver })
+  const onScreen = box(document.createElement('section'), { top: 120 })
+  const below = box(document.createElement('section'), { top: 1300 })
+  const hidden = box(document.createElement('section'), { top: 0, height: 0 })
+  const image = document.createElement('div')
+  image.className = 'render-image'
+  const inImage = box(document.createElement('section'), { top: 1300 })
+  image.append(inImage)
+  document.body.append(onScreen, below, hidden, image)
+  t.after(() => { onScreen.remove(); below.remove(); hidden.remove(); image.remove() })
+  for (const el of [onScreen, below, hidden, inImage]) vReveal.mounted(el)
+  assert.equal(onScreen.dataset.reveal, undefined, 'already visible content is never hidden')
+  assert.equal(hidden.dataset.reveal, undefined, 'content without a box (v-show, closed tab) stays visible')
+  assert.equal(inImage.dataset.reveal, undefined, 'bot images render off-screen and must not wait for an observer')
+  assert.equal(below.dataset.reveal, 'pending')
+  assert.deepEqual([...observed], [below])
+  notify([{ target: below, isIntersecting: true }])
+  assert.equal(below.dataset.reveal, 'shown')
+  assert.equal(below.style.getPropertyValue('--reveal-delay'), '0ms')
+  assert.equal(observed.size, 0)
+  t.mock.timers.tick(900)
+  assert.equal(below.dataset.reveal, undefined, 'hover and press transitions take over after the rise')
+  const late = box(document.createElement('section'), { top: 1300 })
+  document.body.append(late)
+  t.after(() => late.remove())
+  vReveal.mounted(late)
+  vReveal.unmounted(late)
+  assert.equal(late.dataset.reveal, undefined)
+  assert.equal(observed.size, 0)
+})
+
+test('scroll reveal stays off under reduced motion', t => {
+  t.mock.method(globalThis, 'matchMedia', query => ({ matches: query.includes('reduce') }))
+  globalThis.IntersectionObserver = class { observe() {} unobserve() {} }
+  t.after(() => { delete globalThis.IntersectionObserver })
+  const below = box(document.createElement('section'), { top: 5000 })
+  document.body.append(below)
+  t.after(() => below.remove())
+  vReveal.mounted(below)
+  assert.equal(below.dataset.reveal, undefined)
+})
+
+test('parallax writes the viewport offset once per frame and stops listening with the last layer', t => {
+  t.mock.method(globalThis, 'matchMedia', () => ({ matches: false }))
+  Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true })
+  const hero = box(document.createElement('div'), { top: 1000 })
+  document.body.append(hero)
+  t.after(() => hero.remove())
+  vParallax.mounted(hero)
+  assert.equal(frames.size, 1)
+  flushFrames()
+  assert.equal(hero.style.getPropertyValue('--plx'), '0.8750')
+  box(hero, { top: 200 })
+  window.dispatchEvent(new window.Event('scroll'))
+  window.dispatchEvent(new window.Event('scroll'))
+  assert.equal(frames.size, 1, 'scroll events in one frame share a single measurement')
+  flushFrames()
+  assert.equal(hero.style.getPropertyValue('--plx'), '-0.1250')
+  vParallax.unmounted(hero)
+  assert.equal(hero.style.getPropertyValue('--plx'), '')
+  window.dispatchEvent(new window.Event('scroll'))
+  assert.equal(frames.size, 0)
+})
+
+test('parallax is off under reduced motion and inside bot images', t => {
+  let reduced = true
+  t.mock.method(globalThis, 'matchMedia', query => ({ matches: reduced && query.includes('reduce') }))
+  const hero = box(document.createElement('div'), { top: 400 })
+  const image = document.createElement('div')
+  image.className = 'render-image'
+  const inImage = box(document.createElement('div'), { top: 400 })
+  image.append(inImage)
+  document.body.append(hero, image)
+  t.after(() => { hero.remove(); image.remove() })
+  vParallax.mounted(hero)
+  reduced = false
+  vParallax.mounted(inImage)
+  window.dispatchEvent(new window.Event('scroll'))
+  assert.equal(frames.size, 0)
+  assert.equal(hero.style.getPropertyValue('--plx'), '')
+  assert.equal(inImage.style.getPropertyValue('--plx'), '')
+  vParallax.unmounted(hero)
+  vParallax.unmounted(inImage)
+})
+
+test('a rail shows arrows once it overflows, pages by most of its width and stops at the end', async t => {
+  t.mock.method(globalThis, 'matchMedia', () => ({ matches: false }))
+  const HRail = await loadVue(new URL('./components/HRail.vue', import.meta.url))
+  const root = document.createElement('div')
+  document.body.append(root)
+  const app = createApp({ render: () => h(HRail, { label: '临近截止' }, { default: () => [1, 2, 3, 4].map(n => h('article', `活动 ${n}`)) }) })
+  app.mount(root)
+  t.after(() => { app.unmount(); root.remove(); frames.clear() })
+  const track = root.querySelector('.h-rail-track')
+  assert.equal(root.querySelectorAll('button').length, 0)
+  let left = 0
+  Object.defineProperties(track, { clientWidth: { value: 400 }, scrollWidth: { value: 1000 }, scrollLeft: { get: () => left } })
+  const scrolls = t.mock.method(track, 'scrollBy', () => {})
+  track.dispatchEvent(new window.Event('scroll'))
+  flushFrames()
+  await nextTick()
+  const [prev, next] = root.querySelectorAll('button')
+  assert.equal(track.getAttribute('role'), 'region')
+  assert.equal(track.getAttribute('aria-label'), '临近截止')
+  assert.equal(prev.disabled, true)
+  next.click()
+  assert.deepEqual(scrolls.mock.calls[0].arguments[0], { left: 340, behavior: 'smooth' })
+  left = 600
+  track.dispatchEvent(new window.Event('scroll'))
+  flushFrames()
+  await nextTick()
+  assert.equal(root.querySelector('.h-rail-nav.next').disabled, true)
+  assert.equal(root.querySelector('.h-rail-nav.prev').disabled, false)
 })

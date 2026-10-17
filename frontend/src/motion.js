@@ -144,6 +144,91 @@ export const vSpotlight = {
   unmounted(el) { el.__spotlight?.(); delete el.__spotlight },
 }
 
+/* v-reveal is default-visible. Only an element that starts below the fold of a
+   live page is hidden until it is scrolled to; anything already on screen,
+   rendered off-screen for a bot image, printed or under reduced motion shows
+   at once, and no content waits on an observer that may never fire. */
+const REVEAL_SETTLE = 900
+let revealObserver = null
+function showRevealed(entries) {
+  let order = 0
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue
+    const el = entry.target
+    revealObserver.unobserve(el)
+    // Cards that arrive together rise one after another.
+    const delay = Math.min(order++, 6) * 60
+    el.style.setProperty('--reveal-delay', `${delay}ms`)
+    el.dataset.reveal = 'shown'
+    // Afterwards the card's own hover and press transitions take over again.
+    el.__revealSettle = setTimeout(() => settleReveal(el), REVEAL_SETTLE + delay)
+  }
+}
+function settleReveal(el) {
+  clearTimeout(el.__revealSettle)
+  delete el.__revealSettle
+  delete el.dataset.reveal
+  el.style.removeProperty('--reveal-delay')
+}
+
+/** v-reveal: content below the fold rises in when it is scrolled to. */
+export const vReveal = {
+  mounted(el) {
+    if (!domReady(el) || typeof IntersectionObserver !== 'function' || prefersReducedMotion() || el.closest('.render-image')) return
+    const box = el.getBoundingClientRect()
+    const height = window.innerHeight
+    if (!box.height || box.top < height * 0.9 || box.right <= 0 || box.left >= window.innerWidth) return
+    revealObserver ??= new IntersectionObserver(showRevealed, { rootMargin: '0px 0px -10% 0px' })
+    el.dataset.reveal = 'pending'
+    revealObserver.observe(el)
+  },
+  unmounted(el) {
+    if (!el.dataset?.reveal) return
+    revealObserver?.unobserve(el)
+    settleReveal(el)
+  },
+}
+
+/* v-parallax gives the bound element --plx, its distance from the middle of the
+   viewport in viewport heights (−1 above … 1 below). Layers inside turn that
+   into a transform with their own --plx-range, so one scroll handler drives
+   every depth. */
+const parallaxItems = new Set()
+let parallaxFrame = 0
+function moveParallax() {
+  parallaxFrame = 0
+  const height = window.innerHeight
+  for (const el of parallaxItems) {
+    const box = el.getBoundingClientRect()
+    if (box.bottom < -height || box.top > height * 2) continue
+    const offset = (box.top + box.height / 2 - height / 2) / height
+    el.style.setProperty('--plx', Math.max(-1, Math.min(1, offset)).toFixed(4))
+  }
+}
+const scheduleParallax = () => { if (!parallaxFrame) parallaxFrame = requestAnimationFrame(moveParallax) }
+
+/** v-parallax: background layers drift slower than the page as it scrolls. */
+export const vParallax = {
+  mounted(el) {
+    if (!domReady(el) || prefersReducedMotion() || el.closest('.render-image')) return
+    if (!parallaxItems.size) {
+      window.addEventListener('scroll', scheduleParallax, { passive: true })
+      window.addEventListener('resize', scheduleParallax)
+    }
+    parallaxItems.add(el)
+    scheduleParallax()
+  },
+  unmounted(el) {
+    if (!parallaxItems.delete(el)) return
+    el.style.removeProperty('--plx')
+    if (parallaxItems.size) return
+    window.removeEventListener('scroll', scheduleParallax)
+    window.removeEventListener('resize', scheduleParallax)
+    cancelAnimationFrame(parallaxFrame)
+    parallaxFrame = 0
+  },
+}
+
 /** v-pop: replays a short rise on an element whenever its text changes. */
 export const vPop = {
   mounted(el) { if (domReady(el)) el.__popText = el.textContent },
