@@ -109,7 +109,7 @@ class QqQueryService:
         context['snapshots'].append(snapshot)
         context['fingerprints'].append(hashlib.sha256(encoded).hexdigest())
 
-    def _reply(self, card, page, context, *, paged=False):
+    def _reply(self, card, page, context):
         presentation_card=card
         card=view.long_document(card,page,asset_cache=self.asset_cache)
         if context is not None:
@@ -324,7 +324,7 @@ class QqQueryService:
         context=image_context
         read_cache={}
         if context is not None:context.update(grants=[],grant_ids={},snapshots=[],fingerprints=[],user_id=None,panels=[],panel_notices=[],shared_required=True)
-        reply=lambda card, paged=False:self._reply(card,page,context,paged=paged)
+        reply=lambda card:self._reply(card,page,context)
         if command=='help':
             card=view.help_document(game)
             return reply(card)
@@ -332,7 +332,7 @@ class QqQueryService:
             value=self.dashboard_url if self.urls_approved and self.dashboard_url else '看板网址尚未启用；请通过已保存的网站入口查看。'
             return {'text':safe_text(value,urls_approved=self.urls_approved)}
         if command in ('calendar','events','recent_events') and game is not None:
-            return reply(self._public_events([game],command,context,page),True)
+            return reply(self._public_events([game],command,context,page))
         if command=='news':
             if self.public is None or game is None:return reply(view.message(game,'公共资讯','公共资讯暂不可用；请稍后再试。'))
             try:
@@ -340,7 +340,7 @@ class QqQueryService:
                 snapshot=self.public.read(game,cap)
                 self._capture_snapshot(context,None,game+':'+cap,snapshot)
                 if context is not None:self._panel(context,{'game':game,'provider':'public'},cap,snapshot)
-                return reply(view.snapshot_card(game,'',cap,snapshot,self.asset_cache),True)
+                return reply(view.snapshot_card(game,'',cap,snapshot,self.asset_cache))
             except AccountNotFoundError:return reply(view.message(game,'公共资讯','该游戏公共资讯暂不可用。'))
         try:
             principal=self.bindings.resolve_qq_identity(identity)
@@ -365,7 +365,7 @@ class QqQueryService:
                         games.append(current)
                         for _,scope in accounts:self._capture_scope(context,scope)
                 if not games:return reply(view.message(None,'活动查询','暂无有效游戏授权；请在网站授权，或使用「游戏 活动」公共查询。'))
-                return reply(self._public_events(games,command,context,page),True)
+                return reply(self._public_events(games,command,context,page))
             if command=='status':
                 account_rows=self.query_service.list_accounts(principal)
                 items=[]
@@ -376,7 +376,7 @@ class QqQueryService:
                     items.append({'title':view.label(row['game'],row['provider']),
                                   'fields':[view.field('授权',state),view.field('默认账号','是' if row['is_default'] else '否')]})
                 return reply(view.document('status','all','QQ 网站绑定已确认。我的账号',sections=[{'title':'授权状态','rows':items}],
-                    notices=['暂无游戏账号；请在网站完成游戏授权。'] if not items else []),True)
+                    notices=['暂无游戏账号；请在网站完成游戏授权。'] if not items else []))
             if command=='overview':
                 selected=[];notices=[]
                 for current in GAME_NAMES:
@@ -419,18 +419,14 @@ class QqQueryService:
                             sections.append(view.capability_section(row['game'],row['provider'],'calabash',calabash,self.asset_cache))
                 card=view.document('overview','all','我的 · 三游戏总览',sections=sections,notices=notices)
                 card['version']=3
-                return reply(card,True)
+                return reply(card)
             if game is None or game not in GAME_NAMES:return reply(view.help_document())
             challenge=game=='endfield' and command=='combat'
             selected=self._accounts(principal,game,metadata_only=challenge)
             if not selected:return reply(view.message(game,GAME_NAMES[game],GAME_NAMES[game]+'暂无有效授权账号；请在网站授权。'))
-            if challenge:return reply(self._endfield_challenge_document(selected,context),True)
+            if challenge:return reply(self._endfield_challenge_document(selected,context))
             if game=='endfield' and command in ('summary','roles','training','stamina','exploration','regions','ship','progress','gacha','honor'):
-                return reply(self._endfield_document(selected,command,context,read_cache,role_name),True)
-            if game=='endfield' and command in ('roles','stamina','exploration','progress'):
-                selected=[item for item in selected if item[0]['provider']=='skland']
-                if not selected:return reply(view.message(game,GAME_NAMES[game],
-                    '此查询需要本人森空岛档案授权；鹰角寻访身份没有档案角色缓存。请在网站授权。'))
+                return reply(self._endfield_document(selected,command,context,read_cache,role_name))
             sections=[];notices=[]
             for row,scope in selected:
                 self._capture_scope(context,scope)
@@ -443,7 +439,6 @@ class QqQueryService:
                     continue
                 wanted=('account','stamina','gacha','record','roles') if command=='summary' else (command,)
                 for cap in wanted:
-                    if command=='summary' and row['provider']=='skland' and cap=='stamina':continue
                     snapshot=self._snapshot(row,scope,cap,context,read_cache)
                     nte_ledger=self._ledger_snapshot(scope,game) if cap=='gacha' and game=='nte' else None
                     if snapshot is None and nte_ledger is not None:
@@ -457,7 +452,7 @@ class QqQueryService:
                         card=view.gacha_document(game,row['provider'],snapshot,self.asset_cache,ledger=ledger)
                         if command!='summary':
                             if context is not None:context['render_snapshot']=shared_view.gacha_snapshot(game,snapshot,self.clock(),page,ledger=ledger)
-                            return reply(card,True)
+                            return reply(card)
                         self._panel(context,row,cap,snapshot,summary=True)
                         sections+=card['sections'];notices+=card['notices'];continue
                     if cap=='roles' and command=='roles':
@@ -491,11 +486,11 @@ class QqQueryService:
                                     resolved_id=character_id(resolution['entry']) if resolution is not None else None)
                                 if context['render_snapshot'] is None:
                                     self._panel(context,row,cap,projected,resolved=resolution['entry'] if resolution is not None else None)
-                        return reply(card,True)
+                        return reply(card)
                     if command=='gacha' and context is not None:
                         context['render_snapshot']=shared_view.gacha_snapshot(game,snapshot,self.clock(),page)
                     self._panel(context,row,cap,snapshot,summary=command=='summary')
-                    if command!='summary':return reply(view.snapshot_card(game,row['provider'],cap,snapshot,self.asset_cache),command in PAGED_COMMANDS)
+                    if command!='summary':return reply(view.snapshot_card(game,row['provider'],cap,snapshot,self.asset_cache))
                     if cap=='roles':
                         card=view.role_card(game,row['provider'],snapshot,asset_cache=self.asset_cache)
                         if not card['sections'][0]['rows']:continue
@@ -510,7 +505,7 @@ class QqQueryService:
             card=view.document('status' if command=='refresh' else 'summary',game,GAME_NAMES[game]+' · '+('刷新' if command=='refresh' else '总览'),
                                sections=sections,notices=notices)
             if command not in ('refresh','summary'):card['title']=GAME_NAMES[game]+' · '+view.LABELS.get(command,command)
-            return reply(card,command=='summary')
+            return reply(card)
         except (AccountNotFoundError,CredentialStoreError):
             return reply(view.message(game,'授权状态','授权已失效或凭据不可用；请在网站重新授权。'))
         except (HTTPException,PermissionError,ValueError,shared_view.RenderingUnavailable):
