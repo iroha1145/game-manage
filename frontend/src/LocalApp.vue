@@ -2,7 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as api from './api.js'
 import { getAuthStatus } from './auth-api.js'
-import { createDashboard, readRoute, gameStyle } from './dashboard.js'
+import { createDashboard, readRoute, gameStyle, gameVars } from './dashboard.js'
+import { GAME_SECTIONS } from './search-index.js'
 import { vGlide } from './motion.js'
 import { followSystem, setTheme, theme } from './theme.js'
 import { lazyPage } from './lazy-page.js'
@@ -16,6 +17,7 @@ import BilibiliSourcePanel from './components/BilibiliSourcePanel.vue'
 // Game pages carry every game module plus the icon and guide catalogs; the
 // overview, calendar and accounts need none of it.
 const GameCard = lazyPage(() => import('./components/GameCard.vue'))
+const SearchDialog = lazyPage(() => import('./components/SearchDialog.vue'))
 
 const dashboard = createDashboard({ ...api, getAuthStatus })
 const state = dashboard.state
@@ -31,15 +33,37 @@ const clock = ref('')
 function tickClock() { clock.value = new Intl.DateTimeFormat('zh-CN', { timeZone:'Asia/Shanghai', hourCycle:'h23', hour:'2-digit',minute:'2-digit' }).format(Date.now()) }
 const accountRevisions = ref({})
 const selectedGame = computed(() => state.games.find(game => game.game_id === route.value.game))
-const pageTitle = computed(() => ({ overview: '今日总览', calendar: '活动日历', accounts: '社区账号', game: selectedGame.value?.display_name || '游戏档案' })[route.value.page])
 const today = computed(() => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric', weekday: 'long' }).format(now.value))
 const refreshing = computed(() => Object.values(state.refreshing).some(Boolean))
 const calendarErrors = computed(() => Object.fromEntries(state.games.map(g => {
   const source = state.collection.find(row => row.game_id === g.game_id && row.capability === 'events' && ['error', 'auth_expired'].includes(row.state))
   return [g.game_id, [state.readErrors[g.game_id], state.refreshErrors[g.game_id], source?.error].filter(Boolean).join('；')]
 })))
+// Jump-to search: pages, games and their tabs, events and roles already on this machine.
+const searchOpen = ref(false)
+const macKeys = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform || '')
+const searchPages = [
+  { label: '今日总览', href: '#/', icon: 'grid', hint: '体力、每日进度和近期截止' },
+  { label: '活动日历', href: '#/calendar', icon: 'calendar', hint: '所有游戏的活动时间线' },
+  { label: '社区账号', href: '#/accounts', icon: 'user', hint: '登录游戏社区账号' },
+]
+// Choosing the page already shown still reopens it at the chosen tab.
+const jumps = ref(0)
 let timer, clockTimer, stopFollowingSystem
-function syncRoute() { route.value = readRoute(window.location.hash); menuOpen.value = false; window.scrollTo({ top: 0, behavior: 'instant' }); nextTick(() => mainContent.value?.focus({ preventScroll: true })) }
+// The LoL page keeps its tab in the shared browse state rather than a prop.
+function followTab({ game, tab }) { if (game === 'league_of_legends' && GAME_SECTIONS.league_of_legends.some(([id]) => id === tab)) state.esportsBrowse.league_of_legends.section = tab }
+followTab(route.value)
+function syncRoute() {
+  route.value = readRoute(window.location.hash)
+  followTab(route.value)
+  menuOpen.value = false; window.scrollTo({ top: 0, behavior: 'instant' }); nextTick(() => mainContent.value?.focus({ preventScroll: true }))
+}
+function openSearch() { menuOpen.value = false; searchOpen.value = true }
+function jumpTo(href) {
+  searchOpen.value = false
+  if (window.location.hash === href || (href === '#/' && !window.location.hash)) { jumps.value++; syncRoute() }
+  else window.location.hash = href
+}
 async function openMenu() { menuOpen.value = true; await nextTick(); sidebar.value?.querySelector('.primary-nav a')?.focus() }
 async function closeMenu() { menuOpen.value = false; await nextTick(); menuToggle.value?.focus() }
 function sidebarNavigate(event) {
@@ -86,6 +110,7 @@ async function onAccountChanged({ game }) {
   await dashboard.load()
 }
 function handleKey(event) {
+  if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k') { event.preventDefault(); if (!searchOpen.value) openSearch(); return }
   if (event.key === 'Escape' && menuOpen.value) closeMenu()
   if (event.key === 'Tab' && menuOpen.value && mobileNavigation.value) {
     const controls = [...sidebar.value.querySelectorAll('a[href],button:not([disabled])')]
@@ -110,7 +135,7 @@ onBeforeUnmount(() => { clearInterval(timer); clearInterval(clockTimer); stopFol
     <a class="skip-link" href="#main-content" @click.prevent="$refs.mainContent?.focus()">跳到主要内容</a>
     <button v-if="menuOpen" class="sidebar-scrim" aria-label="关闭导航" tabindex="-1" @click="closeMenu"></button>
     <aside id="workspace-sidebar" ref="sidebar" class="workspace-sidebar" :inert="mobileNavigation && !menuOpen">
-      <a class="brand" href="#/" @click="sidebarNavigate"><span class="brand-symbol"><AppIcon name="spark" :size="20" /></span><span>游戏管家</span></a>
+      <a class="brand" href="#/" @click="sidebarNavigate"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>游戏管家<small aria-hidden="true">game · manage</small></span></a>
       <button class="mobile-sidebar-close icon-button" aria-label="关闭导航" @click="closeMenu"><AppIcon name="close" /></button>
       <nav v-glide.hover class="primary-nav" aria-label="主导航" @click="sidebarNavigate">
         <a href="#/" :class="{ active: route.page === 'overview' }" :aria-current="route.page === 'overview' ? 'page' : undefined"><AppIcon name="grid" /><span>今日总览</span></a>
@@ -118,31 +143,31 @@ onBeforeUnmount(() => { clearInterval(timer); clearInterval(clockTimer); stopFol
         <a href="#/accounts" :class="{ active: route.page === 'accounts' }" :aria-current="route.page === 'accounts' ? 'page' : undefined"><AppIcon name="user" /><span>社区账号</span></a>
       </nav>
       <div class="sidebar-label"><span>我的游戏</span></div>
-      <nav v-glide.hover class="game-nav" :class="{ 'game-theme': route.page === 'game' }" :style="{ '--game-accent': gameStyle(route.game).color, '--game-vivid': gameStyle(route.game).vivid }" aria-label="游戏档案" @click="sidebarNavigate"><a v-for="game in state.games" :key="game.game_id" :href="`#/game/${encodeURIComponent(game.game_id)}`" :style="{ '--game-accent': gameStyle(game.game_id).color }" :class="{ active: route.page === 'game' && route.game === game.game_id }" :aria-current="route.page === 'game' && route.game === game.game_id ? 'page' : undefined"><GameIcon class="nav-game-mark" :game-id="game.game_id" :name="game.display_name" /><span>{{ game.display_name }}</span><AppIcon class="nav-arrow" name="arrow" :size="14" /></a></nav>
+      <nav v-glide.hover class="game-nav" :class="{ 'game-theme': route.page === 'game' }" :style="gameVars(route.game)" aria-label="游戏档案" @click="sidebarNavigate"><a v-for="game in state.games" :key="game.game_id" :href="`#/game/${encodeURIComponent(game.game_id)}`" :class="{ active: route.page === 'game' && route.game === game.game_id }" :aria-current="route.page === 'game' && route.game === game.game_id ? 'page' : undefined"><GameIcon class="nav-game-mark" :game-id="game.game_id" :name="game.display_name" :style="{ '--mark-tone': gameStyle(game.game_id).tone }" /><span>{{ game.display_name }}</span><AppIcon class="nav-arrow" name="arrow" :size="14" /></a></nav>
       <div v-if="state.loadError || state.serviceError || state.notify?.enabled" class="sidebar-bottom"><p v-if="state.loadError || state.serviceError" class="local-status"><i class="offline"></i>本地服务连接异常</p><p v-if="state.notify?.enabled">微信提醒已开启</p></div>
     </aside>
     <div class="workspace-body" :inert="mobileNavigation && menuOpen">
       <header class="workspace-topbar">
         <div class="topbar-left">
           <button ref="menuToggle" class="menu-toggle icon-button" :aria-expanded="menuOpen" aria-controls="workspace-sidebar" aria-label="打开导航" @click="openMenu"><AppIcon name="menu" /></button>
-          <span class="breadcrumb"><b>{{ pageTitle }}</b></span>
+          <button class="search-trigger" type="button" aria-haspopup="dialog" :aria-keyshortcuts="macKeys ? 'Meta+K' : 'Control+K'" @click="openSearch"><AppIcon name="search" :size="16" /><span>搜索页面、游戏、活动和角色</span><kbd aria-hidden="true">{{ macKeys ? '⌘ K' : 'Ctrl K' }}</kbd></button>
         </div>
         <div class="topbar-right">
-          <span class="topbar-clock" aria-hidden="true">{{ clock }}</span><span class="topbar-date">{{ today }}</span>
+          <span class="topbar-date"><AppIcon name="calendar" :size="15" /><span>{{ today }}</span><span class="topbar-clock" aria-hidden="true">{{ clock }}</span></span>
           <button class="icon-button theme-toggle" :aria-label="theme === 'light' ? '切换到夜间模式' : '切换到白天模式'" :title="theme === 'light' ? '夜间模式' : '白天模式'" @click="toggleTheme">
             <span class="icon-swap"><AppIcon name="sun" :size="16" :data-active="theme !== 'light'" /><AppIcon name="moon" :size="16" :data-active="theme === 'light'" /></span>
           </button>
-          
         </div>
       </header>
       <main id="main-content" ref="mainContent" tabindex="-1" class="workspace-main">
         <div v-if="state.loadError" class="service-error" role="alert"><div><strong>暂时无法读取游戏数据</strong></div><button class="ui-button" :disabled="state.loading" @click="dashboard.load">重试连接</button></div>
         <OverviewPage v-if="route.page === 'overview'" class="t-page" :games="state.games" :snapshots="state.snapshots" :accounts="state.accounts" :collection="state.collection" :read-errors="state.readErrors" :refresh-errors="state.refreshErrors" :refreshing="state.refreshing" :now="now" :loading="state.loading" @navigate="navigate" @refresh="refreshAll" />
         <CalendarPage v-else-if="route.page === 'calendar'" class="t-page" :games="state.games" :snapshots="state.snapshots" :loading="state.loading" :initial-game-id="route.game" :read-errors="calendarErrors" />
-        <template v-else-if="route.page === 'game'"><GameCard v-if="selectedGame" class="t-page" :key="`${selectedGame.game_id}:${accountRevisions[selectedGame.game_id] || 0}`" :game="selectedGame" :auth-account="state.accounts[selectedGame.game_id]" :esports-browse="state.esportsBrowse[selectedGame.game_id]" @esports-browse="Object.assign(state.esportsBrowse.league_of_legends, $event)" @esports-snapshot="state.snapshots.league_of_legends = { ...state.snapshots.league_of_legends, esports: $event }" initial-section="overview" :collection-status="state.collection" :external-snapshots="state.snapshots[selectedGame.game_id] || {}" :external-refreshing="!!state.refreshing[selectedGame.game_id]" :external-error="state.refreshErrors[selectedGame.game_id] || state.readErrors[selectedGame.game_id] || ''" @refresh="dashboard.refresh(selectedGame.game_id)" @calendar="navigate('calendar', selectedGame.game_id)" /><div v-else class="empty-page"><p>{{ state.loading ? '加载中…' : '这个游戏尚未启用或已从配置中移除。' }}</p><button class="ui-button" @click="navigate('overview')">返回总览</button></div></template>
+        <template v-else-if="route.page === 'game'"><GameCard v-if="selectedGame" class="t-page" :key="`${selectedGame.game_id}:${accountRevisions[selectedGame.game_id] || 0}:${route.tab || ''}:${jumps}`" :game="selectedGame" :auth-account="state.accounts[selectedGame.game_id]" :esports-browse="state.esportsBrowse[selectedGame.game_id]" @esports-browse="Object.assign(state.esportsBrowse.league_of_legends, $event)" @esports-snapshot="state.snapshots.league_of_legends = { ...state.snapshots.league_of_legends, esports: $event }" :initial-section="route.tab || 'overview'" :collection-status="state.collection" :external-snapshots="state.snapshots[selectedGame.game_id] || {}" :external-refreshing="!!state.refreshing[selectedGame.game_id]" :external-error="state.refreshErrors[selectedGame.game_id] || state.readErrors[selectedGame.game_id] || ''" @refresh="dashboard.refresh(selectedGame.game_id)" @calendar="navigate('calendar', selectedGame.game_id)" /><div v-else class="empty-page"><p>{{ state.loading ? '加载中…' : '这个游戏尚未启用或已从配置中移除。' }}</p><button class="ui-button" @click="navigate('overview')">返回总览</button></div></template>
         <div v-show="route.page === 'accounts'" class="accounts-page"><header class="page-heading"><div class="page-heading-copy"><h1>社区账号</h1></div></header><LoginPanel @account-changed="onAccountChanged" /><section class="connection-note"><AppIcon name="shield" :size="16" /><p>凭据在本机加密保存。英雄联盟读取本机客户端，无需登录。</p></section></div>
         <BilibiliSourcePanel v-if="route.page === 'overview' || route.page === 'game'" :game-id="route.page === 'game' ? route.game : ''" @collected="dashboard.loadSnapshots()" />
       </main>
     </div>
+    <SearchDialog v-if="searchOpen" :pages="searchPages" :games="state.games" :snapshots="state.snapshots" :now="now" @select="jumpTo" @close="searchOpen = false" />
   </div>
 </template>
