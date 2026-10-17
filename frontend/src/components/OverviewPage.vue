@@ -2,17 +2,18 @@
 import { computed, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
-import GameArt from './GameArt.vue'
 import HRail from './HRail.vue'
 import RingGauge from './RingGauge.vue'
 import BarChart from './BarChart.vue'
 import MenuSelect from './MenuSelect.vue'
-import { gameStyle, summaryFor, upcomingEvents, recentNews, formatTime } from '../dashboard.js'
-import { DAY_MS, parseBeijingTime, safeUrl } from '../calendar.js'
+import { gameStyle, gameVars, summaryFor, upcomingEvents, recentNews, formatTime } from '../dashboard.js'
+import { parseBeijingTime, safeUrl } from '../calendar.js'
 import { sourceForGame } from '../source-status.js'
 import { friendlyDataError } from '../cloud-display.js'
 import { share } from '../chart-math.js'
-import { vParallax, vPop, vReveal, vSpotlight } from '../motion.js'
+import { dailyTasks, deadlineDays, gachaDigests } from '../overview-data.js'
+import { gameHref, sectionsFor } from '../search-index.js'
+import { vGlide, vParallax, vPop, vReveal } from '../motion.js'
 
 const props = defineProps({ games: { type: Array, default: () => [] }, snapshots: { type: Object, default: () => ({}) },
   accounts: { type: Object, default: () => ({}) }, readErrors: { type: Object, default: () => ({}) }, refreshErrors: { type: Object, default: () => ({}) },
@@ -32,25 +33,6 @@ const anyRefreshing = computed(() => Object.values(props.refreshing).some(Boolea
 const notices = computed(() => cards.value.filter(g => props.readErrors[g.game_id] || props.refreshErrors[g.game_id]))
 const dateLabel = computed(() => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric', weekday: 'long' }).format(props.now))
 
-// How far through its window an event is (0–1); unknown without a start time.
-function elapsed(event) {
-  const start = parseBeijingTime(event.start_at || event.start_date)
-  return start == null || event.upcoming ? null : share(props.now - start, event.endTime - start)
-}
-const next = computed(() => events.value[0] || null)
-const nextStyle = computed(() => next.value ? gameStyle(next.value.gameId) : null)
-// Deadlines per Beijing calendar day for the coming week, today first.
-const beijingDay = time => Math.floor((time + 8 * 3600000) / DAY_MS)
-const weekday = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', weekday: 'short' })
-const week = computed(() => {
-  const today = beijingDay(props.now)
-  return Array.from({ length: 7 }, (_, i) => ({
-    label: i === 0 ? '今天' : i === 1 ? '明天' : weekday.format(props.now + i * DAY_MS),
-    value: events.value.filter(event => beijingDay(event.endTime) === today + i).length,
-  }))
-})
-const weekTotal = computed(() => week.value.reduce((sum, day) => sum + day.value, 0))
-
 function status(card) {
   if (props.readErrors[card.game_id]) return '读取异常'
   if (card.auth?.state === 'expired') return '登录已失效'
@@ -58,12 +40,15 @@ function status(card) {
   if (card.game_id === 'league_of_legends') return '本机客户端'
   return ({ connected: '已登录', configured: '已登录', unconfigured: '未登录' })[card.auth?.state] || (card.credentials_configured ? '已登录' : '未登录')
 }
+const warned = card => !!(card.summary.stale || card.auth?.state === 'expired' || props.readErrors[card.game_id] || card.source?.tone === 'danger')
 const METRIC_UNITS = { stats: '%', gacha: '抽' }
 const PLATFORMS = { league_of_legends: 'PC / 国服', endfield: '官服 / 鹰角通行证' }
-const platform = id => PLATFORMS[id] || '手游 / 社区数据'
+const identity = card => card.summary.nickname ? `${card.summary.nickname}${card.summary.level != null ? ` · Lv.${card.summary.level}` : ''}` : card.platform || PLATFORMS[card.game_id] || '手游 / 社区数据'
 function metricLabel(card) {
   return ({ stamina: card.style.resource, gacha: '距上次 6★' })[card.summary.metric] || '最近对局胜率'
 }
+const metricValue = card => `${card.summary.metric === 'gacha' && card.summary.pityStatus === 'lower_bound' && card.summary.value != null ? '≥' : ''}${card.summary.value ?? '—'}`
+const metricUnit = card => card.summary.hasStamina ? `/ ${card.summary.maximum ?? '—'}` : METRIC_UNITS[card.summary.metric]
 function resourceNote(card) {
   const s = card.summary
   if (s.metric === 'gacha') return `特许寻访 · ${s.value == null ? '等待寻访记录更新' : s.pityStatus === 'exact' ? '按连续记录计算' : '有缺口或免费寻访，为最少值'}`
@@ -73,213 +58,384 @@ function resourceNote(card) {
   if (s.expectedFullAt) return `预计 ${formatTime(s.expectedFullAt)} 回满`
   return '回满时间未知'
 }
-// The ring shows stamina against its cap, or a win rate out of 100.
-const ring = card => card.summary.metric === 'stamina' ? { value: card.summary.value, max: card.summary.maximum } : card.summary.metric === 'stats' ? { value: card.summary.value, max: 100 } : null
-// The highest-level roles that come with a picture, for the avatar row on each game card.
+// The highest-level roles that come with a picture: the avatar row on each game card and the hero's art.
 const failedAvatars = ref(new Set())
 function roster(card) {
   const payload = props.snapshots[card.game_id]?.roles?.payload
   const list = Array.isArray(payload) ? payload : Array.isArray(payload?.entries) ? payload.entries : []
   const pictured = list.filter(role => role && typeof role === 'object' && safeUrl(role.icon_url) && !failedAvatars.value.has(safeUrl(role.icon_url)))
-  return { total: list.length, shown: pictured.sort((a, b) => (Number(b.level) || 0) - (Number(a.level) || 0)).slice(0, 5).map(role => ({ key: role.role_id ?? role.id ?? role.name, src: safeUrl(role.icon_url) })) }
+  return { total: list.length, shown: pictured.sort((a, b) => (Number(b.level) || 0) - (Number(a.level) || 0)).slice(0, 5).map(role => ({ key: role.role_id ?? role.id ?? role.name, src: safeUrl(role.icon_url), name: typeof role.name === 'string' ? role.name : '' })) }
 }
 function avatarFailed(src) { failedAvatars.value = new Set([...failedAvatars.value, src]) }
-const accentVars = style => ({ '--game-color': style.color, '--game-accent': style.color, '--game-vivid': style.vivid, '--game-vivid-2': style.vivid2 })
+
+// Hero: one game at a time. It opens on the game whose stamina is closest to full; the row of names under it switches.
+const featuredId = ref('')
+const featured = computed(() => cards.value.find(card => card.game_id === featuredId.value)
+  || [...cards.value].filter(card => card.summary.metric === 'stamina' && card.summary.percent != null && !warned(card)).sort((a, b) => b.summary.percent - a.summary.percent)[0]
+  || cards.value[0] || null)
+const heroArt = computed(() => featured.value ? roster(featured.value).shown.slice(0, 3) : [])
+
+// Daily and weekly progress, read-only.
+const tasks = computed(() => dailyTasks(props.games, props.snapshots, props.now))
+const tasksDone = computed(() => tasks.value.filter(task => task.done).length)
+
+// Deadlines for the next 7 or 30 days, and the one that comes first.
+const range = ref(7)
+const days = computed(() => deadlineDays(events.value, props.now, range.value))
+const rangeTotal = computed(() => days.value.reduce((sum, day) => sum + day.value, 0))
+const next = computed(() => events.value[0] || null)
+// How far through its window an event is (0–1); unknown without a start time.
+function elapsed(event) {
+  const start = parseBeijingTime(event.start_at || event.start_date)
+  return start == null || event.upcoming ? null : share(props.now - start, event.endTime - start)
+}
+
+// Pull records, one game at a time.
+const digests = computed(() => gachaDigests(props.games, props.snapshots, props.accounts))
+const gachaId = ref('')
+const digest = computed(() => digests.value.find(item => item.gameId === gachaId.value) || digests.value[0] || null)
+const shortDate = time => time == null ? '' : formatTime(time, { hour: undefined, minute: undefined })
+
+// Two tabs of each game page, by the names those tabs carry, then its calendar.
+const QUICK_TABS = { wuthering_waves: ['roles', 'gacha'], nte: ['characters', 'gacha'], endfield: ['operators', 'gacha'], league_of_legends: ['history', 'esports'] }
+function quickLinks(card) {
+  const tabs = sectionsFor(card).filter(([id]) => (QUICK_TABS[card.game_id] || []).includes(id)).map(([id, label]) => ({ label, href: gameHref(card.game_id, id) }))
+  return card.capabilities.includes('events') ? [...tabs, { label: '活动日历', href: `#/calendar?game=${encodeURIComponent(card.game_id)}` }] : tabs
+}
 </script>
 
 <template>
   <div class="overview-page">
+    <header class="page-heading ov-heading">
+      <div class="page-heading-copy">
+        <h1>今日总览</h1>
+        <ul class="ov-stats">
+          <li class="ov-today">{{ dateLabel }}</li>
+          <li><b v-pop>{{ games.length }}</b><span>游戏</span></li>
+          <li><b v-pop>{{ events.length }}</b><span>进行中的活动</span></li>
+          <li :class="{ hot: nearEvents.length }"><b v-pop>{{ nearEvents.length }}</b><span>3 天内截止</span></li>
+        </ul>
+      </div>
+      <div class="ov-actions">
+        <button class="ui-button ov-refresh" :disabled="loading || anyRefreshing || !games.length" @click="emit('refresh')"><AppIcon name="refresh" :size="15" :class="{ spinning: anyRefreshing }" /><span :class="{ 't-shimmer': anyRefreshing }">{{ anyRefreshing ? '刷新中…' : refreshLabel }}</span></button>
+        <button class="ui-button soft" @click="emit('navigate', 'calendar')"><AppIcon name="calendar" :size="15" />活动日历</button>
+      </div>
+    </header>
+
+    <p v-if="fullGames.length" class="ov-alert" role="status"><AppIcon name="clock" :size="16" />{{ fullGames.map(g => g.display_name).join('、') }}体力已达 90%</p>
+    <div v-for="game in notices" :key="game.game_id" class="inline-warning" role="status"><strong>{{ game.display_name }}</strong> · {{ friendlyDataError(refreshErrors[game.game_id] || readErrors[game.game_id],accounts[game.game_id]?.state) }}</div>
+
     <div class="ov-top">
-      <section v-parallax class="ov-hero">
-        <GameArt variant="orbit" />
-        <div class="ov-hero-copy">
-          <h1 class="ov-title">今日总览</h1>
-          <p class="ov-date">{{ dateLabel }}</p>
-          <ul class="ov-stats">
-            <li><b v-pop>{{ games.length }}</b><span>游戏</span></li>
-            <li><b v-pop>{{ events.length }}</b><span>进行中的活动</span></li>
-            <li :class="{ hot: nearEvents.length }"><b v-pop>{{ nearEvents.length }}</b><span>3 天内截止</span></li>
-          </ul>
-          <p v-if="fullGames.length" class="ov-alert"><AppIcon name="clock" :size="16" />{{ fullGames.map(g => g.display_name).join('、') }}体力已达 90%</p>
-          <div class="ov-hero-actions">
-            <button class="ui-button ov-refresh" :disabled="loading || anyRefreshing || !games.length" @click="emit('refresh')"><AppIcon name="refresh" :size="15" :class="{ spinning: anyRefreshing }" /><span :class="{ 't-shimmer': anyRefreshing }">{{ anyRefreshing ? '刷新中…' : refreshLabel }}</span></button>
-            <button class="text-link ov-calendar-link" @click="emit('navigate', 'calendar')">查看日历 <AppIcon name="arrow" :size="15" /></button>
+      <section v-if="featured" v-parallax class="ov-hero" :style="gameVars(featured.game_id)" aria-labelledby="ov-hero-title">
+        <div class="hero-inner">
+          <div :key="featured.game_id" class="hero-copy t-panel">
+            <p class="hero-eyebrow"><GameIcon class="hero-mark" :game-id="featured.game_id" :name="featured.display_name" />{{ featured.display_name }}<span>· {{ status(featured) }}</span></p>
+            <h2 id="ov-hero-title" class="hero-title"><span>{{ metricLabel(featured) }}</span><b>{{ metricValue(featured) }}<small>{{ metricUnit(featured) }}</small></b></h2>
+            <p class="hero-note">{{ resourceNote(featured) }}<template v-if="featured.summary.nickname"> · {{ identity(featured) }}</template></p>
+            <button class="hero-cta" @click="emit('navigate', 'game', featured.game_id)">打开{{ featured.display_name }}<span><AppIcon name="arrow" :size="16" /></span></button>
+          </div>
+          <div v-if="heroArt.length" :key="`art:${featured.game_id}`" class="hero-art plx-layer" aria-hidden="true">
+            <img v-for="(role, index) in heroArt" :key="role.key" :class="`hero-face face-${index}`" :src="role.src" alt="" decoding="async" referrerpolicy="no-referrer" @error="avatarFailed(role.src)" />
+          </div>
+          <div v-else :key="`mark:${featured.game_id}`" class="hero-art is-mark plx-layer" aria-hidden="true"><GameIcon class="hero-big-mark" :game-id="featured.game_id" /><span class="hero-en">{{ featured.style.english }}</span></div>
+          <div v-if="cards.length > 1" v-glide class="hero-index" role="group" aria-label="主卡显示的游戏">
+            <button v-for="card in cards" :key="card.game_id" type="button" :aria-pressed="card.game_id === featured.game_id" @click="featuredId = card.game_id">{{ card.display_name }}</button>
           </div>
         </div>
       </section>
+      <section v-else class="ov-hero is-empty" :aria-busy="loading || undefined"><div class="hero-inner"><p>{{ loading ? '加载中…' : '暂无已启用的游戏。' }}</p></div></section>
 
-      <button v-if="next" class="ov-next" :style="accentVars(nextStyle)" @click="emit('navigate', 'calendar', next.gameId)">
-        <span class="ov-next-head"><span class="ov-kicker">最近截止</span><span class="ov-next-game"><GameIcon class="ov-next-mark" :game-id="next.gameId" :name="next.gameName" />{{ next.gameName }}</span></span>
-        <strong class="ov-next-name">{{ next.name }}</strong>
-        <span class="ov-next-foot">
-          <span class="ov-next-days"><b>{{ next.remainingDays }}</b><small>{{ next.upcoming ? '天 · 未开始' : '天后结束' }}</small></span>
-          <RingGauge v-if="elapsed(next) != null" :value="Math.round(elapsed(next) * 100)" :max="100" label="活动已进行" :size="64" :stroke="7" :color="nextStyle.vivid"><small class="ov-next-pct">{{ Math.round(elapsed(next) * 100) }}%</small></RingGauge>
-        </span>
-        <span class="ov-next-end">{{ next.category || '限时活动' }} · {{ formatTime(next.end_at) }} 截止<span v-if="next.stale"> · 待更新</span></span>
-      </button>
-      <section v-else class="ov-next is-empty"><span class="ov-kicker">最近截止</span><p>{{ loading ? '加载中…' : '暂无临近截止的活动。' }}</p></section>
-
-      <section class="ov-week cap-card">
-        <div class="ov-card-head"><h2>未来 7 天截止</h2><span class="ov-card-meta">{{ weekTotal }} 项</span></div>
-        <BarChart v-if="weekTotal" :items="week" label="未来 7 天每天截止的活动数" unit=" 项" :highlight="week[0].value ? 0 : -1" :height="96" color="var(--accent-fill)" />
-        <p v-else class="ov-empty">{{ loading ? '加载中…' : '这一周没有活动截止。' }}</p>
+      <section class="ov-tasks cap-card" aria-labelledby="ov-tasks-title">
+        <div class="card-heading"><div><h2 id="ov-tasks-title">日常进度</h2><p class="sub">每日和本周会重置的进度</p></div></div>
+        <template v-if="tasks.length">
+          <div class="tasks-progress">
+            <RingGauge :value="tasksDone" :max="tasks.length" label="已完成的日常进度" :size="72" :stroke="7"><span class="tasks-count"><b>{{ tasksDone }}</b><small>/{{ tasks.length }}</small></span></RingGauge>
+            <span>已完成</span>
+          </div>
+          <ul class="task-list">
+            <li v-for="task in tasks.slice(0, 6)" :key="task.key" class="task" :class="{ done: task.done }" :style="gameVars(task.gameId)">
+              <span class="task-check" aria-hidden="true"><AppIcon v-if="task.done" name="check" :size="12" /></span>
+              <span class="task-name">{{ task.name }}<small>{{ task.gameName }}<template v-if="task.reset"> · {{ task.reset }}</template></small></span>
+              <span class="task-value">{{ task.total == null ? `${task.current} ${task.unit}` : `${task.current}/${task.total}` }}<span class="sr-only">，{{ task.done ? '已完成' : '未完成' }}</span></span>
+            </li>
+          </ul>
+        </template>
+        <p v-else class="ov-empty">{{ loading ? '加载中…' : '还没有读到每日或每周进度，刷新数据后显示。' }}</p>
       </section>
     </div>
 
-    <div v-for="game in notices" :key="game.game_id" class="inline-warning" role="status"><strong>{{ game.display_name }}</strong> · {{ friendlyDataError(refreshErrors[game.game_id] || readErrors[game.game_id],accounts[game.game_id]?.state) }}</div>
+    <section v-reveal class="ov-section ov-games" aria-labelledby="ov-games-title">
+      <HRail label="游戏状态">
+        <template #head><h2 id="ov-games-title">游戏状态</h2><span class="count-badge">{{ cards.length }}</span></template>
+        <article v-for="card in cards" :key="card.game_id" class="ov-game" :style="gameVars(card.game_id)">
+          <button class="game-summary" type="button" @click="emit('navigate', 'game', card.game_id)">
+            <GameIcon class="ov-avatar" :game-id="card.game_id" :name="card.display_name" />
+            <span class="ov-game-id"><strong>{{ card.display_name }}</strong><small>{{ identity(card) }}</small></span>
+            <span class="ov-arrow" aria-hidden="true"><AppIcon name="arrow" :size="13" /></span>
+          </button>
+          <p class="ov-energy"><strong v-pop>{{ metricValue(card) }}</strong><span class="total">{{ metricUnit(card) }}</span><span class="resource">{{ metricLabel(card) }}</span></p>
+          <span class="meter ov-meter" :class="{ unknown: card.summary.percent == null }" aria-hidden="true"><i :style="{ '--pct': `${card.summary.percent ?? 0}%` }"></i></span>
+          <p class="ov-note">{{ resourceNote(card) }}</p>
+          <div v-if="roster(card).shown.length" class="summary-roster"><span class="roster-faces"><img v-for="role in roster(card).shown" :key="role.key" :src="role.src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" @error="avatarFailed(role.src)" /></span><span>{{ roster(card).total }} 名角色</span></div>
+          <p class="ov-game-foot"><span class="summary-state" :class="{ warn: warned(card) }"><i></i>{{ status(card) }}</span><span class="summary-updated">{{ card.summary.fetchedAt ? `更新于 ${formatTime(card.summary.fetchedAt)}` : '尚未更新' }}</span></p>
+          <nav v-if="quickLinks(card).length" class="ov-quick" :aria-label="`${card.display_name}的常用页面`"><a v-for="link in quickLinks(card)" :key="link.href" :href="link.href">{{ link.label }}</a></nav>
+        </article>
+        <template v-if="!games.length && loading"><div v-for="n in 3" :key="n" class="ov-game is-skeleton" aria-hidden="true"><span class="t-skel-block" style="width:52%;height:18px"></span><span class="t-skel-block" style="width:36%;height:30px;margin-top:22px"></span><span class="t-skel-block" style="width:100%;height:6px;margin-top:14px"></span><span class="t-skel-block" style="width:64%;height:12px;margin-top:16px"></span></div></template>
+      </HRail>
+      <p v-if="!games.length && !loading" class="empty-page">暂无已启用的游戏。</p>
+    </section>
 
-    <div class="section-heading ov-section"><h2>我的游戏</h2></div>
-    <div class="game-summary-grid" :class="{ many: cards.length > 3 }" :style="{ '--cards': Math.min(cards.length, 4) }">
-      <button v-for="(card, index) in cards" :key="card.game_id" v-spotlight v-reveal class="game-summary game-theme t-item t-glare" :style="{ ...accentVars(card.style), '--i': index }" @click="emit('navigate', 'game', card.game_id)">
-        <div class="summary-header"><GameIcon class="game-monogram" :game-id="card.game_id" :name="card.display_name" /><div class="game-identity"><h3>{{ card.display_name }}</h3><p>{{ card.platform || platform(card.game_id) }}</p></div><span class="summary-state" :class="{ warn: card.summary.stale || card.auth?.state === 'expired' || readErrors[card.game_id] || card.source?.tone === 'danger' }"><i></i>{{ status(card) }}</span></div>
-        <div class="summary-body">
-          <RingGauge v-if="ring(card)" class="summary-ring" :value="ring(card).value" :max="ring(card).max" :label="metricLabel(card)" :size="92" :stroke="9" :color="card.style.vivid"><span class="ring-pct">{{ card.summary.percent == null ? '—' : `${Math.round(card.summary.percent)}%` }}</span></RingGauge>
-          <div class="summary-metric"><p>{{ metricLabel(card) }}</p><div class="summary-number" v-pop>{{ card.summary.metric === 'gacha' && card.summary.pityStatus === 'lower_bound' && card.summary.value != null ? '≥' : '' }}{{ card.summary.value ?? '—' }}<small>{{ card.summary.hasStamina ? `/ ${card.summary.maximum ?? '—'}` : METRIC_UNITS[card.summary.metric] }}</small></div><p class="summary-note">{{ resourceNote(card) }}</p></div>
+    <div class="ov-analytics">
+      <section v-reveal class="ov-deadlines cap-card" aria-labelledby="ov-deadline-title">
+        <div class="card-heading">
+          <div><h2 id="ov-deadline-title">活动截止</h2><p class="sub">每天结束的活动数 · 北京时间</p></div>
+          <div v-glide class="segmented" role="group" aria-label="时间范围"><button v-for="n in [7, 30]" :key="n" type="button" :aria-pressed="range === n" @click="range = n">{{ n }} 天</button></div>
         </div>
-        <div v-if="roster(card).shown.length" class="summary-roster"><span class="roster-faces"><img v-for="role in roster(card).shown" :key="role.key" :src="role.src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" @error="avatarFailed(role.src)" /></span><span>{{ roster(card).total }} 名角色</span></div>
-        <div class="summary-account"><span>{{ card.summary.nickname || '暂无账号数据' }}<small v-if="card.summary.level != null">Lv.{{ card.summary.level }}</small></span><span class="summary-updated">{{ card.summary.fetchedAt ? `更新于 ${formatTime(card.summary.fetchedAt)}` : '尚未更新' }}</span><AppIcon name="arrow" :size="15" /></div>
-      </button>
-    </div>
-    <div v-if="!games.length && loading" class="game-summary-grid" aria-busy="true"><span class="sr-only">加载中…</span><div v-for="n in 3" :key="n" class="game-summary is-skeleton" aria-hidden="true"><span class="t-skel-block" style="width:42%;height:16px"></span><span class="t-skel-block" style="width:36%;height:30px;margin-top:18px"></span><span class="t-skel-block" style="width:100%;height:6px;margin-top:12px"></span><span class="t-skel-block" style="width:64%;height:12px;margin-top:16px"></span></div></div>
-    <p v-else-if="!games.length" class="empty-page">暂无已启用的游戏。</p>
+        <p class="chart-summary"><b v-pop>{{ rangeTotal }}</b><small>项</small><span>{{ range }} 天内结束</span></p>
+        <BarChart v-if="rangeTotal" :key="range" :items="days" :label="`未来 ${range} 天每天截止的活动数`" unit=" 项" :highlight="days[0].value ? 0 : -1" :height="112" color="var(--accent-fill)" />
+        <p v-else class="ov-empty chart-empty">{{ loading ? '加载中…' : `未来 ${range} 天没有活动截止。` }}</p>
+        <button v-if="next" class="ov-next" :style="gameVars(next.gameId)" @click="emit('navigate', 'calendar', next.gameId)">
+          <RingGauge v-if="elapsed(next) != null" class="ov-next-ring" :value="Math.round(elapsed(next) * 100)" :max="100" label="活动已进行" :size="44" :stroke="5" :color="gameStyle(next.gameId).vivid"><small>{{ Math.round(elapsed(next) * 100) }}%</small></RingGauge>
+          <span class="ov-next-copy"><span class="ov-kicker">最近截止</span><strong>{{ next.name }}</strong><small>{{ next.gameName }} · {{ next.category || '限时活动' }} · {{ formatTime(next.end_at) }} 截止<template v-if="next.stale"> · 待更新</template></small></span>
+          <span class="ov-next-days"><b>{{ next.remainingDays }}</b><small>{{ next.upcoming ? '天 · 未开始' : '天后结束' }}</small></span>
+        </button>
+      </section>
 
-    <section v-reveal class="ov-events">
-      <div class="section-heading ov-section"><h2>临近截止</h2><button class="text-link" @click="emit('navigate', 'calendar')">全部活动 <AppIcon name="arrow" :size="15" /></button></div>
-      <p v-if="!events.length" class="empty-page ov-panel">{{ loading ? '加载中…' : '暂无临近截止的活动。' }}</p>
-      <HRail v-else label="临近截止">
-        <button v-for="event in events.slice(0, 12)" :key="event.id" class="event-card" :class="{ urgent: event.remainingDays <= 3 }" :style="accentVars(gameStyle(event.gameId))" @click="emit('navigate', 'calendar', event.gameId)">
-          <span class="event-card-game"><i aria-hidden="true"></i>{{ event.gameName }}<span>{{ event.category || '限时活动' }}</span></span>
+      <section v-reveal class="ov-gacha" :class="{ 'is-empty': !digest }" :style="digest ? gameVars(digest.gameId) : undefined" aria-labelledby="ov-gacha-title">
+        <div class="card-heading">
+          <div><h2 id="ov-gacha-title">抽卡概况</h2><p class="sub">{{ digest ? `${digest.gameName} · 全部卡池` : '同步抽卡记录后显示' }}</p></div>
+          <div v-if="digests.length > 1" v-glide class="segmented" role="group" aria-label="抽卡记录的游戏"><button v-for="item in digests" :key="item.gameId" type="button" :aria-pressed="item.gameId === digest.gameId" @click="gachaId = item.gameId">{{ item.gameName }}</button></div>
+        </div>
+        <template v-if="digest">
+          <p :key="digest.gameId" class="gacha-number t-panel"><b>{{ digest.total.toLocaleString('zh-CN') }}</b><small>抽</small></p>
+          <dl class="gacha-mini"><div v-for="stat in digest.stats" :key="stat.label"><dt>{{ stat.label }}</dt><dd>{{ stat.value ?? '—' }}</dd></div></dl>
+          <a class="gacha-latest" :href="gameHref(digest.gameId, digest.tab)">
+            <GameIcon class="latest-mark" :game-id="digest.gameId" />
+            <span v-if="digest.latest" class="latest-copy"><strong>{{ digest.latest.name }}</strong><small>{{ digest.latest.detail }}<template v-if="digest.latest.time"> · {{ shortDate(digest.latest.time) }}</template></small></span>
+            <span v-else class="latest-copy"><strong>查看抽卡记录</strong><small>还没有最高稀有度的记录</small></span>
+            <AppIcon name="arrow" :size="15" />
+          </a>
+        </template>
+        <p v-else class="ov-empty">{{ loading ? '加载中…' : '在游戏页导入或同步抽卡记录后，这里显示总抽数和最近的高稀有度。' }}</p>
+      </section>
+    </div>
+
+    <section v-reveal class="ov-section ov-events" aria-labelledby="ov-events-title">
+      <HRail label="近期活动">
+        <template #head><h2 id="ov-events-title">近期活动</h2><span class="count-badge">{{ events.length }}</span><button class="text-link" @click="emit('navigate', 'calendar')">全部活动 <AppIcon name="arrow" :size="15" /></button></template>
+        <button v-for="event in events.slice(0, 12)" :key="event.id" class="event-card" :class="{ urgent: event.remainingDays <= 3 }" :style="gameVars(event.gameId)" @click="emit('navigate', 'calendar', event.gameId)">
+          <span class="event-pill">{{ event.gameName }} · {{ event.category || '限时活动' }}</span>
           <strong class="event-card-name">{{ event.name }}</strong>
-          <span class="event-card-days"><small>剩</small><b>{{ event.remainingDays }}</b><small>天</small><span v-if="event.upcoming" class="deadline-label">未开始</span><span v-else-if="event.remainingDays <= 3" class="deadline-label urgent">即将截止</span></span>
+          <span class="event-card-days"><b>{{ event.remainingDays }}</b><small>{{ event.upcoming ? '天 · 未开始' : '天后结束' }}</small><span v-if="!event.upcoming && event.remainingDays <= 3" class="deadline-label">即将截止</span></span>
           <span v-if="elapsed(event) != null" class="event-card-track" aria-hidden="true"><i :style="{ width: `${Math.round(elapsed(event) * 100)}%` }"></i></span>
-          <span class="event-card-end">{{ formatTime(event.end_at) }} 截止<span v-if="event.stale"> · 待更新</span></span>
+          <span class="event-card-end"><AppIcon name="clock" :size="13" />{{ formatTime(event.end_at) }} 截止<template v-if="event.stale"> · 待更新</template></span>
+          <GameIcon class="event-watermark" :game-id="event.gameId" aria-hidden="true" />
         </button>
       </HRail>
+      <p v-if="!events.length" class="empty-page">{{ loading ? '加载中…' : '暂无进行中的活动。' }}</p>
     </section>
 
     <section v-reveal class="ov-news cap-card">
       <div class="section-heading"><h2>公告与资讯</h2><div class="news-filters"><MenuSelect v-model="newsFilter" label="公告游戏筛选" :options="newsGameOptions" /><MenuSelect v-model="sourceFilter" label="资讯来源" align="end" :options="newsSourceOptions" /></div></div>
-      <div class="news-list"><p v-if="!news.length" class="empty-page">{{ loading ? '加载中…' : '暂无公告。' }}</p><article v-for="(item, i) in news" :key="`${item.gameId}:${item.title}:${i}`" class="news-summary t-row" :style="accentVars(gameStyle(item.gameId))"><GameIcon class="news-mark" :game-id="item.gameId" :name="item.gameName" /><div class="news-copy"><a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }} <span>↗</span></a><p v-else>{{ item.title }}</p><div class="news-source">{{ item.gameName }}<span> / {{ item.source_name || (item.capability === 'news' ? '资讯' : '官方公告') }}</span><time v-if="item.published_at">{{ formatTime(item.published_at) }}</time></div></div></article></div>
+      <div class="news-list"><p v-if="!news.length" class="empty-page">{{ loading ? '加载中…' : '暂无公告。' }}</p><article v-for="(item, i) in news" :key="`${item.gameId}:${item.title}:${i}`" class="news-summary t-row" :style="gameVars(item.gameId)"><GameIcon class="news-mark" :game-id="item.gameId" :name="item.gameName" /><div class="news-copy"><a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }} <span>↗</span></a><p v-else>{{ item.title }}</p><div class="news-source">{{ item.gameName }}<span> / {{ item.source_name || (item.capability === 'news' ? '资讯' : '官方公告') }}</span><time v-if="item.published_at">{{ formatTime(item.published_at) }}</time></div></div></article></div>
     </section>
     <footer class="overview-footer"><span>时间均为北京时间</span></footer>
   </div>
 </template>
 
 <style scoped>
-/* Bento top row: the hero spans two rows; the next deadline and the week sit beside it. */
-.ov-top { display:grid; grid-template-columns:minmax(0, 1.75fr) minmax(280px, 1fr); grid-template-rows:auto auto; gap:20px; }
-.ov-hero { position:relative; grid-row:span 2; min-height:340px; overflow:hidden; isolation:isolate; padding:30px 32px; border-radius:var(--radius-card); color:#fff; background:radial-gradient(120% 140% at 0% 0%, #2a2f4d 0%, #151827 46%, #0f111a 100%); box-shadow:0 1px 2px rgba(20, 24, 40, .2), 0 28px 60px -30px rgba(15, 17, 26, .7); }
-.ov-hero::after { content:''; position:absolute; inset:0; z-index:-1; opacity:.18; mix-blend-mode:overlay; pointer-events:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
-.ov-hero :deep(.game-art) { z-index:-2; }
-/* A dark wash under the copy keeps the text readable whatever the artwork puts behind it. */
-.ov-hero::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg, rgba(15, 17, 26, .78) 0%, rgba(15, 17, 26, .45) 38%, transparent 64%); }
-.ov-hero-copy { position:relative; display:flex; flex-direction:column; align-items:flex-start; height:100%; max-width:min(440px, 62%); }
-.ov-title { display:inline-flex; align-items:center; padding:3px 12px; border-radius:999px; background:rgba(255, 255, 255, .12); border:1px solid rgba(255, 255, 255, .16); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); font-size:13px; line-height:20px; font-weight:500; letter-spacing:0; }
-.ov-date { margin-top:18px; font-size:40px; line-height:46px; font-weight:600; letter-spacing:-.03em; text-wrap:balance; }
-.ov-stats { display:flex; flex-wrap:wrap; gap:10px 28px; margin-top:22px; }
-.ov-stats li { display:grid; gap:2px; }
-.ov-stats b { font-size:28px; line-height:32px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:proportional-nums; }
-.ov-stats span { color:rgba(255, 255, 255, .68); font-size:12px; }
-.ov-stats li.hot b { color:#ffd27a; }
-.ov-alert { display:inline-flex; align-items:center; gap:8px; margin-top:18px; padding:6px 12px; border-radius:999px; background:rgba(255, 210, 122, .14); color:#ffe2a6; font-size:13px; }
-.ov-hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; margin-top:auto; padding-top:24px; }
-.ov-refresh { background:rgba(255, 255, 255, .14); border-color:rgba(255, 255, 255, .22); color:#fff; box-shadow:inset 0 1px 0 rgba(255, 255, 255, .18); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); }
-@media(hover:hover) and (pointer:fine) { .ov-refresh:hover:not(:disabled) { background:rgba(255, 255, 255, .22); border-color:rgba(255, 255, 255, .3); color:#fff; } }
-.ov-refresh .t-shimmer { background-image:linear-gradient(90deg, rgba(255, 255, 255, .6) 0%, #fff 45%, rgba(255, 255, 255, .6) 65%); }
-.ov-calendar-link { color:rgba(255, 255, 255, .86); }
-@media(hover:hover) and (pointer:fine) { .ov-calendar-link:hover { color:#fff; } }
-.ov-hero :focus-visible { outline-color:#fff; }
+/* Page heading: the title, then today's counts in one quiet line. */
+.ov-stats { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 18px; margin-top:6px; color:var(--text-muted); font-size:13px; }
+.ov-stats li { display:inline-flex; align-items:baseline; gap:5px; }
+.ov-stats b { color:var(--text); font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+.ov-stats li.hot b { color:var(--danger); }
+/* The date is in the top bar; phones hide that, so it joins the counts there. */
+.ov-today { display:none !important; }
+.ov-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.ov-alert { display:flex; align-items:center; gap:8px; margin:-8px 0 18px; padding:10px 14px; border:1px solid var(--attention-border); border-radius:var(--radius-well); background:var(--attention-bg); color:var(--attention-text); font-size:13px; }
+.inline-warning { margin:0 0 16px; }
 
-/* The one saturated card in the row: the deadline that comes first, in its game's colours. */
-.ov-next { position:relative; display:flex; flex-direction:column; gap:10px; min-width:0; padding:22px; overflow:hidden; text-align:left; border:0; border-radius:var(--radius-card); color:var(--text); background:linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 26%, var(--card-bg)), color-mix(in srgb, var(--game-vivid-2) 16%, var(--card-bg)) 70%); box-shadow:var(--card-shadow), inset 0 0 0 1px color-mix(in srgb, var(--game-vivid) 22%, transparent); transition:transform var(--duration-spring) var(--ease-spring), box-shadow var(--duration-fast) var(--ease-smooth-out); }
-.ov-next::before { content:''; position:absolute; right:-40px; top:-60px; width:200px; height:200px; border-radius:50%; background:radial-gradient(circle, color-mix(in srgb, var(--game-vivid) 45%, transparent), transparent 70%); pointer-events:none; }
-@media(hover:hover) and (pointer:fine) { button.ov-next:hover { transform:translateY(-2px); box-shadow:var(--card-hover-shadow), 0 18px 40px -22px var(--game-vivid), inset 0 0 0 1px color-mix(in srgb, var(--game-vivid) 30%, transparent); } }
-button.ov-next:active { transform:scale(var(--scale-small)); }
-.ov-next-head { position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.ov-kicker { color:var(--text-muted); font-size:12px; font-weight:500; }
-.ov-next-game { display:inline-flex; align-items:center; gap:6px; padding:2px 10px 2px 3px; border-radius:999px; background:var(--glass-strong); color:var(--text-body); font-size:12px; font-weight:500; }
-.ov-next-mark { width:20px; height:20px; border-radius:999px; font-size:11px; }
-.ov-next-name { position:relative; font-size:18px; line-height:26px; font-weight:600; letter-spacing:-.01em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.ov-next-foot { position:relative; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-top:auto; }
-.ov-next-days { display:flex; align-items:baseline; gap:6px; }
-.ov-next-days b { font-size:44px; line-height:46px; font-weight:600; letter-spacing:-.04em; font-variant-numeric:proportional-nums; }
-.ov-next-days small { color:var(--text-muted); font-size:13px; }
-.ov-next-pct { font-size:12px; font-weight:600; color:var(--text); }
-.ov-next-end { position:relative; color:var(--text-muted); font-size:12px; }
-.ov-next.is-empty { justify-content:center; background:var(--card-bg); box-shadow:var(--card-shadow); border:1px solid var(--card-border); }
-.ov-next.is-empty p { color:var(--text-muted); font-size:13px; }
+/* Row one: the hero beside today's progress. */
+.ov-top { display:grid; grid-template-columns:minmax(0, 1.95fr) minmax(290px, 1fr); gap:20px; align-items:stretch; }
+/* Hero: a white frame around the featured game's pale tone (mockup .hero-card). */
+.ov-hero { min-width:0; height:300px; padding:6px; overflow:hidden; border:1px solid var(--card-border); border-radius:26px; background:var(--card-bg); box-shadow:var(--card-shadow); }
+.hero-inner { position:relative; isolation:isolate; height:100%; overflow:hidden; padding:24px 28px 62px; border-radius:20px; background:var(--game-tone, var(--control-track)); }
+.ov-hero.is-empty .hero-inner { display:grid; place-items:center; color:var(--text-muted); padding:24px; }
+.hero-copy { position:relative; z-index:3; max-width:min(58%, 420px); }
+.hero-eyebrow { display:flex; align-items:center; gap:8px; color:var(--game-accent); font-size:12px; font-weight:500; white-space:nowrap; }
+.hero-eyebrow span { color:var(--game-accent); opacity:.8; font-weight:400; }
+.hero-mark { width:24px; height:24px; border-radius:7px; background:var(--card-bg); box-shadow:inset 0 0 0 1px var(--card-border); font-size:12px; font-weight:600; }
+.hero-title { display:grid; gap:0; margin:10px 0 4px; color:var(--text); font-weight:600; }
+.hero-title span { font-size:15px; line-height:22px; letter-spacing:-.01em; }
+.hero-title b { font-size:40px; line-height:44px; font-weight:600; letter-spacing:-.04em; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.hero-title small { margin-left:6px; color:var(--game-accent); font-size:16px; font-weight:500; letter-spacing:0; }
+.hero-note { color:var(--game-accent); font-size:13px; line-height:1.6; text-wrap:pretty; }
+.hero-cta { display:inline-flex; align-items:center; gap:12px; min-height:44px; margin-top:12px; padding:5px 5px 5px 14px; border:1px solid var(--accent-fill); border-radius:11px; background:var(--accent-fill); color:var(--accent-ink); font-size:13px; font-weight:500; }
+.hero-cta span { display:grid; place-items:center; width:32px; height:32px; border-radius:8px; background:rgba(255, 255, 255, .14); transition:transform var(--duration-fast) var(--ease-smooth-out); }
+@media(hover:hover) and (pointer:fine) { .hero-cta:hover span { transform:translateX(2px); } .hero-cta:hover { filter:brightness(1.06); } }
+.hero-cta:active { transform:translateY(1px); }
+/* Art: the top roles' pictures fanned at the right, or the game's mark when there are none. It drifts a little against the scroll. */
+.hero-art { --plx-range:-14px; position:absolute; right:6%; bottom:30px; z-index:1; width:250px; height:210px; pointer-events:none; }
+.hero-face { position:absolute; object-fit:cover; background:var(--card-bg); border:5px solid var(--card-bg); box-shadow:0 18px 40px -22px rgba(38, 40, 46, .45); }
+.face-0 { right:24px; bottom:0; z-index:3; width:172px; height:172px; border-radius:40px; transform:rotate(5deg); }
+.face-1 { right:170px; bottom:22px; z-index:2; width:96px; height:96px; border-radius:26px; transform:rotate(-9deg); }
+.face-2 { right:0; top:-6px; z-index:1; width:74px; height:74px; border-radius:22px; transform:rotate(12deg); }
+.hero-art.is-mark { display:flex; align-items:flex-end; justify-content:flex-end; gap:18px; }
+.hero-big-mark { width:150px; height:150px; border-radius:38px; background:var(--card-bg); box-shadow:0 18px 40px -22px rgba(38, 40, 46, .45); transform:rotate(-9deg); color:var(--game-accent); font-size:64px; font-weight:600; }
+.hero-en { writing-mode:vertical-rl; transform:rotate(180deg); max-height:200px; overflow:hidden; color:var(--game-accent); font-size:20px; font-weight:600; letter-spacing:2px; opacity:.38; white-space:nowrap; }
+/* Game switcher at the foot of the hero: plain names, a white slip under the shown one. */
+.hero-index { position:absolute; left:22px; bottom:8px; z-index:4; display:flex; gap:2px; }
+.hero-index button { position:relative; z-index:1; min-width:58px; min-height:44px; padding:8px 12px; border:0; border-radius:10px; background:transparent; color:var(--game-accent); font-size:12px; }
+.hero-index button[aria-pressed="true"] { color:var(--text); font-weight:600; }
+.hero-index:not([data-glide]) button[aria-pressed="true"] { background:var(--card-bg); }
+.hero-index > :deep(.t-glide) { background:var(--card-bg); box-shadow:none; border-radius:10px; }
+@media(hover:hover) and (pointer:fine) { .hero-index button[aria-pressed="false"]:hover { background:rgba(255, 255, 255, .45); } }
 
-.ov-week { display:flex; flex-direction:column; gap:10px; }
-.ov-card-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
-.ov-card-head h2 { font-size:15px; line-height:22px; font-weight:600; }
-.ov-card-meta { color:var(--text-faint); font-size:12px; }
-.ov-empty { margin:auto 0; color:var(--text-muted); font-size:13px; }
+/* Daily progress: a ring of how many are done, then the rows. */
+.ov-tasks { display:grid; grid-template-columns:76px minmax(0, 1fr); column-gap:16px; align-content:start; padding:20px 18px; }
+.card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.card-heading h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
+.card-heading .sub { margin-top:2px; color:var(--text-muted); font-size:12px; }
+.ov-tasks > .card-heading { grid-column:1 / -1; margin-bottom:12px; }
+.tasks-progress { display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--text-muted); font-size:12px; }
+.tasks-count { display:flex; align-items:baseline; }
+.tasks-count b { font-size:22px; font-weight:600; letter-spacing:-.04em; }
+.tasks-count small { color:var(--text-muted); font-size:12px; }
+.task-list { min-width:0; }
+.task { display:flex; align-items:center; gap:10px; min-height:44px; padding:6px 0; border-top:1px solid var(--border); font-size:13px; }
+.task:first-child { border-top:0; padding-top:0; }
+.task-check { display:grid; place-items:center; flex-shrink:0; width:18px; height:18px; border:1px solid var(--border-strong); border-radius:6px; background:var(--card-bg); }
+.task.done .task-check { border-color:color-mix(in srgb, var(--accent) 30%, var(--border)); background:var(--accent-soft); color:var(--accent); }
+.task-name { display:grid; flex:1; min-width:0; color:var(--text); font-weight:500; }
+.task-name small { overflow:hidden; color:var(--text-muted); font-size:12px; font-weight:400; white-space:nowrap; text-overflow:ellipsis; }
+.task.done .task-name { color:var(--text-muted); }
+.task-value { flex-shrink:0; color:var(--text-body); font-size:12px; font-variant-numeric:tabular-nums; }
+.ov-empty { color:var(--text-muted); font-size:13px; }
+.ov-tasks > .ov-empty { grid-column:1 / -1; margin:auto 0; padding:24px 0; }
 
-.ov-section { margin:32px 0 14px; }
-/* Up to four games in a row; four fall to 2 × 2 before they get too narrow. */
-.game-summary-grid { display:grid; grid-template-columns:repeat(var(--cards, 3),minmax(0,1fr)); gap:20px; }
-@media(max-width:1280px) { .game-summary-grid.many { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-.game-summary { position:relative; display:flex; flex-direction:column; text-align:left; border:1px solid var(--card-border); border-radius:var(--radius-card); padding:20px; background:var(--card-bg); color:var(--text); min-width:0; overflow:hidden; box-shadow:var(--card-shadow); transition:transform var(--duration-spring) var(--ease-spring), box-shadow var(--duration-fast) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out); cursor:pointer; }
-/* A faint wash of the game colour in the corner. */
-.game-summary::before { content:''; position:absolute; right:-70px; top:-90px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle, color-mix(in srgb, var(--game-vivid) 22%, transparent), transparent 70%); pointer-events:none; }
-.game-summary:focus-visible { border-color:var(--game-color); outline-color:var(--game-color); }
-@media(hover:hover) and (pointer:fine) { .game-summary:hover { transform:translateY(-3px); box-shadow:var(--card-hover-shadow), 0 20px 44px -28px var(--game-vivid); } }
-.game-summary:active { transform:scale(var(--scale-small)); }.game-summary.is-skeleton { pointer-events:none; }
-.summary-header { position:relative; display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-.game-monogram { display:grid; place-items:center; flex-shrink:0; width:40px; height:40px; border-radius:12px; color:var(--game-color); font-size:18px; box-shadow:0 6px 14px -8px var(--game-vivid); }
-.game-identity { min-width:0; flex:1; }.game-identity h3 { font-size:16px; line-height:22px; font-weight:600; white-space:nowrap; }.game-identity p { color:var(--text-faint); font-size:12px; line-height:18px; }
-.summary-state { display:flex; align-items:center; gap:5px; flex-shrink:0; padding:1px 10px 1px 8px; border-radius:999px; background:var(--success-bg); color:var(--success); font-size:12px; font-weight:500; line-height:22px; }.summary-state.warn { background:var(--stale-bg); color:var(--stale-text); }.summary-state i { width:6px; height:6px; background:currentColor; border-radius:50%; }
-.summary-body { position:relative; display:flex; align-items:center; gap:18px; margin:20px 0 18px; }
-.ring-pct { font-size:15px; font-weight:600; letter-spacing:-.01em; }
-.summary-metric { min-width:0; flex:1; }
-.summary-metric p { font-size:12px; color:var(--text-muted); }
-.summary-number { margin-top:2px; font-size:32px; line-height:38px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; white-space:nowrap; }.summary-number small { font-size:14px; color:var(--text-muted); font-weight:500; margin-left:4px; letter-spacing:0; }
-.summary-note { margin-top:2px; font-size:12px; line-height:18px; color:var(--text-muted); text-wrap:pretty; }
+/* Sections: the heading carries a count and the rail's arrows. */
+.ov-section { margin-top:28px; }
+.ov-section :deep(.h-rail-title) h2 { font-size:18px; line-height:26px; font-weight:600; letter-spacing:-.02em; }
+.ov-section :deep(.h-rail-title) .text-link { margin-left:8px; }
+.ov-games .h-rail,.ov-events .h-rail { --rail-gap:16px; --rail-pad:2px; --rail-pad-block:4px; }
+
+/* Game cards (mockup .game-card): identity, the main number and its bar, then shortcuts. */
+.ov-game { display:flex; flex-direction:column; width:clamp(272px, calc((100% - 32px) / 3), 360px); min-height:100%; padding:16px 18px 10px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
+.ov-game.is-skeleton { padding:20px; }
+.game-summary { display:flex; align-items:center; gap:11px; width:100%; min-height:52px; padding:0; border:0; border-radius:12px; background:none; color:var(--text); text-align:left; }
+.ov-avatar { width:44px; height:44px; border:3px solid var(--card-bg); border-radius:15px; background:var(--game-tone); box-shadow:0 0 0 1px var(--card-border); font-size:17px; font-weight:600; }
+.ov-game-id { display:grid; flex:1; min-width:0; }
+.ov-game-id strong { font-size:16px; font-weight:600; }
+.ov-game-id small { overflow:hidden; color:var(--text-muted); font-size:12px; white-space:nowrap; text-overflow:ellipsis; }
+.ov-arrow { display:grid; place-items:center; flex-shrink:0; width:29px; height:29px; border-radius:9px; background:var(--panel-bg); color:var(--text-muted); transition:background-color var(--duration-quick) var(--ease-smooth-out), color var(--duration-quick) var(--ease-smooth-out), transform var(--duration-fast) var(--ease-smooth-out); }
+@media(hover:hover) and (pointer:fine) { .game-summary:hover .ov-arrow { background:var(--accent-soft); color:var(--accent); transform:translateX(2px); } }
+.game-summary:active .ov-arrow { transform:translateY(1px); }
+.ov-energy { display:flex; align-items:baseline; gap:6px; margin-top:16px; }
+.ov-energy strong { font-size:28px; line-height:1.1; font-weight:550; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
+.ov-energy .total { color:var(--text-muted); font-size:12px; }
+.ov-energy .resource { margin-left:auto; color:var(--text-muted); font-size:12px; }
+.ov-meter { height:5px; margin:12px 0 10px; }
+.ov-meter > i { background:var(--game-vivid); }
+.ov-meter.unknown { opacity:.6; }
+.ov-note { color:var(--text-muted); font-size:12px; line-height:18px; }
 /* Overlapping avatars of the highest-level roles: the pictures bring the game's colour. */
-.summary-roster { position:relative; display:flex; align-items:center; gap:10px; margin:-4px 0 16px; color:var(--text-muted); font-size:12px; }
+.summary-roster { display:flex; align-items:center; gap:10px; margin-top:12px; color:var(--text-muted); font-size:12px; }
 .roster-faces { display:flex; padding-left:8px; }
-.roster-faces img { width:30px; height:30px; margin-left:-8px; border-radius:10px; object-fit:cover; background:var(--surface-soft); box-shadow:0 0 0 2px var(--card-bg), 0 4px 10px -6px rgba(20, 24, 40, .4); transition:transform var(--duration-spring) var(--ease-spring); }
-@media(hover:hover) and (pointer:fine) { .game-summary:hover .roster-faces img { transform:translateY(-2px); } .game-summary:hover .roster-faces img:nth-child(2) { transition-delay:30ms; } .game-summary:hover .roster-faces img:nth-child(3) { transition-delay:60ms; } .game-summary:hover .roster-faces img:nth-child(4) { transition-delay:90ms; } .game-summary:hover .roster-faces img:nth-child(5) { transition-delay:120ms; } }
-.summary-account { position:relative; display:flex; align-items:center; gap:6px; margin-top:auto; padding-top:14px; border-top:1px solid var(--border); color:var(--text); font-size:13px; font-weight:500; }.summary-account>span:first-child { min-width:0; margin-right:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.summary-account small { margin-left:6px; color:var(--text-muted); font-size:12px; font-weight:400; }.summary-updated { color:var(--text-faint); font-size:12px; font-weight:400; white-space:nowrap; }.summary-account svg { color:var(--text-faint); transition:transform var(--duration-medium) var(--ease-smooth-out), color var(--duration-quick) var(--ease-smooth-out); }
-@media(hover:hover) and (pointer:fine) { .game-summary:hover .summary-account svg { color:var(--game-color); transform:translateX(3px); } }
+.roster-faces img { width:28px; height:28px; margin-left:-8px; border-radius:9px; object-fit:cover; background:var(--game-tone); box-shadow:0 0 0 2px var(--card-bg); }
+.ov-game-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:12px 0 14px; color:var(--text-muted); font-size:12px; }
+.summary-state { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; padding:1px 8px 1px 7px; border-radius:var(--radius-chip); background:var(--success-bg); color:var(--success); font-size:12px; font-weight:500; line-height:20px; }
+.summary-state i { width:6px; height:6px; border-radius:50%; background:currentColor; }
+.summary-state.warn { background:var(--stale-bg); color:var(--stale-text); }
+.summary-updated { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.ov-quick { display:grid; grid-auto-columns:minmax(0, 1fr); grid-auto-flow:column; margin-top:auto; padding-top:8px; border-top:1px solid var(--border); }
+.ov-quick a { display:grid; place-items:center; min-height:44px; padding:6px 4px; border-radius:8px; color:var(--text-muted); font-size:13px; text-decoration:none; white-space:nowrap; }
+.ov-quick a + a { border-left:1px solid var(--border); border-radius:0 8px 8px 0; }
+@media(hover:hover) and (pointer:fine) { .ov-quick a:hover { background:var(--accent-soft); color:var(--accent); } }
+.ov-quick a:active { transform:translateY(1px); }
 
-/* Horizontal rail of deadline cards; the urgent ones carry a warm wash. */
-.ov-events .h-rail { --rail-pad:4px; --rail-pad-block:10px; --rail-gap:14px; }
-.event-card { position:relative; display:flex; flex-direction:column; gap:8px; width:268px; min-height:178px; padding:18px; text-align:left; border:1px solid var(--card-border); border-radius:var(--radius-tile); background:var(--card-bg); color:var(--text); box-shadow:var(--card-shadow); overflow:hidden; transition:transform var(--duration-spring) var(--ease-spring), box-shadow var(--duration-fast) var(--ease-smooth-out); }
-.event-card::before { content:''; position:absolute; inset:0 0 auto; height:3px; background:linear-gradient(90deg, var(--game-vivid), var(--game-vivid-2)); }
-.event-card.urgent { background:linear-gradient(170deg, color-mix(in srgb, var(--game-vivid) 12%, var(--card-bg)), var(--card-bg) 60%); }
-@media(hover:hover) and (pointer:fine) { .event-card:hover { transform:translateY(-3px); box-shadow:var(--card-hover-shadow); } }
-.event-card:active { transform:scale(var(--scale-small)); }
-.event-card-game { display:flex; align-items:center; gap:6px; color:var(--text-body); font-size:12px; font-weight:500; }
-.event-card-game i { width:7px; height:7px; border-radius:50%; background:var(--game-vivid); box-shadow:0 0 0 3px color-mix(in srgb, var(--game-vivid) 22%, transparent); }
-.event-card-game span { margin-left:auto; color:var(--text-faint); font-weight:400; }
-.event-card-name { font-size:15px; line-height:22px; font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.event-card-days { display:flex; align-items:baseline; gap:4px; margin-top:auto; }
-.event-card-days b { font-size:30px; line-height:34px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
-.event-card-days small { color:var(--text-muted); font-size:12px; }
-.event-card-days .deadline-label { margin-left:auto; }
-.deadline-label { flex-shrink:0; padding:1px 9px; border-radius:999px; background:var(--overlay-3); font-size:12px; font-weight:500; line-height:20px; color:var(--text-body); white-space:nowrap; }.deadline-label.urgent { background:var(--stale-bg); color:var(--stale-text); }
-.event-card-track { height:4px; border-radius:999px; background:var(--track); overflow:hidden; }
-.event-card-track i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg, var(--game-vivid), var(--game-vivid-2)); }
-.event-card-end { color:var(--text-faint); font-size:12px; }
-.ov-panel { border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
+/* Row three: deadlines and pulls (mockup .analytics-grid). */
+.ov-analytics { display:grid; grid-template-columns:minmax(0, 1.8fr) minmax(305px, 1fr); gap:20px; margin-top:28px; }
+.ov-deadlines { display:flex; flex-direction:column; min-width:0; padding:22px 24px 16px; }
+.chart-summary { display:flex; align-items:baseline; gap:6px; margin-top:16px; }
+.chart-summary b { font-size:32px; line-height:1; font-weight:550; letter-spacing:-.05em; }
+.chart-summary small { color:var(--text-muted); font-size:14px; }
+.chart-summary span { margin-left:6px; color:var(--text-muted); font-size:12px; }
+.ov-deadlines :deep(.bar-plot) { padding-top:26px; }
+.chart-empty { padding:40px 0; text-align:center; }
+.ov-next { display:flex; align-items:center; gap:12px; width:100%; min-height:60px; margin-top:12px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-well); background:var(--panel-bg); color:var(--text); text-align:left; }
+@media(hover:hover) and (pointer:fine) { .ov-next:hover { border-color:var(--border-strong); background:var(--card-bg); } }
+.ov-next:active { transform:translateY(1px); }
+.ov-next-ring small { font-size:11px; font-weight:600; }
+.ov-next-copy { display:grid; flex:1; min-width:0; }
+.ov-kicker { color:var(--text-muted); font-size:12px; }
+.ov-next-copy strong { overflow:hidden; font-size:14px; font-weight:600; white-space:nowrap; text-overflow:ellipsis; }
+.ov-next-copy small { overflow:hidden; color:var(--text-muted); font-size:12px; white-space:nowrap; text-overflow:ellipsis; }
+.ov-next-days { display:flex; align-items:baseline; gap:4px; flex-shrink:0; }
+.ov-next-days b { font-size:24px; font-weight:600; letter-spacing:-.04em; }
+.ov-next-days small { color:var(--text-muted); font-size:12px; }
+/* Pulls: the one lavender card on the page (mockup .gacha-summary-card), in the game's tone when it has one. */
+.ov-gacha { position:relative; display:flex; flex-direction:column; min-width:0; padding:22px 23px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:color-mix(in srgb, var(--game-tone, #e9edf7) 55%, var(--card-bg)); box-shadow:var(--card-shadow); }
+.ov-gacha.is-empty { background:var(--card-bg); }
+.ov-gacha .segmented { background:color-mix(in srgb, var(--card-bg) 55%, transparent); }
+.gacha-number { display:flex; align-items:baseline; gap:7px; margin-top:20px; }
+.gacha-number b { font-size:44px; line-height:1.1; font-weight:500; letter-spacing:-.06em; font-variant-numeric:tabular-nums; }
+.gacha-number small { color:var(--text-muted); font-size:12px; }
+.gacha-mini { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); margin:18px 0 0; }
+.gacha-mini > div { min-width:0; padding-left:14px; border-left:1px solid color-mix(in srgb, var(--game-accent, var(--text)) 18%, transparent); }
+.gacha-mini > div:first-child { padding-left:0; border-left:0; }
+.gacha-mini dt { overflow:hidden; color:var(--text-muted); font-size:12px; white-space:nowrap; text-overflow:ellipsis; }
+.gacha-mini dd { margin:2px 0 0; overflow:hidden; color:var(--text); font-size:19px; font-weight:500; letter-spacing:-.03em; white-space:nowrap; text-overflow:ellipsis; }
+.gacha-latest { display:flex; align-items:center; gap:10px; min-height:58px; margin-top:auto; padding:11px; border:1px solid var(--card-border); border-radius:14px; background:var(--card-bg); color:var(--text); text-decoration:none; }
+.ov-gacha .gacha-mini + .gacha-latest { margin-top:20px; }
+.latest-mark { flex-shrink:0; width:34px; height:34px; border-radius:9px; background:var(--game-tone); font-size:14px; font-weight:600; }
+.latest-copy { display:grid; flex:1; min-width:0; }
+.gacha-latest strong { font-size:13px; font-weight:600; }
+.gacha-latest small { overflow:hidden; color:var(--text-muted); font-size:12px; white-space:nowrap; text-overflow:ellipsis; }
+.gacha-latest > svg { flex-shrink:0; color:var(--accent); }
+@media(hover:hover) and (pointer:fine) { .gacha-latest:hover { background:var(--panel-bg); } }
+.ov-gacha > .ov-empty { margin:auto 0; padding:24px 0 8px; }
 
-.ov-news { margin-top:32px; padding:22px 24px 12px; }
+/* Events (mockup .event-card): each in its game's tone, the days left large. */
+.event-card { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:8px; width:clamp(272px, calc((100% - 32px) / 3), 340px); min-height:206px; padding:20px 22px 18px; overflow:hidden; isolation:isolate; border:0; border-radius:var(--radius-card); background:var(--game-tone); color:var(--game-accent); text-align:left; }
+.event-pill { max-width:100%; overflow:hidden; padding:3px 8px; border-radius:var(--radius-chip); background:color-mix(in srgb, var(--card-bg) 60%, transparent); color:var(--game-accent); font-size:12px; white-space:nowrap; text-overflow:ellipsis; }
+.event-card-name { display:-webkit-box; max-width:82%; margin-top:6px; overflow:hidden; color:var(--text); font-size:17px; line-height:1.45; font-weight:600; letter-spacing:-.02em; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.event-card-days { display:flex; align-items:baseline; gap:4px; width:100%; margin-top:auto; }
+.event-card-days b { color:var(--text); font-size:28px; line-height:32px; font-weight:550; letter-spacing:-.05em; }
+.event-card-days small { font-size:12px; }
+.deadline-label { margin-left:auto; padding:1px 8px; border-radius:var(--radius-chip); background:var(--card-bg); color:var(--danger); font-size:12px; font-weight:500; line-height:20px; white-space:nowrap; }
+.event-card-track { width:100%; height:4px; border-radius:4px; background:color-mix(in srgb, var(--card-bg) 60%, transparent); overflow:hidden; }
+.event-card-track i { display:block; height:100%; border-radius:inherit; background:var(--game-vivid); }
+.event-card-end { display:inline-flex; align-items:center; gap:5px; font-size:12px; }
+.event-watermark { position:absolute; right:-22px; top:-18px; z-index:-1; width:120px; height:120px; border-radius:34px; opacity:.16; transform:rotate(-9deg); font-size:52px; font-weight:600; filter:grayscale(.2); }
+@media(hover:hover) and (pointer:fine) { .event-card:hover { box-shadow:var(--card-hover-shadow); } .event-card:hover .event-watermark { transform:rotate(-4deg) scale(1.04); } }
+.event-watermark { transition:transform var(--duration-medium) var(--ease-smooth-out); }
+.event-card:active { transform:translateY(1px); }
+
+.ov-news { margin-top:28px; padding:22px 24px 12px; }
 .ov-news .section-heading { margin-bottom:8px; }
 .news-filters { display:flex; gap:8px; margin-left:auto; min-width:0; }
 .news-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(420px, 100%), 1fr)); column-gap:28px; }
 .news-summary { display:flex; align-items:center; gap:12px; min-width:0; padding:12px 8px; margin:0 -8px; border-bottom:1px solid var(--border); border-radius:var(--radius-control); }
-.news-mark { width:34px; height:34px; border-radius:10px; font-size:14px; }
+.news-mark { width:34px; height:34px; border-radius:10px; background:var(--game-tone); font-size:14px; font-weight:600; }
 .news-copy { flex:1; min-width:0; }
 .news-summary a,.news-summary .news-copy>p { display:block; color:var(--text); text-decoration:none; font-size:14px; font-weight:500; line-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-summary a span { color:var(--text-faint); }
-.news-source { display:flex; align-items:center; gap:6px; margin-top:2px; color:var(--text-muted); font-size:12px; line-height:18px; min-width:0; }.news-source>span { color:var(--text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-source time { margin-left:auto; flex-shrink:0; color:var(--text-faint); }
+.news-source { display:flex; align-items:center; gap:6px; margin-top:2px; color:var(--text-muted); font-size:12px; line-height:18px; min-width:0; }.news-source>span { color:var(--text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-source time { margin-left:auto; flex-shrink:0; }
 @media(hover:hover) and (pointer:fine) { .news-summary a:hover,.news-summary a:hover span { color:var(--accent); } }
-.overview-footer { margin-top:20px; display:flex; justify-content:space-between; gap:12px; color:var(--text-faint); font-size:12px; }.overview-footer>span { display:flex; align-items:center; gap:7px; }
+.overview-footer { margin-top:20px; display:flex; justify-content:space-between; gap:12px; color:var(--text-faint); font-size:12px; }
 
-@media(max-width:1180px) { .ov-top { grid-template-columns:repeat(2, minmax(0, 1fr)); }.ov-hero { grid-column:1 / -1; grid-row:auto; } }
-@media(max-width:940px) { .game-summary-grid,.game-summary-grid.many { grid-template-columns:1fr; } }
-@media(max-width:720px) { .ov-top { grid-template-columns:1fr; gap:14px; }.ov-hero { padding:24px 20px; min-height:300px; }.ov-hero-copy { max-width:100%; }.ov-date { font-size:32px; line-height:38px; }.ov-hero :deep(.game-art) { opacity:.42; }.ov-hero :deep(.game-art svg) { inset:auto -38% -22% auto; width:150%; height:auto; aspect-ratio:3 / 2; }.event-card { width:236px; }.ov-news { padding:18px 16px 8px; } }
-@media(max-width:600px) { .summary-number { font-size:28px; line-height:34px; }.overview-footer { flex-wrap:wrap; } }
-@media(max-width:400px) { .ov-news .section-heading { flex-wrap:wrap; gap:8px; }.news-filters { width:100%; margin-left:0; } }
-@media(prefers-reduced-motion:reduce) { .game-summary:active,.event-card:active,button.ov-next:active { transform:none; } }
+@media(max-width:1250px) { .ov-top { grid-template-columns:minmax(0, 1.6fr) minmax(270px, 1fr); gap:16px; } .hero-inner { padding-left:22px; } .hero-index { left:16px; } .hero-art { right:2%; } .ov-analytics { grid-template-columns:minmax(0, 1.5fr) minmax(280px, 1fr); gap:16px; } }
+@media(max-width:1000px) { .ov-top,.ov-analytics { grid-template-columns:minmax(0, 1fr); } .ov-tasks .task-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); column-gap:18px; } .task:nth-child(2) { border-top:0; padding-top:0; } }
+@media(max-width:720px) {
+  .ov-today { display:inline-flex !important; color:var(--text-body); }
+  .ov-actions { width:100%; } .ov-actions .ui-button { flex:1; }
+  .ov-hero { height:300px; border-radius:24px; } .hero-inner { padding:22px 20px 62px; border-radius:18px; }
+  .hero-copy { max-width:64%; } .hero-title b { font-size:36px; line-height:42px; }
+  .hero-art { right:-16px; bottom:40px; transform:scale(.72); transform-origin:100% 100%; }
+  .ov-tasks .task-list { grid-template-columns:minmax(0, 1fr); } .task:nth-child(2) { border-top:1px solid var(--border); padding-top:6px; }
+  .ov-game,.event-card { width:280px; }
+  .ov-deadlines,.ov-gacha { padding:20px 18px 14px; }
+  .gacha-number b { font-size:40px; }
+}
+@media(max-width:420px) { .hero-copy { max-width:70%; } .hero-index button { min-width:0; padding:8px 9px; } .ov-news .section-heading { flex-wrap:wrap; gap:8px; } .news-filters { width:100%; margin-left:0; } }
+@media(prefers-reduced-motion:reduce) { .event-card:active,.ov-next:active,.hero-cta:active { transform:none; } }
 </style>

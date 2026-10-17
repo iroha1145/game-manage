@@ -3,7 +3,9 @@ import { computed } from 'vue'
 import { niceCeil } from '../chart-math.js'
 
 const props = defineProps({
-  // [{ label, value, color? }]; a missing value keeps its slot and reads 未知.
+  // [{ label, value, color?, tick?, note? }]; a missing value keeps its slot and reads 未知. `tick` is the
+  // text under the axis when it differs from the label (a month labels every fifth day); `note` joins the
+  // value on hover and focus.
   items: { type: Array, default: () => [] },
   label: { type: String, required: true },
   unit: { type: String, default: '' },
@@ -31,11 +33,12 @@ const bars = computed(() => props.items.map((item, index) => ({
     <ol class="bar-plot" :aria-label="label">
       <li v-for="bar in bars" :key="`${bar.label}:${bar.index}`" class="bar-col" tabindex="0" :data-muted="bar.muted || undefined">
         <span class="bar-slot" :style="{ '--pct': `${bar.pct ?? 0}%` }">
-          <span class="bar-value" :class="{ shown: bar.labelled }">{{ bar.text }}</span>
+          <span class="bar-value" :class="{ shown: bar.labelled }">{{ bar.text }}<small v-if="bar.note" class="bar-note"> · {{ bar.note }}</small></span>
           <span v-if="bar.pct != null" class="bar-fill t-draw" :style="{ '--series': bar.color || color, '--i': bar.index }"></span>
           <span v-else class="bar-unknown" aria-hidden="true"></span>
         </span>
-        <span class="bar-label">{{ bar.label }}</span>
+        <span class="bar-label" :aria-hidden="bar.tick != null && bar.tick !== bar.label ? 'true' : undefined">{{ bar.tick ?? bar.label }}</span>
+        <span v-if="bar.tick != null && bar.tick !== bar.label" class="sr-only">{{ bar.label }}</span>
       </li>
     </ol>
   </figure>
@@ -54,7 +57,9 @@ const bars = computed(() => props.items.map((item, index) => ({
 .bar-value { position:absolute; left:50%; bottom:calc(var(--pct) + 4px); transform:translateX(-50%); padding:1px 6px; border-radius:var(--radius-chip); color:var(--text); font-size:12px; font-weight:500; line-height:18px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity var(--duration-quick) var(--ease-smooth-out); }
 .bar-value.shown { opacity:1; }
 .bar-label { max-width:100%; overflow:hidden; color:var(--text-muted); font-size:12px; line-height:16px; text-overflow:ellipsis; white-space:nowrap; }
-.bar-col:is(:hover, :focus-visible) .bar-value { opacity:1; background:var(--text); color:var(--bg); }
+.bar-col:is(:hover, :focus-visible) .bar-value { opacity:1; z-index:2; background:var(--text); color:var(--bg); }
+.bar-note { display:none; font-size:12px; font-weight:400; }
+.bar-col:is(:hover, :focus-visible) .bar-note { display:inline; }
 .bar-col:is(:hover, :focus-visible) .bar-fill { filter:brightness(1.08) saturate(1.1); }
 .bar-col:focus-visible { outline:2px solid var(--accent); }
 </style>

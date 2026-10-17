@@ -2,8 +2,8 @@
    soft tone per game (game-manage-ui-v1). Each game brings four colours:
    --game-* is the ink step that reads as text, --game-*-tone the pale panel
    behind it, --game-*-vivid the line for bars and single-series charts, and
-   --game-*-2 / --game-*-chart the slot it takes when several games share one
-   chart. Dark is its own tuned set from the same tones, not a flip. */
+   --game-*-2 the validated slot it takes when several games share one chart.
+   Dark is its own tuned set from the same tones, not a flip. */
 :root {
   /* Compatibility aliases used by the guide and archive modules. */
   --bg-deep: var(--panel-bg); --border-soft: var(--border);
@@ -30,10 +30,10 @@
   --overlay-1: rgba(255, 255, 255, .02); --overlay-2: rgba(255, 255, 255, .04); --overlay-3: rgba(255, 255, 255, .06);
   --scrim: rgba(0, 0, 0, .5); --glare: rgba(255, 255, 255, .06); --skeleton-sheen: rgba(255, 255, 255, .07);
   --brand-ink: #e8e7e3; --brand-tile: #2b3346; --brand-tile-2: #5b76c0;
-  --game-wuwa: #dcbf8e; --game-wuwa-vivid: #c09452; --game-wuwa-2: #c98500; --game-wuwa-tone: #2f2619; --game-wuwa-chart: #c98500;
-  --game-nte: #e3b0aa; --game-nte-vivid: #c9817a; --game-nte-2: #d55181; --game-nte-tone: #33232a; --game-nte-chart: #d55181;
-  --game-lol: #9ccbb9; --game-lol-vivid: #5fa58c; --game-lol-2: #008300; --game-lol-tone: #1a2b26; --game-lol-chart: #008300;
-  --game-endfield: #a8c1e0; --game-endfield-vivid: #6f95c9; --game-endfield-2: #3987e5; --game-endfield-tone: #1d2836; --game-endfield-chart: #3987e5;
+  --game-wuwa: #dcbf8e; --game-wuwa-vivid: #c09452; --game-wuwa-2: #c98500; --game-wuwa-tone: #2f2619;
+  --game-nte: #e3b0aa; --game-nte-vivid: #c9817a; --game-nte-2: #d55181; --game-nte-tone: #33232a;
+  --game-lol: #9ccbb9; --game-lol-vivid: #5fa58c; --game-lol-2: #008300; --game-lol-tone: #1a2b26;
+  --game-endfield: #a8c1e0; --game-endfield-vivid: #6f95c9; --game-endfield-2: #3987e5; --game-endfield-tone: #1d2836;
   /* Series colours (dataviz reference order, validated on these card surfaces):
      a chart takes them in this order and never cycles past eight. */
   --chart-1: #3987e5; --chart-2: #d95926; --chart-3: #199e70; --chart-4: #c98500; --chart-5: #d55181; --chart-6: #008300; --chart-7: #9085e9; --chart-8: #e66767;
@@ -66,10 +66,10 @@
   --overlay-1: rgba(38, 40, 46, .02); --overlay-2: rgba(38, 40, 46, .035); --overlay-3: rgba(38, 40, 46, .05);
   --scrim: rgba(38, 40, 46, .22); --glare: rgba(255, 255, 255, .55); --skeleton-sheen: rgba(255, 255, 255, .85);
   --brand-ink: #26282e; --brand-tile: #e1e6f1; --brand-tile-2: #9baed9;
-  --game-wuwa: #7a5a33; --game-wuwa-vivid: #ae8245; --game-wuwa-2: #dcab4b; --game-wuwa-tone: #efe2ce; --game-wuwa-chart: #dcab4b;
-  --game-nte: #87504a; --game-nte-vivid: #b56d66; --game-nte-2: #cf5f88; --game-nte-tone: #edd7d5; --game-nte-chart: #cf5f88;
-  --game-lol: #3f6a5c; --game-lol-vivid: #5a8c7b; --game-lol-2: #00704f; --game-lol-tone: #dbe9e4; --game-lol-chart: #00704f;
-  --game-endfield: #3d5d81; --game-endfield-vivid: #5275a5; --game-endfield-2: #3363b8; --game-endfield-tone: #dfe9f4; --game-endfield-chart: #3363b8;
+  --game-wuwa: #7a5a33; --game-wuwa-vivid: #ae8245; --game-wuwa-2: #dcab4b; --game-wuwa-tone: #efe2ce;
+  --game-nte: #87504a; --game-nte-vivid: #b56d66; --game-nte-2: #cf5f88; --game-nte-tone: #edd7d5;
+  --game-lol: #3f6a5c; --game-lol-vivid: #5a8c7b; --game-lol-2: #00704f; --game-lol-tone: #dbe9e4;
+  --game-endfield: #3d5d81; --game-endfield-vivid: #5275a5; --game-endfield-2: #3363b8; --game-endfield-tone: #dfe9f4;
   --chart-1: #2e73c7; --chart-2: #d86538; --chart-3: #21a376; --chart-4: #d9970a; --chart-5: #d5759b; --chart-6: #097d0a; --chart-7: #5f50c7; --chart-8: #d1494a;
   --glass-bg: rgba(255, 255, 255, .85); --glass-strong: rgba(255, 255, 255, .96); --glass-border: #ffffff; --glass-edge: none;
   --card-shadow: 0 2px 8px rgba(38, 40, 46, .024);

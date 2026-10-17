@@ -92,7 +92,7 @@ const statusCounts = computed(() => ({
   soon: events.value.filter(event => event.status === '进行中' && event.geometry.end !== null && event.geometry.end - now.value <= 3 * DAY_MS).length,
   upcoming: events.value.filter(event => event.status === '未开始').length,
 }))
-const gameSplit = computed(() => filteredGames.value.map(game => ({ label: game.display_name, value: events.value.filter(event => event.gameId === game.game_id).length, color: gameStyle(game.game_id).vivid })).filter(part => part.value))
+const gameSplit = computed(() => filteredGames.value.map(game => ({ label: game.display_name, value: events.value.filter(event => event.gameId === game.game_id).length, color: gameStyle(game.game_id).vivid2 })).filter(part => part.value))
 function shift(direction) { anchor.value = shiftCalendarAnchor(anchor.value, mode.value, direction) }
 function goToday() { now.value = Date.now(); anchor.value = now.value }
 function setMode(value) { mode.value = value }
