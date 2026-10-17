@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick } from 'vue'
 import { Window } from 'happy-dom'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 import { configureHttpClient } from '../http-client.js'
 
 const ReminderSettings = await loadVue(new URL('./ReminderSettings.vue', import.meta.url))
@@ -30,7 +30,7 @@ test('per-role reminder form saves actual configuration and reads inbox without 
   const saved=calls.find(([url, opt])=>url==='/api/accounts/a/roles/r/reminders' && opt.method==='PUT')
   assert.equal(JSON.parse(saved[1].body).enabled, true)
   assert.match(content(root), /体力已满|读取时间/)
-  await nodes(root,'select')[0].props.onChange({target:{value:'s'}}); await flush()
+  choose(root,'提醒角色','s'); await flush()
   assert.ok(calls.some(([url])=>url==='/api/accounts/a/roles/s/reminders'))
   assert.ok(calls.every(([url])=> !/refresh|internal|send/.test(url)))
 })

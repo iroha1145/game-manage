@@ -1,4 +1,5 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AnnouncementList from './AnnouncementList.vue'
 import AccountCard from './AccountCard.vue'
@@ -177,7 +178,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
     <p v-if="collectNote && section !== 'esports'" class="lol-notice" role="status">{{ collectNote }}</p>
     <div class="lol-toolbar">
       <nav v-glide class="lol-tabs segmented" aria-label="英雄联盟数据分区"><button v-for="[key, label] in tabs" :key="key" type="button" :aria-pressed="section === key" @click="section = key">{{ label }}</button></nav>
-      <div v-if="filterable" class="lol-filters"><label>时间<select :value="days" @change="days = Number($event.target.value)"><option v-for="[key, label] in periods" :key="key" :value="key">{{ label }}</option></select></label><label>模式<select :value="queue" @change="queue = $event.target.value"><option v-for="[key, label] in queues" :key="key" :value="key">{{ label }}</option></select></label><button class="reload-button ui-button small-button" type="button" :disabled="loading" @click="load">重新读取</button></div>
+      <div v-if="filterable" class="lol-filters"><label>时间<MenuSelect class="lol-filter-menu" label="时间" v-model="days" :options="periods.map(([value,label]) => ({value,label}))" /></label><label>模式<MenuSelect class="lol-filter-menu" label="模式" v-model="queue" :options="queues.map(([value,label]) => ({value,label}))" /></label><button class="reload-button ui-button small-button" type="button" :disabled="loading" @click="load">重新读取</button></div>
     </div>
     <p v-if="loading && filterable" class="lol-notice" role="status">正在读取本地分析…</p>
     <p v-if="error && filterable" class="lol-error" role="alert">{{ error }}<span v-if="analysis && filterable">；保留上次成功读取的数据。</span></p>
@@ -375,7 +376,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
 
 <style scoped>
 .lol-dashboard{min-width:0}
-.lol-dashboard button,.lol-dashboard select{font:inherit}
+.lol-dashboard button{font:inherit}
 .lol-dashboard :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .lol-dashboard button:disabled{opacity:.55;cursor:wait}
 
@@ -392,15 +393,13 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
 .lol-notice{color:var(--game-accent);background:var(--game-tone)}
 .lol-error{color:var(--danger);background:var(--danger-bg);border:1px solid var(--danger-border);overflow-wrap:anywhere}
 
-/* Tabs are the shared segmented control; the filters are two native selects and a small button. */
+/* Tabs use the shared segmented control; web menus filter the archive. */
 .lol-toolbar{display:flex;justify-content:space-between;flex-wrap:wrap;align-items:center;gap:12px 16px;margin:0 0 16px}
 .lol-tabs{max-width:100%}
 .lol-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .lol-filters label{position:relative;display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:12px;white-space:nowrap}
-.lol-filters label::after{content:'';position:absolute;right:13px;top:50%;width:6px;height:6px;margin-top:-5px;border-right:1.5px solid var(--text-muted);border-bottom:1.5px solid var(--text-muted);transform:rotate(45deg);pointer-events:none}
-.lol-filters select{appearance:none;-webkit-appearance:none;min-height:34px;max-width:170px;padding:6px 32px 6px 12px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);box-shadow:var(--btn-shadow);color:var(--text);font-size:13px;font-weight:500;cursor:pointer}
-@media(hover:hover) and (pointer:fine){.lol-filters select:hover{border-color:var(--border-strong);background:var(--button-hover-bg)}}
-@media(pointer:coarse){.lol-filters select{min-height:44px}}
+.lol-filter-menu{min-width:0;max-width:170px}.lol-filter-menu :deep(.menu-select-trigger){min-height:34px;width:100%;min-width:0;font-size:13px;font-weight:500}
+@media(pointer:coarse){.lol-filter-menu :deep(.menu-select-trigger){min-height:44px}}
 .coverage-line{gap:2px 20px;margin:0 0 16px}
 .coverage-line .chip{padding:0;border-radius:0;background:transparent;color:var(--text-muted)}
 
@@ -603,7 +602,7 @@ p.method-note{margin:0 4px 12px}.b-card .method-note{margin:0}.lol-footnote{marg
 @media(max-width:600px){
   .lol-header{align-items:flex-start;flex-direction:column}.collect-button{width:100%}
   .lol-id-copy h2{font-size:20px}
-  .lol-toolbar{gap:10px}.lol-filters{width:100%}.lol-filters label{flex:1}.lol-filters select{min-width:0;width:100%;max-width:none}.reload-button{width:100%}
+  .lol-toolbar{gap:10px}.lol-filters{width:100%}.lol-filters label{flex:1}.lol-filter-menu{min-width:0;width:100%;max-width:none}.reload-button{width:100%}
   .bento{gap:14px;margin-bottom:14px}
   .lol-empty{padding:24px 20px}
   .form-bars{gap:2px}.form-pill{max-width:none}

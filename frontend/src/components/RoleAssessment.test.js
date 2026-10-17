@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
-import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { loadVue, mount, content, nodes, choose } from '../test-utils/vue.js'
 import { invalidateSession } from '../http-client.js'
 const Assessment=await loadVue(new URL('./RoleAssessment.vue',import.meta.url))
 const Details=await loadVue(new URL('./NteEquippedDetails.vue',import.meta.url))
@@ -30,7 +30,7 @@ test('website configuration UI saves weights/config and compares scoped pairs',a
  const root=mount(t,Assessment,props)
  const click=async label=>{const button=nodes(root,'button').find(b=>content(b)===label);await button.props.onClick();await nextTick()}
  await click('配置权重与 A/B 对比')
- const select=async(label,value)=>{nodes(root,'select').find(n=>n.props['aria-label']===label).props.onChange({target:{value}});await nextTick()}
+ const select=async(label,value)=>{choose(root,label,value);await nextTick()}
  const input=async(label,value)=>{nodes(root,'input').find(n=>n.props['aria-label']===label).props.onInput({target:{value}});await nextTick()}
  await select('新增权重词条','attack_flat');await click('添加权重词条');await input('攻击平值权重','0.1')
  await click('添加装备');await click('添加词条')
@@ -63,6 +63,7 @@ const comparison = { model_version: 'v1', a: { status: 'scored', value: '1' }, b
 const open = '配置权重与 A/B 对比'
 // The first request matching a key of `held` ("METHOD /path-after-the-character") stays pending until the test resolves it; all others answer at once.
 function editor(t, { held = [], score = () => reply(scored('10.00')) } = {}) {
+  let created = false
   const calls = [], pending = Object.fromEntries(held.map(key => [key, defer()])), armed = new Set(held)
   t.mock.method(globalThis, 'fetch', async (path, options = {}) => {
     const method = options.method || 'GET', key = `${method} ${path.replace(/^\/api\/assessment\/[^/]+\/[^/]+/, '')}`
@@ -71,9 +72,9 @@ function editor(t, { held = [], score = () => reply(scored('10.00')) } = {}) {
     if (key === 'POST /score') return score(JSON.parse(options.body))
     if (key === 'GET /equipped') return reply({ configuration: { items: [equipment('100')], observed_at: null }, assessment: scored('7.00') })
     if (key === 'POST /compare') return reply(comparison)
-    if (key === 'POST /configurations') return reply({ id: 'new-id' })
+    if (key === 'POST /configurations') { created = true; return reply({ id: 'new-id' }) }
     if (method === 'PUT' || method === 'DELETE') return reply({})
-    return reply({ model: { game: 'wuthering_waves', character_id: 'x', version: `model-of-${path.split('/').at(-1)}`, wuwa_weights: { attack_flat: '0.1' } }, configurations: [saved('id1'), saved('id2')] })
+    return reply({ model: { game: 'wuthering_waves', character_id: 'x', version: `model-of-${path.split('/').at(-1)}`, wuwa_weights: { attack_flat: '0.1' } }, configurations: [saved('id1'), saved('id2'), ...(created ? [saved('new-id')] : [])] })
   })
   const props = reactive({ game: 'wuthering_waves', characterId: 'c1', scopeKey: 'a' }), root = mount(t, Assessment, props)
   const button = label => nodes(root, 'button').find(node => content(node) === label)
@@ -118,10 +119,10 @@ test('picking another A or B removes the comparison, and both picks are locked w
   const { root, press, click, field, settle, answer } = editor(t, { held: ['POST /compare'] })
   await click(open)
   const pending = press('同模型重新计算并对比'); await settle()
-  assert.equal(field('select', '配置 A').props.disabled, true); assert.equal(field('select', '配置 B').props.disabled, true)
+  assert.equal(field('button', '配置 A').props.disabled, true); assert.equal(field('button', '配置 B').props.disabled, true)
   await answer('POST /compare', comparison); await pending; await settle()
   assert.match(content(root), /变化 100.00%/)
-  field('select', '配置 B').props.onChange({ target: { value: 'id1' } }); await settle()
+  choose(root, '配置 B', 'id1'); await settle()
   assert.doesNotMatch(content(root), /变化 100.00%/)
 })
 
@@ -130,7 +131,7 @@ test('saving a configuration moves B to it and removes the comparison of the pre
   await click(open); await click('同模型重新计算并对比')
   assert.match(content(root), /变化 100.00%/)
   await click('保存配置')
-  assert.equal(field('select', '配置 B').props.value, 'new-id')
+  assert.equal(nodes(nodes(root,'ul').find(n=>n.props['aria-label']==='配置 B'),'li').find(n=>n.props['aria-selected']).props['data-value'], 'new-id')
   assert.doesNotMatch(content(root), /变化 100.00%/)
 })
 
@@ -192,7 +193,7 @@ for (const [name, label, key, body] of scenarios) test(`${name} still pending wh
   await click(open)
   assert.doesNotMatch(content(root), /已评分|变化|装备 1/)
   assert.equal(field('input', '模型版本').props.value, 'model-of-c2')
-  assert.equal(field('select', '配置 B').props.value, 'id2')
+  assert.equal(nodes(nodes(root,'ul').find(n=>n.props['aria-label']==='配置 B'),'li').find(n=>n.props['aria-selected']).props['data-value'], 'id2')
   assert.equal(field('input', '配置名称').props.value, '配置 A')
 })
 
@@ -225,4 +226,29 @@ test('a request cut off by the session ending neither shows its error nor frees 
   assert.equal(button('保存配置').props.disabled, true, 'the cut-off request finished and freed the action that follows')
   await answer('GET /equipped', { configuration: { items: [equipment('100')], observed_at: null }, assessment: scored('7.00') }); await next; await settle()
   assert.match(content(root), /已评分.*7.00/); assert.equal(button('保存配置').props.disabled, false)
+})
+
+
+test('NTE web menus retain unknown source stats, disabled quality and explicit units', async t => {
+  t.mock.method(globalThis, 'fetch', async () => reply({ model: { version: 'unconfigured' }, configurations: [] }))
+  const root = mount(t, Assessment, { game: 'nte', characterId: 'c1' })
+  const click = async label => { await nodes(root,'button').find(n=>content(n)===label).props.onClick(); await nextTick() }
+  const field = label => nodes(root,'button').find(n=>n.props['aria-label']===label)
+  await click(open); await click('添加装备')
+  assert.equal(nodes(root,'select').length, 0)
+  assert.equal(field('装备品质').props.disabled, true)
+  choose(root,'装备类型','cartridge'); await nextTick()
+  assert.equal(field('装备品质').props.disabled, false)
+  assert.ok(field('卡带主词条'))
+  choose(root,'卡带主词条单位','percent_points'); await nextTick()
+  const input = nodes(root,'textarea').find(n=>n.props['aria-label']==='装备输入 JSON')
+  let items = JSON.parse(input.props.value)
+  assert.equal(items[0].nte.mainstat.unit, 'percent_points')
+  items[0].nte.substats = [{ canonical_id: 'source-only', observation_id: 's1', value: '10', unit: 'flat' }]
+  input.props.onInput({ target: { value: JSON.stringify(items) } }); await nextTick()
+  assert.match(content(field('装备1词条1')), /source-only（来源词条，待声明）/)
+  choose(root,'装备1词条单位1','ratio'); await nextTick()
+  items = JSON.parse(nodes(root,'textarea').find(n=>n.props['aria-label']==='装备输入 JSON').props.value)
+  assert.equal(items[0].nte.substats[0].canonical_id, 'source-only')
+  assert.equal(items[0].nte.substats[0].unit, 'ratio')
 })

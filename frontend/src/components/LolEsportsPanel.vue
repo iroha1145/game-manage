@@ -1,4 +1,5 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { getLolEsports, refreshLolEsports } from '../lol-esports-api.js'
 import { createEsportsBrowseState, ESPORTS_FAMILIES, esportsDensity, esportsGroupLabel, esportsTime, selectEsportsMatches } from '../esports.js'
@@ -84,8 +85,8 @@ onBeforeUnmount(() => { disposed = true; generation++; controller?.abort() })
       <nav v-glide class="es-tabs segmented" aria-label="职业赛事视图"><button v-for="[key, label] in [['schedule','赛程'],['results','赛果'],['teams','战队'],['players','选手']]" :key="key" :aria-pressed="browse.view === key" @click="change({ view: key, page: 1, teamId: '', playerId: '', matchId: '', returnTo: [] })">{{ label }}</button></nav>
       <div class="es-layout">
         <aside class="es-sidebar"><div class="es-filter-disclosure" :class="{ 'is-expanded': filtersOpen }"><button class="es-filter-toggle" aria-controls="es-filter-fields" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">筛选赛事 <span>{{ ESPORTS_FAMILIES[browse.family] || '全部赛事' }}{{ browse.date ? ' · ' + browse.date : '' }}{{ browse.filterTeamId ? ' · 已选战队' : '' }}</span></button><div id="es-filter-fields" class="es-filters">
-          <label>赛事<select aria-label="筛选赛事" :value="browse.family" @change="filter({ family: $event.target.value, filterTeamId: '' })"><option value="">全部目标赛事</option><option v-for="(name, key) in ESPORTS_FAMILIES" :key="key" :value="key">{{ name }}{{ missing.includes(key) ? ' · 暂缺' : '' }}</option></select></label>
-          <template v-if="matchView"><label>比赛日期（北京时间）<input aria-label="比赛日期" type="date" :value="browse.date" @change="filter({ date: $event.target.value })"></label><label>战队<select aria-label="筛选战队" :value="browse.filterTeamId" @change="filter({ filterTeamId: $event.target.value })"><option value="">全部战队</option><option v-for="team in filteredTeams" :key="team.id" :value="team.id">{{ team.short_name || team.name }}</option></select></label></template>
+          <label>赛事<MenuSelect class="es-filter-menu" label="筛选赛事" :model-value="browse.family" :options="[{value:'',label:'全部目标赛事'},...Object.entries(ESPORTS_FAMILIES).map(([value,name]) => ({value,label:name + (missing.includes(value) ? ' · 暂缺' : '')}))]" @change="filter({ family: $event, filterTeamId: '' })" /></label>
+          <template v-if="matchView"><label>比赛日期（北京时间）<input aria-label="比赛日期" type="date" :value="browse.date" @change="filter({ date: $event.target.value })"></label><label>战队<MenuSelect class="es-filter-menu" label="筛选战队" :model-value="browse.filterTeamId" :options="[{value:'',label:'全部战队'},...filteredTeams.map(team => ({value:team.id,label:team.short_name || team.name}))]" @change="filter({ filterTeamId: $event })" /></label></template>
           <button class="es-reset ui-button small-button" @click="filter({ family: '', date: '', filterTeamId: '' })">清除筛选</button>
           <div class="es-directory"><span class="es-eyebrow">赛事目录</span><button v-for="(name, key) in ESPORTS_FAMILIES" :key="key" class="ui-button small-button" :aria-pressed="browse.family === key" @click="filter({ family: key, filterTeamId: '' })"><strong>{{ name }}</strong><small v-if="missing.includes(key)">资料暂缺</small></button></div>
         </div></div></aside>
@@ -101,3 +102,9 @@ onBeforeUnmount(() => { disposed = true; generation++; controller?.abort() })
   </div>
 </template>
 <style src="../esports.css"></style>
+
+<style scoped>
+.es-filter-menu { width:100%; min-width:0; }
+.es-filter-menu :deep(.menu-select-trigger) { width:100%; min-width:0; min-height:38px; font-size:13px; font-weight:500; }
+@media(max-width:760px) { .es-filter-menu :deep(.menu-select-trigger) { min-height:44px; } }
+</style>

@@ -1,4 +1,5 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { connectCloudSkland, connectCloudSklandPassport } from '../accounts-api.js'
 import { isCloudMode, subscribeSessionInvalidation } from '../http-client.js'
@@ -18,8 +19,8 @@ let operation = 0, controller = null
 function clear() { operation++; controller?.abort(); controller = null; busy.value = ''; error.value = ''; success.value = ''; cred.value = ''; deviceId.value = '' }
 watch(sourceStamp, clear, { flush: 'sync' })
 watch(() => props.userId, () => { accountId.value = ''; roleId.value = ''; clear() }, { flush: 'sync' })
-function chooseAccount(event) { accountId.value = event.target.value; roleId.value = ''; clear() }
-function chooseRole(event) { roleId.value = event.target.value; clear() }
+function chooseAccount(value) { accountId.value = value; roleId.value = ''; clear() }
+function chooseRole(value) { roleId.value = value; clear() }
 async function run(kind, request) {
   if (busy.value || !isCloudMode() || !props.userId) return
   const id = ++operation, owner = props.userId, stamp = sourceStamp.value
@@ -59,8 +60,8 @@ onBeforeUnmount(() => { stop(); clear() })
     <h2>终末地 · 森空岛档案授权</h2>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="success" role="status">{{ success }}</p>
     <form aria-label="通过鹰角授权连接森空岛" @submit.prevent="connectPassport">
-      <label>来源鹰角授权<select aria-label="用于连接森空岛的鹰角授权" :value="accountId" :disabled="!!busy" @change="chooseAccount"><option value="">请选择鹰角授权</option><option v-for="(account, index) in sources" :key="account.account_id" :value="account.account_id">鹰角授权 {{ index + 1 }} · {{ account.roles?.find(item => item.is_default)?.display_name || account.roles?.[0]?.display_name || '角色名称未提供' }}</option></select></label>
-      <label>来源角色<select aria-label="用于连接森空岛的鹰角角色" :value="roleId" :disabled="!!busy || !source" @change="chooseRole"><option value="">请选择已核验角色</option><option v-for="(item, index) in roles" :key="item.role_id" :value="item.role_id">{{ item.display_name || `角色 ${index + 1}` }}{{ item.is_default ? '（鹰角默认）' : '' }}</option></select></label>
+      <label>来源鹰角授权<MenuSelect class="skland-source-menu" label="用于连接森空岛的鹰角授权" :model-value="accountId" :disabled="!!busy" :options="[{value:'',label:'请选择鹰角授权'},...sources.map((account,index) => ({value:account.account_id,label:`鹰角授权 ${index + 1} · ${account.roles?.find(item => item.is_default)?.display_name || account.roles?.[0]?.display_name || '角色名称未提供'}`}))]" @change="chooseAccount" /></label>
+      <label>来源角色<MenuSelect class="skland-source-menu" label="用于连接森空岛的鹰角角色" :model-value="roleId" :disabled="!!busy || !source" :options="[{value:'',label:'请选择已核验角色'},...roles.map((item,index) => ({value:item.role_id,label:`${item.display_name || `角色 ${index + 1}`}${item.is_default ? '（鹰角默认）' : ''}`}))]" @change="chooseRole" /></label>
       <p v-if="!sources.length">暂无可用的鹰角授权，请先完成上方鹰角登录，或使用手动授权。</p><p v-else-if="source && !roles.length">此鹰角授权尚无已核验角色，请重新授权后连接，或使用手动授权。</p>
       <button class="ui-button primary" :disabled="!canConnect">{{ busy === 'passport' ? '连接中…' : '一键连接森空岛档案' }}</button>
     </form>
@@ -70,5 +71,5 @@ onBeforeUnmount(() => { stop(); clear() })
   </section>
 </template>
 <style scoped>
-.cloud-skland,.cloud-skland form,.cloud-skland details{display:grid;gap:14px}.cloud-skland label{display:grid;gap:7px;font-size:13px;font-weight:500}.cloud-skland form>button{justify-self:start}.cloud-skland input,.cloud-skland select{width:100%;box-sizing:border-box;min-width:0;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);color:var(--text);font-weight:400}h2,p{margin:0}h2{font-size:16px;font-weight:500;line-height:24px}summary{cursor:pointer}p[role=alert]{color:var(--danger);overflow-wrap:anywhere}
+.cloud-skland,.cloud-skland form,.cloud-skland details{display:grid;gap:14px}.cloud-skland label{display:grid;gap:7px;font-size:13px;font-weight:500}.cloud-skland form>button{justify-self:start}.cloud-skland input{width:100%;box-sizing:border-box;min-width:0;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);color:var(--text);font-weight:400}.skland-source-menu{width:100%;min-width:0}.skland-source-menu :deep(.menu-select-trigger){width:100%;min-width:0;min-height:40px;font-weight:400}h2,p{margin:0}h2{font-size:16px;font-weight:500;line-height:24px}summary{cursor:pointer}p[role=alert]{color:var(--danger);overflow-wrap:anywhere}
 </style>

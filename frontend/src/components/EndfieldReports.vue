@@ -1,4 +1,5 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import { profileReport, rows, displayValue as display, sourceName as named, selectOperators, selectMedals, rarityParts, phaseParts, medalCategoryParts, recentMedals, platedSummary } from '../endfield-reports.js'
 import { displayBeijing } from '../time.js'
@@ -158,7 +159,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
         </section>
         <section v-reveal class="ef-card ef-roster-card">
           <p v-if="imageMode" class="ef-note">武器、装备、技能与战术道具详情：发送「终末地 角色 干员名」，按精确名称查看单干员配装。</p>
-          <div v-if="!imageMode" class="ef-filters"><label>查找干员<input :value="search" @input="search = $event.target.value" type="search" placeholder="姓名或编号" /></label><label>稀有度<select v-model="rarity"><option value="">全部稀有度</option><option v-for="value in rarities" :key="value" :value="String(value)">{{ value }}★</option></select></label><label>职业<select v-model="profession"><option value="">全部职业</option><option v-for="value in professions" :key="value" :value="value">{{ value }}</option></select></label><label>排序<select v-model="sort"><option value="level">等级从高到低</option><option value="rarity">稀有度从高到低</option><option value="potential">潜能从高到低</option><option value="name">姓名</option></select></label></div>
+          <div v-if="!imageMode" class="ef-filters"><label>查找干员<input :value="search" @input="search = $event.target.value" type="search" placeholder="姓名或编号" /></label><label>稀有度<MenuSelect v-model="rarity" label="稀有度" :options="[{value:'',label:'全部稀有度'},...rarities.map(value=>({value:String(value),label:value+'★'}))]" /></label><label>职业<MenuSelect v-model="profession" label="职业" :options="[{value:'',label:'全部职业'},...professions.map(value=>({value,label:value}))]" /></label><label>排序<MenuSelect v-model="sort" label="排序" :options="[{value:'level',label:'等级从高到低'},{value:'rarity',label:'稀有度从高到低'},{value:'potential',label:'潜能从高到低'},{value:'name',label:'姓名'}]" /></label></div>
           <p v-if="!selected.length" class="ef-empty">{{ operators.length ? '没有匹配的干员，可调整筛选。' : '尚无干员资料。' }}</p>
           <div v-else class="ef-roster"><article v-for="(operator,index) in selected" :key="operator.id || index" class="ef-operator" :class="rarityBadge(operator.rarity)">
             <div class="ef-operator-top">
@@ -203,7 +204,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 
     <!-- 光荣之路 -->
     <template v-else-if="view === 'honor'">
-      <section v-reveal class="ef-card ef-honor-head" :class="{ 'is-wide': categoryChart.length < 2 }"><header><div><h2>光荣之路</h2></div><span v-if="medals.length" class="ef-note" role="status">显示 {{ filteredMedals.length }} / {{ medals.length }} 条已记录奖章</span></header><SummaryMetrics compact :metrics="honorMetrics" /><div v-if="medals.length && !imageMode" class="ef-filters ef-medal-filters"><label>查找奖章<input :value="medalSearch" @input="medalSearch=$event.target.value" type="search" placeholder="输入奖章名称" /></label><label>奖章分类<select v-model="medalCategory"><option value="">全部分类</option><option v-for="category in categories" :key="JSON.stringify(category)" :value="JSON.stringify(category)">{{ category || '未提供分类' }}</option></select></label><label>获得时间排序<select v-model="medalSort"><option value="recent">最近获得优先</option><option value="oldest">最早获得优先</option><option value="source">来源顺序</option></select></label></div></section>
+      <section v-reveal class="ef-card ef-honor-head" :class="{ 'is-wide': categoryChart.length < 2 }"><header><div><h2>光荣之路</h2></div><span v-if="medals.length" class="ef-note" role="status">显示 {{ filteredMedals.length }} / {{ medals.length }} 条已记录奖章</span></header><SummaryMetrics compact :metrics="honorMetrics" /><div v-if="medals.length && !imageMode" class="ef-filters ef-medal-filters"><label>查找奖章<input :value="medalSearch" @input="medalSearch=$event.target.value" type="search" placeholder="输入奖章名称" /></label><label>奖章分类<MenuSelect v-model="medalCategory" label="奖章分类" :options="[{value:'',label:'全部分类'},...categories.map(category=>({value:JSON.stringify(category),label:category||'未提供分类'}))]" /></label><label>获得时间排序<MenuSelect v-model="medalSort" label="获得时间排序" :options="[{value:'recent',label:'最近获得优先'},{value:'oldest',label:'最早获得优先'},{value:'source',label:'来源顺序'}]" /></label></div></section>
       <section v-if="categoryChart.length > 1" v-reveal class="ef-card ef-categories"><h2 class="ef-title">奖章分类</h2>
         <DonutChart :segments="categoryChart" label="已记录奖章的分类占比" unit=" 枚" :size="116" :stroke="14"><span class="ef-donut-center"><strong>{{ medals.length }}</strong><small>枚</small></span></DonutChart>
       </section>
@@ -315,9 +316,10 @@ button.ef-count:active { transform:translateY(1px); }
 .ef-feature:active:not(:disabled) { transform:translateY(1px); }
 .ef-filters { display:grid; grid-template-columns:minmax(150px,2fr) repeat(3,minmax(100px,1fr)); gap:12px; margin:0 0 16px; }
 .ef-filters label { display:grid; gap:6px; font-size:12px; color:var(--text-muted); }
-.ef-filters input, .ef-filters select { min-width:0; width:100%; min-height:38px; padding:7px 14px; background:var(--card-bg); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-control); font-size:13px; }
-.ef-filters select { appearance:none; padding-right:36px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23787d84' stroke-width='1.6'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-position:right 12px center; background-repeat:no-repeat; }
-.ef-filters input:focus-visible, .ef-filters select:focus-visible { border-color:var(--ef-ink); outline:0; box-shadow:var(--ring); }
+.ef-filters input { min-width:0; width:100%; min-height:38px; padding:7px 14px; background:var(--card-bg); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-control); font-size:13px; }
+.ef-filters :deep(.menu-select) { min-width:0; width:100%; }
+.ef-filters :deep(.menu-select-trigger) { min-height:38px; }
+.ef-filters input:focus-visible { border-color:var(--ef-ink); outline:0; box-shadow:var(--ring); }
 .ef-roster { display:grid; grid-template-columns:repeat(auto-fill,minmax(208px,1fr)); gap:12px; }
 /* Compact tile: bot images show the whole roster, so it stays short there. */
 .ef-operator { position:relative; display:grid; gap:10px; align-content:start; min-width:0; padding:14px; border-radius:var(--radius-tile); background:var(--surface-soft); overflow:hidden; }

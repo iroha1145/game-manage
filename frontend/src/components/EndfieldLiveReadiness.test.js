@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
-import { loadVue,mount,nodes,content } from '../test-utils/vue.js'
+import { loadVue,mount,nodes,content,choose } from '../test-utils/vue.js'
 import { configureHttpClient,setAccountScope } from '../http-client.js'
 import { attendanceCount,attendanceEnvelope } from '../endfield-attendance.js'
 const Dashboard=await loadVue(new URL('./EndfieldDashboard.vue',import.meta.url))
@@ -87,7 +87,7 @@ test('role change rejects late attendance success and failure without importing 
    return response(profile)
   })
   const root=mount(t,Dashboard,{initialSection:'overview'});await flush();await flush()
-  await nodes(root,'select')[0].props.onChange({target:{value:'b:1'}});await flush();await flush();finish();await flush()
+  await choose(root,'森空岛角色','b:1');await flush();await flush();finish();await flush()
   assert.equal(requests,2);assert.match(content(root),/新角色奖励/)
   assert.doesNotMatch(content(root),/旧角色奖励|旧角色失败|已有签到资料待更新|2026-10-14 08:01/)
   t.mock.restoreAll()

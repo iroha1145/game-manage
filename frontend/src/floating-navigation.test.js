@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { Window } from 'happy-dom'
 import { ref, nextTick, h } from 'vue'
 import { mount } from './test-utils/vue.js'
-import { createFloatingNavigation, navigationBounds, projectNavigationCorner, useFloatingNavigation } from './floating-navigation.js'
+import { createFloatingNavigation, navigationBounds, projectNavigationCorner, useFloatingNavigation, resistDrawerProgress } from './floating-navigation.js'
 
 const windows = []
 after(() => Promise.all(windows.map(win => win.happyDOM.close())))
@@ -25,6 +25,10 @@ function setup(t, mobile = false, reduced = false) {
   $('#toggle').addEventListener('pointerdown', controller.onTogglePointerdown)
   $('#toggle').addEventListener('click', controller.onToggleClick)
   const pointer = (type, x, y, target = $('#grip')) => target.dispatchEvent(new win.PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0, clientX: x, clientY: y }))
+  const step = () => {
+    const callbacks = [...frames.values()]; frames.clear(); time += 16.67
+    callbacks.forEach(fn => fn(time))
+  }
   const flush = () => {
     for (let n = 0; n < 180 && frames.size; n++) {
       const callbacks = [...frames.values()]; frames.clear(); time += 16.67
@@ -33,7 +37,7 @@ function setup(t, mobile = false, reduced = false) {
     assert.equal(frames.size, 0)
   }
   t.after(() => controller.destroy())
-  return { win, $, refs, controller, pointer, flush, frames, media }
+  return { win, $, refs, controller, pointer, flush, step, frames, media }
 }
 
 test('inertia projects independently on each axis and bounds fit small viewports', () => {
@@ -44,15 +48,15 @@ test('inertia projects independently on each axis and bounds fit small viewports
   assert.deepEqual(navigationBounds(100, 100, 200, 200), { left: 16, top: 16, right: 16, bottom: 16 })
 })
 
-test('desktop drag updates content reservation live and cancel returns to saved corner', t => {
+test('desktop drag leaves the page width alone and cancel returns to saved corner', t => {
   const { $, pointer, flush, win } = setup(t)
   pointer('pointerdown', 30, 30)
   pointer('pointermove', 34, 32)
   assert.equal($('#root').dataset.navDragging, 'false')
   pointer('pointermove', 800, 400)
   assert.equal($('#root').dataset.navDragging, 'true')
-  assert.equal($('#root').style.getPropertyValue('--nav-reserve-left'), '0px')
-  assert.equal($('#root').style.getPropertyValue('--nav-reserve-right'), '414px')
+  assert.equal($('#root').style.getPropertyValue('--nav-reserve-left'), '')
+  assert.equal($('#root').style.getPropertyValue('--nav-reserve-right'), '')
   pointer('pointercancel', 800, 400)
   flush()
   assert.equal($('#surface').style.transform, 'translate3d(16.00px, 16.00px, 0)')
@@ -137,7 +141,7 @@ test('external route close cancels an active drag and resize repositions a deskt
   desktop.refs.mobileNavigation.value = true
   await nextTick()
   assert.equal(desktop.$('#surface').style.transform, '')
-  assert.equal(desktop.$('#root').style.getPropertyValue('--nav-reserve-right'), '0px')
+  assert.equal(desktop.$('#root').style.getPropertyValue('--nav-reserve-right'), '')
 })
 
 
@@ -185,4 +189,80 @@ test('drag compatibility click is suppressed but a fresh immediate tap is accept
   $('#toggle').dispatchEvent(deliberate)
   assert.equal(deliberate.defaultPrevented, false)
   assert.equal(refs.menuOpen.value, true)
+})
+
+
+test('drawer boundary resistance grows smoothly and limits extreme over-pulls', () => {
+  const travel = 350
+  const pull = px => (resistDrawerProgress(1 + px / travel, travel) - 1) * travel
+  assert.equal(resistDrawerProgress(0.4, travel), 0.4)
+  assert.ok(pull(40) > 0 && pull(40) < 40)
+  assert.ok(pull(80) - pull(40) < pull(40), 'each extra finger movement has less effect')
+  assert.ok(pull(10000) <= 40.00001)
+  assert.ok(resistDrawerProgress(-100, travel) * travel >= -8.00001)
+  assert.ok((resistDrawerProgress(100, travel, 8) - 1) * travel <= 8.00001, 'tall drawers retain viewport headroom')
+})
+
+test('opening spring visibly crosses its detent and returns without a timed CSS transition', t => {
+  const { $, controller, step, frames, flush } = setup(t, true)
+  controller.openMenu()
+  const stretches = []
+  for (let i = 0; i < 100 && frames.size; i++) {
+    step()
+    stretches.push(parseFloat($('#surface').style.getPropertyValue('--drawer-stretch')))
+  }
+  assert.ok(Math.max(...stretches) > 2, 'opening has a visible rebound past the open stop')
+  assert.ok(Math.max(...stretches) <= 40)
+  flush()
+  assert.equal($('#surface').style.getPropertyValue('--drawer-stretch'), '0px')
+  assert.equal($('#surface').style.getPropertyValue('--drawer-progress'), '1')
+})
+
+test('live upper/lower over-pulls have bounded stretch and cancel restores the detent', t => {
+  const { $, pointer, controller, flush } = setup(t, true)
+  controller.openMenu(); flush()
+  pointer('pointerdown', 100, 400)
+  pointer('pointermove', 100, 300)
+  const short = parseFloat($('#surface').style.getPropertyValue('--drawer-stretch'))
+  pointer('pointermove', 100, -10000)
+  const far = parseFloat($('#surface').style.getPropertyValue('--drawer-stretch'))
+  assert.ok(short > 0 && far > short && far <= 40)
+  pointer('pointercancel', 100, -10000); flush()
+  assert.equal($('#surface').style.getPropertyValue('--drawer-stretch'), '0px')
+  controller.closeMenu(); flush()
+  pointer('pointerdown', 100, 700)
+  pointer('pointermove', 100, 10000)
+  assert.equal($('#surface').style.getPropertyValue('--drawer-progress'), '0')
+  assert.ok(parseFloat($('#surface').style.getPropertyValue('--drawer-shift')) <= 8)
+  assert.ok(parseFloat($('#surface').style.getPropertyValue('--drawer-shift')) > 0)
+  pointer('pointercancel', 100, 10000); flush()
+  assert.equal($('#surface').style.getPropertyValue('--drawer-shift'), '0px')
+})
+
+test('release velocity selects the stop while a paused partial pull falls closed', t => {
+  for (const pause of [false, true]) {
+    const { win, pointer, refs, flush } = setup(t, true)
+    let clock = 0
+    t.mock.method(win.performance, 'now', () => clock)
+    pointer('pointerdown', 100, 750)
+    clock = 40
+    pointer('pointermove', 100, 650)
+    if (pause) clock += 150
+    pointer('pointerup', 100, 650)
+    assert.equal(refs.menuOpen.value, !pause)
+    flush()
+  }
+})
+
+
+test('reduced motion permits direct resisted dragging but removes the release rebound', t => {
+  const { $, pointer, controller, frames } = setup(t, true, true)
+  controller.openMenu()
+  pointer('pointerdown', 100, 400)
+  pointer('pointermove', 100, 100)
+  assert.ok(parseFloat($('#surface').style.getPropertyValue('--drawer-stretch')) > 0)
+  pointer('pointerup', 100, 100)
+  assert.equal(frames.size, 0)
+  assert.equal($('#surface').style.getPropertyValue('--drawer-stretch'), '0px')
+  assert.equal($('#surface').style.getPropertyValue('--drawer-progress'), '1')
 })

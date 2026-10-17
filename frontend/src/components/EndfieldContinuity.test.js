@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
-import { loadVue,mount,content,nodes } from '../test-utils/vue.js'
+import { loadVue,mount,content,nodes,choose } from '../test-utils/vue.js'
 import { configureHttpClient,setAccountScope } from '../http-client.js'
 const Dashboard=await loadVue(new URL('./EndfieldDashboard.vue',import.meta.url))
 const Card=await loadVue(new URL('./GameCard.vue',import.meta.url))
@@ -39,7 +39,7 @@ test('Dashboard category and role switches invalidate late challenge results',as
  button(root,'丰碑').props.onClick();await flush();finishWar();await flush()
  assert.doesNotMatch(content(root),/已有战争资料/)
  const oldRole=finishMonument
- nodes(root,'select')[0].props.onChange({target:{value:'b:1'}});await flush()
+ choose(root,'森空岛角色','b:1');await flush()
  oldRole();await flush();assert.doesNotMatch(content(root),/已有战争资料|迟到丰碑/)
 })
 test('Dashboard first challenge failure is not rendered as an empty success',async t=>{

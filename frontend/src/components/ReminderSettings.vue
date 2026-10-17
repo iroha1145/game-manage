@@ -1,4 +1,5 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { getReminderRule, saveReminderRule, getReminderInbox } from '../reminders-api.js'
 const props = defineProps({ account: { type: Object, required: true } })
@@ -29,7 +30,7 @@ watch(() => [props.account.account_id,props.account.version,props.account.state]
   role.value = props.account.roles?.find(r=>r.is_default)?.role_id || props.account.roles?.[0]?.role_id || ''
   load()
 }, {immediate:true})
-async function choose(event) { role.value = event.target.value; await load() }
+async function choose(value) { role.value = value; await load() }
 async function save() {
   if (busy.value || !rule.value) return
   const ticket = generation, account = props.account.account_id, selected = role.value
@@ -48,7 +49,7 @@ onBeforeUnmount(() => { ++generation; controller?.abort() })
 <template>
   <section class="reminder-settings" aria-label="本人角色提醒">
     <h4>站内提醒</h4><p>成功采集后写入本人站内收件箱；QQ 主动推送不实现。提醒不会广播到群。社区数据可能延迟，陈旧或未知数值不触发。</p>
-    <label>提醒角色<select :value="role" :disabled="busy" @change="choose"><option v-for="(r,index) in account.roles || []" :key="r.role_id" :value="r.role_id">{{ r.display_name || `角色 ${index+1}` }}</option></select></label>
+    <label>提醒角色<MenuSelect class="reminder-role-menu" label="提醒角色" :model-value="role" :disabled="busy" :options="(account.roles || []).map((r,index) => ({value:r.role_id,label:r.display_name || `角色 ${index+1}`}))" @change="choose" /></label>
     <p v-if="!active()">授权已失效或撤销；后续提醒停止。可关闭现有规则。</p>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="status" role="status">{{ status }}</p>
     <form v-if="rule" @submit.prevent="save">
@@ -68,5 +69,5 @@ onBeforeUnmount(() => { ++generation; controller?.abort() })
   </section>
 </template>
 <style scoped>
-.reminder-settings,form{display:grid;gap:10px}.reminder-settings>button,form>button{justify-self:start}.reminder-settings{padding-top:12px;border-top:1px solid var(--border)}h4,p{margin:0}h4{font-size:14px;font-weight:500}label{display:flex;align-items:center;flex-wrap:wrap;gap:8px}input,select{padding:7px 10px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control)}input[type=number]{width:100px}article{padding:10px;background:var(--surface-soft);border-radius:var(--radius-control)}article+article{margin-top:8px}article strong{font-weight:500}small{font-size:12px;color:var(--text-muted)}
+.reminder-settings,form{display:grid;gap:10px}.reminder-settings>button,form>button{justify-self:start}.reminder-settings{padding-top:12px;border-top:1px solid var(--border)}h4,p{margin:0}h4{font-size:14px;font-weight:500}label{display:flex;align-items:center;flex-wrap:wrap;gap:8px}input{padding:7px 10px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control)}.reminder-role-menu{max-width:100%;min-width:0}.reminder-role-menu :deep(.menu-select-trigger){min-height:36px}input[type=number]{width:100px}article{padding:10px;background:var(--surface-soft);border-radius:var(--radius-control)}article+article{margin-top:8px}article strong{font-weight:500}small{font-size:12px;color:var(--text-muted)}
 </style>

@@ -1,9 +1,18 @@
 import { onBeforeUnmount, onMounted, watch, nextTick } from 'vue'
+import { createCardAvoidance } from './card-avoidance.js'
 
 const corners = ['top-left', 'top-right', 'bottom-right', 'bottom-left']
 const storageKey = 'game-manage-navigation-corner'
 const scrollLocks = new WeakMap()
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
+// Finger travel becomes progressively less effective past either magnetic stop.
+export function resistDrawerProgress(value, travel, upperLimit = 40) {
+  const edge = clamp(value, 0, 1)
+  const distance = (value - edge) * Math.max(1, travel)
+  const limit = distance < 0 ? 8 : upperLimit
+  return edge + Math.sign(distance) * limit * (1 - Math.exp(-Math.abs(distance) * 0.55 / limit)) / Math.max(1, travel)
+}
+
 export function navigationBounds(width, height, navWidth, navHeight) {
   return { left: 16, top: 16, right: Math.max(16, width - navWidth - 16), bottom: Math.max(16, height - navHeight - 16) }
 }
@@ -35,6 +44,7 @@ export function createFloatingNavigation(refs) {
   const win = root.value.ownerDocument.defaultView
   const doc = root.value.ownerDocument
   const media = win.matchMedia('(prefers-reduced-motion: reduce)')
+  const cards = createCardAvoidance(root.value)
   let destroyed = false, frame = 0, lastTime = 0, gesture = null, suppressClickUntil = 0
   let unlock = null, generation = 0, corner = 'top-left', height = 300
   let x = 16, y = 16, vx = 0, vy = 0, progress = menuOpen.value ? 1 : 0, pv = 0
@@ -46,16 +56,19 @@ export function createFloatingNavigation(refs) {
     tx = corner.endsWith('right') ? b.right : b.left
     ty = corner.startsWith('bottom') ? b.bottom : b.top
   }
+  const drawerTravel = () => Math.max(1, height - 84)
+  const stretchLimit = () => Math.max(8, Math.min(40, win.innerHeight - height - 24))
   function paint() {
     if (!root.value || !surface.value) return
     root.value.dataset.navDragging = String(Boolean(gesture?.moved))
     if (mobileNavigation.value) {
       surface.value.style.removeProperty('transform')
-      root.value.style.setProperty('--nav-reserve-left', '0px')
-      root.value.style.setProperty('--nav-reserve-right', '0px')
+      cards.update(null, false)
       for (const el of [root.value, surface.value]) {
         el.style.setProperty('--drawer-progress', String(clamp(progress, 0, 1)))
         el.style.setProperty('--nav-open-height', `${height}px`)
+        el.style.setProperty('--drawer-stretch', `${clamp((progress - 1) * drawerTravel(), 0, stretchLimit())}px`)
+        el.style.setProperty('--drawer-shift', `${clamp(-progress * drawerTravel(), 0, 8)}px`)
       }
     } else {
       const b = bounds()
@@ -63,8 +76,7 @@ export function createFloatingNavigation(refs) {
       surface.value.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`
       const left = x + surface.value.offsetWidth / 2 < win.innerWidth / 2
       root.value.dataset.navSide = left ? 'left' : 'right'
-      root.value.style.setProperty('--nav-reserve-left', `${left ? x + surface.value.offsetWidth : 0}px`)
-      root.value.style.setProperty('--nav-reserve-right', `${left ? 0 : win.innerWidth - x}px`)
+      cards.update({ left: x, top: y, right: x + surface.value.offsetWidth, bottom: y + surface.value.offsetHeight, width: surface.value.offsetWidth }, true)
     }
   }
   function stop() { if (frame) win.cancelAnimationFrame(frame); frame = 0; lastTime = 0 }
@@ -76,8 +88,14 @@ export function createFloatingNavigation(refs) {
     const dt = Math.min(0.032, lastTime ? (time - lastTime) / 1000 : 1 / 60)
     lastTime = time
     if (mobileNavigation.value) {
-      pv += ((tp - progress) * 280 - pv * 30) * dt
-      progress += pv * dt
+      // A lightly damped spring carries release momentum through the detent,
+      // then returns. Small substeps keep the rebound stable on slower frames.
+      const step = dt / 4
+      for (let i = 0; i < 4; i++) {
+        const outside = progress - clamp(progress, 0, 1)
+        pv += ((tp - progress) * 240 - pv * 19 - outside * 160) * step
+        progress += pv * step
+      }
     } else {
       vx += ((tx - x) * 260 - vx * 28) * dt
       vy += ((ty - y) * 260 - vy * 28) * dt
@@ -135,7 +153,8 @@ export function createFloatingNavigation(refs) {
     if (win.performance.now() - g.time > 100) vx = vy = pv = 0
     if (g.moved) suppressClickUntil = win.performance.now() + 700
     if (mobileNavigation.value) {
-      const open = cancelled ? g.wasOpen : g.moved ? progress + pv * 0.07 > 0.5 : g.wasOpen
+      const open = cancelled ? g.wasOpen : g.moved ? progress + pv * 0.12 > 0.5 : g.wasOpen
+      if (cancelled) pv = 0
       menuOpen.value = open; syncOpen()
     } else if (cancelled) chooseCorner(g.corner)
     else if (g.moved) chooseCorner(projectNavigationCorner(x, y, vx, vy, bounds()))
@@ -151,9 +170,12 @@ export function createFloatingNavigation(refs) {
     event.preventDefault()
     const now = win.performance.now(), dt = Math.max(0.008, (now - g.time) / 1000)
     if (mobileNavigation.value) {
-      const travel = Math.max(1, height - 84)
-      progress = clamp(g.progress - dy / travel, 0, 1)
-      pv = clamp(-(event.clientY - g.lastY) / dt / travel, -8, 8)
+      const travel = drawerTravel()
+      const previous = progress
+      progress = resistDrawerProgress(g.rawProgress - dy / travel, travel, stretchLimit())
+      // Measure the resisted surface velocity, not the finger velocity; a long
+      // over-pull must not launch the drawer beyond its usable viewport.
+      pv = clamp((progress - previous) / dt, -4.5, 4.5)
       if (progress > 0.03 && !menuOpen.value) { menuOpen.value = true; syncOpen() }
     } else {
       const b = bounds()
@@ -170,7 +192,11 @@ export function createFloatingNavigation(refs) {
     // click is suppressed, never a subsequent quick tap.
     suppressClickUntil = 0
     stop()
-    gesture = { id: event.pointerId, target: event.currentTarget, startX: event.clientX, startY: event.clientY,
+    const edge = clamp(progress, 0, 1)
+    const limit = progress < 0 ? 8 : stretchLimit()
+    const excess = Math.min(0.999, Math.abs(progress - edge) * drawerTravel() / limit)
+    const rawProgress = edge + Math.sign(progress - edge) * (-limit * Math.log(1 - excess) / 0.55) / drawerTravel()
+    gesture = { rawProgress, id: event.pointerId, target: event.currentTarget, startX: event.clientX, startY: event.clientY,
       lastX: event.clientX, lastY: event.clientY, time: win.performance.now(), x, y, progress, corner, wasOpen: menuOpen.value, moved: false }
     try { event.currentTarget.setPointerCapture?.(event.pointerId) } catch { /* Window listeners remain a fallback. */ }
   }
@@ -208,6 +234,7 @@ export function createFloatingNavigation(refs) {
     if (gesture) end(null, true)
     height = Math.max(84, Math.min(win.innerHeight - 24, (sidebar.value?.offsetHeight || 216) + 84))
     targetCorner(); syncOpen(); paint()
+    cards.refresh()
   }
   const up = event => end(event)
   const cancel = event => end(event, true)
@@ -243,13 +270,13 @@ export function createFloatingNavigation(refs) {
     onTogglePointerdown: event => { if (mobileNavigation.value) down(event) }, onToggleClick,
     onToggleKeydown: event => { if (event.key === 'ArrowUp' && mobileNavigation.value) { event.preventDefault(); openMenu() } }, handleKey,
     destroy() {
-      destroyed = true; generation++; stop(); stopOpen(); stopMobile(); observer?.disconnect()
+      destroyed = true; generation++; stop(); stopOpen(); stopMobile(); observer?.disconnect(); cards.destroy()
       if (gesture) { const g = gesture; gesture = null; releaseCapture(g) }
       unlock?.(); unlock = null
       for (const [type, listener] of [['pointermove', move], ['pointerup', up], ['pointercancel', cancel], ['lostpointercapture', cancel], ['blur', blur], ['resize', refresh]]) win.removeEventListener(type, listener)
       media.removeEventListener?.('change', reduce)
       surface.value?.style.removeProperty('transform')
-      for (const el of [root.value, surface.value]) for (const key of ['--nav-reserve-left', '--nav-reserve-right', '--drawer-progress', '--nav-open-height']) el?.style.removeProperty(key)
+      for (const el of [root.value, surface.value]) for (const key of ['--drawer-progress', '--nav-open-height', '--drawer-stretch', '--drawer-shift']) el?.style.removeProperty(key)
       if (root.value) { delete root.value.dataset.navDragging; delete root.value.dataset.navSide }
     },
   }

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Window } from 'happy-dom'
 import { nextTick } from 'vue'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 import { configureHttpClient } from '../http-client.js'
 const CloudApp = await loadVue(new URL('../CloudApp.vue', import.meta.url))
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
@@ -292,4 +292,24 @@ test('a logout answered with 401 ends at the login form without a retry', async 
   await nodes(root, 'button').find(n => content(n) === '退出登录').props.onClick(); for (let i = 0; i < 4; i++) await tick()
   assert.match(content(root), /网站登录/); assert.doesNotMatch(content(root), /退出登录未完成/)
   assert.equal(nodes(root, 'button').some(n => content(n) === '退出登录'), false)
+})
+
+test('web authorization and role menus read the selected identity without default-role writes',async t=>{
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  const accounts=['first','second'].map(id=>({account_id:id,provider:'hypergryph',state:'active',capabilities:['account'],roles:[{role_id:`${id}-default`,display_name:`${id}默认角色`,is_default:true},{role_id:`${id}-other`,display_name:`${id}备选角色`}]}))
+  const calls=[]
+  t.mock.method(globalThis,'fetch',async(path,options)=>{
+    calls.push({path,method:options.method})
+    const data=path==='/api/identity/me'?{user_id:'owner'}:path.endsWith('/csrf')?{csrf_token:'fixture'}:path==='/api/accounts'?{accounts}:{state:'never',payload:null}
+    return new Response(JSON.stringify(data))
+  })
+  const root=mount(t,CloudApp);await tick();await tick()
+  nodes(root,'button').find(n=>content(n).includes('授权 1')).props.onClick();await tick();await tick()
+  assert.equal(nodes(root,'select').length,0)
+  choose(root,'查看授权','second');await tick();await tick()
+  choose(root,'查看角色','second-other');await tick();await tick()
+  assert.ok(calls.some(call=>call.path==='/api/accounts/second/roles/second-other/snapshot/account'))
+  assert.ok(!calls.some(call=>call.method==='PUT'||call.path.endsWith('/default-role')))
+  const roleMenu=nodes(root,'ul').find(n=>n.props['aria-label']==='查看角色')
+  assert.deepEqual(nodes(roleMenu,'li').map(n=>n.props['data-value']),['second-default','second-other'])
 })

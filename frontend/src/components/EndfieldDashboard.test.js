@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick } from 'vue'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 
 const Dashboard = await loadVue(new URL('./EndfieldDashboard.vue', import.meta.url))
 const flush = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
@@ -31,8 +31,7 @@ test('role switch immediately clears old card and ignores its late response', as
   await flush()
   assert.match(content(root), /旧角色/)
   assert.match(content(root), /通行证/)
-  const select = nodes(root, 'select')[0]
-  select.props.onChange({ target: { value: 'new:1' } })
+  choose(root, '森空岛角色', 'new:1')
   await flush()
   cardResolvers[0](response({ payload: { base: { name: '旧数据' } } }))
   await flush()
@@ -170,7 +169,7 @@ test('changing catalog while a request is pending enables a new query', async t 
   const form = nodes(root, 'form').find(n => nodes(n, 'button').some(b => content(b) === '查询资料'))
   form.props.onSubmit({ preventDefault() {} })
   await flush()
-  nodes(form, 'select')[0].props['onUpdate:modelValue']('weapons')
+  choose(form, '资料类别', 'weapons')
   await flush()
   finishOld(response({ payload: { chars: [{ id: 'old', name: '旧干员' }] } }))
   await flush()
@@ -194,8 +193,7 @@ test('changing a map category returns to the first page', async t => {
   nodes(root, 'button').find(b => content(b) === '下一页').props.onClick()
   await flush()
   assert.ok(calls.at(-1).includes('offset=100'))
-  const filters = nodes(root, 'form').find(f => nodes(f, 'select').length === 3)
-  nodes(filters, 'select')[2].props['onUpdate:modelValue']('ore')
+  choose(root, '点位类型', 'ore')
   await flush(); await flush()
   assert.ok(calls.at(-1).includes('type_id=ore') && calls.at(-1).includes('offset=0'))
 })
@@ -259,7 +257,7 @@ test('a passport session whose role differs from Skland asks the user to choose'
 })
 
 for (const [label, failing, act] of [
-  ['role switch', '/skland/role', root => nodes(root, 'select')[0].props.onChange({ target: { value: 'new:1' } })],
+  ['role switch', '/skland/role', root => choose(root, '森空岛角色', 'new:1')],
   ['disconnect', '/skland/connection', root => nodes(root, 'button').find(n => content(n) === '断开森空岛').props.onClick()],
 ]) test(`a failed ${label} reloads the challenge records instead of the profile card`, async t => {
   const calls = []
@@ -296,7 +294,7 @@ for (const [initialSection, attendanceCalls] of [['overview', 1], ['operators', 
   const root = mount(t, Dashboard, { snaps: {}, initialSection })
   await flush(); await flush()
   calls.length = 0
-  nodes(root, 'select')[0].props.onChange({ target: { value: 'new:1' } })
+  choose(root, '森空岛角色', 'new:1')
   await flush(); await flush()
   assert.equal(calls.filter(url => url.endsWith('/card')).length, 1)
   assert.equal(calls.filter(url => url.endsWith('/attendance')).length, attendanceCalls)
@@ -313,10 +311,9 @@ test('choosing the role placeholder puts the dropdown back on the active role', 
   })
   const root = mount(t, Dashboard, { snaps: {} })
   await flush(); await flush()
-  const target = { value: '' }
-  nodes(root, 'select')[0].props.onChange({ target })
+  choose(root, '森空岛角色', '')
   await flush()
-  assert.equal(target.value, 'old:1')
+  assert.equal(nodes(nodes(root, 'ul').find(n => n.props['aria-label'] === '森空岛角色'), 'li').find(n => n.props['aria-selected']).props['data-value'], 'old:1')
   assert.match(content(root), /旧档案/)
   assert.ok(!calls.some(([method, url]) => method === 'POST' && url.endsWith('/skland/role')))
 })

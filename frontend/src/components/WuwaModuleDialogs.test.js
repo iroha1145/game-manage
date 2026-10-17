@@ -48,12 +48,12 @@ test('challenge guides are accessible independently of failed battle snapshots',
 
 test('challenge boss filtering never fills a missing boss with unrelated guides',async t=>{
   const root=mount(t,await component('WuwaChallengeGuides'),{mode:'hologram',bosses:['海维夏','叹息古龙']})
-  nodes(root,'select')[0].props['onUpdate:modelValue']('海维夏')
+  choose(root,'筛选首领','海维夏')
   await tick()
   const cards=nodes(root,'article')
   assert.ok(cards.length)
   assert.ok(cards.every(n=>content(n).includes('海维夏')))
-  nodes(root,'select')[0].props['onUpdate:modelValue']('叹息古龙')
+  choose(root,'筛选首领','叹息古龙')
   await tick()
   assert.equal(nodes(root,'article').length,0)
   assert.match(content(root),/暂无该首领图文攻略/)

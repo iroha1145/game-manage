@@ -5,16 +5,19 @@ import ArtworkImage from './ArtworkImage.vue'
 import { eventArtwork } from '../event-artwork.js'
 import { beijingDayStart, eventGeometry, eventStatus } from '../calendar.js'
 import { presentationGroups, activityBoundaryDays } from '../calendar-presentation.js'
+import { useCalendarPan } from '../calendar-pan.js'
 import { gameStyle, gameVars } from '../dashboard.js'
 const props = defineProps({ events:{type:Array,default:()=>[]}, snapshots:{type:Object,default:()=>({})}, range:{type:Object,default:null}, asOf:{type:Number,required:true}, rangeMode:{type:String,default:'rolling'}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showUnplaced:{type:Boolean,default:true} })
 const emit = defineEmits(['select'])
 const viewport = ref(null)
+const pan = useCalendarPan(viewport, () => props.mode !== 'image')
 // A different game or date window starts at its own origin. Refreshing the same data
 // and the minute clock preserve the position the reader has chosen.
 watch([
   () => props.range?.start, () => props.range?.end, () => props.rangeMode,
   () => [...new Set(props.events.map(event => event.gameId || event.game_id || ''))].sort().join(':'),
 ], () => {
+  pan.reset()
   if (props.mode !== 'image' && viewport.value) {
     viewport.value.scrollLeft = 0
     viewport.value.scrollTop = 0
@@ -160,6 +163,10 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 
 .calendar-content { --timeline-label-width:184px; min-width:0; display:flex; flex-direction:column; flex:1; min-height:0; }
 .calendar-content:not(.image-mode) { overflow:auto; }
+@media (hover:hover) and (pointer:fine) {
+  .calendar-content:not(.image-mode) .timeline-scroll { cursor:grab; }
+  .calendar-content.is-panning,.calendar-content.is-panning :deep(*) { cursor:grabbing !important; user-select:none; }
+}
 .calendar-unplaced { margin:12px 16px; }
 .calendar-content button { cursor:pointer; font-family:inherit; }
 .calendar-content button:focus-visible,.timeline-scroll:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }

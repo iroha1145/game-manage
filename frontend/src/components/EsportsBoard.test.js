@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { reactive, nextTick } from 'vue'
-import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { loadVue, mount, content, nodes, choose } from '../test-utils/vue.js'
 import { createEsportsBrowseState } from '../esports.js'
 const Panel = await loadVue(new URL('./LolEsportsPanel.vue', import.meta.url))
 const flush = async () => { await new Promise(setImmediate); await nextTick() }
@@ -33,8 +33,8 @@ test('cached-only results remain useful while missing future coverage and unknow
 test('changing a match filter resets pagination and clears match detail', async t => {
   const browse = reactive({ ...createEsportsBrowseState(), view: 'results', page: 2 })
   const root = mount(t, Panel, { snap: snapshot(), browseState: browse, 'onBrowse-change': patch => Object.assign(browse, patch) })
-  const teamSelect = nodes(root, 'select').find(n => n.props['aria-label'] === '筛选战队')
-  assert.ok(teamSelect); teamSelect.props.onChange({ target: { value: 'a' } }); await flush()
+  const teamMenu = nodes(root, 'button').find(n => n.props.role === 'combobox' && n.props['aria-label'] === '筛选战队')
+  assert.ok(teamMenu); choose(root, '筛选战队', 'a'); await flush()
   assert.equal(browse.filterTeamId, 'a'); assert.equal(browse.page, 1)
 })
 test('mobile filter disclosure has an explicit operable expanded state', async t => {

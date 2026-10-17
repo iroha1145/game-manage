@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { h, ref, nextTick } from 'vue'
-import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { loadVue, mount, content, nodes, choose } from '../test-utils/vue.js'
 const LolDashboard = await loadVue(new URL('./LolDashboard.vue', import.meta.url))
 const flush = async () => { await new Promise(setImmediate); await nextTick() }
 const response = value => new Response(JSON.stringify(value))
@@ -109,12 +109,13 @@ test('filter changes abort old requests and late responses cannot replace curren
   const old = deferred(), fresh = deferred(), calls = []
   t.mock.method(globalThis, 'fetch', (url, opts) => { calls.push({ url, opts }); return calls.length === 1 ? old.promise : fresh.promise })
   const root = mount(t, LolDashboard, {})
-  nodes(root, 'select')[0].props.onChange({ target: { value: '7' } }); await nextTick()
+  choose(root, '时间', 7); await nextTick()
   assert.equal(calls[0].opts.signal.aborted, true)
   assert.match(calls[1].url, /days=7/)
   fresh.resolve(response(data('当前数据'))); await flush()
   old.resolve(response(data('过时数据'))); await flush()
   assert.match(content(root), /当前数据/)
+  assert.match(content(root), /当前展示：近 7 天/)
   assert.doesNotMatch(content(root), /过时数据/)
 })
 
@@ -123,7 +124,7 @@ test('failed reload preserves old records and their filter label', async t => {
   t.mock.method(globalThis, 'fetch', async () => ++count === 1 ? response(data()) : new Response('{}', { status: 502 }))
   const root = mount(t, LolDashboard, {})
   await flush()
-  nodes(root, 'select')[0].props.onChange({ target: { value: '7' } }); await flush()
+  choose(root, '时间', 7); await flush()
   assert.match(content(root), /保留上次成功读取/)
   assert.match(content(root), /当前展示：近 90 天/)
   assert.match(content(root), /本地召唤师/)
@@ -235,8 +236,7 @@ test('a snapshot refresh keeps the open match detail; a filter change closes it'
   assert.match(content(root), /详情英雄/)
   snaps.value.match.fetched_at = 'm2'; await flush()
   assert.match(content(root), /详情英雄/, 'the hourly snapshot refresh must not collapse the open detail')
-  const days = nodes(root, 'select').find(n => content(n.parent).includes('时间'))
-  days.props.onChange({ target: { value: '30' } }); await flush()
+  choose(root, '时间', 30); await flush()
   assert.doesNotMatch(content(root), /详情英雄/)
 })
 
@@ -308,9 +308,9 @@ test('the news tab has no archive filters and says how much was published', asyn
   t.mock.method(globalThis, 'fetch', async () => response(rich()))
   const root = mount(t, LolDashboard, { snaps: { news: { payload: [{ title: '甲', url: 'https://example.com/a', published_at: '2026-10-12T10:00:00+08:00' }] } } })
   await flush()
-  assert.equal(nodes(root, 'select').length, 2)
+  assert.equal(nodes(root, 'button').filter(n=>n.props.role==='combobox').length, 2)
   button(root, '公告与资讯').props.onClick(); await flush()
-  assert.equal(nodes(root, 'select').length, 0)
+  assert.equal(nodes(root, 'button').filter(n=>n.props.role==='combobox').length, 0)
   assert.match(content(root), /发布概况/)
   assert.equal(byClass(root, 'li', 'bar-col').length, 8)
 })

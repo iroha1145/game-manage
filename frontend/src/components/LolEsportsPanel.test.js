@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { reactive, nextTick } from 'vue'
-import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { loadVue, mount, content, nodes, choose } from '../test-utils/vue.js'
 import { createEsportsBrowseState } from '../esports.js'
 const Panel = await loadVue(new URL('./LolEsportsPanel.vue', import.meta.url))
 const flush = async () => { await new Promise(setImmediate); await nextTick() }
@@ -48,4 +48,19 @@ test('late refresh preserves new view selection', async t => {
   button(root, '选手').props.onClick(); await flush()
   resolve(new Response(JSON.stringify({ ok: true, snapshot: snap() }))); await flush()
   assert.equal(browseState.view, 'players'); assert.match(content(root), /Player/)
+})
+
+test('web-rendered esports menus keep source choices and reset obsolete detail navigation', async t => {
+  const browseState=reactive({...createEsportsBrowseState(),family:'',page:4,filterTeamId:'a',matchId:'m',teamId:'a',returnTo:[{view:'teams'}]})
+  const root=mount(t,Panel,{snap:snap(),browseState,'onBrowse-change':patch=>Object.assign(browseState,patch)})
+  assert.equal(nodes(root,'select').length,0)
+  choose(root,'筛选赛事','lpl');await flush()
+  assert.equal(browseState.family,'lpl');assert.equal(browseState.filterTeamId,'')
+  assert.equal(browseState.page,1);assert.equal(browseState.matchId,'');assert.equal(browseState.teamId,'');assert.deepEqual(browseState.returnTo,[])
+  choose(root,'筛选战队','a');await flush()
+  assert.equal(browseState.filterTeamId,'a');assert.match(content(root),/EDG/)
+  choose(root,'筛选赛事','asian_games');await flush()
+  assert.equal(browseState.filterTeamId,'')
+  const teams=nodes(root,'ul').find(n=>n.props['aria-label']==='筛选战队')
+  assert.deepEqual(nodes(teams,'li').map(n=>n.props['data-value']),[''])
 })

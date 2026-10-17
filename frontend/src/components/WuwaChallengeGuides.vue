@@ -1,4 +1,5 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { challengeGuides, challengeGuideUpdatedAt, selectChallengeGuides } from '../wuwa-challenge-guides.js'
 import { guideSourceUrl } from '../wuwa-guides.js'
@@ -19,7 +20,7 @@ const guides = computed(() => selectChallengeGuides(props.mode, selectedBoss.val
     <header class="wuwa-heading"><h3>社区攻略</h3><span class="wuwa-meta">核查于 {{ challengeGuideUpdatedAt }}</span></header>
     <p v-if="mode === 'tower'" class="wuwa-meta">仅展示当期图文攻略，按原帖标注的深塔周期筛选。</p>
     <label v-if="mode === 'hologram'" class="boss-filter">筛选首领
-      <select v-model="selectedBoss"><option value="">全部首领与入门资料</option><option v-for="boss in options" :key="boss" :value="boss">{{ boss }}</option></select>
+      <MenuSelect class="boss-filter-menu" label="筛选首领" v-model="selectedBoss" :options="[{value:'',label:'全部首领与入门资料'},...options.map(boss => ({value:boss,label:boss}))]" />
     </label>
     <p v-if="!guides.length" class="wuwa-muted">{{ mode === 'tower' ? '暂无当期图文攻略，待更新。' : '暂无该首领图文攻略，可选择“全部首领与入门资料”。' }}</p>
     <div class="challenge-guide-list">
@@ -39,7 +40,7 @@ const guides = computed(() => selectChallengeGuides(props.mode, selectedBoss.val
 <style scoped>
 .challenge-guides > p { margin: 12px 0; line-height: 1.8; }
 .boss-filter { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text-muted); font-size: 13px; white-space: nowrap; }
-.boss-filter select { min-height: 34px; background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-control); padding: 4px 14px; font-size: 13px; max-width: 100%; min-width: 0; }
+.boss-filter-menu { max-width:100%; min-width:0; }.boss-filter-menu :deep(.menu-select-trigger) { min-height:34px; min-width:0; max-width:100%; font-size:13px; }
 .challenge-guide-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .challenge-guide-card.has-lineups { grid-column: 1 / -1; }
 .challenge-guide-title { display: flex; gap: 12px; align-items: center; }

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 import { configureHttpClient, setAccountScope } from '../http-client.js'
 const Reports=await loadVue(new URL('./EndfieldReports.vue',import.meta.url))
 const Dashboard=await loadVue(new URL('./EndfieldDashboard.vue',import.meta.url))
@@ -139,16 +139,16 @@ test('honor category, search and time controls keep totals and distinguish no re
   const root=mount(t,Reports,{view:'honor',payload:{report:{schema_version:1,honor:{available:true,items,summary:{declared_count:99,listed_count:4}}}}})
   const headings=()=>nodes(root,'h3').map(content)
   assert.deepEqual(headings(),['探索乙','探索甲','战斗甲','未分类奖章'])
-  nodes(root,'select')[1].props['onUpdate:modelValue']('oldest');await nextTick()
+  choose(root,'获得时间排序','oldest');await nextTick()
   assert.deepEqual(headings(),['探索甲','探索乙','战斗甲','未分类奖章'])
-  nodes(root,'select')[0].props['onUpdate:modelValue']('"探索"');nodes(root,'input')[0].props.onInput({target:{value:'甲'}});await nextTick()
+  choose(root,'奖章分类','"探索"');nodes(root,'input')[0].props.onInput({target:{value:'甲'}});await nextTick()
   assert.deepEqual(headings(),['探索甲']);assert.match(content(root),/显示 1 \/ 4/);assert.match(content(root),/来源成就总数 99/);assert.match(content(root),/奖章分类/)
   assert.match(content(root),/获得于 2025-10-15 08:00/)
   nodes(root,'input')[0].props.onInput({target:{value:'不存在'}});await nextTick()
   assert.match(content(root),/没有匹配的奖章/);assert.doesNotMatch(content(root),/当前档案没有奖章记录/)
   nodes(root,'button').find(node=>content(node)==='清除奖章筛选').props.onClick();await nextTick()
   assert.equal(headings().length,4)
-  nodes(root,'select')[0].props['onUpdate:modelValue']('null');await nextTick()
+  choose(root,'奖章分类','null');await nextTick()
   assert.deepEqual(headings(),['未分类奖章'])
 })
 
@@ -205,7 +205,7 @@ test('the 6★ rail follows the roster filters, has no headings of its own and o
   assert.deepEqual(nodes(root, 'h3').map(content), ['甲六', '乙六', '丙五'])
   rail()[1].props.onClick({ currentTarget: null })
   assert.deepEqual(seen, ['b'])
-  nodes(root, 'select')[0].props['onUpdate:modelValue']('5'); await nextTick()
+  choose(root, '稀有度', '5'); await nextTick()
   assert.equal(rail().length, 0)
   assert.deepEqual(nodes(root, 'h3').map(content), ['丙五'])
   assert.doesNotMatch(content(root), /6★ 干员/)
@@ -275,4 +275,13 @@ test('plated medals are counted only when plating is reported for every listed m
   assert.match(content(view([medal(1, false)])), /已镀层 0/)
   assert.doesNotMatch(content(view([medal(1, true), medal(2, null)])), /已镀层 [0-9]/)
   assert.doesNotMatch(content(view([])), /已镀层 [0-9]/)
+})
+
+
+test('operator and honor image modes expose no web menus or native selects', t => {
+  for (const view of ['operators','honor']) {
+    const root = mount(t, Reports, { payload, view, imageMode: true })
+    assert.equal(nodes(root,'select').length, 0)
+    assert.equal(nodes(root,'button').filter(n=>n.props.role==='combobox').length, 0)
+  }
 })

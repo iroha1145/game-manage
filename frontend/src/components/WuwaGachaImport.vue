@@ -1,4 +1,5 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { ref } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
 import { gachaReason } from '../wuwa-gacha.js'
@@ -51,7 +52,7 @@ async function backup(){
   <div class="wuwa-import-body">
     <p v-if="busy" class="wuwa-meta" role="status">正在读取 / 预览 / 提交，请稍候…</p>
     <div class="toolbar wuwa-import-row">
-      <label>文件来源 <select v-model="source" :disabled="busy" @change="invalidate"><option value="json_import">真实逐抽 / 本项目归档</option><option value="mcgf">mcgf 五星汇总</option><option value="xhh">xhh 五星汇总（result 本体）</option></select></label>
+      <label>文件来源 <MenuSelect class="import-source-menu" label="文件来源" v-model="source" :disabled="busy" :options="[{value:'json_import',label:'真实逐抽 / 本项目归档'},{value:'mcgf',label:'mcgf 五星汇总'},{value:'xhh',label:'xhh 五星汇总（result 本体）'}]" @change="invalidate" /></label>
       <input ref="fileInput" type="file" accept=".json,application/json" aria-label="预览抽卡文件" :disabled="busy" @change="file=$event.target.files?.[0];invalidate()" />
       <button class="ui-button small-button" :disabled="busy || !file" @click="readFile">预览文件</button>
     </div>
@@ -79,3 +80,8 @@ async function backup(){
     <p v-if="error" class="wuwa-error" role="alert">{{ error }}</p>
   </div>
 </template>
+
+<style scoped>
+.import-source-menu { max-width:100%; min-width:0; }
+.import-source-menu :deep(.menu-select-trigger) { min-width:0; min-height:36px; max-width:100%; }
+</style>

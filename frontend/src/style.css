@@ -189,7 +189,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 @media(hover:hover) and (pointer:fine) { .game-nav a:hover .nav-game-mark { transform:scale(1.06) rotate(-4deg); } }
 /* Top bar: a plain row above the page — search on the left, date and
    actions on the right. It scrolls away with the page; the sidebar stays. */
-.workspace-body { margin-left:var(--nav-reserve-left, 232px); margin-right:var(--nav-reserve-right, 0px); padding:0 24px; min-width:0; }
+.workspace-body { padding:0 24px; min-width:0; }
 .workspace-topbar { position:relative; z-index:30; height:80px; display:flex; align-items:center; justify-content:space-between; gap:16px; background:var(--topbar-bg); }
 .topbar-left,.topbar-right { display:flex; align-items:center; gap:10px; }
 .topbar-left { min-width:0; flex:1 1 auto; }

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, ref, useId } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 
 // Web-rendered select (Option Pro MenuSelect / Radix select-only combobox).
@@ -90,6 +90,7 @@ async function show(index = selectedIndex.value) {
   open.value = true
   listen(true)
   await nextTick()
+  if (!open.value || props.disabled) return
   raise(true)
   clamp()
   scrollActive()
@@ -101,7 +102,11 @@ function hide(returnFocus = false) {
   raise(false)
   if (returnFocus === true) trigger.value?.focus?.()
 }
-function choose(index) {
+function choose(index, event) {
+  // Options remain inside the associated label in the DOM, even in the top
+  // layer. Cancel label activation so selecting does not click the trigger again.
+  event?.preventDefault()
+  if (props.disabled) { hide(); return }
   const item = items.value[index]
   if (!item) return
   if (!same(item.value, props.modelValue)) {
@@ -125,7 +130,7 @@ function onKeydown(event) {
   else if (event.key === 'Home') active.value = 0
   else if (event.key === 'End') active.value = last
   else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); choose(active.value); return }
-  else if (event.key === 'Escape') { event.preventDefault(); hide(true); return }
+  else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation?.(); hide(true); return }
   else if (event.key === 'Tab') { hide(); return }
   else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
     // Typeahead: letters typed in quick succession jump to the first match.
@@ -139,6 +144,15 @@ function onKeydown(event) {
   event.preventDefault()
   nextTick(scrollActive)
 }
+
+watch([() => props.disabled, items], ([disabled, current], previous) => {
+  if (disabled || !current.length) { hide(); return }
+  if (!open.value) return
+  const value = previous?.[1]?.[active.value]?.value
+  const index = current.findIndex(item => same(item.value, value))
+  active.value = index >= 0 ? index : Math.max(0, selectedIndex.value)
+  nextTick(() => { if (open.value) { position(); clamp(); scrollActive() } })
+}, { flush: 'sync' })
 
 onBeforeUnmount(() => { if (open.value) listen(false) })
 </script>
@@ -169,7 +183,7 @@ onBeforeUnmount(() => { if (open.value) listen(false) })
         :aria-selected="index === selectedIndex"
         :data-active="index === active ? '' : undefined"
         @pointermove="active = index"
-        @click="choose(index)"
+        @click="choose(index, $event)"
       ><span>{{ item.label }}</span><AppIcon v-if="index === selectedIndex" name="check" :size="13" /></li>
     </ul>
   </span>
@@ -197,5 +211,6 @@ li { display: flex; align-items: center; justify-content: space-between; gap: 16
 li[data-active] { background: var(--accent-soft); color: var(--accent-strong); }
 li[aria-selected="true"] { font-weight: 500; }
 li svg { flex-shrink: 0; color: var(--accent); }
+li > span { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 @media (pointer: coarse) { li { min-height: 40px; } }
 </style>

@@ -61,11 +61,12 @@
     --drawer-extra-height: calc(var(--nav-open-height, 560px) - 84px);
     inset: auto auto max(12px, env(safe-area-inset-bottom)) 50%;
     width: min(calc(100vw - 24px + 4px * var(--drawer-progress)), calc(396px + 124px * var(--drawer-progress)));
-    height: calc(84px + var(--drawer-extra-height) * var(--drawer-progress));
-    max-height: calc(100dvh - 24px);
+    /* Content reveal stays within its stops; rubber-band motion is independent. */
+    height: calc(84px + var(--drawer-extra-height) * var(--drawer-progress) + var(--drawer-stretch, 0px));
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-bottom)) - 8px);
     padding: 0;
     border-radius: calc(32px - 4px * var(--drawer-progress));
-    transform: translateX(-50%);
+    transform: translate(-50%, var(--drawer-shift, 0px));
     box-shadow: var(--float-shadow);
   }
   .menu-open .floating-navigation { box-shadow: var(--popover-shadow); }
@@ -74,7 +75,7 @@
     position: absolute;
     inset: auto 0 84px;
     width: 100%;
-    max-height: calc(100dvh - 108px);
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-bottom)) - 96px);
     padding: 32px 18px 16px;
     opacity: clamp(0, calc(var(--drawer-progress) * 1.6 - .2), 1);
     transform: translateY(calc(12px * (1 - var(--drawer-progress))));
