@@ -179,7 +179,7 @@ const accentVars = style => ({ '--game-color': style.color, '--game-accent': sty
 .ov-hero :focus-visible { outline-color:#fff; }
 
 /* The one saturated card in the row: the deadline that comes first, in its game's colours. */
-.ov-next { position:relative; display:flex; flex-direction:column; gap:10px; min-width:0; padding:22px; overflow:hidden; text-align:left; border:0; border-radius:var(--radius-card); color:var(--text); background:linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 26%, var(--card-bg)), color-mix(in srgb, var(--game-vivid-2) 16%, var(--card-bg)) 70%); box-shadow:var(--card-shadow), inset 0 0 0 1px color-mix(in srgb, var(--game-vivid) 22%, transparent); transition:transform var(--duration-fast) var(--ease-smooth-out), box-shadow var(--duration-fast) var(--ease-smooth-out); }
+.ov-next { position:relative; display:flex; flex-direction:column; gap:10px; min-width:0; padding:22px; overflow:hidden; text-align:left; border:0; border-radius:var(--radius-card); color:var(--text); background:linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 26%, var(--card-bg)), color-mix(in srgb, var(--game-vivid-2) 16%, var(--card-bg)) 70%); box-shadow:var(--card-shadow), inset 0 0 0 1px color-mix(in srgb, var(--game-vivid) 22%, transparent); transition:transform var(--duration-spring) var(--ease-spring), box-shadow var(--duration-fast) var(--ease-smooth-out); }
 .ov-next::before { content:''; position:absolute; right:-40px; top:-60px; width:200px; height:200px; border-radius:50%; background:radial-gradient(circle, color-mix(in srgb, var(--game-vivid) 45%, transparent), transparent 70%); pointer-events:none; }
 @media(hover:hover) and (pointer:fine) { button.ov-next:hover { transform:translateY(-2px); box-shadow:var(--card-hover-shadow), 0 18px 40px -22px var(--game-vivid), inset 0 0 0 1px color-mix(in srgb, var(--game-vivid) 30%, transparent); } }
 button.ov-next:active { transform:scale(var(--scale-small)); }
@@ -207,7 +207,7 @@ button.ov-next:active { transform:scale(var(--scale-small)); }
 /* Up to four games in a row; four fall to 2 × 2 before they get too narrow. */
 .game-summary-grid { display:grid; grid-template-columns:repeat(var(--cards, 3),minmax(0,1fr)); gap:20px; }
 @media(max-width:1280px) { .game-summary-grid.many { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-.game-summary { position:relative; display:flex; flex-direction:column; text-align:left; border:1px solid var(--card-border); border-radius:var(--radius-card); padding:20px; background:var(--card-bg); color:var(--text); min-width:0; overflow:hidden; box-shadow:var(--card-shadow); transition:transform var(--duration-fast) var(--ease-smooth-out), box-shadow var(--duration-fast) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out); cursor:pointer; }
+.game-summary { position:relative; display:flex; flex-direction:column; text-align:left; border:1px solid var(--card-border); border-radius:var(--radius-card); padding:20px; background:var(--card-bg); color:var(--text); min-width:0; overflow:hidden; box-shadow:var(--card-shadow); transition:transform var(--duration-spring) var(--ease-spring), box-shadow var(--duration-fast) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out); cursor:pointer; }
 /* A faint wash of the game colour in the corner. */
 .game-summary::before { content:''; position:absolute; right:-70px; top:-90px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle, color-mix(in srgb, var(--game-vivid) 22%, transparent), transparent 70%); pointer-events:none; }
 .game-summary:focus-visible { border-color:var(--game-color); outline-color:var(--game-color); }
@@ -228,7 +228,7 @@ button.ov-next:active { transform:scale(var(--scale-small)); }
 
 /* Horizontal rail of deadline cards; the urgent ones carry a warm wash. */
 .ov-events .h-rail { --rail-pad:4px; --rail-pad-block:10px; --rail-gap:14px; }
-.event-card { position:relative; display:flex; flex-direction:column; gap:8px; width:268px; min-height:178px; padding:18px; text-align:left; border:1px solid var(--card-border); border-radius:var(--radius-tile); background:var(--card-bg); color:var(--text); box-shadow:var(--card-shadow); overflow:hidden; transition:transform var(--duration-fast) var(--ease-smooth-out), box-shadow var(--duration-fast) var(--ease-smooth-out); }
+.event-card { position:relative; display:flex; flex-direction:column; gap:8px; width:268px; min-height:178px; padding:18px; text-align:left; border:1px solid var(--card-border); border-radius:var(--radius-tile); background:var(--card-bg); color:var(--text); box-shadow:var(--card-shadow); overflow:hidden; transition:transform var(--duration-spring) var(--ease-spring), box-shadow var(--duration-fast) var(--ease-smooth-out); }
 .event-card::before { content:''; position:absolute; inset:0 0 auto; height:3px; background:linear-gradient(90deg, var(--game-vivid), var(--game-vivid-2)); }
 .event-card.urgent { background:linear-gradient(170deg, color-mix(in srgb, var(--game-vivid) 12%, var(--card-bg)), var(--card-bg) 60%); }
 @media(hover:hover) and (pointer:fine) { .event-card:hover { transform:translateY(-3px); box-shadow:var(--card-hover-shadow); } }
