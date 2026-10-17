@@ -295,3 +295,26 @@ def test_size_halving_keeps_identical_anonymous_rows_on_one_page(ledger):
         commit(restored,page)
     assert stored(restored)==stored(ledger)
     assert len(chain)>1 and chain[0]['export_page']['limit']%7==0
+
+
+def test_expired_previews_are_dropped_by_every_store_entry(ledger,monkeypatch):
+    # A ticket holds its decoded records; an expired one stayed in memory until the next preview.
+    from game_assistant import wuwa_gacha_archive
+    clock=[1000.0]
+    monkeypatch.setattr(wuwa_gacha_archive.time,'monotonic',lambda:clock[0])
+    rule=dict(pool='1',hard_pity=80,reset_rarity='5',version='user',sharing='independent',basis='user_configured')
+    entries=dict(read=lambda:ledger.read('100','S'),export=lambda:ledger.export('100','S'),
+                 set_rule=lambda:ledger.set_rule('100','S',rule))
+    for name,entry in entries.items():
+        ledger.preview(doc([row(i) for i in range(30)]),'100','S',session='v1')
+        clock[0]+=599; entry()
+        assert len(ledger._previews)==1,name
+        clock[0]+=1; entry()
+        assert ledger._previews=={},name
+    p=ledger.preview(doc([row(1)]),'100','S',session='v1')
+    clock[0]+=600
+    with pytest.raises(ValueError,match='预览已过期'):ledger.commit_preview(p['preview_id'],'100','S',session='v1')
+    assert ledger._previews=={}
+    first=ledger.preview(doc([row(1)]),'100','S',session='v1')['preview_id']
+    for _ in range(16):ledger.preview(doc([row(1)]),'100','S',session='v1')
+    assert len(ledger._previews)==16 and first not in ledger._previews

@@ -233,6 +233,12 @@ class ArchiveMixin:
                 raise ValueError('归档规则与当前配置冲突')
         return duplicates
 
+    def _expire_previews(self):
+        # Tickets hold decoded records, so every store entry drops the expired ones under its lock.
+        now=time.monotonic()
+        self._previews={k:v for k,v in self._previews.items() if v['expires'] > now}
+        return now
+
     def preview(self, document, account, server, *, session='', source='json_import',
                 latest_confirmed=False, continuity_confirmed=False, warnings=None, failed_pools=None):
         if type(latest_confirmed) is not bool or type(continuity_confirmed) is not bool:
@@ -248,8 +254,7 @@ class ArchiveMixin:
                 segment['warnings'] = sorted(set(segment['warnings']+['SOURCE_PARTIAL']))
         with self.lock:
             duplicates=self._check_conflicts(account,server,draws,summaries,rules)
-            now=time.monotonic()
-            self._previews={k:v for k,v in self._previews.items() if v['expires'] > now}
+            now=self._expire_previews()
             if len(self._previews)>=16:
                 self._previews.pop(next(iter(self._previews)))
             token=secrets.token_urlsafe(32)
@@ -263,8 +268,9 @@ class ArchiveMixin:
 
     def commit_preview(self, preview_id, account, server, *, session=''):
         with self.lock:
+            self._expire_previews()
             ticket=self._previews.get(preview_id)
-            if not ticket or ticket['expires']<=time.monotonic() or (ticket['account'],ticket['server'],ticket['session'])!=(account,server,session):
+            if not ticket or (ticket['account'],ticket['server'],ticket['session'])!=(account,server,session):
                 raise ValueError('预览已过期或账号会话已变化，请重新预览')
             draws,summaries=ticket['draws'],ticket['summaries']
             with self.conn:
@@ -308,6 +314,7 @@ class ArchiveMixin:
     def set_rule(self, account, server, raw):
         rule=self._rule(raw)
         with self.lock,self.conn:
+            self._expire_previews()
             self.conn.execute('INSERT OR REPLACE INTO wuwa_gacha_rules VALUES(?,?,?,?)',
                               (account,server,rule['pool'],encoded(rule)))
         return rule
@@ -381,6 +388,7 @@ class ArchiveMixin:
         if type(offset) is not int or type(limit) is not int or offset<0 or not 1<=limit<=MAX_RECORDS:
             raise ValueError('导出分页无效')
         with self.lock:
+            self._expire_previews()
             data=self._archive_data(account,server)
             stored=self.conn.execute('SELECT pool,draw_id,payload FROM wuwa_gacha WHERE account=? AND server=? ORDER BY time DESC,draw_id DESC',
                                       (account,server)).fetchall()
