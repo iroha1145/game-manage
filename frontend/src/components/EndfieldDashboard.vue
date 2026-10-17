@@ -1,6 +1,5 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { formatTime } from '../dashboard.js'
 import {
   getPublic, refreshPublic, getMap, getMapMark, getSklandStatus, connectSkland, connectSklandWithPassport, chooseSklandRole,
   disconnectSkland, getSklandCard, refreshSklandCard, getAttendance, signAttendance,
@@ -60,14 +59,9 @@ const roleKey = computed(() => selectedRole.value ? `${selectedRole.value.role_i
 const passportView = computed(() => gachaView({snaps:props.snaps,cloudAccount:props.cloudAccount,cloudRole:props.cloudRole,configured:props.configured,authAccount:props.authAccount}))
 const cardPayload = computed(() => card.value?.payload || null)
 const display = value => value === null || value === undefined || value === '' ? '未知' : String(value)
-const dateText = value => value ? formatTime(value) : '未知'
 const list = value => Array.isArray(value) ? value : []
 const humanError = value => value === '暂时无法连接服务，请稍后重试。' ? value : value ? friendlyDataError(value) : ''
 const roleLabel = role => cloud.value ? `${role.nickname || '未命名角色'} · ${role.role_id}` : `${role.nickname || '未命名角色'} · ${role.role_id} / ${role.server_id}`
-const named = value => typeof value === 'string' ? value : (value?.name || value?.title || '未知')
-const regionSummary = item => `等级 ${display(item.level)} · ${list(item.levels).length} 个区域 · ${list(item.settlements).length} 处据点`
-const shipSummary = item => `${item.name || '舱室'} · 等级 ${display(item.level)} · ${list(item.operators).length} 名干员`
-const countPair = item => `${display(item?.count)} / ${display(item?.total)}`
 const roleValue = computed(() => roleKey.value)
 const publicNewsSnap = computed(() => publicData.value?.news ? { ...publicData.value.news, payload: publicData.value.news.items, error: publicError.value } : null)
 const newsSnapshots = computed(() => [publicNewsSnap.value, props.snaps.news, props.snaps.announcement].filter(Boolean))

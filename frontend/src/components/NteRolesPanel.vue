@@ -130,7 +130,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
               <AppIcon name="chevron" :size="14" class="t-disclosure" />
             </summary>
             <div class="detail-body">
-              <div :data-render-block="imageMode ? '' : undefined"><RoleAssessment game="nte" :character-id="roleId(role)" :scope-key="accountId" :role-data="role" :image-mode="imageMode" :initial-assessment="role.assessment" /></div>
+              <div :data-render-block="imageMode ? '' : undefined"><RoleAssessment game="nte" :character-id="roleId(role)" :scope-key="accountId" :image-mode="imageMode" :initial-assessment="role.assessment" /></div>
               <section class="detail-group" :data-render-block="imageMode ? '' : undefined">
                 <h4>弧盘</h4>
                 <p v-if="role.weapon" class="weapon"><NteIcon :src="nteNamedIcon('weapons', role.weapon.name)" :name="role.weapon.name || '弧盘'" size="small" /><strong>{{ display(role.weapon.name) }}</strong><span class="chip">{{ display(role.weapon.quality) }}</span><span class="chip">Lv{{ display(role.weapon.level) }}</span><span class="chip">混频 <b>{{ display(role.weapon.mix_level) }}</b></span></p>

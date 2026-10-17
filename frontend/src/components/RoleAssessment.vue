@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { requestJson, getAccountScope, isCloudMode, subscribeSessionInvalidation } from '../http-client.js'
 import { onUnmounted } from 'vue'
-const props=defineProps({game:{type:String,required:true},characterId:{type:String,default:''},scopeKey:{type:[String,Object],default:''},roleData:{type:Object,default:null},imageMode:{type:Boolean,default:false},initialAssessment:{type:Object,default:null}})
+const props=defineProps({game:{type:String,required:true},characterId:{type:String,default:''},scopeKey:{type:[String,Object],default:''},imageMode:{type:Boolean,default:false},initialAssessment:{type:Object,default:null}})
 const opened=ref(false),busy=ref(false),error=ref(''),modelJson=ref(''),itemsJson=ref('[]'),name=ref('配置 A'),saved=ref([]),a=ref(''),b=ref(''),result=ref(null),comparison=ref(null),observedAt=ref(null)
 // generation: the character, game or session on screen. revision: the model and equipment input. A response lands only while the one it answers is still current.
 let generation=0,revision=0

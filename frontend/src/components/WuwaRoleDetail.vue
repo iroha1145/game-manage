@@ -44,7 +44,7 @@ const isAttributeList = (v) =>
 </script>
 <template>
   <div class="wuwa-role-detail">
-    <RoleAssessment game="wuthering_waves" :character-id="String(data.role?.role_id || '')" :role-data="data" :image-mode="imageMode" :initial-assessment="data.assessment" />
+    <RoleAssessment game="wuthering_waves" :character-id="String(data.role?.role_id || '')" :image-mode="imageMode" :initial-assessment="data.assessment" />
     <section class="wuwa-detail-section">
       <h3 class="wuwa-subhead role-profile-heading"><WuwaIcon :src="data.role?.role_icon_url" :name="data.role?.role_name || '角色'" size="large" /><span>{{ data.role?.role_name }} · 角色基本信息</span></h3>
       <div class="wuwa-basics">
