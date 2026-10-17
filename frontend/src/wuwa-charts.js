@@ -83,20 +83,22 @@ export function towerTotals(areas) {
 }
 
 /**
- * Sources of an income report as donut parts, largest first. Parts beyond `limit`
- * fold into 其他; a source without a number keeps its row and reads as unknown.
+ * Sources of an income report as donut parts, largest first; a source without a number
+ * reads as unknown. Beyond `limit` rows the smaller known sources fold into 其他, whose
+ * total stays known (zero included), and the sources without a number keep one row of
+ * their own, so none drops out of the legend.
  */
 export function sourceShares(sources, limit = 6) {
   const parts = rows(sources).map(row => ({ label: row.type || '未知来源', value: known(row.num) ? row.num : null }))
   const counted = parts.filter(part => part.value != null).sort((a, b) => b.value - a.value)
   const unknown = parts.filter(part => part.value == null)
-  if (counted.length + unknown.length <= limit) return [...counted, ...unknown]
-  const keep = counted.slice(0, Math.max(0, limit - 1))
+  if (parts.length <= limit) return [...counted, ...unknown]
+  const unknownRows = unknown.length > 1 ? [{ label: `数量未知的来源（${unknown.length} 项）`, value: null }] : unknown
+  const keep = counted.slice(0, Math.max(0, limit - unknownRows.length - 1))
   const rest = counted.slice(keep.length)
-  return [...keep, { label: '其他', value: rest.reduce((sum, part) => sum + part.value, 0) || null }]
+  const folded = rest.length ? [{ label: '其他', value: rest.reduce((sum, part) => sum + part.value, 0) }] : []
+  return [...keep, ...folded, ...unknownRows]
 }
-
-const timeKey = v => (typeof v === 'string' ? v.replace('T', ' ') : '')
 
 /** Rarity counts over every pool, five stars first; empty buckets are left out. */
 export function rarityTotals(pools) {
@@ -115,11 +117,15 @@ export function poolPulls(pools) {
   return rows(pools).map(pool => ({ label: pool.name || `卡池 ${pool.pool ?? '未知'}`, value: known(pool.total) ? pool.total : null }))
 }
 
-/** The newest five-star records first, as many as `limit`; the order of equal times is kept. */
+/**
+ * The newest five-star records first, as many as `limit`. Times are compared as instants (a
+ * time without an offset is Beijing time), so archives that keep different offsets still sort
+ * by when the pull happened; an unreadable time sorts last and equal times keep their order.
+ */
 export function recentGold(records, limit = 12) {
   return rows(records)
-    .map((row, index) => ({ row, index }))
-    .sort((a, b) => timeKey(b.row.time).localeCompare(timeKey(a.row.time)) || a.index - b.index)
+    .map((row, index) => ({ row, index, at: parseBeijingTime(row.time) }))
+    .sort((a, b) => (a.at == null) - (b.at == null) || (b.at ?? 0) - (a.at ?? 0) || a.index - b.index)
     .slice(0, limit)
     .map(item => item.row)
 }

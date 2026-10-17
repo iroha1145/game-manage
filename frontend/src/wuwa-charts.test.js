@@ -68,6 +68,17 @@ test('income sources sort by amount, keep unknown rows and fold the tail into on
   assert.deepEqual(sourceShares(null), [])
 })
 
+test('folding the income legend keeps the sources without a number and a known zero remainder', () => {
+  const known = Array.from({ length: 7 }, (_, i) => ({ type: `源${i}`, num: 7 - i }))
+  assert.deepEqual(sourceShares([...known, { type: '深塔', num: null }, { type: '海墟' }]), [
+    { label: '源0', value: 7 }, { label: '源1', value: 6 }, { label: '源2', value: 5 }, { label: '源3', value: 4 },
+    { label: '其他', value: 3 + 2 + 1 }, { label: '数量未知的来源（2 项）', value: null },
+  ])
+  assert.deepEqual(sourceShares([...known, { type: '深塔', num: null }]).map(part => part.label), ['源0', '源1', '源2', '源3', '其他', '深塔'])
+  const zeros = [{ type: '甲', num: 5 }, { type: '乙', num: 4 }, { type: '丙', num: 3 }, { type: '丁', num: 0 }, { type: '戊', num: 0 }]
+  assert.deepEqual(sourceShares(zeros, 4).at(-1), { label: '其他', value: 0 })
+})
+
 test('rarity totals add every pool, five stars first, and leave empty buckets out', () => {
   const pools = [
     { rarity_distribution: { 3: 40, 4: 6, 5: 1 } },
@@ -95,6 +106,9 @@ test('recent five-star records come newest first and keep the order of equal tim
   assert.deepEqual(recentGold(rows).map(row => row.name), ['b', 'c', 'a', 'd'])
   assert.deepEqual(recentGold(rows, 2).map(row => row.name), ['b', 'c'])
   assert.deepEqual(recentGold(undefined), [])
+  // Instants, not strings: 02:00Z is an hour after 09:00 Beijing time.
+  const offsets = [{ name: 'x', time: '2026-10-01T09:00:00+08:00' }, { name: 'y', time: '2026-10-01T02:00:00Z' }, { name: 'z', time: 'not a time' }]
+  assert.deepEqual(recentGold(offsets).map(row => row.name), ['y', 'x', 'z'])
 })
 
 test('a pity ring needs an exact count and a cap from the user rule', () => {
