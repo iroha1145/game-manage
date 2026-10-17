@@ -65,3 +65,41 @@ test('a rail without layout renders its cards and no arrows', async t => {
   assert.equal(nodes(root, 'article').length, 2)
   assert.equal(nodes(root, 'button').length, 0)
 })
+
+test('ring caps are round, zero stays empty and completion is a seamless circle', async t => {
+  const Ring = await loadVue(new URL('./RingGauge.vue', import.meta.url))
+  for (const value of [0.01, 50, 99.99, 100]) {
+    const root = mount(t, Ring, { value, max: 100, label: '日常进度', size: 72, stroke: 7 })
+    const arc = byClass(root, 'ring-value')[0]
+    assert.equal(arc.props['stroke-linecap'], 'round')
+    assert.equal(find(root, n => n.props.role === 'meter')[0].props['aria-valuenow'], value)
+    if (value === 100) assert.equal(arc.props['stroke-dasharray'], '100 100')
+    else assert.ok(Number(arc.props['stroke-dasharray'].split(' ')[0]) < value)
+  }
+})
+
+test('donut parts use round caps, preserve labels, and leave a single part seamless', async t => {
+  const Donut = await loadVue(new URL('./DonutChart.vue', import.meta.url))
+  const root = mount(t, Donut, { label: '品质分布', segments: [
+    { label: '五星', value: 1, color: 'gold' }, { label: '四星', value: 3, color: 'purple' }, { label: '未知', value: null },
+  ] })
+  assert.equal(byClass(root, 'donut-part').length, 2)
+  assert.ok(byClass(root, 'donut-part').every(arc => arc.props['stroke-linecap'] === 'round'))
+  assert.deepEqual(nodes(root, 'li').map(content), ['五星 1 25%', '四星 3 75%', '未知 未知 0%'])
+  const single = mount(t, Donut, { label: '品质分布', segments: [{ label: '五星', value: 1 }] })
+  assert.equal(byClass(single, 'donut-part')[0].props['stroke-dasharray'], '100 100')
+})
+
+test('a gauge reaching completion keeps numeric dash values for its transition', async t => {
+  const { h, reactive, nextTick } = await import('vue')
+  const Ring = await loadVue(new URL('./RingGauge.vue', import.meta.url))
+  const state = reactive({ value: 99 })
+  const root = mount(t, { setup: () => () => h(Ring, { value: state.value, max: 100, label: '日常进度' }) }, {})
+  const arc = () => byClass(root, 'ring-value')[0]
+  assert.ok(Number(arc().props['stroke-dasharray'].split(' ')[0]) < 99)
+  assert.ok(arc().props['stroke-dashoffset'] < 0)
+  state.value = 100
+  await nextTick()
+  assert.equal(arc().props['stroke-dasharray'], '100 100')
+  assert.equal(arc().props['stroke-dashoffset'], -0)
+})

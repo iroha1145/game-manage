@@ -7,6 +7,8 @@ import { GAME_SECTIONS } from './search-index.js'
 import { vGlide } from './motion.js'
 import { followSystem, setTheme, theme } from './theme.js'
 import { lazyPage } from './lazy-page.js'
+import { useFloatingNavigation } from './floating-navigation.js'
+import { useElasticCards } from './elastic-cards.js'
 import AppIcon from './components/AppIcon.vue'
 import GameIcon from './components/GameIcon.vue'
 import OverviewPage from './components/OverviewPage.vue'
@@ -23,11 +25,18 @@ const dashboard = createDashboard({ ...api, getAuthStatus })
 const state = dashboard.state
 const route = ref(readRoute(window.location.hash))
 const menuOpen = ref(false)
-const navigationMedia = window.matchMedia('(max-width: 720px)')
+const navigationMedia = window.matchMedia('(max-width: 960px)')
 const mobileNavigation = ref(navigationMedia.matches)
 const sidebar = ref(null)
 const menuToggle = ref(null)
 const mainContent = ref(null)
+const workbench = ref(null), navigationSurface = ref(null)
+const { closeMenu, onGripPointerdown, onGripKeydown, onTogglePointerdown, onToggleClick, onToggleKeydown, handleKey: handleNavigationKey } = useFloatingNavigation({ root: workbench, surface: navigationSurface, sidebar, menuToggle, menuOpen, mobileNavigation })
+useElasticCards(mainContent, {
+  selector: '.ov-hero, .ov-tasks, .ov-deadlines, .ov-gacha, .ov-news, .ov-game, .event-card, .card-head, .cap-card, .wuwa-panel, .calendar-board, .calendar-agenda, .calendar-detail, .login-panel',
+  resetOn: () => route.value,
+})
+
 const now = ref(Date.now())
 const clock = ref('')
 function tickClock() { clock.value = new Intl.DateTimeFormat('zh-CN', { timeZone:'Asia/Shanghai', hourCycle:'h23', hour:'2-digit',minute:'2-digit' }).format(Date.now()) }
@@ -64,8 +73,6 @@ function jumpTo(href) {
   if (window.location.hash === href || (href === '#/' && !window.location.hash)) { jumps.value++; syncRoute() }
   else window.location.hash = href
 }
-async function openMenu() { menuOpen.value = true; await nextTick(); sidebar.value?.querySelector('.primary-nav a')?.focus() }
-async function closeMenu() { menuOpen.value = false; await nextTick(); menuToggle.value?.focus() }
 function sidebarNavigate(event) {
   if (!event.target.closest?.('a[href]')) return
   menuOpen.value = false
@@ -111,13 +118,7 @@ async function onAccountChanged({ game }) {
 }
 function handleKey(event) {
   if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k') { event.preventDefault(); if (!searchOpen.value) openSearch(); return }
-  if (event.key === 'Escape' && menuOpen.value) closeMenu()
-  if (event.key === 'Tab' && menuOpen.value && mobileNavigation.value) {
-    const controls = [...sidebar.value.querySelectorAll('a[href],button:not([disabled])')]
-    const first = controls[0], last = controls[controls.length - 1]
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
-  }
+  handleNavigationKey(event)
 }
 onMounted(() => {
   dashboard.load()
@@ -131,10 +132,12 @@ onMounted(() => {
 onBeforeUnmount(() => { clearInterval(timer); clearInterval(clockTimer); stopFollowingSystem?.(); dashboard.dispose(); window.removeEventListener('hashchange', syncRoute); window.removeEventListener('keydown', handleKey); navigationMedia.removeEventListener('change', mediaChanged) })
 </script>
 <template>
-  <div class="workbench" :class="{ 'menu-open': menuOpen }">
+  <div ref="workbench" class="workbench" :class="{ 'menu-open': menuOpen }">
     <a class="skip-link" href="#main-content" @click.prevent="$refs.mainContent?.focus()">跳到主要内容</a>
-    <button v-if="menuOpen" class="sidebar-scrim" aria-label="关闭导航" tabindex="-1" @click="closeMenu"></button>
-    <aside id="workspace-sidebar" ref="sidebar" class="workspace-sidebar" :inert="mobileNavigation && !menuOpen">
+    <button class="sidebar-scrim" :aria-hidden="!menuOpen" :inert="!menuOpen" aria-label="关闭导航" tabindex="-1" @click="closeMenu"></button>
+    <div ref="navigationSurface" class="floating-navigation" :role="mobileNavigation && menuOpen ? 'dialog' : undefined" :aria-modal="mobileNavigation && menuOpen ? true : undefined" :aria-label="mobileNavigation ? '游戏与菜单' : undefined">
+      <button type="button" class="navigation-grip" :aria-label="mobileNavigation ? (menuOpen ? '收起导航' : '展开导航') : '移动菜单，使用方向键调整位置'" :aria-expanded="mobileNavigation ? menuOpen : undefined" aria-controls="workspace-sidebar" @pointerdown="onGripPointerdown" @keydown="onGripKeydown" @click="mobileNavigation && onToggleClick($event)"><span aria-hidden="true"></span></button>
+      <aside id="workspace-sidebar" ref="sidebar" class="workspace-sidebar" :inert="mobileNavigation && !menuOpen">
       <a class="brand" href="#/" @click="sidebarNavigate"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>游戏管家<small aria-hidden="true">game · manage</small></span></a>
       <button class="mobile-sidebar-close icon-button" aria-label="关闭导航" @click="closeMenu"><AppIcon name="close" /></button>
       <nav v-glide.hover class="primary-nav" aria-label="主导航" @click="sidebarNavigate">
@@ -146,6 +149,13 @@ onBeforeUnmount(() => { clearInterval(timer); clearInterval(clockTimer); stopFol
       <nav v-glide.hover class="game-nav" :class="{ 'game-theme': route.page === 'game' }" :style="gameVars(route.game)" aria-label="游戏档案" @click="sidebarNavigate"><a v-for="game in state.games" :key="game.game_id" :href="`#/game/${encodeURIComponent(game.game_id)}`" :class="{ active: route.page === 'game' && route.game === game.game_id }" :aria-current="route.page === 'game' && route.game === game.game_id ? 'page' : undefined"><GameIcon class="nav-game-mark" :game-id="game.game_id" :name="game.display_name" :style="{ '--mark-tone': gameStyle(game.game_id).tone }" /><span>{{ game.display_name }}</span><AppIcon class="nav-arrow" name="arrow" :size="14" /></a></nav>
       <div v-if="state.loadError || state.serviceError || state.notify?.enabled" class="sidebar-bottom"><p v-if="state.loadError || state.serviceError" class="local-status"><i class="offline"></i>本地服务连接异常</p><p v-if="state.notify?.enabled">微信提醒已开启</p></div>
     </aside>
+    <nav class="mobile-tabbar" aria-label="常用页面">
+      <a href="#/" :class="{ active: route.page === 'overview' }" :aria-current="route.page === 'overview' ? 'page' : undefined"><AppIcon name="grid" :size="19" /><span>总览</span></a>
+      <a href="#/calendar" :class="{ active: route.page === 'calendar' }" :aria-current="route.page === 'calendar' ? 'page' : undefined"><AppIcon name="calendar" :size="19" /><span>日历</span></a>
+      <a href="#/accounts" :class="{ active: route.page === 'accounts' }" :aria-current="route.page === 'accounts' ? 'page' : undefined"><AppIcon name="user" :size="19" /><span>账号</span></a>
+      <button ref="menuToggle" class="nav-menu-toggle" type="button" :class="{ active: route.page === 'game' }" :aria-expanded="menuOpen" aria-controls="workspace-sidebar" @pointerdown="onTogglePointerdown" @click="onToggleClick" @keydown="onToggleKeydown"><AppIcon name="chevron" :size="19" /><span>游戏与菜单</span></button>
+    </nav>
+    </div>
     <div class="workspace-body" :inert="mobileNavigation && menuOpen">
       <header class="workspace-topbar">
         <div class="topbar-left">
@@ -167,12 +177,7 @@ onBeforeUnmount(() => { clearInterval(timer); clearInterval(clockTimer); stopFol
         <BilibiliSourcePanel v-if="route.page === 'overview' || route.page === 'game'" :game-id="route.page === 'game' ? route.game : ''" @collected="dashboard.loadSnapshots()" />
       </main>
     </div>
-    <nav class="mobile-tabbar" aria-label="常用页面" :inert="mobileNavigation && menuOpen">
-      <a href="#/" :class="{ active: route.page === 'overview' }" :aria-current="route.page === 'overview' ? 'page' : undefined"><AppIcon name="grid" :size="19" /><span>总览</span></a>
-      <a href="#/calendar" :class="{ active: route.page === 'calendar' }" :aria-current="route.page === 'calendar' ? 'page' : undefined"><AppIcon name="calendar" :size="19" /><span>日历</span></a>
-      <a href="#/accounts" :class="{ active: route.page === 'accounts' }" :aria-current="route.page === 'accounts' ? 'page' : undefined"><AppIcon name="user" :size="19" /><span>账号</span></a>
-      <button ref="menuToggle" type="button" :class="{ active: route.page === 'game' }" :aria-expanded="menuOpen" aria-controls="workspace-sidebar" @click="openMenu"><AppIcon name="menu" :size="19" /><span>游戏与菜单</span></button>
-    </nav>
+
     <SearchDialog v-if="searchOpen" :pages="searchPages" :games="state.games" :snapshots="state.snapshots" :now="now" @select="jumpTo" @close="searchOpen = false" />
   </div>
 </template>

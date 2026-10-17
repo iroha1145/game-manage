@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { donutArcs } from '../chart-math.js'
+import { donutArcs, roundedArc } from '../chart-math.js'
 
 const props = defineProps({
   // [{ label, value, color }]; at most six parts read at a glance.
@@ -16,7 +16,7 @@ const total = computed(() => props.segments.reduce((sum, part) => sum + (Number.
 // A 2px gap in the card colour separates neighbours, measured on the 100-unit circle.
 const arcs = computed(() => donutArcs(props.segments.map(part => part.value), (2 / (2 * Math.PI * radius.value)) * 100))
 const parts = computed(() => props.segments.map((part, index) => ({
-  ...part, index, arc: arcs.value[index],
+  ...part, index, arc: arcs.value[index] ? roundedArc(arcs.value[index].start, arcs.value[index].length, radius.value, props.stroke) : null,
   share: total.value && Number.isFinite(part.value) && part.value > 0 ? Math.round((part.value / total.value) * 100) : 0,
 })))
 </script>
@@ -30,7 +30,7 @@ const parts = computed(() => props.segments.map((part, index) => ({
           <circle
             v-if="part.arc?.length"
             class="donut-part t-draw" :class="{ dim: active >= 0 && active !== part.index }"
-            :cx="size / 2" :cy="size / 2" :r="radius" :stroke-width="stroke"
+            :cx="size / 2" :cy="size / 2" :r="radius" :stroke-width="part.arc.stroke" stroke-linecap="round"
             pathLength="100" :stroke-dasharray="`${part.arc.length} 100`" :stroke-dashoffset="-part.arc.start"
             :transform="`rotate(-90 ${size / 2} ${size / 2})`" :style="{ '--series': part.color, '--i': part.index }"
           />
@@ -51,7 +51,7 @@ const parts = computed(() => props.segments.map((part, index) => ({
 .donut-ring { position:relative; display:grid; place-items:center; width:var(--donut-size); height:var(--donut-size); flex-shrink:0; }
 .donut-ring svg { position:absolute; inset:0; width:100%; height:100%; }
 .donut-track { fill:none; stroke:var(--track); }
-.donut-part { fill:none; stroke:var(--series); transition:opacity var(--duration-quick) var(--ease-smooth-out); animation:donut-in 800ms var(--ease-smooth-out) backwards; animation-delay:calc(var(--i, 0) * 70ms); }
+.donut-part { fill:none; stroke:var(--series); transition:opacity var(--duration-quick) var(--ease-smooth-out); animation:donut-in var(--duration-very-slow) var(--ease-smooth-out) backwards; animation-delay:calc(min(var(--i, 0), 4) * 35ms); }
 .donut-part.dim { opacity:.28; }
 @keyframes donut-in { from { stroke-dasharray:0 100; } }
 .donut-center { position:relative; display:grid; justify-items:center; text-align:center; line-height:1.15; }

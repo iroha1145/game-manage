@@ -11,7 +11,7 @@ test('local hash navigation restores bookmarked game and calendar filter, mobile
  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
  t.mock.method(globalThis,'fetch',async path=>new Response(JSON.stringify(path==='/api/identity/me'?{user_id:'u'}:path==='/api/accounts'?{accounts:[{account_id:'a',provider:'tajiduo',state:'active',capabilities:['account'],roles:[{role_id:'r',display_name:'角色甲'}]}]}:path.endsWith('/csrf')?{csrf_token:'fixture'}:{payload:[],state:'ok'})))
  const root=mount(t,App);await tick();await tick();assert.ok(nodes(root,'button').some(n=>content(n)==='概览'))
- const toggle=nodes(root,'button').find(n=>n.props['aria-controls']==='workspace-sidebar'),aside=nodes(root,'aside')[0],main=nodes(root,'main')[0]
+ const toggle=nodes(root,'button').find(n=>String(n.props.class || '').split(/\s+/).includes('nav-menu-toggle')),aside=nodes(root,'aside')[0],main=nodes(root,'main')[0]
  assert.ok(toggle);let focused='';const first={focus(){focused='first'}},last={focus(){focused='last'}}
  aside.querySelector=()=>first;aside.querySelectorAll=()=>[first,last];toggle.focus=()=>{focused='toggle'};main.focus=()=>{focused='main'}
  await toggle.props.onClick();await tick();assert.equal(toggle.props['aria-expanded'],true);assert.equal(focused,'first')

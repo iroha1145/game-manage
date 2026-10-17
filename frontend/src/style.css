@@ -10,7 +10,7 @@
   --accent-dim: var(--accent-soft); --mono: var(--font-mono);
   --mint: var(--chart-3); --coral: var(--chart-2);
   /* Shape: the shell and big cards are the roundest; inner pieces step down. */
-  --radius-shell: 28px; --radius-card: 24px; --radius-tile: 16px; --radius-well: 14px; --radius-control: 12px; --radius-chip: 6px;
+  --radius-shell: 30px; --radius-card: 26px; --radius-tile: 18px; --radius-well: 14px; --radius-control: 14px; --radius-chip: 7px;
   /* Only the floating sidebar and the phone tab bar frost what scrolls beneath them. */
   --glass-filter: blur(16px);
   --font-sans: 'Geist Variable', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
@@ -39,12 +39,12 @@
   --chart-1: #3987e5; --chart-2: #d95926; --chart-3: #199e70; --chart-4: #c98500; --chart-5: #d55181; --chart-6: #008300; --chart-7: #9085e9; --chart-8: #e66767;
   --glass-bg: rgba(30, 31, 35, .85); --glass-strong: rgba(30, 31, 35, .96); --glass-border: rgba(255, 255, 255, .06); --glass-edge: none;
   /* Depth stays faint: cards sit on a hairline; only floating layers cast a real shadow. */
-  --card-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+  --card-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 1px 2px rgba(0,0,0,.12), 0 8px 24px -16px rgba(0,0,0,.45);
   --card-hover-shadow: 0 6px 20px rgba(0, 0, 0, .3);
-  --popover-shadow: 0 16px 48px rgba(0, 0, 0, .45);
+  --popover-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 4px 12px rgba(0,0,0,.2), 0 24px 64px -12px rgba(0,0,0,.55);
   --float-shadow: 0 4px 18px rgba(0, 0, 0, .3);
   --control-selected-shadow: 0 1px 2px rgba(0, 0, 0, .3);
-  --sidebar-shadow: 0 4px 18px rgba(0, 0, 0, .25);
+  --sidebar-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 2px 6px rgba(0,0,0,.12), 0 16px 42px -14px rgba(0,0,0,.5);
   --nav-active-shadow: none;
   --btn-shadow: none; --btn-shadow-pressed: none;
   --btn-primary-shadow: none; --btn-primary-pressed: none;
@@ -72,12 +72,12 @@
   --game-endfield: #3d5d81; --game-endfield-vivid: #5275a5; --game-endfield-2: #3363b8; --game-endfield-tone: #dfe9f4;
   --chart-1: #2e73c7; --chart-2: #d86538; --chart-3: #21a376; --chart-4: #d9970a; --chart-5: #d5759b; --chart-6: #097d0a; --chart-7: #5f50c7; --chart-8: #d1494a;
   --glass-bg: rgba(255, 255, 255, .85); --glass-strong: rgba(255, 255, 255, .96); --glass-border: #ffffff; --glass-edge: none;
-  --card-shadow: 0 2px 8px rgba(38, 40, 46, .024);
+  --card-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 1px 2px rgba(38,40,46,.025), 0 8px 24px -16px rgba(38,40,46,.16);
   --card-hover-shadow: 0 6px 20px rgba(38, 40, 46, .06);
-  --popover-shadow: 0 16px 48px rgba(38, 40, 46, .14);
-  --float-shadow: 0 4px 18px rgba(38, 40, 46, .03);
+  --popover-shadow: inset 0 1px 0 rgba(255,255,255,.92), 0 3px 8px rgba(38,40,46,.045), 0 24px 64px -14px rgba(38,40,46,.2);
+  --float-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 2px 6px rgba(38,40,46,.035), 0 12px 32px -12px rgba(38,40,46,.15);
   --control-selected-shadow: 0 1px 2px rgba(38, 40, 46, .06);
-  --sidebar-shadow: 0 4px 18px rgba(38, 40, 46, .03);
+  --sidebar-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 2px 6px rgba(38,40,46,.035), 0 16px 42px -14px rgba(38,40,46,.18);
 }
 /* Define derived tokens at the game boundary so dialogs and controls inherit
    the game colour instead of root's already-resolved aliases. gameStyle()
@@ -157,8 +157,8 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .empty-page { padding:34px 16px; color:var(--text-muted); text-align:center; font-size:14px; }.empty-page button { margin-top:15px; }
 .inline-warning { color:var(--stale-text); font-size:13px; background:var(--stale-bg); border:1px solid color-mix(in srgb, var(--stale-text) 22%, transparent); border-radius:var(--radius-well); padding:10px 14px; margin-top:12px; overflow-wrap:anywhere; animation:t-rise var(--duration-medium) var(--ease-smooth-out) backwards; }
 .spinning { animation:spin 1.5s linear infinite; }@keyframes spin { to { transform:rotate(360deg); } }
-/* Sidebar: a frosted white panel floating 16px off the window edge. */
-.workspace-sidebar { position:fixed; top:16px; bottom:16px; left:16px; width:210px; display:flex; flex-direction:column; padding:27px 15px 15px; z-index:40; overflow-y:auto; overscroll-behavior:contain; border:1px solid var(--glass-border); border-radius:var(--radius-shell); background:var(--sidebar-bg); -webkit-backdrop-filter:var(--glass-filter); backdrop-filter:var(--glass-filter); box-shadow:var(--sidebar-shadow); }
+/* Sidebar content. The shared floating-navigation surface owns docking and the mobile drawer. */
+.workspace-sidebar { display:flex; flex-direction:column; min-width:0; padding:12px 14px 16px; overflow-y:auto; overscroll-behavior:contain; }
 .brand { display:flex; align-items:center; gap:12px; padding:0 6px; color:var(--text); text-decoration:none; font-size:19px; font-weight:700; letter-spacing:2px; line-height:1.1; }
 .brand small { display:block; margin-top:6px; font-size:11px; font-weight:500; letter-spacing:.3px; line-height:1.5; color:var(--text-muted); }
 /* Four tiles turned a little off square: the app's mark. */
@@ -167,7 +167,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .brand-mark i:nth-child(2) { border-radius:50% 50% 50% 2px; }
 .brand-mark i:nth-child(3) { background:var(--brand-tile-2); }
 .brand-mark i:last-child { border-radius:2px 50% 50% 50%; }
-.primary-nav { display:grid; gap:5px; margin-top:32px; }
+.primary-nav { display:grid; gap:5px; margin-top:24px; }
 .primary-nav a,.game-nav a { display:flex; align-items:center; gap:11px; min-height:46px; padding:0 14px; color:var(--text-muted); text-decoration:none; border-radius:13px; font-size:14px; font-weight:400; line-height:1.2; }
 .primary-nav a.active,.game-nav a.active { color:var(--accent); font-weight:600; }
 .primary-nav>.t-glide,.game-nav>.t-glide { background:var(--nav-active-bg); box-shadow:var(--nav-active-shadow); border-radius:13px; }
@@ -183,13 +183,13 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 /* Game marks sit on the game's own pale tone, like the cards they open. */
 .nav-game-mark { width:26px; height:26px; border-radius:8px; text-align:center; font-weight:600; font-size:13px; background:var(--mark-tone, var(--control-track)); box-shadow:inset 0 0 0 1px var(--card-border); }
 .nav-arrow { margin-left:auto; opacity:0; transform:translateX(-4px); transition:opacity var(--duration-quick) var(--ease-smooth-out),transform var(--duration-fast) var(--ease-smooth-out); }.game-nav a.active .nav-arrow,.game-nav a:hover .nav-arrow { opacity:1; transform:none; }
-.sidebar-bottom { margin-top:auto; border-top:1px solid var(--border); padding:14px 8px 2px; font-size:12px; line-height:1.7; color:var(--text-muted); }.local-status { display:flex; align-items:center; gap:7px; margin-bottom:4px; color:var(--text-body); }.local-status i { width:6px; height:6px; background:var(--success); border-radius:50%; }.local-status i.offline { background:var(--danger); }
+.sidebar-bottom { margin-top:16px; border-top:1px solid var(--border); padding:14px 8px 2px; font-size:12px; line-height:1.7; color:var(--text-muted); }.local-status { display:flex; align-items:center; gap:7px; margin-bottom:4px; color:var(--text-body); }.local-status i { width:6px; height:6px; background:var(--success); border-radius:50%; }.local-status i.offline { background:var(--danger); }
 .nav-game-mark { transition:transform var(--duration-fast) var(--ease-bounce); }
 .game-nav a:focus-visible .nav-game-mark { transform:scale(1.06) rotate(-4deg); }
 @media(hover:hover) and (pointer:fine) { .game-nav a:hover .nav-game-mark { transform:scale(1.06) rotate(-4deg); } }
 /* Top bar: a plain row above the page — search on the left, date and
    actions on the right. It scrolls away with the page; the sidebar stays. */
-.workspace-body { margin-left:246px; padding:0 36px; min-width:0; }
+.workspace-body { margin-left:var(--nav-reserve-left, 232px); margin-right:var(--nav-reserve-right, 0px); padding:0 24px; min-width:0; }
 .workspace-topbar { position:relative; z-index:30; height:80px; display:flex; align-items:center; justify-content:space-between; gap:16px; background:var(--topbar-bg); }
 .topbar-left,.topbar-right { display:flex; align-items:center; gap:10px; }
 .topbar-left { min-width:0; flex:1 1 auto; }
@@ -205,8 +205,8 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .workspace-main { padding:6px 0 56px; max-width:1480px; margin:0 auto; outline:none; min-width:0; }
 .mobile-sidebar-close,.sidebar-scrim,.mobile-tabbar { display:none; }
 /* Phones: a frosted tab bar at the bottom (mockup .mobile-nav) carries the main pages and opens the menu. */
-@media(max-width:720px) {
-  .mobile-tabbar { position:fixed; left:12px; right:12px; bottom:max(12px, env(safe-area-inset-bottom)); z-index:30; display:flex; gap:2px; padding:6px; border:1px solid var(--glass-border); border-radius:21px; background:var(--glass-strong); -webkit-backdrop-filter:var(--glass-filter); backdrop-filter:var(--glass-filter); box-shadow:var(--float-shadow); }
+@media(max-width:960px) {
+  .mobile-tabbar { position:absolute; left:0; right:0; bottom:0; z-index:3; display:flex; gap:2px; height:64px; padding:6px; border-radius:inherit; }
   .mobile-tabbar > :is(a, button) { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:44px; min-height:52px; padding:5px 2px; border:0; border-radius:15px; background:transparent; color:var(--text-muted); font-size:11px; line-height:14px; text-decoration:none; white-space:nowrap; }
   .mobile-tabbar > .active { background:var(--accent-soft); color:var(--accent); font-weight:600; }
   .mobile-tabbar > :is(a, button):active { transform:translateY(1px); }
@@ -225,7 +225,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
    for the slide-in. */
 .sheet-dialog { position:fixed; inset:0; width:min(var(--sheet-width, 480px), calc(100vw - 32px)); max-width:none; height:calc(100dvh - 32px); max-height:none; margin:16px 16px 16px auto; padding:0; overflow:auto; overscroll-behavior:contain; border:1px solid var(--card-border); border-radius:25px; background:var(--card-bg); color:var(--text); box-shadow:var(--popover-shadow); }
 .sheet-dialog::backdrop { background:var(--scrim); }
-@media(max-width:720px) { .sheet-dialog { width:calc(100vw - 20px); height:calc(100dvh - 20px); margin:10px; border-radius:23px; } }
+@media(max-width:960px) { .sheet-dialog { width:calc(100vw - 20px); height:calc(100dvh - 20px); margin:10px; border-radius:23px; } }
 /* ── Density kit ──────────────────────────────────────────────────────
    Shared pieces that replace prose and label/value stacks with compact,
    scannable data: header meta, ⓘ hints, key-value grids, one-line bar rows,
@@ -282,9 +282,9 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 12px; }.toolbar input[type="search"],.toolbar input[type="text"] { min-height:38px; padding:7px 13px; border:1px solid var(--border); border-radius:var(--radius-control); background:var(--card-bg); box-shadow:var(--btn-shadow); color:var(--text); font-size:13px; }.toolbar .grow { flex:1 1 180px; min-width:0; }.toolbar .count { margin-left:auto; color:var(--text-faint); font-size:12px; white-space:nowrap; }
 /* Stars for rarity or clear ratings: filled in the game colour. */
 .stars { display:inline-flex; gap:1px; color:var(--game-color, var(--game-wuwa)); font-size:12px; letter-spacing:-1px; line-height:1; }.stars .off { color:var(--track); }
-@media(max-width:1250px) { .workspace-sidebar { width:192px; padding-left:12px; padding-right:12px; }.workspace-body { margin-left:226px; padding:0 24px; }.brand { font-size:17px; letter-spacing:1.5px; } }
+@media(max-width:1250px) { .workspace-sidebar { padding-left:12px; padding-right:12px; }.brand { font-size:17px; letter-spacing:1.5px; } }
 @media(max-width:1100px) { .workspace-main .accounts-page .accounts { grid-template-columns:1fr; } }
-@media(max-width:720px) { .workspace-sidebar { top:10px; bottom:10px; left:10px; width:min(280px, calc(100vw - 48px)); padding:24px 14px 14px; transform:translateX(calc(-100% - 16px)); transition:transform var(--duration-medium) var(--ease-smooth-out); }.menu-open .workspace-sidebar { transform:translateX(0); transition-duration:var(--duration-slow); }.workspace-body { margin-left:0; padding:0 16px; }.mobile-sidebar-close { display:grid; position:absolute; right:12px; top:22px; }.sidebar-scrim { display:block; position:fixed; inset:0; background:var(--scrim); border:0; z-index:35; animation:t-fade-in var(--duration-fast) var(--ease-out) backwards; }.workspace-topbar { height:68px; gap:8px; }.search-trigger { flex:1; width:auto; }.search-trigger kbd,.topbar-date { display:none; }.workspace-main { padding:4px 0 104px; }.page-heading { margin-bottom:16px; }.page-heading h1 { font-size:26px; line-height:34px; }.cap-card { padding:18px; border-radius:22px; }.workspace-main .accounts-page .login-panel { padding:16px; }.workspace-main .accounts-page .account-row { padding:16px; }.workspace-main .accounts-page .account-info>strong { font-size:15px; }.service-error { align-items:flex-start; flex-direction:column; } }
+@media(max-width:960px) { .workspace-body { margin-left:0; margin-right:0; padding:0 16px; }.mobile-sidebar-close { display:grid; position:absolute; right:12px; top:22px; }.sidebar-scrim { display:block; position:fixed; inset:0; background:var(--scrim); border:0; z-index:35; opacity:var(--drawer-progress, 0); pointer-events:none; touch-action:none; transition:none; }.menu-open .sidebar-scrim { pointer-events:auto; }.workspace-topbar { height:68px; gap:8px; }.search-trigger { flex:1; width:auto; }.search-trigger kbd,.topbar-date { display:none; }.workspace-main { padding:4px 0 104px; }.page-heading { margin-bottom:16px; }.page-heading h1 { font-size:26px; line-height:34px; }.cap-card { padding:18px; border-radius:22px; }.workspace-main .accounts-page .login-panel { padding:16px; }.workspace-main .accounts-page .account-row { padding:16px; }.workspace-main .accounts-page .account-info>strong { font-size:15px; }.service-error { align-items:flex-start; flex-direction:column; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
 @media(max-width:400px) { .topbar-right { gap:6px; }.workspace-body { padding:0 12px; } }
 @media (prefers-reduced-motion:reduce) {

@@ -63,3 +63,13 @@ export function donutArcs(values, gap = 0) {
     return arc
   })
 }
+
+/** Inset round caps inside the represented span; tiny positive arcs use a smaller cap. */
+export function roundedArc(start, length, radius, stroke) {
+  if (!(length > 0) || !(radius > 0) || !(stroke > 0)) return null
+  if (length >= 100) return { start: 0, length: 100, stroke }
+  // The cap is a disk on the circle: its angular reach is asin((width / 2) / radius).
+  const cap = Math.min(stroke, 2 * radius * Math.sin(Math.min(length * Math.PI / 100, Math.PI / 2)))
+  const capLength = Math.asin(cap / (2 * radius)) / Math.PI * 100
+  return { start: start + capLength / 2, length: Math.max(0.000001, length - capLength), stroke: cap }
+}

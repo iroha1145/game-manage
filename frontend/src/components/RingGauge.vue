@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { share } from '../chart-math.js'
+import { roundedArc, share } from '../chart-math.js'
 
 const props = defineProps({
   value: { type: Number, default: null },
@@ -13,6 +13,7 @@ const props = defineProps({
 const ratio = computed(() => share(props.value, props.max))
 const center = computed(() => props.size / 2)
 const radius = computed(() => (props.size - props.stroke) / 2)
+const arc = computed(() => roundedArc(0, (ratio.value ?? 0) * 100, radius.value, props.stroke))
 </script>
 
 <template>
@@ -29,10 +30,10 @@ const radius = computed(() => (props.size - props.stroke) / 2)
     <svg :viewBox="`0 0 ${size} ${size}`" aria-hidden="true">
       <circle class="ring-track" :cx="center" :cy="center" :r="radius" :stroke-width="stroke" />
       <circle
-        v-if="ratio"
+        v-if="arc"
         class="ring-value t-draw"
-        :cx="center" :cy="center" :r="radius" :stroke-width="stroke"
-        pathLength="100" :stroke-dasharray="`${(ratio * 100).toFixed(2)} 100`"
+        :cx="center" :cy="center" :r="radius" :stroke-width="arc.stroke" stroke-linecap="round"
+        pathLength="100" :stroke-dasharray="`${arc.length} 100`" :stroke-dashoffset="-arc.start"
         :transform="`rotate(-90 ${center} ${center})`"
       />
     </svg>
@@ -44,7 +45,7 @@ const radius = computed(() => (props.size - props.stroke) / 2)
 .ring-gauge { position:relative; display:grid; place-items:center; width:var(--ring-size); height:var(--ring-size); flex-shrink:0; }
 .ring-gauge svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
 .ring-track { fill:none; stroke:var(--track); }
-.ring-value { fill:none; stroke:var(--ring-color); stroke-linecap:round; transition:stroke-dasharray var(--duration-slow) var(--ease-smooth-out); animation:ring-draw 900ms var(--ease-smooth-out) backwards; }
+.ring-value { fill:none; stroke:var(--ring-color); stroke-linecap:round; transition:stroke-dasharray var(--duration-slow) var(--ease-smooth-out), stroke-dashoffset var(--duration-slow) var(--ease-smooth-out), stroke-width var(--duration-slow) var(--ease-smooth-out); animation:ring-draw var(--duration-very-slow) var(--ease-smooth-out) backwards; }
 @keyframes ring-draw { from { stroke-dasharray:0 100; } }
 .ring-center { position:relative; display:grid; justify-items:center; gap:2px; text-align:center; line-height:1.1; }
 </style>

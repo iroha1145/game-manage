@@ -49,3 +49,17 @@ test('the first deadline leads, and the week chart counts deadlines per Beijing 
   assert.ok(bars.slice(2).every(bar => /0 项/.test(bar)), 'events beyond the week are not counted')
   assert.match(content(byClass(root, 'ov-stats')[0]), /3.*进行中的活动.*2.*3 天内截止/)
 })
+
+test('daily rows share the rounded gauge and keep empty and done states distinct', t => {
+  const root = mount(t, Overview, { games: [wuwa], now, snapshots: { wuthering_waves: { progress: { payload: [
+    { name: '活跃度', cur: 50, total: 100 },
+    { name: '周常', cur: 0, total: 3, refresh_at: '2026-10-19 04:00' },
+    { name: '本周任务', cur: 3, total: 3, refresh_at: '2026-10-19 04:00' },
+  ] } } } })
+  const marks = byClass(root, 'task-mark')
+  assert.equal(marks.length, 3)
+  assert.equal(byClass(marks[0], 'ring-value')[0].props['stroke-linecap'], 'round')
+  assert.equal(byClass(marks[1], 'ring-value').length, 0)
+  assert.equal(byClass(marks[2], 'ring-gauge').length, 0, 'completed task keeps its check')
+  assert.deepEqual(byClass(root, 'task-value').map(content), ['50/100 ，未完成', '0/3 ，未完成', '3/3 ，已完成'])
+})

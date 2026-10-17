@@ -5,6 +5,8 @@ import { accountCapabilities, providerName, getPublicSnapshot } from './accounts
 import { revokeSession, getMe } from './identity-api.js'
 import { followSystem, theme, setTheme } from './theme.js'
 import { lazyPage } from './lazy-page.js'
+import { useFloatingNavigation } from './floating-navigation.js'
+import { useElasticCards } from './elastic-cards.js'
 import { collectionState } from './snapshot-state.js'
 import { capabilityLabel } from './cloud-display.js'
 import { displayBeijing } from './time.js'
@@ -33,8 +35,15 @@ const publicGame = ref('wuthering_waves'), publicSnapshots = ref({})
 const calendarSnapshots = ref({}), calendarReadErrors = ref({}), calendarLoading = ref(false)
 const publicGames = [{game_id:'wuthering_waves',display_name:'鸣潮',capabilities:['news','events']},{game_id:'nte',display_name:'异环',capabilities:['news','events']},{game_id:'endfield',display_name:'终末地',capabilities:['news','events']}]
 const menuOpen = ref(false), sidebar = ref(null), menuToggle = ref(null), mainContent = ref(null)
-const navigationMedia = globalThis.window?.matchMedia?.('(max-width: 720px)')
+const navigationMedia = globalThis.window?.matchMedia?.('(max-width: 960px)')
 const mobileNavigation = ref(navigationMedia?.matches || false)
+const workbench = ref(null), navigationSurface = ref(null)
+const { closeMenu, onGripPointerdown, onGripKeydown, onTogglePointerdown, onToggleClick, onToggleKeydown, handleKey: handleNavigationKey } = useFloatingNavigation({ root: workbench, surface: navigationSurface, sidebar, menuToggle, menuOpen, mobileNavigation })
+useElasticCards(mainContent, {
+  selector: '.ov-hero, .ov-tasks, .ov-deadlines, .ov-gacha, .ov-news, .ov-game, .event-card, .card-head, .cap-card, .wuwa-panel, .calendar-board, .calendar-agenda, .calendar-detail, .login-panel',
+  resetOn: () => page.value,
+})
+
 const today = computed(()=>new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'long',day:'numeric',weekday:'long'}).format(now.value))
 let routeGame = initialRoute.page === 'game' ? initialRoute.game : ''
 const routeTab = ref(initialRoute.page === 'game' ? initialRoute.tab || '' : '')
@@ -60,18 +69,11 @@ function writeRoute(destination, game='') {
   if (window.location.hash !== '#'+next) window.location.hash = next
 }
 function setPage(destination) { routeGame=''; page.value=destination; writeRoute(destination); sidebarNavigate() }
-async function openMenu() { menuOpen.value=true; await nextTick(); sidebar.value?.querySelector?.('.primary-nav button')?.focus?.() }
-async function closeMenu() { menuOpen.value=false; await nextTick(); menuToggle.value?.focus?.() }
 function sidebarNavigate() { menuOpen.value=false; if(mobileNavigation.value)nextTick(()=>mainContent.value?.focus?.({preventScroll:true})) }
 function mediaChanged(event) { mobileNavigation.value=event.matches; if(!event.matches)menuOpen.value=false }
 function handleKey(event) {
   if((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key?.toLowerCase() === 'k' && state.user) { event.preventDefault(); if(!searchOpen.value)openSearch(); return }
-  if(event.key==='Escape' && menuOpen.value)closeMenu()
-  if(event.key==='Tab' && menuOpen.value && mobileNavigation.value) {
-    const controls=[...(sidebar.value?.querySelectorAll?.('a[href],button:not([disabled])') || [])], first=controls[0],last=controls.at(-1)
-    if(event.shiftKey && globalThis.document?.activeElement===first){event.preventDefault();last?.focus()}
-    else if(!event.shiftKey && globalThis.document?.activeElement===last){event.preventDefault();first?.focus()}
-  }
+  handleNavigationKey(event)
 }
 function syncRoute() {
   const hash=globalThis.window?.location?.hash || '', route=/#\/sessions(?:$|\?)/.test(hash)?{page:'sessions',game:''}:readRoute(hash)
@@ -190,27 +192,31 @@ onMounted(() => { globalThis.window?.addEventListener('hashchange',syncRoute); g
 onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',syncRoute); globalThis.window?.removeEventListener('keydown',handleKey); navigationMedia?.removeEventListener('change',mediaChanged); clearInterval(timer); stopTheme?.(); dashboard.dispose(); clearPublicData() })
 </script>
 <template>
-  <div class="workbench cloud-app" :class="{'menu-open':menuOpen}">
+  <div ref="workbench" class="workbench cloud-app" :class="{'menu-open':menuOpen}">
     <a class="skip-link" href="#main-content" @click.prevent="mainContent?.focus?.()">跳到主要内容</a>
     <main v-if="!state.user" class="cloud-content"><p v-if="!state.ready || logoutBusy" role="status">{{ logoutBusy ? '退出中…' : '加载中…' }}</p><section v-else-if="state.logoutFailed" class="cap-card logout-retry"><p role="alert">退出登录未完成，请稍后重试。</p><button class="ui-button" @click="logout">退出登录</button></section><SiteLogin v-else @authenticated="authenticated" /><p v-if="state.error" role="alert">{{ state.error }}</p></main>
     <div v-else>
-      <button v-if="menuOpen" class="sidebar-scrim" aria-label="关闭导航" tabindex="-1" @click="closeMenu"></button>
+      <button class="sidebar-scrim" :aria-hidden="!menuOpen" :inert="!menuOpen" aria-label="关闭导航" tabindex="-1" @click="closeMenu"></button>
+      <div ref="navigationSurface" class="floating-navigation" :role="mobileNavigation && menuOpen ? 'dialog' : undefined" :aria-modal="mobileNavigation && menuOpen ? true : undefined" :aria-label="mobileNavigation ? '游戏与菜单' : undefined">
+      <button type="button" class="navigation-grip" :aria-label="mobileNavigation ? (menuOpen ? '收起导航' : '展开导航') : '移动菜单，使用方向键调整位置'" :aria-expanded="mobileNavigation ? menuOpen : undefined" aria-controls="workspace-sidebar" @pointerdown="onGripPointerdown" @keydown="onGripKeydown" @click="mobileNavigation && onToggleClick($event)"><span aria-hidden="true"></span></button>
       <aside id="workspace-sidebar" ref="sidebar" class="workspace-sidebar cloud-navigation" :style="gameVars(selectedGame)" :inert="mobileNavigation && !menuOpen">
         <a class="brand" href="#/" @click.prevent="setPage('overview')"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>游戏管家<small aria-hidden="true">game · manage</small></span></a>
         <button class="mobile-sidebar-close icon-button" aria-label="关闭导航" @click="closeMenu"><AppIcon name="close" /></button>
         <nav class="primary-nav" aria-label="云端导航"><button :aria-current="page === 'overview' ? 'page' : undefined" @click="setPage('overview')"><AppIcon name="grid" /><span>今日总览</span></button><button :aria-current="page === 'calendar' ? 'page' : undefined" @click="openCalendar()"><AppIcon name="calendar" /><span>活动日历</span></button><button :aria-current="page === 'accounts' ? 'page' : undefined" @click="setPage('accounts')"><AppIcon name="user" /><span>账号与授权</span></button><button :aria-current="page === 'sessions' ? 'page' : undefined" @click="setPage('sessions')"><AppIcon name="shield" /><span>网站会话</span></button></nav><div class="sidebar-label"><span>我的游戏</span></div><nav class="game-nav" aria-label="游戏导航"><button v-for="game in ownerGames" :key="game.game_id" :aria-current="page === 'game' && selectedGame === game.game_id ? 'page' : undefined" @click="openAccount(overviewOwners[game.game_id])"><GameIcon class="nav-game-mark" :game-id="game.game_id" :name="game.display_name" :style="{ '--mark-tone': gameStyle(game.game_id).tone }" /><span>{{ game.display_name }}</span></button></nav><nav class="cloud-grants" aria-label="本人授权"><button v-for="(account, index) in state.accounts" :key="account.account_id" :aria-pressed="account.account_id === state.selected?.account_id" @click="openAccount(account)">{{ providerName(account) }}<small>授权 {{ index + 1 }}</small></button></nav></aside>
+      <nav class="mobile-tabbar" aria-label="常用页面">
+        <button type="button" :class="{ active: page === 'overview' }" :aria-current="page === 'overview' ? 'page' : undefined" @click="setPage('overview')"><AppIcon name="grid" :size="19" /><span>总览</span></button>
+        <button type="button" :class="{ active: page === 'calendar' }" :aria-current="page === 'calendar' ? 'page' : undefined" @click="openCalendar()"><AppIcon name="calendar" :size="19" /><span>日历</span></button>
+        <button type="button" :class="{ active: page === 'accounts' }" :aria-current="page === 'accounts' ? 'page' : undefined" @click="setPage('accounts')"><AppIcon name="user" :size="19" /><span>账号</span></button>
+        <button ref="menuToggle" class="nav-menu-toggle" type="button" :class="{ active: page === 'game' || page === 'sessions' }" :aria-expanded="menuOpen" aria-controls="workspace-sidebar" @pointerdown="onTogglePointerdown" @click="onToggleClick" @keydown="onToggleKeydown"><AppIcon name="chevron" :size="19" /><span>游戏与菜单</span></button>
+      </nav>
+    </div>
       <div class="workspace-body" :inert="mobileNavigation && menuOpen"><header class="workspace-topbar"><div class="topbar-left"><button class="search-trigger" type="button" aria-haspopup="dialog" :aria-keyshortcuts="macKeys ? 'Meta+K' : 'Control+K'" @click="openSearch"><AppIcon name="search" :size="16" /><span>搜索页面、游戏、活动和角色</span><kbd aria-hidden="true">{{ macKeys ? '⌘ K' : 'Ctrl K' }}</kbd></button></div><div class="topbar-right"><span class="topbar-date"><AppIcon name="calendar" :size="15" /><span>{{ today }}</span></span><button class="icon-button theme-toggle" :aria-label="theme === 'light' ? '切换到夜间模式' : '切换到白天模式'" @click="setTheme(theme === 'light' ? 'dark' : 'light')"><AppIcon :name="theme === 'light' ? 'moon' : 'sun'" :size="16" /></button><button class="ui-button small-button" :disabled="logoutBusy" @click="logout">退出登录</button></div></header>
       <main id="main-content" ref="mainContent" tabindex="-1" class="workspace-main cloud-content"><p v-if="state.error" role="alert">{{ state.error }}</p>
         <template v-if="page === 'accounts'"><header class="page-heading"><div class="page-heading-copy"><h1>账号与授权</h1></div></header><CloudBilibiliSourcePanel v-if="state.user.is_admin" :key="state.user.user_id" /><QqBindingPanel :key="state.user.user_id" /><AccountSettings :key="state.user.user_id" :accounts="state.accounts" :is-admin="state.user.is_admin" @changed="dashboard.loadAccounts()" /><LoginPanel :key="state.user.user_id" @account-changed="dashboard.loadAccounts()" /><CloudSklandConnect :key="state.user.user_id" :accounts="state.accounts" :user-id="state.user.user_id" @changed="dashboard.loadAccounts()" /></template>
         <section v-else-if="page === 'calendar'" class="cloud-calendar"><div class="cloud-calendar-controls"><button class="ui-button" :disabled="calendarLoading" @click="loadCalendar">刷新活动</button></div><CalendarPage :key="state.user.user_id" :games="publicGames" :snapshots="calendarSnapshots" :initial-game-id="calendarGame" :read-errors="calendarReadErrors" :loading="calendarLoading" show-source-status /></section><section v-else-if="page === 'sessions'" class="cloud-sessions"><header class="page-heading"><div class="page-heading-copy"><h1>网站会话</h1></div><button class="ui-button" @click="dashboard.loadSessions()"><AppIcon name="refresh" :size="15" />刷新</button></header><div class="cap-card session-card"><p class="session-note">撤销后，该设备立刻无法访问你的数据。</p><article v-for="(session, index) in state.sessions" :key="session.session_id"><AppIcon name="shield" :size="20" /><p>会话 {{ index + 1 }} · 创建 {{ displayBeijing(session.created_at) }} · 过期 {{ displayBeijing(session.expires_at) }}</p><button class="ui-button small-button" @click="revoke(session.session_id)">撤销此会话</button></article></div></section>
 <template v-else><template v-if="page === 'overview'"><OverviewPage :games="overviewGames" :snapshots="overviewSnapshots" :accounts="overviewAccounts" :read-errors="overviewErrors" :collection="overviewCollection" :now="now" :loading="state.loading || state.overviewLoading" @navigate="navigate" @refresh="readOverview" /><details class="cloud-owner-note"><summary>数据来源</summary><p v-for="game in overviewGames" :key="game.game_id">{{ game.display_name }} · {{ providerName(overviewOwners[game.game_id]) }} · {{ overviewOwners[game.game_id].roles?.find(r=>r.is_default)?.display_name || overviewOwners[game.game_id].roles?.[0]?.display_name || '角色名称未提供' }}{{ overviewOwners[game.game_id].roles?.some(r=>r.is_default) ? '（默认）' : '（未设默认）' }}</p></details><p v-if="!state.accounts.length">还没有游戏账号，请到「账号与授权」登录。</p></template><template v-else><header class="cloud-game-heading"><p class="cloud-identity">{{ state.selected ? providerName(state.selected) : '游戏档案' }}</p><label v-if="state.selected">查看授权<select :value="state.selected.account_id" @change="openAccount(state.accounts.find(a=>a.account_id === $event.target.value))"><option v-for="(account,index) in state.accounts.filter(a=>gameFor(a)===selectedGame)" :key="account.account_id" :value="account.account_id">{{ providerName(account) }} · 授权 {{ index+1 }}</option></select></label><label v-if="state.selected">查看角色<select :value="state.role" @change="dashboard.selectAccount(state.selected, $event.target.value)"><option v-for="(role, index) in state.selected.roles || []" :key="role.role_id" :value="role.role_id">{{ role.display_name || `角色 ${index + 1}` }}{{ role.is_default ? '（默认）' : '' }}</option></select></label></header><p v-if="!state.accounts.length">还没有游戏账号，请到「账号与授权」登录。</p><p v-if="state.selected?.state === 'revoked'">此项授权已撤销，请重新授权后查看数据。</p><template v-else-if="state.selected && state.role"><p v-for="[cap, value] in refreshMessages" :key="cap" role="status">{{ capabilityLabel(cap) }}：{{ value }}</p><CloudGameCard :key="`${dataKey}:${routeTab}:${jumps}`" :section="routeTab || 'overview'" :account="state.selected" :role="state.role" :user-id="state.user.user_id" :is-admin="state.user.is_admin" :refreshing="refreshPending" :snapshots="state.snapshots" :public-snapshots="publicSnapshots[selectedGame] || {}" @calendar="openCalendar(selectedGame)" @refresh="refresh" /></template><p v-else-if="state.selected && !state.role">此授权尚无可选角色，请到账号与授权检查角色同步。</p></template></template>
       </main></div>
-      <nav class="mobile-tabbar" aria-label="常用页面" :inert="mobileNavigation && menuOpen">
-        <button type="button" :class="{ active: page === 'overview' }" :aria-current="page === 'overview' ? 'page' : undefined" @click="setPage('overview')"><AppIcon name="grid" :size="19" /><span>总览</span></button>
-        <button type="button" :class="{ active: page === 'calendar' }" :aria-current="page === 'calendar' ? 'page' : undefined" @click="openCalendar()"><AppIcon name="calendar" :size="19" /><span>日历</span></button>
-        <button type="button" :class="{ active: page === 'accounts' }" :aria-current="page === 'accounts' ? 'page' : undefined" @click="setPage('accounts')"><AppIcon name="user" :size="19" /><span>账号</span></button>
-        <button ref="menuToggle" type="button" :class="{ active: page === 'game' || page === 'sessions' }" :aria-expanded="menuOpen" aria-controls="workspace-sidebar" @click="openMenu"><AppIcon name="menu" :size="19" /><span>游戏与菜单</span></button>
-      </nav>
+
       <SearchDialog v-if="searchOpen" :pages="searchPages" :games="searchGames" :snapshots="overviewSnapshots" :now="now" @select="jumpTo" @close="searchOpen = false" />
     </div>
   </div>
@@ -236,7 +242,7 @@ onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',sync
 .cloud-game-heading{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:end;padding:16px 18px;border-radius:var(--radius-tile);background:var(--card-bg);border:1px solid var(--card-border);box-shadow:var(--card-shadow)}.cloud-identity{width:100%;color:var(--text-muted);font-size:12px}.cloud-game-heading label{display:grid;gap:7px;font-size:13px;font-weight:500}
 .cloud-content select{max-width:100%;box-sizing:border-box;min-width:0;min-height:40px;padding:8px 36px 8px 13px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23787d84' stroke-width='1.6'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;appearance:none;color:var(--text)}
 .cloud-calendar{min-width:0;display:grid;gap:18px}.cloud-calendar-controls{display:flex;justify-content:flex-end}p[role=alert]{color:var(--danger);overflow-wrap:anywhere}
-@media(max-width:720px){.cloud-game-heading>label{width:100%}.cloud-game-heading select{width:100%}.cloud-content .cap-card{min-width:0}.topbar-right{gap:8px}}
+@media(max-width:960px){.cloud-game-heading>label{width:100%}.cloud-game-heading select{width:100%}.cloud-content .cap-card{min-width:0}.topbar-right{gap:8px}}
 /* Sessions (mockup .session-card): one row per signed-in device, hairlines between. */
 .session-note{color:var(--text-muted);font-size:13px}
 .session-card > article{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:14px 0;border-top:1px solid var(--border)}
