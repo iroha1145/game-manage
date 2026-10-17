@@ -259,8 +259,8 @@ function quickLinks(card) {
 /* Row one: the hero beside today's progress. */
 .ov-top { display:grid; grid-template-columns:minmax(0, 1.95fr) minmax(290px, 1fr); gap:20px; align-items:stretch; }
 /* Hero: a white frame around the featured game's pale tone (mockup .hero-card). */
-.ov-hero { min-width:0; height:300px; padding:6px; overflow:hidden; border:1px solid var(--card-border); border-radius:26px; background:var(--card-bg); box-shadow:var(--card-shadow); }
-.hero-inner { position:relative; isolation:isolate; height:100%; overflow:hidden; padding:24px 28px 62px; border-radius:20px; background:var(--game-tone, var(--control-track)); }
+.ov-hero { display:flex; flex-direction:column; min-width:0; min-height:300px; padding:6px; overflow:hidden; border:1px solid var(--card-border); border-radius:26px; background:var(--card-bg); box-shadow:var(--card-shadow); }
+.hero-inner { position:relative; isolation:isolate; flex:1; overflow:hidden; padding:24px 28px 62px; border-radius:20px; background:var(--game-tone, var(--control-track)); container-type:inline-size; }
 .ov-hero.is-empty .hero-inner { display:grid; place-items:center; color:var(--text-muted); padding:24px; }
 .hero-copy { position:relative; z-index:3; max-width:min(58%, 420px); }
 .hero-eyebrow { display:flex; align-items:center; gap:8px; color:var(--game-accent); font-size:12px; font-weight:500; white-space:nowrap; }
@@ -276,7 +276,11 @@ function quickLinks(card) {
 @media(hover:hover) and (pointer:fine) { .hero-cta:hover span { transform:translateX(2px); } .hero-cta:hover { filter:brightness(1.06); } }
 .hero-cta:active { transform:translateY(1px); }
 /* Art: the top roles' pictures fanned at the right, or the game's mark when there are none. It drifts a little against the scroll. */
-.hero-art { --plx-range:-14px; position:absolute; right:6%; bottom:30px; z-index:1; width:250px; height:210px; pointer-events:none; }
+.hero-art { --plx-range:-14px; position:absolute; right:6%; bottom:30px; z-index:1; width:250px; height:210px; pointer-events:none; transform-origin:100% 100%; }
+/* The art steps down as the hero narrows, so it never runs into the text. `scale` composes with the parallax transform. */
+@container (max-width:760px) { .hero-art { scale:.82; } }
+@container (max-width:600px) { .hero-art { scale:.7; right:2%; } .hero-copy { max-width:62%; } }
+@container (max-width:480px) { .hero-art { scale:.6; right:-10px; bottom:38px; } .hero-copy { max-width:66%; } }
 .hero-face { position:absolute; object-fit:cover; background:var(--card-bg); border:5px solid var(--card-bg); box-shadow:0 18px 40px -22px rgba(38, 40, 46, .45); }
 .face-0 { right:24px; bottom:0; z-index:3; width:172px; height:172px; border-radius:40px; transform:rotate(5deg); }
 .face-1 { right:170px; bottom:22px; z-index:2; width:96px; height:96px; border-radius:26px; transform:rotate(-9deg); }
@@ -427,19 +431,18 @@ function quickLinks(card) {
 .news-source { display:flex; align-items:center; gap:6px; margin-top:2px; color:var(--text-muted); font-size:12px; line-height:18px; min-width:0; }.news-source>span { color:var(--text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-source time { margin-left:auto; flex-shrink:0; }
 @media(hover:hover) and (pointer:fine) { .news-summary a:hover,.news-summary a:hover span { color:var(--accent); } }
 
-@media(max-width:1250px) { .ov-top { grid-template-columns:minmax(0, 1.6fr) minmax(270px, 1fr); gap:16px; } .hero-inner { padding-left:22px; } .hero-index { left:16px; } .hero-art { right:2%; } .ov-analytics { grid-template-columns:minmax(0, 1.5fr) minmax(280px, 1fr); gap:16px; } }
-@media(max-width:1000px) { .ov-top,.ov-analytics { grid-template-columns:minmax(0, 1fr); } .ov-tasks .task-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); column-gap:18px; } .task:nth-child(2) { border-top:0; padding-top:0; } }
+@media(max-width:1250px) { .ov-top { grid-template-columns:minmax(0, 1.6fr) minmax(270px, 1fr); gap:16px; } .hero-inner { padding-left:22px; } .hero-index { left:16px; } .ov-analytics { grid-template-columns:minmax(0, 1.5fr) minmax(280px, 1fr); gap:16px; } }
+@media(max-width:1180px) { .ov-top,.ov-analytics { grid-template-columns:minmax(0, 1fr); } .ov-tasks .task-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); column-gap:18px; } .task:nth-child(2) { border-top:0; padding-top:0; } }
 @media(max-width:720px) {
   .ov-today { display:inline-flex !important; color:var(--text-body); }
   .ov-actions { width:100%; } .ov-actions .ui-button { flex:1; }
-  .ov-hero { height:300px; border-radius:24px; } .hero-inner { padding:22px 20px 62px; border-radius:18px; }
-  .hero-copy { max-width:64%; } .hero-title b { font-size:36px; line-height:42px; }
-  .hero-art { right:-16px; bottom:40px; transform:scale(.72); transform-origin:100% 100%; }
+  .ov-hero { border-radius:24px; } .hero-inner { padding:22px 20px 62px; border-radius:18px; }
+  .hero-title b { font-size:36px; line-height:42px; }
   .ov-tasks .task-list { grid-template-columns:minmax(0, 1fr); } .task:nth-child(2) { border-top:1px solid var(--border); padding-top:6px; }
   .ov-game,.event-card { width:280px; }
   .ov-deadlines,.ov-gacha { padding:20px 18px 14px; }
   .gacha-number b { font-size:40px; }
 }
-@media(max-width:420px) { .hero-copy { max-width:70%; } .hero-index button { min-width:0; padding:8px 9px; } .ov-news .section-heading { flex-wrap:wrap; gap:8px; } .news-filters { width:100%; margin-left:0; } }
+@media(max-width:420px) { .hero-index button { min-width:0; padding:8px 9px; } .ov-news .section-heading { flex-wrap:wrap; gap:8px; } .news-filters { width:100%; margin-left:0; } }
 @media(prefers-reduced-motion:reduce) { .event-card:active,.ov-next:active,.hero-cta:active { transform:none; } }
 </style>
