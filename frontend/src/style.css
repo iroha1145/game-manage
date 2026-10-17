@@ -187,7 +187,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .workspace-body { margin-left:256px; padding-right:12px; min-width:0; }
 .workspace-topbar { position:sticky; top:12px; z-index:30; height:60px; margin-top:12px; display:flex; align-items:center; justify-content:space-between; gap:15px; padding:0 12px 0 22px; border:1px solid var(--glass-border); border-radius:20px; background:var(--topbar-bg); -webkit-backdrop-filter:var(--glass-filter); backdrop-filter:var(--glass-filter); box-shadow:var(--glass-edge), var(--float-shadow); }
 .topbar-left,.topbar-right { display:flex; align-items:center; gap:12px; }.breadcrumb { font-size:13px; color:var(--text-muted); }.breadcrumb b { font-size:15px; font-weight:600; color:var(--text); }
-.topbar-date { color:var(--text-muted); font-size:13px; }
+.topbar-date { padding:5px 12px; border-radius:999px; background:var(--overlay-3); color:var(--text-body); font-size:13px; }
 .workspace-main { padding:28px 0 56px; max-width:1480px; margin:0 auto; outline:none; min-width:0; }
 .topbar-left { min-width:0; }
 .topbar-right { flex-shrink:0; }
@@ -219,7 +219,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
    moving from the icon onto the text keeps it open (WCAG 1.4.13). Hover comes
    from InfoHint's is-hovered (mouse and pen only), not :hover, which sticks
    after a tap and would pin the tip open. */
-.info-hint-tip { display:none; position:fixed; z-index:70; width:max-content; max-width:min(300px, calc(100% - 24px)); padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-well); background:var(--card-bg); box-shadow:var(--popover-shadow); color:var(--text-body); font-size:12px; font-weight:400; line-height:1.6; letter-spacing:0; text-transform:none; white-space:normal; text-align:left; }
+.info-hint-tip { display:none; position:fixed; z-index:70; width:max-content; max-width:min(300px, calc(100% - 24px)); padding:9px 12px; border:1px solid var(--glass-border); border-radius:var(--radius-control); background:var(--glass-strong); -webkit-backdrop-filter:var(--glass-filter); backdrop-filter:var(--glass-filter); box-shadow:var(--glass-edge), var(--popover-shadow); color:var(--text-body); font-size:12px; font-weight:400; line-height:1.6; letter-spacing:0; text-transform:none; white-space:normal; text-align:left; }
 .info-hint-tip::before { content:''; position:absolute; left:0; right:0; height:6px; }
 @media(max-width:600px) { .info-hint-tip::before { height:8px; } }
 .info-hint-tip[data-side="above"]::before { top:100%; }
