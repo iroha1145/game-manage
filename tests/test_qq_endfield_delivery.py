@@ -69,7 +69,7 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
     app = create_cloud_app(Settings(
         cloud_db_path=str(tmp_path / 'cloud.db'), cloud_allowed_origins=['https://cloud.example'],
         qq_app_id='app', qq_service_token='fixture-service', qq_images_enabled=True,
-        qq_image_font_path=font,qq_browser_render_executable_path=executable), start_scheduler=False)
+        qq_image_font_path=font,qq_image_max_bytes=1048576,qq_browser_render_executable_path=executable), start_scheduler=False)
     service = app.state.qq_query
     service.query_service = query
     query.accounts._listeners.append(service.invalidate)
