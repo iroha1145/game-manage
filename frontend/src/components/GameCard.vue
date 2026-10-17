@@ -158,7 +158,9 @@ function capProps(cap) {
 
 /* Hero: a dark stage with the game's original artwork; the page's one saturated surface. */
 .card-head { position:relative; display:flex; align-items:center; gap:10px 12px; min-height:168px; margin-bottom:24px; padding:28px 28px 28px 30px; flex-wrap:wrap; overflow:hidden; isolation:isolate; border-radius:var(--radius-card); color:#fff; background:radial-gradient(90% 160% at 100% 0%, color-mix(in srgb, var(--game-vivid) 34%, #161827) 0%, #151827 52%, #0f111a 100%); box-shadow:0 1px 2px rgba(20, 24, 40, .2), 0 26px 56px -32px color-mix(in srgb, var(--game-vivid) 70%, #0f111a); }
-.card-head :deep(.game-art) { z-index:-1; }
+.card-head :deep(.game-art) { z-index:-2; }
+/* A dark wash under the title keeps it readable wherever the artwork reaches. */
+.card-head::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg, rgba(15, 17, 26, .72) 0%, rgba(15, 17, 26, .35) 40%, transparent 70%); }
 .card-head > :not(.game-art) { position:relative; }
 .game-heading { display:flex; align-items:center; gap:16px; margin-right:auto; min-width:0; }
 .detail-monogram { display:grid; place-items:center; font-size:24px; width:56px; height:56px; border-radius:16px; box-shadow:0 0 0 1px rgba(255, 255, 255, .18), 0 12px 24px -10px var(--game-vivid); }
