@@ -78,6 +78,8 @@ const heroArt = computed(() => featured.value ? roster(featured.value).shown.sli
 // Daily and weekly progress, read-only.
 const tasks = computed(() => dailyTasks(props.games, props.snapshots, props.now))
 const tasksDone = computed(() => tasks.value.filter(task => task.done).length)
+// How full each row's little ring is, 0–100; a countdown without a total is empty until it reaches zero.
+const taskShare = task => task.done ? 100 : task.total ? Math.round(Math.min(1, task.current / task.total) * 100) : 0
 
 // Deadlines for the next 7 or 30 days, and the one that comes first.
 const range = ref(7)
@@ -154,7 +156,7 @@ function quickLinks(card) {
           </div>
           <ul class="task-list">
             <li v-for="task in tasks.slice(0, 6)" :key="task.key" class="task" :class="{ done: task.done }" :style="gameVars(task.gameId)">
-              <span class="task-check" aria-hidden="true"><AppIcon v-if="task.done" name="check" :size="12" /></span>
+              <span class="task-mark" :style="{ '--p': taskShare(task) }" aria-hidden="true"><AppIcon v-if="task.done" name="check" :size="11" /></span>
               <span class="task-name">{{ task.name }}<small>{{ task.gameName }}<template v-if="task.reset"> · {{ task.reset }}</template></small></span>
               <span class="task-value">{{ task.total == null ? `${task.current} ${task.unit}` : `${task.current}/${task.total}` }}<span class="sr-only">，{{ task.done ? '已完成' : '未完成' }}</span></span>
             </li>
@@ -303,8 +305,12 @@ function quickLinks(card) {
 .task-list { min-width:0; }
 .task { display:flex; align-items:center; gap:10px; min-height:44px; padding:6px 0; border-top:1px solid var(--border); font-size:13px; }
 .task:first-child { border-top:0; padding-top:0; }
-.task-check { display:grid; place-items:center; flex-shrink:0; width:18px; height:18px; border:1px solid var(--border-strong); border-radius:6px; background:var(--card-bg); }
-.task.done .task-check { border-color:color-mix(in srgb, var(--accent) 30%, var(--border)); background:var(--accent-soft); color:var(--accent); }
+/* A small progress ring per row, not a checkbox: the rows are read-only. Done rows show a check. */
+.task-mark { display:grid; place-items:center; flex-shrink:0; width:18px; height:18px; border-radius:50%; background:conic-gradient(var(--game-vivid) calc(var(--p) * 1%), var(--track) 0); }
+.task-mark::before { content:''; grid-area:1 / 1; width:10px; height:10px; border-radius:50%; background:var(--card-bg); }
+.task.done .task-mark { background:var(--success-bg); color:var(--success); }
+.task.done .task-mark::before { display:none; }
+.task-mark > svg { grid-area:1 / 1; }
 .task-name { display:grid; flex:1; min-width:0; color:var(--text); font-weight:500; }
 .task-name small { overflow:hidden; color:var(--text-muted); font-size:12px; font-weight:400; white-space:nowrap; text-overflow:ellipsis; }
 .task.done .task-name { color:var(--text-muted); }

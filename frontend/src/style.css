@@ -199,7 +199,6 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .search-trigger>span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .search-trigger kbd { margin-left:auto; flex-shrink:0; padding:0 5px; border:1px solid var(--border); border-radius:4px; color:var(--text-muted); font:500 11px/18px var(--font-sans); }
 @media(hover:hover) and (pointer:fine) { .search-trigger:hover { border-color:var(--border-strong); color:var(--text-body); } }
-.breadcrumb { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; color:var(--text-muted); }.breadcrumb b { font-size:15px; font-weight:600; color:var(--text); }
 /* Date chip: today's date in Beijing time, quiet beside the actions. */
 .topbar-date { display:flex; align-items:center; gap:8px; min-height:40px; padding:0 13px; border:1px solid var(--border); border-radius:10px; background:var(--panel-bg); color:var(--text-muted); font-size:12px; white-space:nowrap; }
 .topbar-clock { color:var(--text); font-weight:500; font-variant-numeric:tabular-nums; }
