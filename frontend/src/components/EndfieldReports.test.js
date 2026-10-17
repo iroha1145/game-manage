@@ -157,3 +157,113 @@ test('legacy regional collections use the observed game labels',t=>{
   for(const label of ['醚质','宝箱','装备制造模板','维修灵感点','协议采录桩'])assert.ok(content(root).includes(label))
   assert.doesNotMatch(content(root),/谜质|储藏箱|装备箱|片段|黑盒/)
 })
+
+const cls = (node, name) => String(node.props.class).split(' ').includes(name)
+const rich = { report: { schema_version: 1, observed_at: '2026-10-15T00:00:00Z',
+  overview: { base: { name: '甲', level: 46, world_level: 5, role_id: '9' }, stamina: { current: 187, maximum: 240 },
+    progress: [{ id: 'daily', name: '每日活跃', cur: 60, total: 100, remaining: 40 }, { id: 'weekly', name: '每周任务', cur: null, total: 2000, remaining: null }], todos: [] },
+  training: { summary: { listed_count: 3, declared_count: 3, rarity_counts: { 6: 2, 5: 1 }, phase_counts: { 0: 1, 3: 2 } },
+    items: [{ id: 'a', name: '甲六', level: 80, rarity: 6, evolve_phase: 3 }, { id: 'b', name: '乙六', level: 70, rarity: 6, evolve_phase: 3 }, { id: 'c', name: '丙五', level: 60, rarity: 5, evolve_phase: 0 }] },
+  regions: { items: [], summary: { region_count: 3 } }, ship: { rooms: [], summary: { room_count: 4 } } } }
+
+test('overview draws stamina and progress as rings and the counts as shortcut tiles that navigate', t => {
+  const seen = []
+  const root = mount(t, Reports, { payload: rich, view: 'overview', onNavigate: key => seen.push(key) })
+  const meters = nodes(root, 'div').filter(node => node.props.role === 'meter')
+  assert.deepEqual(meters.map(node => [node.props['aria-label'], node.props['aria-valuenow'], node.props['aria-valuemax']]), [['理智', 187, 240], ['每日活跃', 60, 100]])
+  assert.match(content(root), /理智 187 \/ 240/); assert.match(content(root), /预计回满 未知/)
+  assert.match(content(root), /每周任务 未知 \/ 2000/)
+  const tiles = nodes(root, 'button').filter(node => cls(node, 'ef-count'))
+  assert.deepEqual(tiles.map(node => content(node)), ['已记录干员 3 6★ 2 · 5★ 1 查看全员练度 →', '建设地区 3 查看地区建设 →', '帝江号房间 4 查看帝江号 →'])
+  tiles.forEach(node => node.props.onClick())
+  assert.deepEqual(seen, ['operators', 'regions', 'ship'])
+})
+
+test('in a bot image the count tiles are plain blocks without actions', t => {
+  const root = mount(t, Reports, { payload: rich, view: 'overview', imageMode: true })
+  assert.equal(nodes(root, 'button').length, 0)
+  const tiles = nodes(root, 'div').filter(node => cls(node, 'ef-count'))
+  assert.deepEqual(tiles.map(node => content(node)), ['已记录干员 3 6★ 2 · 5★ 1', '建设地区 3', '帝江号房间 4'])
+  assert.doesNotMatch(content(root), /查看全员练度|UID/)
+})
+
+test('the 6★ rail follows the roster filters, has no headings of its own and opens the loadout', async t => {
+  const seen = []
+  const root = mount(t, Reports, { payload: rich, view: 'operators', onInspect: id => seen.push(id) })
+  const rail = () => nodes(root, 'button').filter(node => cls(node, 'ef-feature'))
+  // The fallback tile's first character precedes the name when art is not available.
+  assert.deepEqual(rail().map(node => content(node)), ['甲 甲六 Lv. 80 潜能 未知', '乙 乙六 Lv. 70 潜能 未知'])
+  assert.deepEqual(nodes(root, 'h3').map(content), ['甲六', '乙六', '丙五'])
+  rail()[1].props.onClick({ currentTarget: null })
+  assert.deepEqual(seen, ['b'])
+  nodes(root, 'select')[0].props['onUpdate:modelValue']('5'); await nextTick()
+  assert.equal(rail().length, 0)
+  assert.deepEqual(nodes(root, 'h3').map(content), ['丙五'])
+  assert.doesNotMatch(content(root), /6★ 干员/)
+})
+
+test('rarity and phase distributions come from the source counts, and a lone tier stays a plain tag', t => {
+  const root = mount(t, Reports, { payload: rich, view: 'operators' })
+  const ring = nodes(root, 'figure').find(node => node.props['aria-label'] === '干员稀有度分布')
+  assert.ok(ring)
+  assert.match(content(ring), /6★ 2 名 67%/); assert.match(content(ring), /5★ 1 名 33%/)
+  const bar = nodes(root, 'div').find(node => node.props.role === 'img' && cls(node, 'stack-bar'))
+  assert.equal(bar.props['aria-label'], '精英阶段 0 1，精英阶段 3 2')
+  const lone = mount(t, Reports, { payload: { report: { ...rich.report, training: { ...rich.report.training, summary: { listed_count: 1, rarity_counts: { 6: 1 } } } } }, view: 'operators' })
+  assert.equal(nodes(lone, 'figure').length, 0)
+  assert.match(content(lone), /稀有度分布 6★ 1/)
+  const none = mount(t, Reports, { payload: { report: { ...rich.report, training: { items: [], summary: { listed_count: 0 } } } }, view: 'operators' })
+  assert.doesNotMatch(content(none), /稀有度分布|精英阶段/)
+})
+
+test('region vouchers are a ring, settlement coupons a plain bar, and only collections stay native progress', t => {
+  const report = { schema_version: 1, regions: { items: [{ id: 'r', name: '甲地', level: 3, money: { current: 5, total: 20, percent: 25 },
+    settlements: [{ id: 's', name: '据点甲', coupon: { current: 1, total: 4, percent: 25 }, officers: [] }],
+    areas: [{ name: '区', collections: [{ key: 'chests', label: '宝箱', current: 2, total: 4, percent: 50, remaining: 2 }] }] }] } }
+  const root = mount(t, Reports, { payload: { report }, view: 'regions' })
+  const meter = nodes(root, 'div').find(node => node.props.role === 'meter')
+  assert.deepEqual([meter.props['aria-label'], meter.props['aria-valuenow'], meter.props['aria-valuemax']], ['地区调度券', 5, 20])
+  assert.match(content(root), /地区调度券 5 \/ 20/)
+  assert.equal(nodes(root, 'span').filter(node => cls(node, 'ef-bar')).length, 1)
+  assert.equal(nodes(root, 'progress').length, 1)
+})
+
+test('ship rings are decorative: the native progress stays the accessible value and unknown values keep a dashed note', t => {
+  const root = mount(t, Reports, { view: 'ship', payload: { report: { schema_version: 1, ship: { rooms: [{ id: 'r', name: '舱', operators: [{ id: 'a', name: '甲', mood_raw: 5000, trust_raw: 300 }, { id: 'b', name: '乙', mood_raw: 20000 }] }] } } } })
+  const rings = nodes(root, 'div').filter(node => cls(node, 'ring-gauge'))
+  assert.equal(rings.length, 4)
+  for (const ring of rings) assert.equal(ring.props['aria-hidden'], 'true')
+  const bars = nodes(root, 'progress')
+  assert.deepEqual(bars.map(node => [node.props.value, node.props.max]), [[50, '100'], [100, '200']])
+  for (const bar of bars) assert.ok(cls(bar, 'sr-only'))
+  assert.match(content(root), /心情 50%/); assert.match(content(root), /信赖 亲近 100%/)
+  assert.match(content(root), /超出模型范围/); assert.match(content(root), /观测值未知/)
+})
+
+test('honor adds a category ring for two or more categories and a recent rail for three dated medals, never another heading', t => {
+  const items = [
+    { id: '1', name: '甲', category: '探索', level: 1, obtained_at: '2026-10-03T00:00:00Z' }, { id: '2', name: '乙', category: '战斗', level: 1, obtained_at: '2026-10-02T00:00:00Z' },
+    { id: '3', name: '丙', category: '战斗', level: 1, obtained_at: '2026-10-01T00:00:00Z' },
+  ]
+  const root = mount(t, Reports, { view: 'honor', payload: { report: { schema_version: 1, honor: { available: true, items, summary: { declared_count: 9, listed_count: 3 } } } } })
+  assert.ok(nodes(root, 'figure').some(node => node.props['aria-label'] === '已记录奖章的分类占比'))
+  assert.match(content(root), /战斗 2 枚 67%/)
+  const recent = nodes(root, 'div').filter(node => cls(node, 'ef-recent-medal'))
+  assert.deepEqual(recent.map(node => content(node)), ['甲 甲 2026-10-03', '乙 乙 2026-10-02', '丙 丙 2026-10-01'])
+  assert.deepEqual(nodes(root, 'h3').map(content), ['甲', '乙', '丙'])
+  const one = mount(t, Reports, { view: 'honor', payload: { report: { schema_version: 1, honor: { available: true, items: items.slice(0, 2).map(item => ({ ...item, category: '探索' })), summary: { listed_count: 2 } } } } })
+  assert.equal(nodes(one, 'figure').length, 0)
+  assert.equal(nodes(one, 'div').filter(node => cls(node, 'ef-recent-medal')).length, 0)
+  const image = mount(t, Reports, { view: 'honor', imageMode: true, payload: { report: { schema_version: 1, honor: { available: true, items, summary: { listed_count: 3 } } } } })
+  assert.equal(nodes(image, 'div').filter(node => cls(node, 'ef-recent-medal')).length, 0)
+  assert.equal(nodes(image, 'button').length, 0)
+})
+
+test('plated medals are counted only when plating is reported for every listed medal', t => {
+  const medal = (id, is_plated) => ({ id, name: `奖章${id}`, level: 1, is_plated })
+  const view = items => mount(t, Reports, { view: 'honor', payload: { report: { schema_version: 1, honor: { available: true, items, summary: { listed_count: items.length } } } } })
+  assert.match(content(view([medal(1, true), medal(2, false), medal(3, true)])), /已镀层 2/)
+  assert.match(content(view([medal(1, false)])), /已镀层 0/)
+  assert.doesNotMatch(content(view([medal(1, true), medal(2, null)])), /已镀层 [0-9]/)
+  assert.doesNotMatch(content(view([])), /已镀层 [0-9]/)
+})

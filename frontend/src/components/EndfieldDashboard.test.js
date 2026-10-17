@@ -354,3 +354,48 @@ test('a failed copy and a successful copy replace each other in the blueprint li
     assert.doesNotMatch(content(root), hidden)
   }
 })
+
+test('profile tabs show an outline of what connecting unlocks until a role is chosen, and the overview never does', async t => {
+  let connected = false
+  const status = () => connected
+    ? { connected: true, roles: [{ role_id: '7', server_id: '1', nickname: '管理员' }], selected_role_id: '7', selected_server_id: '1' }
+    : { connected: false, passport_available: true, roles: [] }
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.endsWith('/status')) return response(status())
+    if (url.endsWith('/skland/passport')) { connected = true; return response(status()) }
+    if (url.endsWith('/card')) return response({ payload: { operators: [{ id: 'a', name: '干员甲', level: 3 }] } })
+    return response({ supported: false })
+  })
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush()
+  assert.doesNotMatch(content(root), /连接森空岛并选择角色后/)
+  for (const [tab, note] of [['全员练度', /稀有度与精英阶段分布/], ['地区建设', /各地区调度券、据点与区域收集进度/], ['帝江号', /各舱室驻守干员的心情与信赖/]]) {
+    nodes(root, 'button').find(n => content(n) === tab).props.onClick(); await flush()
+    assert.match(content(root), new RegExp(`连接森空岛并选择角色后，这里显示${note.source}`))
+    // The outline is decoration: no controls, and it is hidden from assistive tech.
+    const outline = nodes(root, 'section').find(n => n.props['aria-label'] === '连接后可查看的内容')
+    assert.equal(nodes(outline, 'button').length, 0)
+    assert.equal(nodes(outline, 'div').find(n => String(n.props.class).includes('locked-grid')).props['aria-hidden'], 'true')
+  }
+  nodes(root, 'button').find(n => content(n) === '概览').props.onClick(); await flush()
+  assert.doesNotMatch(content(root), /连接森空岛并选择角色后/)
+  // Once a role is connected the real tab replaces the outline.
+  nodes(root, 'button').find(n => content(n) === '用鹰角通行证连接').props.onClick(); await flush(); await flush()
+  nodes(root, 'button').find(n => content(n) === '全员练度').props.onClick(); await flush(); await flush()
+  assert.doesNotMatch(content(root), /连接森空岛并选择角色后/)
+  assert.match(content(root), /干员甲/)
+})
+
+test('the section tabs are one pill track with a pressed state and the 更多 pills keep their own row', async t => {
+  t.mock.method(globalThis, 'fetch', async () => response({ connected: false, roles: [] }))
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush()
+  const [main, more] = nodes(root, 'nav')
+  assert.equal(main.props.class, 'ef-main-nav segmented')
+  assert.equal(more.props.class, 'ef-more-nav segmented')
+  assert.deepEqual(nodes(main, 'button').map(n => [content(n), n.props['aria-pressed'] ?? n.props['aria-expanded']]), [['概览', true], ['全员练度', false], ['地区建设', false], ['帝江号', false], ['抽卡统计', false], ['更多', false]])
+  assert.equal(nodes(more, 'button').length, 5)
+  nodes(more, 'button').find(n => content(n) === '蓝图收藏').props.onClick(); await flush()
+  const toggle = nodes(main, 'button').at(-1)
+  assert.equal(content(toggle), '蓝图收藏'); assert.ok(String(toggle.props.class).includes('active'))
+})
