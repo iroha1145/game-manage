@@ -223,10 +223,12 @@ class ArchiveMixin:
             if old and json.loads(old[0]) != row:
                 raise ValueError('已有流水冲突，整批未写入')
             duplicates += bool(old)
+        # Source imports keep diagnostics in discovery order; own archives carry them sorted.
+        unordered = lambda r: dict(r, diagnostics=sorted(r.get('diagnostics', [])))
         for row in summaries:
             old = self.conn.execute('SELECT payload FROM wuwa_gacha_aggregates WHERE account=? AND server=? AND key=?',
                                     (account,server,row['summary_id'])).fetchone()
-            if old and json.loads(old[0]) != row:
+            if old and unordered(json.loads(old[0])) != unordered(row):
                 raise ValueError('已有汇总冲突，整批未写入')
             duplicates += bool(old)
         for rule in rules:

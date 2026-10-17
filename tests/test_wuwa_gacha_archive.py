@@ -185,6 +185,14 @@ def test_aggregate_only_backup_pages_restore_every_summary(ledger,tmp_path):
     assert restored.read('100','S')['total']==0
 
 
+def test_own_export_restores_into_the_store_that_made_it(ledger):
+    # Unknown pool and resource, and no server in the file: diagnostics stored in discovery order.
+    rows=[dict(cardPoolType=99,name='五星',time='2026-01-01',draw_total=3)]
+    commit(ledger,dict(data=dict(uid='100',card_analysis_json=dict(pool=dict(five_cards=rows)))),source='mcgf')
+    assert commit(ledger,ledger.export('100','S'))['inserted']==0
+    assert ledger.read('100','S')['aggregates']['total']==1
+
+
 def test_own_archive_top_warning_and_gap_cannot_restore_exact_pity(ledger,tmp_path):
     commit(ledger,doc([row(1,5),row(2)]),latest_confirmed=True,continuity_confirmed=True)
     ledger.set_rule('100','S',dict(pool='1',hard_pity=80,reset_rarity='5',version='personal',sharing='independent',basis='user_configured'))
