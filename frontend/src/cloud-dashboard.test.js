@@ -121,3 +121,21 @@ test('the error of a failed session check does not outlive the next successful o
   online = true; await dashboard.initialize()
   assert.equal(dashboard.state.error, '', 'the banner of a past failure is still shown')
 })
+
+const unreachable = () => new TypeError('无法连接服务，请稍后重试')
+const answered = status => Object.assign(new Error(`HTTP ${status}`), { status })
+for (const [name, failure, expected] of [['the service cannot be reached', unreachable(), true], ['the service answers with an error', answered(503), true], ['the site session is already gone (401)', answered(401), false]])
+  test(`logout when ${name}: the private state is cleared at once and ${expected ? 'a retry stays on offer' : 'nothing is left to retry'}`, async t => {
+    let outcome = failure
+    const dashboard = createCloudDashboard({ logoutSite: async () => { if (outcome) throw outcome; return {} } })
+    t.after(dashboard.dispose)
+    dashboard.state.user = { user_id: 'A' }; dashboard.selectAccount(account); dashboard.state.snapshots.account = { payload: { nickname: 'old' } }
+    await dashboard.logout()
+    assert.equal(dashboard.state.user, null); assert.deepEqual(dashboard.state.snapshots, {})
+    assert.equal(dashboard.state.logoutFailed, expected)
+    if (!expected) return
+    dashboard.clear(); assert.equal(dashboard.state.logoutFailed, true, 'a session reset must not turn a failed logout into a signed-out page')
+    outcome = null
+    const retry = dashboard.logout(); assert.equal(dashboard.state.logoutFailed, false, 'the retry is under way'); await retry
+    assert.equal(dashboard.state.logoutFailed, false); assert.equal(dashboard.state.error, '')
+  })

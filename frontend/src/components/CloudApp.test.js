@@ -260,3 +260,36 @@ test('cloud public events render the real calendar with unknown dates and source
   assert.ok(calls.includes('/api/public/games/wuthering_waves/events'))
   assert.ok(calls.every(path=>!path.startsWith('/api/games/')))
 })
+
+test('a logout that fails keeps a retry on screen instead of the login form, and the retry ends the session', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const retried = { resolve: null }, logouts = []
+  t.mock.method(globalThis, 'fetch', async path => {
+    if (path === '/api/identity/logout') {
+      logouts.push(path)
+      if (logouts.length === 1) throw new TypeError('Failed to fetch')
+      return new Promise(resolve => { retried.resolve = () => resolve(new Response('{"status":"ok"}')) })
+    }
+    return new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] } : { state: 'never', payload: null }))
+  })
+  const root = mount(t, CloudApp); await tick(); await tick()
+  const logout = () => nodes(root, 'button').find(n => content(n) === '退出登录')
+  await logout().props.onClick(); for (let i = 0; i < 4; i++) await tick()
+  assert.doesNotMatch(content(root), /网站登录/, 'the page claims to be signed out although the site session may still be valid')
+  assert.match(content(root), /退出登录未完成/)
+  assert.ok(logout(), 'there is no button to retry with')
+  const retry = logout().props.onClick(); await tick(); await tick()
+  assert.match(content(root), /退出中…/); assert.doesNotMatch(content(root), /退出登录未完成|网站登录/)
+  retried.resolve(); await retry; for (let i = 0; i < 4; i++) await tick()
+  assert.match(content(root), /网站登录/); assert.doesNotMatch(content(root), /退出登录未完成|退出中/)
+  assert.equal(logouts.length, 2)
+})
+test('a logout answered with 401 ends at the login form without a retry', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', async path => path === '/api/identity/logout' ? new Response('{"detail":"authentication_required"}', { status: 401 })
+    : new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] } : { state: 'never', payload: null })))
+  const root = mount(t, CloudApp); await tick(); await tick()
+  await nodes(root, 'button').find(n => content(n) === '退出登录').props.onClick(); for (let i = 0; i < 4; i++) await tick()
+  assert.match(content(root), /网站登录/); assert.doesNotMatch(content(root), /退出登录未完成/)
+  assert.equal(nodes(root, 'button').some(n => content(n) === '退出登录'), false)
+})

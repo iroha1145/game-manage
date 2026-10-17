@@ -6,7 +6,7 @@ import { collectionState } from './snapshot-state.js'
 const REFRESH_READ_INTERVAL = 2000, REFRESH_READ_LIMIT = 10, REFRESH_TRACK_TIMEOUT = 30000
 export function createCloudDashboard(overrides = {}) {
   const api = { ...identity, ...accounts, obtainCsrf, ...overrides }
-  const state = reactive({ user: null, accounts: [], selected: null, role: '', snapshots: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, ready: false, refreshing: {}, refreshPending: {}, revision: 0 })
+  const state = reactive({ user: null, accounts: [], selected: null, role: '', snapshots: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, ready: false, logoutFailed: false, refreshing: {}, refreshPending: {}, revision: 0 })
   let epoch = 0, disposed = false
   let overviewGeneration = 0
   const refreshVersions = new Map(), readVersions = new Map(), refreshJobs = new Map()
@@ -144,9 +144,12 @@ export function createCloudDashboard(overrides = {}) {
   }
   async function logout() {
     // Begin the server mutation before clearing in-memory data; its response is
-    // deliberately irrelevant to private state. Failure remains visible to user.
+    // deliberately irrelevant to private state. A failure keeps a retry on offer
+    // (logoutFailed, which clear() leaves alone): the site session may still be valid,
+    // so the login form would claim a sign-out that has not happened.
+    state.logoutFailed = false
     const pending = api.logoutSite(); clear()
-    try { await pending } catch (error) { if (error.name !== 'AbortError' && error.status !== 401) state.error = '网站退出请求未完成，请重试退出' }
+    try { await pending } catch (error) { if (error.name !== 'AbortError' && error.status !== 401) state.logoutFailed = true }
   }
   return { state, initialize, loadAccounts, selectAccount, loadSnapshot, loadOverview, refresh, loadSessions, logout, clear,
     dispose() { disposed = true; clear(); stop() } }
