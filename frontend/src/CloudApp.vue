@@ -129,7 +129,8 @@ async function readPublicSnapshot(game, cap) {
     const snapshot = await getPublicSnapshot(game,cap)
     if (current()) {
       publicSnapshots.value = {...publicSnapshots.value,[game]:{...publicSnapshots.value[game],[cap]:snapshot}}
-      if(cap === 'events') { calendarSnapshots.value = {...calendarSnapshots.value,[game]:{events:snapshot}}; delete calendarReadErrors.value[game] }
+      if(cap === 'events' || cap === 'news') calendarSnapshots.value = {...calendarSnapshots.value,[game]:{...calendarSnapshots.value[game],[cap]:snapshot}}
+      if(cap === 'events') delete calendarReadErrors.value[game]
     }
     return current() ? snapshot : null
   } catch(error) {
@@ -139,7 +140,7 @@ async function readPublicSnapshot(game, cap) {
       {
         const retained={...(old || {payload:null}),state:'error',error:error.message}
         publicSnapshots.value={...publicSnapshots.value,[game]:{...publicSnapshots.value[game],[cap]:retained}}
-        if(cap==='events') calendarSnapshots.value={...calendarSnapshots.value,[game]:{events:retained}}
+        if(cap==='events' || cap==='news') calendarSnapshots.value={...calendarSnapshots.value,[game]:{...calendarSnapshots.value[game],[cap]:retained}}
       }
     }
     throw error
@@ -162,12 +163,18 @@ async function loadCalendar() {
   try {
     await Promise.all(publicGames.map(async game => {
       const id = game.game_id
-      try {
-        const events = await readPublicSnapshot(id, 'events')
-        if (events && current()) delete calendarReadErrors.value[id]
-      } catch (error) {
-        if (current() && error.name !== 'AbortError') calendarReadErrors.value[id] = error.message
-      }
+      // News supplies source-matched pictures; its read failure must not hide calendar dates.
+      await Promise.allSettled([
+        (async () => {
+          try {
+            const events = await readPublicSnapshot(id, 'events')
+            if (events && current()) delete calendarReadErrors.value[id]
+          } catch (error) {
+            if (current() && error.name !== 'AbortError') calendarReadErrors.value[id] = error.message
+          }
+        })(),
+        readPublicSnapshot(id, 'news'),
+      ])
     }))
   } finally { if (current()) calendarLoading.value = false }
 }

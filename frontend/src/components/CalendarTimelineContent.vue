@@ -1,9 +1,12 @@
 <script setup>
 import { computed } from 'vue'
 import GameIcon from './GameIcon.vue'
-import { beijingDayStart, eventGeometry, eventStatus, groupCalendarEvents } from '../calendar.js'
+import ArtworkImage from './ArtworkImage.vue'
+import { eventArtwork } from '../event-artwork.js'
+import { beijingDayStart, eventGeometry, eventStatus } from '../calendar.js'
+import { presentationGroups, activityBoundaryDays } from '../calendar-presentation.js'
 import { gameStyle, gameVars } from '../dashboard.js'
-const props = defineProps({ events:{type:Array,default:()=>[]}, range:{type:Object,default:null}, asOf:{type:Number,required:true}, rangeMode:{type:String,default:'rolling'}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showUnplaced:{type:Boolean,default:true} })
+const props = defineProps({ events:{type:Array,default:()=>[]}, snapshots:{type:Object,default:()=>({})}, range:{type:Object,default:null}, asOf:{type:Number,required:true}, rangeMode:{type:String,default:'rolling'}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showUnplaced:{type:Boolean,default:true} })
 const emit = defineEmits(['select'])
 const today = computed(() => beijingDayStart(props.asOf))
 const todayPosition = computed(() => props.range ? (props.asOf-props.range.start)/(props.range.end-props.range.start)*100 : 0)
@@ -19,7 +22,8 @@ const events = computed(() => props.events.map(event => {
   }
   return {...event,geometry,status,elapsed,remainingDays}
 }))
-const groups = computed(() => groupCalendarEvents(events.value.filter(event => event.geometry.visible)))
+const groups = computed(() => presentationGroups(events.value.filter(event => event.geometry.visible), props.mode))
+const boundaryDays = computed(() => props.mode === 'image' ? new Set() : activityBoundaryDays(events.value))
 const undated = computed(() => props.showUnplaced ? events.value.filter(event => event.geometry.kind==='undated') : [])
 const invalid = computed(() => props.showUnplaced ? events.value.filter(event => event.geometry.kind==='invalid') : [])
 const gameAccent = id => gameStyle(id==='lol' ? 'league_of_legends' : id).color
@@ -36,17 +40,17 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
   <div class="calendar-content" :class="{ 'image-mode': mode === 'image' }">
 <div v-if="range" class="timeline-scroll" :tabindex="mode === 'image' ? undefined : 0" role="region" aria-label="活动日期横轴，可横向和纵向滚动" :style="{ '--day-count': range.days.length, '--timeline-min': `${184 + range.days.length * (rangeMode === 'fortnight' ? 39 : 26)}px` }">
         <div :key="range.start" class="timeline-canvas t-panel">
-          <div class="timeline-header" data-render-block><div class="timeline-label header-label"><span>游戏</span><small v-if="mode === 'image'">{{ rangeMode === 'month' ? '当月时间轴' : rangeMode === 'rolling' ? '近 30 天时间轴' : rangeMode === 'version' ? '版本活动时间轴' : '14 天时间轴' }}</small></div><div class="date-track"><div v-for="day in range.days" :key="day.timestamp" class="date-cell" :class="{ weekend: day.weekend, 'is-today': day.timestamp === today, 'is-month-start': day.day === 1 }" :title="`${day.month} 月 ${day.day} 日`"><small>{{ day.weekday }}</small><strong><template v-if="day.day===1 && mode==='image'">{{ day.month }}/<br>1</template><template v-else>{{ day.day === 1 ? `${day.month}/1` : day.day }}</template></strong><span v-if="day.timestamp === today" class="day-today">今天</span></div></div></div>
+          <div class="timeline-header" data-render-block><div class="timeline-label header-label"><span>游戏</span><small v-if="mode === 'image'">{{ rangeMode === 'month' ? '当月时间轴' : rangeMode === 'rolling' ? '近 30 天时间轴' : rangeMode === 'version' ? '版本活动时间轴' : '14 天时间轴' }}</small></div><div class="date-track"><div v-for="day in range.days" :key="day.timestamp" class="date-cell" :class="{ weekend: day.weekend, 'is-today': day.timestamp === today, 'is-month-start': day.day === 1, 'is-boundary': boundaryDays.has(day.timestamp) }" :title="`${day.month} 月 ${day.day} 日`"><small>{{ day.weekday }}</small><strong><template v-if="day.day===1 && mode==='image'">{{ day.month }}/<br>1</template><template v-else>{{ day.day === 1 ? `${day.month}/1` : day.day }}</template></strong><span v-if="day.timestamp === today" class="day-today">今天</span></div></div></div>
           <template v-if="groups.length">
             <div v-for="group in groups" :key="group.key" class="timeline-group" data-render-block :style="groupVars(group.gameId)">
-              <div class="timeline-label group-label"><GameIcon class="game-monogram" :game-id="group.gameId" :name="group.gameName" /><div><strong>{{ group.gameName }}</strong><small>{{ group.events.length }} 项活动</small></div></div>
+              <div class="timeline-label group-label"><GameIcon class="game-monogram" :game-id="group.gameId" :name="group.gameName" /><div><strong>{{ group.gameName }}</strong><span v-if="group.categoryLabel" class="group-category">{{ group.categoryLabel }}</span><small>{{ group.events.length }} 项活动</small></div></div>
               <div class="group-track">
                 <div class="grid-backdrop" aria-hidden="true"><div v-for="day in range.days" :key="day.timestamp" :class="{ weekend: day.weekend, 'today-column': day.timestamp === today }" /></div>
                 <div v-if="todayVisible" class="today-line" :style="{ left: `${todayPosition}%` }" aria-hidden="true" />
                 <div v-for="event in group.events" :key="event.id" class="event-lane" data-render-block>
                   <component :is="mode === 'image' ? 'article' : 'button'" :type="mode === 'image' ? undefined : 'button'" class="timeline-event" :class="{ 'is-point': event.geometry.kind === 'point', 'is-short': event.geometry.kind === 'range' && event.geometry.width < 30, 'label-left': event.geometry.left >= 50, 'is-ended': event.status === '已结束', 'clipped-start': event.geometry.clippedStart, 'clipped-end': event.geometry.clippedEnd, 'is-selected': selectedId === event.id }" :style="barStyle(event)" :title="eventDescription(event)" :aria-label="`查看活动详情：${event.name || '未命名活动'}`" :aria-pressed="selectedId === event.id" @click="selectEvent(event, $event)">
-                    <template v-if="event.geometry.kind === 'range'"><i v-if="event.elapsed != null" class="event-elapsed" :style="{width:`${event.elapsed}%`}" aria-hidden="true" /><span class="event-summary"><span class="event-heading"><span class="event-bar-title">{{ event.geometry.clippedStart ? '‹ ' : '' }}{{ event.name || '未命名活动' }}{{ event.geometry.clippedEnd ? ' ›' : '' }}</span><small class="event-category">{{ event.category }}</small><small class="event-status">{{ stateLabel(event) }}</small><small v-if="event.remainingDays != null" class="event-remaining" :class="{urgent:event.remainingDays<=3}">剩 {{ event.remainingDays }} 天</small></span></span></template>
-                    <template v-else><span class="point-diamond" aria-hidden="true" /><span class="point-label" :class="{ 'point-label-left': event.geometry.left >= 50 }"><span class="event-heading"><strong>{{ event.name || '未命名活动' }}</strong><small class="event-category">{{ event.category }}</small><small class="event-status">{{ stateLabel(event) }}</small></span></span></template>
+                    <ArtworkImage v-if="mode !== 'image' && event.geometry.kind === 'range'" class="event-artwork" :candidates="eventArtwork(event, snapshots)" decorative /><template v-if="event.geometry.kind === 'range'"><i v-if="event.elapsed != null" class="event-elapsed" :style="{width:`${event.elapsed}%`}" aria-hidden="true" /><span class="event-summary"><span class="event-heading"><span class="event-bar-title">{{ event.geometry.clippedStart ? '‹ ' : '' }}{{ event.name || '未命名活动' }}{{ event.geometry.clippedEnd ? ' ›' : '' }}</span><small class="event-category">{{ event.category }}</small><small class="event-status">{{ stateLabel(event) }}</small><small v-if="event.remainingDays != null" class="event-remaining" :class="{urgent:event.remainingDays<=3}">剩 {{ event.remainingDays }} 天</small></span></span></template>
+                    <template v-else><span class="point-diamond" aria-hidden="true" /><span class="point-label" :class="{ 'point-label-left': event.geometry.left >= 50 }"><ArtworkImage v-if="mode !== 'image'" class="point-artwork" :candidates="eventArtwork(event, snapshots)" decorative /><span class="event-heading"><strong>{{ event.name || '未命名活动' }}</strong><small class="event-category">{{ event.category }}</small><small class="event-status">{{ stateLabel(event) }}</small></span></span></template>
                   </component>
                 </div>
               </div>
@@ -96,8 +100,10 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 @media (hover: hover) and (pointer: fine) { .timeline-event:hover { box-shadow: inset 0 0 0 1px var(--game-vivid, var(--game-accent)); } }
 .timeline-event:not(.is-point):active { transform: translateY(1px); }
 .timeline-event.is-ended { opacity: .7; }
+.event-artwork { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; border-radius:inherit; }
 .event-summary { display:grid; gap:2px; min-width:0; width:100%; position:relative; }
 .event-heading { display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; min-width:0; }
+
 .event-summary,.point-label {font-family:inherit;line-height:1.4;text-shadow:0 1px 3px var(--bg),0 0 6px var(--card-bg)}
 .event-elapsed{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--game-vivid,var(--game-accent)) 24%,transparent);border-right:1px solid color-mix(in srgb,var(--game-vivid,var(--game-accent)) 70%,transparent);pointer-events:none}
 .event-remaining{flex-shrink:0;font-size:12px;color:var(--text-muted);border-radius:var(--radius-chip);padding:0 7px;background:var(--card-bg)}
@@ -118,6 +124,8 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .timeline-event.is-point { width: 16px; transform: translateX(-50%); padding: 0; background: transparent; border: 0; box-shadow: none; overflow: visible; justify-content: center; }
 .point-diamond { position:absolute; left:3px; top:16px; display:block; height:10px; width:10px; border-radius:2px; background:var(--game-vivid, var(--game-accent)); transform:translateY(-50%) rotate(45deg); border:2px solid var(--card-bg); box-shadow:0 0 0 1px var(--game-vivid, var(--game-accent)); }
 .point-label { position:relative; left:20px; width:min(420px,45cqw); display:grid; gap:2px; min-height:32px; color:var(--text); padding:4px 7px; background:color-mix(in srgb,var(--card-bg) 92%,transparent); }
+.point-artwork { width:42px; height:28px; border-radius:4px; flex-shrink:0; }
+.point-label:has(.point-artwork) { display:flex; align-items:center; gap:7px; }
 .point-label strong { flex:1 1 80px; min-width:0; font-size:12px; font-weight:500; white-space:normal; overflow-wrap:anywhere; line-height:16px; }
 .point-label-left { left:0; transform:translateX(calc(-100% - 20px)); }
 .calendar-empty { padding: 42px 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
@@ -154,6 +162,28 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .image-mode .event-category,.image-mode .event-status,.image-mode .event-remaining { font-size:11px; }
 .image-mode .point-diamond { top:17px; }
 .image-mode .calendar-unplaced { margin:12px 0; }
+
+/* Screen banners retain their real date width; the left shade protects labels over any artwork. */
+.calendar-content:not(.image-mode) .timeline-group { border-top:8px solid var(--surface-soft); }
+.calendar-content:not(.image-mode) .group-track { padding:8px 0; }
+.group-category { display:block; margin-top:7px; color:var(--game-accent); font-size:12px; font-weight:600; line-height:1.5; }
+.calendar-content:not(.image-mode) .date-cell.is-boundary:not(.is-today) strong { background:var(--text); color:var(--card-bg); border-radius:4px; }
+.calendar-content:not(.image-mode) .event-lane:has(.event-artwork) { min-height:80px; padding-bottom:8px; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) { min-height:72px; padding:10px 13px; color:#fff; background:#18212b; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork)::before { inset:0; width:auto; border-radius:inherit; background:linear-gradient(90deg,rgba(7,13,22,.94) 0%,rgba(7,13,22,.86) 28%,rgba(7,13,22,.46) 60%,rgba(7,13,22,.05) 100%); z-index:1; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-artwork { object-position:center 38%; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-summary { width:min(300px,76%); z-index:2; text-shadow:0 1px 3px #000; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-heading { gap:5px; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-bar-title { flex-basis:100%; font-size:13px; font-weight:600; line-height:18px; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-category,
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-status,
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-remaining { color:#fff; background:rgba(5,12,22,.8); border:1px solid rgba(255,255,255,.24); border-radius:4px; padding:1px 5px; font-size:11px; white-space:normal; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-elapsed { opacity:.2; }
+.calendar-content:not(.image-mode) .timeline-event.is-short:has(.event-artwork) { padding-inline:0; }
+.calendar-content:not(.image-mode) .timeline-event.is-short:has(.event-artwork) .event-summary { width:min(280px,42cqw); background:rgba(11,19,30,.95); border-radius:5px; padding:5px 7px; left:4px; }
+.calendar-content:not(.image-mode) .timeline-event.is-short.label-left:has(.event-artwork) .event-summary { left:100%; transform:translateX(-100%); }
+.calendar-content:not(.image-mode) .timeline-event.is-ended:has(.event-artwork) { opacity:.88; }
+
 @media(max-width:760px) {
   .timeline-header,.timeline-group { grid-template-columns:142px minmax(0,1fr); }
   .header-label { padding:15px; }

@@ -84,3 +84,46 @@ test('image presents its date axis and activities without technical source discl
   assert.doesNotMatch(text,/数据来源详情|来源与读取状态|来源未提供/)
   assert.equal(nodes(root,'details').length,0)
 })
+
+test('calendar artwork follows event sources on screen and never adds external images to bot rendering', async t => {
+  const asOf=Date.parse('2026-10-17T12:00:00+08:00')
+  const rows={nte:{events:{payload:[{name:'带配图活动',version:'1.4',source_post_id:'p1',start_at:'2026-10-01T12:00:00+08:00',end_at:'2026-11-01T12:00:00+08:00'}]},news:{payload:[{id:'p1',images:['https://example.com/event.jpg']}]}}}
+  const calendars=collectVersionCalendars(games,rows,'',asOf)
+  const screen=mount(t,Version,{calendars,snapshots:rows,asOf})
+  assert.ok(nodes(screen,'img').some(img=>img.props.src==='https://example.com/event.jpg'))
+  const image=mount(t,Version,{calendars,snapshots:rows,asOf,mode:'image'})
+  assert.ok(!nodes(image,'img').some(img=>img.props.src==='https://example.com/event.jpg'))
+  const root=mount(t,Page,{games,snapshots:rows})
+  const agenda=nodes(root,'button').find(n=>n.props.class==='agenda-item')
+  assert.equal(nodes(agenda,'img')[0].props.src,'https://example.com/event.jpg')
+  agenda.props.onClick({currentTarget:{isConnected:true,focus(){}}});await nextTick()
+  const detail=nodes(root,'section').find(n=>n.props['aria-labelledby']==='calendar-detail-title')
+  assert.equal(nodes(detail,'img')[0].props.src,'https://example.com/event.jpg')
+  assert.match(content(detail),/带配图活动/)
+})
+
+test('screen presents category sections and recorded boundary accents while bot calendar retains compact original sections', t => {
+  const asOf=Date.parse('2026-10-17T12:00:00+08:00')
+  const snapshots={nte:{events:{payload:[
+    {name:'寻访横幅',category:'特许寻访',banner:'https://example.com/character.jpg',start_at:'2026-10-15T12:00:00+08:00',end_at:'2026-11-01T12:00:00+08:00'},
+    {name:'武器横幅',category:'武库申领',banner:'https://example.com/weapon.jpg',start_at:'2026-10-29T12:00:00+08:00',end_at:'2026-11-01T12:00:00+08:00'},
+    {name:'单点日期',category:'限时活动',banner:'https://example.com/event.jpg',end_date:'2026-10-22'},
+  ]}}}
+  const calendars=collectVersionCalendars(games,snapshots,'',asOf)
+  const screen=mount(t,Version,{calendars,snapshots,asOf})
+  assert.equal(nodes(screen,'div').filter(node=>node.props.class==='timeline-group').length,3)
+  assert.match(content(screen),/寻访与角色.*武器与装备.*活动与玩法/)
+  const boundaries=nodes(screen,'div').filter(node=>node.props.class?.split(' ').includes('is-boundary'))
+  assert.ok(boundaries.some(node=>node.props.title==='10 月 15 日'))
+  assert.ok(boundaries.some(node=>node.props.title==='10 月 22 日'))
+  const short=nodes(screen,'button').find(node=>node.props['aria-label']==='查看活动详情：武器横幅')
+  assert.ok(short.props.class.includes('is-short'))
+  assert.match(content(short),/武器横幅.*武库申领/)
+  const point=nodes(screen,'button').find(node=>node.props['aria-label']==='查看活动详情：单点日期')
+  assert.ok(point.props.class.includes('is-point'))
+  assert.match(content(point),/单点日期/)
+  const image=mount(t,Version,{calendars,snapshots,asOf,mode:'image'})
+  assert.equal(nodes(image,'div').filter(node=>node.props.class==='timeline-group').length,1)
+  assert.ok(!nodes(image,'img').some(img=>img.props.src?.startsWith('https://example.com/')))
+  assert.ok(!nodes(image,'div').some(node=>node.props.class?.split(' ').includes('is-boundary')))
+})

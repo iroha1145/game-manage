@@ -110,7 +110,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
           <div class="role-top" :data-render-block="imageMode && detailMode ? '' : undefined">
             <div class="role-art">
               <img v-if="safeUrl(role.icon_url) && !failedImages.has(safeUrl(role.icon_url))" :key="safeUrl(role.icon_url)" :src="safeUrl(role.icon_url)" :alt="role.name || '角色'" :loading="imageMode ? 'eager' : 'lazy'" class="avatar" @error="imageFailed" />
-              <NteIcon v-else :src="nteRoleIcon(role.id)" :name="role.name || '角色'" size="xl" />
+              <NteIcon v-else :src="nteRoleIcon(role.id) || nteRoleIcon(role.name)" :name="role.name || '角色'" size="xl" />
               <div v-if="!imageMode" class="role-actions">
                 <button type="button" class="icon-button favorite" :aria-label="`${isFavorite(role) ? '取消收藏' : '收藏'}${role.name || '角色'}`" :aria-pressed="isFavorite(role)" :disabled="!canPersist || !roleId(role)" :title="favoriteTitle(role)" @click="toggleFavorite(role)"><AppIcon name="star" :size="15" /></button>
                 <button type="button" class="icon-button" :aria-label="`对比${role.name || '角色'}`" :aria-pressed="isCompared(role)" :disabled="selected.length >= 4 && !isCompared(role)" :title="isCompared(role) ? '移出对比' : '加入对比'" @click="toggleCompare(role)"><AppIcon :name="isCompared(role) ? 'close' : 'plus'" :size="15" /></button>

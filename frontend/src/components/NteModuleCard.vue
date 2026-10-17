@@ -14,7 +14,9 @@ import HRail from './HRail.vue'
 import NteDetailDialog from './NteDetailDialog.vue'
 import NteIcon from './NteIcon.vue'
 import RingGauge from './RingGauge.vue'
-const props=defineProps({capability:{type:String,required:true},snap:{default:null},accountId:{type:String,default:''}})
+import ArtworkImage from './ArtworkImage.vue'
+import GameIcon from './GameIcon.vue'
+const props=defineProps({capability:{type:String,required:true},snap:{default:null},accountId:{type:String,default:''},artwork:{type:Array,default:()=>[]}})
 const opened=ref(false),title=computed(()=>nteModuleTitles[props.capability]||props.capability)
 const inline=computed(()=>['stamina','record'].includes(props.capability))
 // Cloud reads put a failure on the snapshot itself; local snapshots carry it in poll_status.
@@ -37,7 +39,7 @@ const ring=g=>({value:g.known ? Number(g.current) : null,max:g.known ? Number(g.
 const guideRoles=['黑羽','残虹','灵可','伊洛伊','娜娜莉'].map(name=>({name,icon:nteRoleIcon(name)}))
 
 const account=computed(()=>({
-  name:show(p.value.nickname),initial:String(p.value.nickname||'异').slice(0,1),
+  name:show(p.value.nickname),
   stats:[{label:'等级',value:show(p.value.level)},{label:'世界等级',value:show(p.value.world_level)},{label:'大亨等级',value:show(p.value.tycoon_level)},{label:'活跃天数',value:show(p.value.active_days),unit:'天'}],
   rings:[['成就',p.value.achievement_count,p.value.achievement_total,'var(--game-vivid)'],['房产',p.value.house_count,p.value.house_total,'var(--game-vivid)'],['载具',p.value.vehicle_count,p.value.vehicle_total,'var(--game-vivid)']]
     .map(([label,current,total,color])=>({label,color,...gauge(current,total)})),
@@ -95,7 +97,8 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 
     <div v-else-if="capability === 'account'" class="account-body">
       <div class="account-top">
-        <div class="account-id"><span class="account-avatar" aria-hidden="true">{{ account.initial }}</span><div class="account-name"><strong>{{ account.name }}</strong><span v-if="p.server_name" class="chip">{{ p.server_name }}</span></div></div>
+        <ArtworkImage class="account-backdrop" :candidates="artwork" decorative />
+        <div class="account-id"><GameIcon class="account-avatar" game-id="nte" name="异环" /><div class="account-name"><strong>{{ account.name }}</strong><span v-if="p.server_name" class="chip">{{ p.server_name }}</span></div></div>
         <dl class="account-stats"><div v-for="stat in account.stats" :key="stat.label"><dt>{{ stat.label }}</dt><dd>{{ stat.value }}<small v-if="stat.unit && stat.value !== '未知'">{{ stat.unit }}</small></dd></div></dl>
       </div>
       <ul class="own-rings">
@@ -145,7 +148,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
       <HRail label="角色列表" class="rail roles-rail">
         <figure v-for="({ role, src }, index) in roster" :key="role.id ?? index" class="role-tile">
           <img v-if="src" class="role-avatar" :src="src" alt="" loading="lazy" referrerpolicy="no-referrer" @error="broken(src)" />
-          <NteIcon v-else :src="nteRoleIcon(role.id)" :name="role.name || '角色'" size="xl" />
+          <NteIcon v-else :src="nteRoleIcon(role.id) || nteRoleIcon(role.name)" :name="role.name || '角色'" size="xl" />
           <figcaption><strong :title="role.name">{{ role.name || '未命名' }}</strong><span class="meta"><i v-if="role.quality" class="rank" :class="`rank-${role.quality}`">{{ role.quality }}</i><span v-if="role.level != null">Lv{{ role.level }}</span></span></figcaption>
         </figure>
       </HRail>
@@ -285,6 +288,9 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 /* Account: the name and four numerals on the tone, then what is owned as rings. */
 .account-body{display:grid;gap:12px}
 .account-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 32px;padding:18px 20px;border-radius:var(--radius-tile);background:var(--game-tone)}
+.account-top{position:relative;isolation:isolate;overflow:hidden}
+.account-backdrop{position:absolute;inset:0;width:100%;height:100%;z-index:-2;object-position:75% center}
+.account-top:has(.account-backdrop)::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,var(--game-tone),color-mix(in srgb,var(--game-tone) 94%,transparent) 48%,color-mix(in srgb,var(--game-tone) 64%,transparent))}
 .account-id{display:flex;align-items:center;gap:16px;min-width:0}
 .account-avatar{display:grid;place-items:center;flex-shrink:0;width:60px;height:60px;border-radius:20px;background:var(--card-bg);color:var(--game-accent);font-size:26px;font-weight:600}
 .account-name{display:grid;justify-items:start;gap:6px;min-width:0}

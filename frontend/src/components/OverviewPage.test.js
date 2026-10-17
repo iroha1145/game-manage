@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { nextTick } from 'vue'
 import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
 
 const Overview = await loadVue(new URL('./OverviewPage.vue', import.meta.url))
@@ -19,6 +20,18 @@ test('game cards show the five highest-level pictured roles and the whole roster
   assert.match(content(byClass(root, 'summary-roster')[0]), /7 名角色/)
   const none = mount(t, Overview, { games: [wuwa], now, snapshots: { wuthering_waves: { roles: { payload: [role('甲', 60, false)] } } } })
   assert.equal(byClass(none, 'summary-roster').length, 0, 'no row without a picture')
+})
+
+test('roster pictures retry only the same role avatar and keep the real roster count', async t => {
+  const root = mount(t, Overview, { games: [wuwa], now, snapshots: { wuthering_waves: { roles: { payload: [
+    { role_id: 'a', name: '角色甲', level: 90, icon_url: 'https://example.com/missing.png', avatar_url: 'https://example.com/avatar.png' },
+  ] } } } })
+  const picture = () => nodes(byClass(root, 'roster-faces')[0], 'img')[0]
+  picture().props.onError(); await nextTick()
+  assert.equal(picture().props.src, 'https://example.com/avatar.png')
+  assert.match(content(byClass(root, 'summary-roster')[0]), /1 名角色/)
+  picture().props.onError(); await nextTick()
+  assert.equal(byClass(root, 'summary-roster').length, 0)
 })
 
 test('the first deadline leads, and the week chart counts deadlines per Beijing day', t => {

@@ -2,6 +2,7 @@
 import { computed, inject, ref, unref, watch } from 'vue'
 import { gameStyle } from '../dashboard.js'
 import { theme } from '../theme.js'
+import { officialGameIcons, officialGameIconFallbacks } from '../game-artwork.js'
 
 const props = defineProps({ gameId: { type: String, required: true }, name: { type: String, default: '' } })
 const failed = ref(0)
@@ -10,6 +11,8 @@ const imageMode = inject('wuwaImageMode', false)
 const style = computed(() => gameStyle(props.gameId))
 const icons = computed(() => [...new Set([
   typeof __LOCAL_GAME_ICONS__ !== 'undefined' ? __LOCAL_GAME_ICONS__[props.gameId] : null,
+  officialGameIcons[props.gameId],
+  ...(officialGameIconFallbacks[props.gameId] || []),
   theme.value === 'light' && style.value.iconLight || style.value.icon,
 ].filter(Boolean))])
 watch([() => props.gameId, theme], () => { failed.value = 0 })
@@ -17,7 +20,7 @@ watch([() => props.gameId, theme], () => { failed.value = 0 })
 
 <template>
   <span class="game-icon" :style="{ color: style.color }">
-    <img v-if="icons[failed] && !unref(imageMode)" :src="icons[failed]" :alt="`${name || gameId}图标`" decoding="async" @error="failed++" />
+    <img v-if="icons[failed] && !unref(imageMode)" :src="icons[failed]" :alt="`${name || gameId}图标`" decoding="async" referrerpolicy="no-referrer" @error="failed++" />
     <span v-else aria-hidden="true">{{ style.mark }}</span>
   </span>
 </template>

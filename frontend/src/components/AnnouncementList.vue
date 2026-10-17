@@ -4,6 +4,8 @@ import { formatTime } from '../dashboard.js'
 import { ARTICLE_CATEGORIES, prepareArticles, contentNote } from '../articles.js'
 import { collectionState, hasFreshPublicFallback } from '../snapshot-state.js'
 import ArticleDetailDialog from './ArticleDetailDialog.vue'
+import ArtworkImage from './ArtworkImage.vue'
+import { articleArtwork } from '../game-visuals.js'
 const props = defineProps({ snap: { type: Object, default: null }, extraSnaps: { type: Array, default: () => [] }, gameId: { type: String, default: '' }, imageMode:Boolean })
 const category = ref('all'), selectedKey = ref('')
 const snapshots = computed(() => [props.snap, ...props.extraSnaps].filter(Boolean))
@@ -32,6 +34,7 @@ watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all'
     <p v-if="!rows.length && !failed" class="empty" role="status">{{ emptyText }}</p>
     <ul v-if="rows.length" class="item-list">
       <li v-for="it in filtered" :key="it.key" class="item" :data-render-block="imageMode ? '' : undefined">
+        <button v-if="!imageMode && articleArtwork(it).length" type="button" class="article-cover" :aria-label="`查看公告：${it.title}`" @click="selectedKey = it.key"><ArtworkImage :candidates="articleArtwork(it)" decorative /></button>
         <p class="item-title"><span v-if="imageMode" class="item-link">{{ it.title }}</span><button v-else type="button" class="item-link" @click="selectedKey = it.key">{{ it.title }}</button></p>
         <p class="item-meta"><span class="chip article-category">{{ it.categoryLabel }}</span><span v-if="it.source_name && !imageMode" class="item-source">{{ it.source_name }}</span><span v-if="it.source_stale && !imageMode" class="badge badge-stale">来源采集异常，保留旧记录</span><span v-if="date(it.published_at)" class="item-date">{{ date(it.published_at) }}</span></p>
         <p v-if="it.excerpt" class="item-summary">{{ it.excerpt }}</p><p v-else class="item-summary article-missing">{{ imageMode ? '正文请查看原文。' : contentNote(it) || '正文仅包含图片，点击查看详情。' }}</p>
@@ -43,6 +46,11 @@ watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all'
   </section>
 </template>
 <style scoped>
+.article-cover { display:block; float:right; width:clamp(140px,28%,240px); margin:0 0 12px 20px; padding:0; border:0; border-radius:var(--radius-well); overflow:hidden; background:var(--game-tone,var(--surface-soft)); cursor:pointer; }
+.article-cover img { width:100%; aspect-ratio:16/9; }
+.article-cover:not(:has(img)) { display:none; }
+.item::after { content:''; display:block; clear:both; }
+@media(max-width:600px) { .article-cover { float:none; width:100%; margin:0 0 12px; }.article-cover img { aspect-ratio:16/7; } }
 .article-image .item-summary{display:block;-webkit-line-clamp:unset;overflow:visible;white-space:pre-wrap}
 .article-excerpt-note{font-size:12px;line-height:1.8;color:var(--text-muted)}
 .article-list{min-width:0}.article-heading{flex-wrap:wrap;gap:8px}.article-heading h2{font-size:16px;font-weight:600;letter-spacing:-.01em;margin:0}.article-heading .cap-meta{margin-left:auto}.article-filters{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 6px}.article-filters button{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--border);border-radius:10px;padding:6px 14px;background:var(--card-bg);box-shadow:var(--btn-shadow);color:var(--text-muted);cursor:pointer;transition:color var(--duration-quick) var(--ease-smooth-out),background-color var(--duration-quick) var(--ease-smooth-out),border-color var(--duration-quick) var(--ease-smooth-out),transform var(--duration-quick) var(--ease-smooth-out)}.article-filters button:active{transform:translateY(1px)}.article-filters button[aria-pressed=true]{color:var(--accent-ink);background:var(--accent-fill);border-color:var(--accent-fill)}.article-filters button span{font-size:12px;margin-left:4px}.item-list{display:flex;flex-direction:column}.item{padding:16px 12px;margin:0 -12px;border-bottom:1px solid var(--border);transition:background-color var(--duration-quick) var(--ease-smooth-out)}.item:last-child{border-bottom:0}.item-title{margin:0;font-size:15px;font-weight:600;letter-spacing:-.005em;line-height:1.55}.item-link{padding:0;border:0;background:none;text-align:left;color:var(--text);font:inherit;cursor:pointer;overflow-wrap:anywhere}.item-link:hover{color:var(--accent)}.item-meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:8px 0 0}.item-source,.item-date{font-size:12px;color:var(--text-muted)}.item-date{margin-left:auto}.item-summary{margin:8px 0 0;font-size:13px;line-height:1.75;color:var(--text-muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.item-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}.item-tags .chip{font-size:12px;color:var(--text-muted)}.item-actions{display:flex;align-items:center;gap:16px;margin-top:12px}.item-actions button,.item-actions a{border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--accent);cursor:pointer;text-decoration:none}.item-actions button:hover,.item-actions a:hover{text-decoration:underline}.article-error{font-size:12px;color:var(--danger);line-height:1.7;margin-top:10px}.article-list :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}.article-missing{font-size:12px}@media(hover:hover) and (pointer:fine){.item:hover{background:var(--overlay-2)}}.article-image .item{margin:0;padding:16px 0;border-radius:0}@media(max-width:600px){.item-date{margin-left:0}.article-heading .cap-meta{margin-left:0}.item{padding:16px 0}}

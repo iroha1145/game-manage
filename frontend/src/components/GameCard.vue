@@ -5,6 +5,8 @@ import { vGlide, vParallax } from '../motion.js'
 import { lazyPage } from '../lazy-page.js'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
+import ArtworkImage from './ArtworkImage.vue'
+import { gameBanner } from '../game-visuals.js'
 import AnnouncementList from './AnnouncementList.vue'
 import NteDataCard from './NteDataCard.vue'
 import NteAssetsPanel from './NteAssetsPanel.vue'
@@ -40,6 +42,7 @@ const nteGuideId=ref(''), nteFocusId=ref('')
 function openNteGuide(id){nteGuideId.value=id;activeSection.value='guides'}
 function openNteRole(id){nteFocusId.value=id;nteGuideId.value='';activeSection.value='characters'}
 const style = computed(() => gameStyle(props.game.game_id))
+const banner = computed(() => gameBanner(props.game.game_id, props.externalSnapshots))
 // The hero names whose data this is: the game role's nickname and level. Endfield's account
 // snapshot is the Hypergryph passport, which stays apart from the Skland role, so it is not shown.
 const identity = computed(() => {
@@ -102,6 +105,7 @@ function capProps(cap) {
     </div>
 
     <header v-parallax class="card-head game-hero">
+      <ArtworkImage class="game-backdrop" :candidates="banner" decorative loading="eager" />
       <span class="hero-mark-art plx-layer" aria-hidden="true"><GameIcon class="hero-big-mark" :game-id="game.game_id" /></span>
       <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><p class="game-en" aria-hidden="true">{{ style.english }}</p><h1 class="game-name">{{ game.display_name }}</h1><p v-if="identity" class="game-identity-line">{{ identity }}</p></div></div>
       <span
@@ -126,7 +130,7 @@ function capProps(cap) {
     <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" :can-maintain="!cloudAccount || isAdmin" :character-id="nteGuideId" @role="openNteRole" /></NteModuleCard>
     <div v-else class="cap-list">
       <template v-for="cap in visibleCaps" :key="cap">
-        <NteModuleCard v-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
+        <NteModuleCard v-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :artwork="cap === 'account' ? banner : []" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
           <component :is="capComponent(cap)" v-bind="{...capProps(cap),...(cap==='roles' ? {focusCharacterId:nteFocusId,detailMode:!!nteFocusId,onGuide:openNteGuide} : {})}" />
         </NteModuleCard>
       </template>
@@ -158,7 +162,10 @@ function capProps(cap) {
 .hero-mark-art { --plx-range:-10px; position:absolute; right:clamp(150px, 24%, 300px); bottom:-36px; z-index:-1; pointer-events:none; }
 .hero-big-mark { width:132px; height:132px; border-radius:34px; background:var(--card-bg); box-shadow:0 18px 40px -22px rgba(38, 40, 46, .4); transform:rotate(-9deg); color:var(--game-accent); font-size:56px; font-weight:600; }
 .game-en { color:var(--game-accent); font-size:11px; font-weight:600; letter-spacing:1.5px; line-height:16px; }
-.card-head > :not(.hero-mark-art) { position:relative; }
+.card-head > :not(.hero-mark-art):not(.game-backdrop) { position:relative; }
+.game-backdrop { position:absolute; inset:0 0 0 auto; width:78%; height:100%; object-position:center 38%; z-index:-2; }
+.card-head:has(.game-backdrop)::after { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg,var(--game-tone) 12%,color-mix(in srgb,var(--game-tone) 94%,transparent) 34%,color-mix(in srgb,var(--game-tone) 22%,transparent) 78%); }
+.card-head:has(.game-backdrop) .hero-mark-art { display:none; }
 .game-heading { display:flex; align-items:center; gap:16px; margin-right:auto; min-width:0; }
 .detail-monogram { display:grid; place-items:center; width:56px; height:56px; border:3px solid var(--card-bg); border-radius:16px; background:var(--card-bg); box-shadow:0 0 0 1px var(--card-border); font-size:24px; font-weight:600; }
 .game-name { font-size:30px; line-height:38px; font-weight:600; letter-spacing:-.03em; }
@@ -173,4 +180,5 @@ function capProps(cap) {
 .detail-navigation { display:flex; justify-content:space-between; gap:10px 16px; align-items:center; margin:0 0 16px; flex-wrap:wrap; }
 @media(max-width:950px) { .cap-list { grid-template-columns:1fr; } }
 @media(max-width:600px) { .card-head { min-height:150px; margin-bottom:16px; padding:20px 18px; gap:12px; border-radius:24px; }.hero-mark-art { right:-14px; bottom:-40px; transform:scale(.7); transform-origin:100% 100%; }.game-heading { gap:12px; flex-basis:100%; }.game-name { font-size:26px; line-height:32px; }.detail-monogram { width:44px; height:44px; font-size:20px; border-radius:13px; }.detail-tabs button { padding:4px 10px; } }
+@media(max-width:600px) { .game-backdrop { width:100%; object-position:65% center; }.card-head:has(.game-backdrop)::after { background:linear-gradient(90deg,var(--game-tone),color-mix(in srgb,var(--game-tone) 86%,transparent) 46%,color-mix(in srgb,var(--game-tone) 35%,transparent)); } }
 </style>

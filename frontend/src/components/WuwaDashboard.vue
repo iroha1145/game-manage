@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import WuwaProfile from './WuwaProfile.vue'
 import WuwaRoles from './WuwaRoles.vue'
 import WuwaCombat from './WuwaCombat.vue'
@@ -15,7 +15,9 @@ import AnnouncementList from './AnnouncementList.vue'
 import AppIcon from './AppIcon.vue'
 import RingGauge from './RingGauge.vue'
 import { vGlide, vParallax, vReveal } from '../motion.js'
-import { safeUrl } from '../calendar.js'
+import { characterIcon } from '../wuwa-icons.js'
+import { gameBanner, roleArtwork } from '../game-visuals.js'
+import ArtworkImage from './ArtworkImage.vue'
 import WuwaModuleCard from './WuwaModuleCard.vue'
 import { count, fieldLabels, value } from '../wuwa-display.js'
 import { expProgress } from '../wuwa-charts.js'
@@ -92,10 +94,10 @@ const accountStats = ['world_level', 'active_days', 'achievement_count', 'achiev
 // The current lead role lends its portrait to the card; it drifts a little as the page scrolls.
 const portrait = computed(() => {
   const roles = Array.isArray(current.value.roles?.payload) ? current.value.roles.payload : []
-  return safeUrl(roles.find((role) => role?.extra?.is_main_role === true)?.icon_url)
+  const main = roles.find((role) => role?.extra?.is_main_role === true)
+  return main ? [...roleArtwork(main), characterIcon(main.role_id)] : []
 })
-const portraitFailed = ref(false)
-watch(portrait, () => { portraitFailed.value = false })
+const banner = computed(() => gameBanner('wuthering_waves', props.snaps))
 </script>
 <template>
   <div class="wuwa-dashboard">
@@ -132,6 +134,7 @@ watch(portrait, () => { portraitFailed.value = false })
       <div v-else-if="section === 'profile'" class="wuwa-bento">
         <WuwaModuleCard v-reveal v-parallax class="span-7 profile-account is-hero" title="账号档案" :snap="current.account" :sheet-width="640">
           <template #preview>
+            <ArtworkImage class="profile-backdrop" :candidates="banner" decorative />
             <div class="account-hero">
               <RingGauge :value="exp?.cur" :max="exp?.max" :label="`${levelName}经验`" :size="116" :stroke="10" color="var(--game-vivid, var(--accent))">
                 <small class="ring-cap">{{ levelName }}</small>
@@ -141,7 +144,7 @@ watch(portrait, () => { portraitFailed.value = false })
                 <p class="account-name">{{ account?.nickname || '漂泊者档案' }}</p>
                 <p v-if="exp" class="account-exp">经验 {{ count(exp.cur) }} / {{ count(exp.max) }}</p>
               </div>
-              <img v-if="portrait && !portraitFailed" class="account-portrait plx-layer" :style="{ '--plx-range': '-18px' }" :src="portrait" alt="" loading="lazy" referrerpolicy="no-referrer" @error="portraitFailed = true" />
+              <ArtworkImage class="account-portrait plx-layer" :style="{ '--plx-range': '-18px' }" :candidates="portrait" decorative />
             </div>
             <dl class="wuwa-stats">
               <div v-for="key in accountStats" :key="key" class="wuwa-stat">
@@ -197,4 +200,9 @@ watch(portrait, () => { portraitFailed.value = false })
     </div>
   </div>
 </template>
+<style scoped>
+.profile-account { position:relative; isolation:isolate; overflow:hidden; }
+.profile-backdrop { position:absolute; inset:0; width:100%; height:100%; z-index:-2; object-position:70% center; }
+.profile-account:has(.profile-backdrop)::after { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg,var(--game-tone) 10%,color-mix(in srgb,var(--game-tone) 92%,transparent) 46%,color-mix(in srgb,var(--game-tone) 40%,transparent)),linear-gradient(0deg,var(--game-tone),transparent 70%); }
+</style>
 <style src="../wuwa.css"></style>

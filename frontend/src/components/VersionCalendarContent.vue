@@ -4,7 +4,7 @@ import CalendarTimelineContent from './CalendarTimelineContent.vue'
 import VersionCalendarMetadata from './VersionCalendarMetadata.vue'
 import { formatBeijingDateTime, versionCalendarRange } from '../calendar.js'
 
-const props = defineProps({ calendars:{type:Array,default:()=>[]}, asOf:{type:Number,required:true}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showSourceDetails:{type:Boolean,default:true} })
+const props = defineProps({ calendars:{type:Array,default:()=>[]}, snapshots:{type:Object,default:()=>({})}, asOf:{type:Number,required:true}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showSourceDetails:{type:Boolean,default:true} })
 defineEmits(['select'])
 const events = computed(() => props.calendars.flatMap(calendar => calendar.events))
 const range = computed(() => versionCalendarRange(events.value, props.asOf))
@@ -16,7 +16,7 @@ const dateLabel = range => `${formatBeijingDateTime(range.start).slice(0,10)} �
       <p class="version-axis"><strong>活动日期范围</strong><span>{{ range ? dateLabel(range) : '暂无可定位的活动日期' }}</span></p>
     </header>
     <section class="version-window-content">
-      <CalendarTimelineContent :events="events" :range="range" :as-of="asOf" range-mode="version" :mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="(event,interaction)=>$emit('select',event,interaction)" />
+      <CalendarTimelineContent :events="events" :snapshots="snapshots" :range="range" :as-of="asOf" range-mode="version" :mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="(event,interaction)=>$emit('select',event,interaction)" />
     </section>
     <details v-if="mode !== 'image' && showSourceDetails && calendars.length" class="version-details" data-render-collapsed><summary>数据来源详情</summary><VersionCalendarMetadata :calendars="calendars" /></details>
   </div>

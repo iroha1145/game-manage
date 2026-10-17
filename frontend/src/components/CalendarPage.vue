@@ -1,5 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import ArtworkImage from './ArtworkImage.vue'
+import { eventArtwork } from '../event-artwork.js'
 import CalendarTimelineContent from './CalendarTimelineContent.vue'
 import VersionCalendarContent from './VersionCalendarContent.vue'
 import VersionCalendarMetadata from './VersionCalendarMetadata.vue'
@@ -146,13 +148,13 @@ async function closeDetail() {
         <p v-if="neverGames.length && !loading" class="calendar-missing" role="status">{{ neverGames.join('、') }} · 等待活动更新。</p>
         <details v-if="showSourceStatus || staleGames.length || failedReads.length || partialCollections.length || versionCalendars.length" class="calendar-source-states"><summary>数据来源详情</summary><p v-if="staleGames.length" class="calendar-stale">数据可能过期 · {{ staleGames.join('、') }}</p><p v-for="failure in partialCollections" :key="failure.id">{{ failure.name }} · 部分来源不可用，显示可用来源数据。</p><p v-for="failure in failedReads" :key="failure.id">{{ failure.name }}：{{ failure.error }}</p><div v-if="showSourceStatus" v-for="game in filteredGames" :key="game.game_id"><strong>{{ game.display_name }}</strong><CloudSnapshotStatus :snapshots="snapshots[game.game_id] || {}" :capabilities="['events']" /></div><VersionCalendarMetadata :calendars="versionCalendars" /></details>
         <p v-if="loading && !events.length" class="calendar-empty" role="status">加载中…</p>
-        <VersionCalendarContent v-else-if="mode === 'version'" :calendars="versionCalendars" :as-of="now" :selected-id="selectedId" :empty-title="emptyTitle" :show-source-details="false" @select="selectEvent" />
-        <CalendarTimelineContent v-else :events="events" :range="range" :as-of="now" :range-mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="selectEvent" />
+        <VersionCalendarContent v-else-if="mode === 'version'" :calendars="versionCalendars" :snapshots="snapshots" :as-of="now" :selected-id="selectedId" :empty-title="emptyTitle" :show-source-details="false" @select="selectEvent" />
+        <CalendarTimelineContent v-else :events="events" :snapshots="snapshots" :range="range" :as-of="now" :range-mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="selectEvent" />
       </section>
       <aside class="calendar-aside">
         <section v-if="selected" ref="detailElement" class="calendar-detail t-panel" aria-labelledby="calendar-detail-title" tabindex="-1" :style="gameVars(selected.gameId)" @keydown.esc.stop="closeDetail">
           <div class="detail-heading"><div><p class="eyebrow">{{ selected.gameName }} / {{ selected.category }}</p><h2 id="calendar-detail-title">{{ selected.name || '未命名活动' }}</h2></div><button type="button" class="detail-close" aria-label="关闭活动详情" @click="closeDetail"><AppIcon name="close" :size="16" /></button></div>
-          <div class="detail-status"><span>{{ selected.status }}</span><span v-if="selected.geometry.reason">{{ selected.geometry.reason }}</span><span v-if="selected.stale" class="calendar-stale">数据可能过期</span></div>
+          <ArtworkImage class="detail-artwork" :candidates="eventArtwork(selected, snapshots)" :alt="`${selected.name || '活动'}配图`" /><div class="detail-status"><span>{{ selected.status }}</span><span v-if="selected.geometry.reason">{{ selected.geometry.reason }}</span><span v-if="selected.stale" class="calendar-stale">数据可能过期</span></div>
           <dl><div><dt>开始时间</dt><dd>{{ calendarBoundary(selected, 'start') }}</dd><small v-if="selected.geometry.approximateStart">仅知开始日期 {{ selected.start_date }}，具体时刻未知</small><small v-if="selected.start_at && selected.geometry.start === null">原始值：{{ selected.start_at }}</small></div><div><dt>截止时间</dt><dd>{{ calendarBoundary(selected, 'end') }}</dd><small v-if="selected.end_at && selected.geometry.end === null">原始值：{{ selected.end_at }}</small><small v-if="selected.end_at && selected.end_precision === 'version_end'">{{ selected.end_text }}，时刻取自下个版本的维护预告</small></div><div><dt>来源标题</dt><dd>{{ selected.source_name ? selected.source_name + ' · ' : '' }}{{ selected.source_title || '未提供' }}</dd></div><div><dt>数据更新时间</dt><dd>{{ formatBeijingDateTime(selected.fetchedAt) }}</dd></div></dl>
           <p v-if="selected.source_note" class="source-id">{{ selected.source_note }}</p>
           <p v-if="selected.geometry.clippedStart || selected.geometry.clippedEnd" class="clipping-note">时间条已按显示范围裁剪{{ selected.geometry.clippedStart ? '左侧' : '' }}{{ selected.geometry.clippedStart && selected.geometry.clippedEnd ? '和' : '' }}{{ selected.geometry.clippedEnd ? '右侧' : '' }}；以上为完整起止时间。</p>
@@ -162,7 +164,7 @@ async function closeDetail() {
           <h2 id="calendar-agenda-title" ref="agendaElement" tabindex="-1">即将截止</h2>
           <p class="agenda-sub">点一项查看起止时间和来源</p>
           <ul v-if="agenda.length" class="agenda-list">
-            <li v-for="event in agenda" :key="event.id"><button type="button" class="agenda-item" :style="gameVars(event.gameId)" @click="selectEvent(event, $event)"><span class="agenda-pill">{{ event.gameName }} · {{ event.status }}</span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.status === '未开始' ? `${calendarBoundary(event, 'start')} 开始` : `${calendarBoundary(event, 'end')} 截止` }}</small><AppIcon name="arrow" :size="14" /></button></li>
+            <li v-for="event in agenda" :key="event.id"><button type="button" class="agenda-item" :style="gameVars(event.gameId)" @click="selectEvent(event, $event)"><ArtworkImage class="agenda-artwork" :candidates="eventArtwork(event, snapshots)" decorative /><span class="agenda-pill">{{ event.gameName }} · {{ event.status }}</span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.status === '未开始' ? `${calendarBoundary(event, 'start')} 开始` : `${calendarBoundary(event, 'end')} 截止` }}</small><AppIcon name="arrow" :size="14" /></button></li>
           </ul>
           <p v-else class="agenda-empty">{{ loading ? '加载中…' : '当前范围内没有进行中或即将开始的活动。' }}</p>
         </section>
@@ -236,6 +238,7 @@ async function closeDetail() {
 .detail-heading .eyebrow { color: var(--game-accent); }
 .detail-heading h2 { margin-top: 6px; font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.4; }
 .detail-close { display: grid; place-items: center; height: 40px; width: 40px; padding: 0; flex-shrink: 0; border-color: transparent; background: color-mix(in srgb, var(--card-bg) 70%, transparent); }
+.detail-artwork { width:calc(100% - 32px); height:150px; margin-top:14px; border-radius:10px; }
 .detail-status { display: flex; gap: 8px; margin-top: 16px; margin-bottom: 20px; color: var(--text-body); font-size: 12px; font-weight: 500; flex-wrap: wrap; }
 .detail-status > span { background: var(--surface-soft); padding: 2px 10px; border-radius: var(--radius-chip); line-height: 20px; }
 .detail-status > span:first-child { background: var(--game-tone); color: var(--game-accent); }
@@ -255,6 +258,14 @@ async function closeDetail() {
 .agenda-sub { margin-top:4px; color:var(--text-muted); font-size:12px; }
 .agenda-list { display:grid; gap:10px; margin-top:16px; }
 .agenda-item { position:relative; display:grid; justify-items:start; gap:6px; width:100%; min-height:84px; padding:14px 40px 14px 14px; border:1px solid var(--card-border); border-radius:16px; background:var(--card-bg); color:var(--text); text-align:left; }
+.agenda-artwork { width:100%; height:100%; border-radius:inherit; position:absolute; inset:0; object-position:center 35%; }
+.agenda-item:has(.agenda-artwork) { min-height:126px; overflow:hidden; color:#fff; background:#18212b; }
+.agenda-item:has(.agenda-artwork)::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(7,13,22,.94),rgba(7,13,22,.8) 48%,rgba(7,13,22,.16)); z-index:1; }
+.agenda-item:has(.agenda-artwork) > :not(.agenda-artwork):not(svg) { position:relative; z-index:2; }
+.agenda-item:has(.agenda-artwork) strong { max-width:88%; text-shadow:0 1px 3px #000; }
+.agenda-item:has(.agenda-artwork) small { color:rgba(255,255,255,.92); text-shadow:0 1px 3px #000; }
+.agenda-item:has(.agenda-artwork) .agenda-pill { color:#fff; border:1px solid rgba(255,255,255,.3); background:rgba(7,13,22,.78); }
+.agenda-item:has(.agenda-artwork) > svg { position:absolute; color:#fff; z-index:2; }
 .agenda-item > svg { position:absolute; right:14px; top:16px; color:var(--text-muted); transition:transform var(--duration-fast) var(--ease-smooth-out), color var(--duration-quick) var(--ease-smooth-out); }
 @media (hover: hover) and (pointer: fine) { .agenda-item:hover { border-color:var(--border-strong); } .agenda-item:hover > svg { color:var(--accent); transform:translateX(2px); } }
 .agenda-item:active { transform:translateY(1px); }
@@ -272,7 +283,9 @@ async function closeDetail() {
   .calendar-navigation { gap: 8px; width: 100%; }
   .calendar-navigation h2 { font-size: 15px; }
   .today-button { margin-left: auto; }
-  .calendar-filters { justify-content: space-between; width: 100%; }
+  .calendar-filters { justify-content: space-between; flex-wrap:wrap; width: 100%; }
+  .range-toggle { flex:1 1 100%; }
+  .range-toggle > button { flex:1; }
   .calendar-meta { padding: 0 16px 16px; flex-direction: column; }
   .calendar-detail { padding: 18px; }
   .calendar-detail dl { grid-template-columns: 1fr; }

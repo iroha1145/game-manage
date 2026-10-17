@@ -2,12 +2,15 @@
 import { computed, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
+import ArtworkImage from './ArtworkImage.vue'
+import { articleArtwork, gameBanner, gameRoster, roleArtwork } from '../game-visuals.js'
+import { eventArtwork } from '../event-artwork.js'
 import HRail from './HRail.vue'
 import RingGauge from './RingGauge.vue'
 import BarChart from './BarChart.vue'
 import MenuSelect from './MenuSelect.vue'
 import { gameStyle, gameVars, summaryFor, upcomingEvents, recentNews, formatTime } from '../dashboard.js'
-import { parseBeijingTime, safeUrl } from '../calendar.js'
+import { parseBeijingTime } from '../calendar.js'
 import { sourceForGame } from '../source-status.js'
 import { friendlyDataError } from '../cloud-display.js'
 import { share } from '../chart-math.js'
@@ -61,10 +64,10 @@ function resourceNote(card) {
 // The highest-level roles that come with a picture: the avatar row on each game card and the hero's art.
 const failedAvatars = ref(new Set())
 function roster(card) {
-  const payload = props.snapshots[card.game_id]?.roles?.payload
-  const list = Array.isArray(payload) ? payload : Array.isArray(payload?.entries) ? payload.entries : []
-  const pictured = list.filter(role => role && typeof role === 'object' && safeUrl(role.icon_url) && !failedAvatars.value.has(safeUrl(role.icon_url)))
-  return { total: list.length, shown: pictured.sort((a, b) => (Number(b.level) || 0) - (Number(a.level) || 0)).slice(0, 5).map(role => ({ key: role.role_id ?? role.id ?? role.name, src: safeUrl(role.icon_url), name: typeof role.name === 'string' ? role.name : '' })) }
+  const list = gameRoster(props.snapshots[card.game_id])
+  const picture = role => roleArtwork(role).find(url => !failedAvatars.value.has(url))
+  const pictured = list.filter(role => picture(role))
+  return { total: list.length, shown: pictured.sort((a, b) => (Number(b.level) || 0) - (Number(a.level) || 0)).slice(0, 5).map(role => ({ key: role.role_id ?? role.id ?? role.name, src: picture(role), name: typeof role.name === 'string' ? role.name : '' })) }
 }
 function avatarFailed(src) { failedAvatars.value = new Set([...failedAvatars.value, src]) }
 
@@ -74,6 +77,7 @@ const featured = computed(() => cards.value.find(card => card.game_id === featur
   || [...cards.value].filter(card => card.summary.metric === 'stamina' && card.summary.percent != null && !warned(card)).sort((a, b) => b.summary.percent - a.summary.percent)[0]
   || cards.value[0] || null)
 const heroArt = computed(() => featured.value ? roster(featured.value).shown.slice(0, 3) : [])
+const heroBanner = computed(() => featured.value ? gameBanner(featured.value.game_id, props.snapshots[featured.value.game_id], props.now) : [])
 
 // Daily and weekly progress, read-only.
 const tasks = computed(() => dailyTasks(props.games, props.snapshots, props.now))
@@ -130,6 +134,7 @@ function quickLinks(card) {
     <div class="ov-top">
       <section v-if="featured" v-parallax class="ov-hero" :style="gameVars(featured.game_id)" aria-labelledby="ov-hero-title">
         <div class="hero-inner">
+          <ArtworkImage :key="`banner:${featured.game_id}`" class="hero-backdrop" :candidates="heroBanner" decorative loading="eager" />
           <div :key="featured.game_id" class="hero-copy t-panel">
             <p class="hero-eyebrow"><GameIcon class="hero-mark" :game-id="featured.game_id" :name="featured.display_name" />{{ featured.display_name }}<span>· {{ status(featured) }}</span></p>
             <h2 id="ov-hero-title" class="hero-title"><span>{{ metricLabel(featured) }}</span><b>{{ metricValue(featured) }}<small>{{ metricUnit(featured) }}</small></b></h2>
@@ -178,7 +183,7 @@ function quickLinks(card) {
           <p class="ov-energy"><strong v-pop>{{ metricValue(card) }}</strong><span class="total">{{ metricUnit(card) }}</span><span class="resource">{{ metricLabel(card) }}</span></p>
           <span class="meter ov-meter" :class="{ unknown: card.summary.percent == null }" aria-hidden="true"><i :style="{ '--pct': `${card.summary.percent ?? 0}%` }"></i></span>
           <p class="ov-note">{{ resourceNote(card) }}</p>
-          <div v-if="roster(card).shown.length" class="summary-roster"><span class="roster-faces"><img v-for="role in roster(card).shown" :key="role.key" :src="role.src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" @error="avatarFailed(role.src)" /></span><span>{{ roster(card).total }} 名角色</span></div>
+          <div v-if="roster(card).shown.length" class="summary-roster"><span class="roster-faces"><img v-for="role in roster(card).shown" :key="role.key" :src="role.src" :alt="role.name" decoding="async" referrerpolicy="no-referrer" @error="avatarFailed(role.src)" /></span><span>{{ roster(card).total }} 名角色</span></div>
           <p class="ov-game-foot"><span class="summary-state" :class="{ warn: warned(card) }"><i></i>{{ status(card) }}</span><span class="summary-updated">{{ card.summary.fetchedAt ? `更新于 ${formatTime(card.summary.fetchedAt)}` : '尚未更新' }}</span></p>
           <nav v-if="quickLinks(card).length" class="ov-quick" :aria-label="`${card.display_name}的常用页面`"><a v-for="link in quickLinks(card)" :key="link.href" :href="link.href">{{ link.label }}</a></nav>
         </article>
@@ -226,6 +231,7 @@ function quickLinks(card) {
       <HRail label="近期活动">
         <template #head><h2 id="ov-events-title">近期活动</h2><span class="count-badge">{{ events.length }}</span><button class="text-link" @click="emit('navigate', 'calendar')">全部活动 <AppIcon name="arrow" :size="15" /></button></template>
         <button v-for="event in events.slice(0, 12)" :key="event.id" class="event-card" :class="{ urgent: event.remainingDays <= 3 }" :style="gameVars(event.gameId)" @click="emit('navigate', 'calendar', event.gameId)">
+          <ArtworkImage class="event-card-art" :candidates="eventArtwork(event, snapshots)" decorative />
           <span class="event-pill">{{ event.gameName }} · {{ event.category || '限时活动' }}</span>
           <strong class="event-card-name">{{ event.name }}</strong>
           <span class="event-card-days"><b>{{ event.remainingDays }}</b><small>{{ event.upcoming ? '天 · 未开始' : '天后结束' }}</small><span v-if="!event.upcoming && event.remainingDays <= 3" class="deadline-label">即将截止</span></span>
@@ -239,7 +245,7 @@ function quickLinks(card) {
 
     <section v-reveal class="ov-news cap-card">
       <div class="section-heading"><h2>公告与资讯</h2><div class="news-filters"><MenuSelect v-model="newsFilter" label="公告游戏筛选" :options="newsGameOptions" /><MenuSelect v-model="sourceFilter" label="资讯来源" align="end" :options="newsSourceOptions" /></div></div>
-      <div class="news-list"><p v-if="!news.length" class="empty-page">{{ loading ? '加载中…' : '暂无公告。' }}</p><article v-for="(item, i) in news" :key="`${item.gameId}:${item.title}:${i}`" class="news-summary t-row" :style="gameVars(item.gameId)"><GameIcon class="news-mark" :game-id="item.gameId" :name="item.gameName" /><div class="news-copy"><a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }} <span>↗</span></a><p v-else>{{ item.title }}</p><div class="news-source">{{ item.gameName }}<span> / {{ item.source_name || (item.capability === 'news' ? '资讯' : '官方公告') }}</span><time v-if="item.published_at">{{ formatTime(item.published_at) }}</time></div></div></article></div>
+      <div class="news-list"><p v-if="!news.length" class="empty-page">{{ loading ? '加载中…' : '暂无公告。' }}</p><article v-for="(item, i) in news" :key="`${item.gameId}:${item.title}:${i}`" class="news-summary t-row" :style="gameVars(item.gameId)"><span class="news-visual"><ArtworkImage class="news-cover" :candidates="articleArtwork(item)" decorative /><GameIcon class="news-mark" :game-id="item.gameId" :name="item.gameName" /></span><div class="news-copy"><a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }} <span>↗</span></a><p v-else>{{ item.title }}</p><div class="news-source">{{ item.gameName }}<span> / {{ item.source_name || (item.capability === 'news' ? '资讯' : '官方公告') }}</span><time v-if="item.published_at">{{ formatTime(item.published_at) }}</time></div></div></article></div>
     </section>
   </div>
 </template>
@@ -261,6 +267,9 @@ function quickLinks(card) {
 /* Hero: a white frame around the featured game's pale tone (mockup .hero-card). */
 .ov-hero { display:flex; flex-direction:column; min-width:0; min-height:300px; padding:6px; overflow:hidden; border:1px solid var(--card-border); border-radius:26px; background:var(--card-bg); box-shadow:var(--card-shadow); }
 .hero-inner { position:relative; isolation:isolate; flex:1; overflow:hidden; padding:24px 28px 62px; border-radius:20px; background:var(--game-tone, var(--control-track)); container-type:inline-size; }
+.hero-backdrop { position:absolute; inset:0 0 0 auto; width:88%; height:100%; object-position:65% center; z-index:-2; }
+.hero-inner:has(.hero-backdrop)::after { content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,var(--game-tone) 6%,color-mix(in srgb,var(--game-tone) 94%,transparent) 30%,color-mix(in srgb,var(--game-tone) 18%,transparent) 75%),linear-gradient(0deg,var(--game-tone),transparent 26%); }
+.hero-inner:has(.hero-backdrop) .hero-art { display:none; }
 .ov-hero.is-empty .hero-inner { display:grid; place-items:center; color:var(--text-muted); padding:24px; }
 .hero-copy { position:relative; z-index:3; max-width:min(58%, 420px); }
 .hero-eyebrow { display:flex; align-items:center; gap:8px; color:var(--game-accent); font-size:12px; font-weight:500; white-space:nowrap; }
@@ -406,6 +415,9 @@ function quickLinks(card) {
 
 /* Events (mockup .event-card): each in its game's tone, the days left large. */
 .event-card { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:8px; width:clamp(272px, calc((100% - 32px) / 3), 340px); min-height:206px; padding:20px 22px 18px; overflow:hidden; isolation:isolate; border:0; border-radius:var(--radius-card); background:var(--game-tone); color:var(--game-accent); text-align:left; }
+.event-card-art { position:absolute; inset:0; z-index:-2; width:100%; height:100%; object-position:65% center; }
+.event-card:has(.event-card-art)::after { content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(0deg,var(--game-tone) 5%,color-mix(in srgb,var(--game-tone) 92%,transparent) 42%,color-mix(in srgb,var(--game-tone) 15%,transparent)),linear-gradient(90deg,color-mix(in srgb,var(--game-tone) 88%,transparent),transparent); }
+.event-card:has(.event-card-art) .event-watermark { display:none; }
 .event-pill { max-width:100%; overflow:hidden; padding:3px 8px; border-radius:var(--radius-chip); background:color-mix(in srgb, var(--card-bg) 60%, transparent); color:var(--game-accent); font-size:12px; white-space:nowrap; text-overflow:ellipsis; }
 .event-card-name { display:-webkit-box; max-width:82%; margin-top:6px; overflow:hidden; color:var(--text); font-size:17px; line-height:1.45; font-weight:600; letter-spacing:-.02em; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .event-card-days { display:flex; align-items:baseline; gap:4px; width:100%; margin-top:auto; }
@@ -426,6 +438,12 @@ function quickLinks(card) {
 .news-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(420px, 100%), 1fr)); column-gap:28px; }
 .news-summary { display:flex; align-items:center; gap:12px; min-width:0; padding:12px 8px; margin:0 -8px; border-bottom:1px solid var(--border); border-radius:var(--radius-control); }
 .news-mark { width:34px; height:34px; border-radius:10px; background:var(--game-tone); font-size:14px; font-weight:600; }
+.news-visual { display:block; flex:none; border-radius:10px; overflow:hidden; }
+.news-cover { width:112px; height:70px; }
+.news-visual:has(.news-cover) .news-mark { display:none; }
+.news-summary:has(.news-cover) .news-source { flex-wrap:wrap; gap:2px 6px; }
+.news-summary:has(.news-cover) .news-source time { margin-left:0; }
+.news-summary:has(.news-cover) .news-copy>a { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .news-copy { flex:1; min-width:0; }
 .news-summary a,.news-summary .news-copy>p { display:block; color:var(--text); text-decoration:none; font-size:14px; font-weight:500; line-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-summary a span { color:var(--text-faint); }
 .news-source { display:flex; align-items:center; gap:6px; margin-top:2px; color:var(--text-muted); font-size:12px; line-height:18px; min-width:0; }.news-source>span { color:var(--text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-source time { margin-left:auto; flex-shrink:0; }
@@ -444,5 +462,6 @@ function quickLinks(card) {
   .gacha-number b { font-size:40px; }
 }
 @media(max-width:420px) { .hero-index button { min-width:0; padding:8px 9px; } .ov-news .section-heading { flex-wrap:wrap; gap:8px; } .news-filters { width:100%; margin-left:0; } }
+@media(max-width:600px) { .hero-inner:has(.hero-backdrop)::after { background:linear-gradient(90deg,var(--game-tone),color-mix(in srgb,var(--game-tone) 84%,transparent) 46%,color-mix(in srgb,var(--game-tone) 25%,transparent)),linear-gradient(0deg,var(--game-tone),transparent 24%); }.news-cover { width:86px; height:72px; } }
 @media(prefers-reduced-motion:reduce) { .event-card:active,.ov-next:active,.hero-cta:active { transform:none; } }
 </style>

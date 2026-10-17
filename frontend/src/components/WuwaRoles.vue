@@ -1,7 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
-import { safeUrl } from '../calendar.js'
 import { list, starCount, value } from '../wuwa-display.js'
 import WuwaRoleDetail from './WuwaRoleDetail.vue'
 import WuwaStatus from './WuwaStatus.vue'
@@ -14,6 +13,8 @@ import WuwaGuide from './WuwaGuide.vue'
 import WuwaRoleDialog from './WuwaRoleDialog.vue'
 import { normalizeSearch, searchCharacters } from '../character-search.js'
 import WuwaGuideBrowser from './WuwaGuideBrowser.vue'
+import { characterIcon } from '../wuwa-icons.js'
+import { roleArtwork } from '../game-visuals.js'
 const props = defineProps({
   snap: { default: null },
   accountKey: { type: String, default: '' },
@@ -39,6 +40,9 @@ function reset() {
 }
 const request = useWuwaRequest(() => props.accountKey, reset)
 const roles = computed(() => list(props.snap?.payload))
+const brokenPictures = ref(new Set())
+const roleImage = role => [...roleArtwork(role), characterIcon(role.role_id)].find(url => url && !brokenPictures.value.has(url))
+function imageFailed(role) { brokenPictures.value = new Set([...brokenPictures.value, roleImage(role)]) }
 const options = (key) => [
   ...new Set(
     roles.value.map((r) => r[key]).filter((v) => v != null && v !== ''),
@@ -182,10 +186,13 @@ function close() {
         <!-- Mockup .role-card: the picture on the tone with the level as a white tag, then name, rarity and one muted line. -->
         <span class="wuwa-role-art"
           ><img
-            v-if="safeUrl(r.icon_url)"
-            :src="safeUrl(r.icon_url)"
+            v-if="roleImage(r)"
+            :src="roleImage(r)"
             :alt="r.name"
             loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+            @error="imageFailed(r)"
           /><span v-else class="wuwa-avatar-placeholder" aria-hidden="true">{{
             (r.name || '?').slice(0, 1)
           }}</span

@@ -20,6 +20,8 @@ The bundled `frontend/public/game-icons/*-mark.svg` files are original geometric
 
 Game names and trademarks belong to their respective owners. This is an independent, unofficial tool. Images and game data obtained at runtime from official community APIs remain subject to the providers' terms; the project's license does not grant rights to those external assets. No external avatar/card pack is bundled.
 
+The website also loads game icons and general game illustrations from publishers' official websites and official app-store listings. Their source pages, image URLs, rights holders, and verification dates are recorded in `frontend/public/game-icons/sources.json`. These external images are not relicensed under GPL. Calendar illustrations come from the event's own images or its explicitly linked source/version notice; general game illustrations are used only as decoration on game pages and the overview. Missing images fall back to the original identifiers and themed surfaces.
+
 ## Bundled font
 
 The web interface bundles the Geist typeface (Copyright 2024 The Geist Project Authors, <https://github.com/vercel/geist-font>) through the npm package `@fontsource-variable/geist` 5.3.0. The built frontend contains its WOFF2 files. Geist is licensed under the SIL Open Font License 1.1, reproduced in [licenses/Geist-OFL-1.1.txt](licenses/Geist-OFL-1.1.txt). Chinese text falls back to the system font; bot images keep their own render font.
