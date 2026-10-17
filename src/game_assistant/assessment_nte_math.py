@@ -13,8 +13,6 @@ class InventoryError(ValueError):
         self.code, self.status_code = code, status_code
         super().__init__(message)
 
-MATH_VERSION = 'nte-custom-weighting-v1'
-
 
 def invalid(code):
     return InventoryError(code, 'Custom scoring input is invalid.', 422)
