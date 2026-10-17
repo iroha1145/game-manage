@@ -224,8 +224,15 @@ class PublicAssetCache:
             return None
         ref = 'qqasset_' + hashlib.sha256((('portrait-v1:' if portrait else '') + safe).encode('ascii')).hexdigest()
         with self._lock:
-            if ref not in self._sources and len(self._sources) >= 2048:
-                return None
+            if ref in self._sources:
+                self._sources.move_to_end(ref)
+            elif len(self._sources) >= 2048:
+                # Only a download reads the source URL; a cached PNG is served by ref.
+                victim = next((old for old in self._sources if old not in self._inflight), None)
+                if victim is None:
+                    return None
+                del self._sources[victim]
+                self._portrait_refs.discard(victim)
             self._sources[ref] = safe
             if portrait:
                 self._portrait_refs.add(ref)
