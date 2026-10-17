@@ -57,9 +57,6 @@ class ScopedLedger:
         'endfield_gacha':{'sync','summary','records','export','add_records'},
         'blueprints':{'items','save','delete'},
     }
-    TABLES={'nte':('records','batches','rules','accounts'),
-        'wuwa_gacha':('wuwa_gacha','wuwa_gacha_imports','wuwa_gacha_batches','wuwa_gacha_aggregates','wuwa_gacha_rules'), 'wuwa_history':('wuwa_history',),
-        'endfield_gacha':('records','pools','breaks'),'blueprints':('blueprints',)}
 
     def __init__(self,scope,path,kind,role_uid,server_id,store):
         self.scope,self.path,self.kind=scope,path,kind
@@ -91,14 +88,6 @@ class ScopedLedger:
                 method='_add' if name=='add_records' else name
                 return getattr(self._store,method)(*prefix,*args,**kwargs)
         return operation
-
-    def clear(self,scope):
-        """Explicit user data deletion; authorization revocation preserves ledgers."""
-        with self._lock:
-            self._check(scope)
-            with sqlite3.connect(self.path) as db:
-                for table in self.TABLES[self.kind]:
-                    db.execute('DELETE FROM '+table)
 
     def close(self):
         conn=getattr(self._store,'conn',None)
@@ -144,17 +133,3 @@ def list_scope_files(root):
         _manifest(path,scope,kind,uid,server)
         result.append(dict(scope=scope,kind=kind,path=path))
     return result
-
-
-def backup_scope_files(root,destination):
-    """Consistent per-file SQLite backups; no cross-file transaction implied."""
-    base=Path(root).resolve(); destination=Path(destination).resolve()
-    if destination.is_relative_to(base) or base.is_relative_to(destination):
-        raise ValueError('Backup source and destination must not overlap')
-    inventory=list_scope_files(root)
-    for item in inventory:
-        target=destination/item['path'].relative_to(base)
-        target.parent.mkdir(parents=True,exist_ok=True)
-        with sqlite3.connect(item['path']) as source, sqlite3.connect(target) as backup:
-            source.backup(backup)
-    return inventory

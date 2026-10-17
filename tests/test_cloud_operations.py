@@ -315,6 +315,7 @@ def test_backup_includes_private_manifest_and_public_side_databases(tmp_path):
     from game_assistant.accounts.models import AccountScope
     from game_assistant.nte_gacha import GachaStore
     from game_assistant.endfield_blueprints import BlueprintStore
+    from game_assistant.private_data import list_scope_files
     root,identity,key,_=fixture(tmp_path)
     with sqlite3.connect(identity) as db:
         row=db.execute('SELECT user_id,account_id,role_id FROM roles').fetchone()
@@ -327,6 +328,7 @@ def test_backup_includes_private_manifest_and_public_side_databases(tmp_path):
         db.execute("INSERT INTO public_fixture VALUES('synthetic')")
     result=backup(root,identity,tmp_path/'backup',key)
     assert sum(entry['path'].startswith('data/private/') for entry in result['files'])==2
+    assert [item['scope'] for item in list_scope_files(tmp_path/'backup/data/private')]==[scope,scope]
     assert 'data/public.endfield-public.sqlite3' in [entry['path'] for entry in result['files']]
     restore(tmp_path/'backup',tmp_path/'restore',key)
 
