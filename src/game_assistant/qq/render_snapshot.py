@@ -7,7 +7,7 @@ from .assets import safe_public_url
 from .commands import GAME_NAMES, mask_links
 from .browser_rendering import validate_snapshot
 from .rendering import RenderingUnavailable
-from ..accounts.models import QueryResult
+from dataclasses import replace
 import re
 import unicodedata
 from urllib.parse import urlsplit,unquote
@@ -197,7 +197,7 @@ def filtered_events_snapshot(snapshots,command,now,page=1):
                 include=not invalid and any(stamp is not None and now<stamp<=now+timedelta(hours=168) for stamp in (first,last))
                 include|=invalid or any(endpoint(item,side) is None and (item.get(side+'_text') or item.get(side+'_date') or item.get(side+'_precision') in ('relative','day','dependent')) for side in ('start','end'))
             if include:selected.append({**{key:value for key,value in item.items() if key!='display_title'},'name':item['display_title']})
-        panels.append(game_panel(game,'public',command,QueryResult(selected,row.fetched_at,row.state,row.complete)))
+        panels.append(game_panel(game,'public',command,replace(row,payload=selected)))
     return game_snapshot(panels,now,page,title='进行中的活动' if command=='events' else '近期活动 · 未来168小时',command='活动' if command=='events' else '近期活动')
 
 
@@ -222,7 +222,10 @@ def project(value, allowed, *, depth=0):
 
 
 def metadata(snapshot,payload):
-    return {'payload':payload,'fetched_at':snapshot.fetched_at,'state':snapshot.state,'complete':snapshot.complete,'stale':snapshot.state not in ('ok','success')}
+    # Public results judge staleness by the sources that supplied rows; derive it only when absent.
+    stale=getattr(snapshot,'stale',None)
+    if type(stale) is not bool:stale=snapshot.state not in ('ok','success')
+    return {'payload':payload,'fetched_at':snapshot.fetched_at,'state':snapshot.state,'complete':snapshot.complete,'stale':stale}
 
 
 def snapshot(kind,game,data,now,page,title,command):

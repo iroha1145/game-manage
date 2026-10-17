@@ -113,6 +113,40 @@ def test_public_qq_partial_failure_labels_fresh_native_content_as_available():
     assert '显示旧快照' in render_result('鸣潮活动', q.read('wuthering_waves', 'events'), 'events')
 
 
+def test_qq_image_projection_keeps_the_public_results_own_freshness():
+    from types import SimpleNamespace
+    from game_assistant.accounts.models import QueryResult
+    from game_assistant.qq.models import QqIdentity
+    from game_assistant.qq.query_routes import QqQueryService
+    now = datetime.now(timezone.utc)
+    def projected(public, command):
+        context = {}
+        QqQueryService(None, None, public, clock=lambda: now).query(
+            QqIdentity('app', 'group', 'g', 's'), command, 'wuthering_waves', image_context=context)
+        data = context['render_snapshot']['display_data']
+        return data['snapshots']['wuthering_waves']['events'] if command == 'calendar' else data['panels'][0]['snapshot']
+    q, store = query(status='error', message='B站不可达', failures=1)
+    save(store, 'wuthering_waves', 'events', [{'name': '最新社区活动'}], now.isoformat())
+    store.record_poll('wuthering_waves', 'events', FetchResult(ok=True))
+    source = q.read('wuthering_waves', 'events')
+    assert source.state == 'error' and source.stale is False
+    for command in ('calendar', 'events', 'recent_events'):
+        row = projected(q, command)
+        assert row['state'] == 'error' and row['stale'] is False
+    version = projected(q, 'calendar')['version_metadata']
+    assert version['coverage'] == 'partial' and version['diagnostics'] == source.version_metadata['diagnostics']
+    # A successful poll whose cache has expired is still stale, and a result
+    # without its own stale flag (private, or a failed public read) is judged by state.
+    q, store = query()
+    old = (now - timedelta(days=2)).isoformat()
+    save(store, 'wuthering_waves', 'events', [{'name': '旧活动'}], old)
+    store.record_poll('wuthering_waves', 'events', FetchResult(ok=True), now=datetime.fromisoformat(old))
+    failed = SimpleNamespace(read=lambda game, cap: QueryResult([{'name': '旧活动'}], old, 'error', None))
+    for command in ('calendar', 'events', 'recent_events'):
+        assert projected(q, command)['state'] == 'ok' and projected(q, command)['stale'] is True
+        assert projected(failed, command)['stale'] is True
+
+
 def test_partial_and_expired_bili_keep_rows_warn_and_use_contributing_time():
     old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
     q, _ = query(rows=[{'name': 'B站旧活动', 'source': 'bilibili', 'source_stale': True}],
