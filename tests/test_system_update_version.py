@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from pathlib import Path
 import pytest
@@ -104,6 +105,10 @@ def test_real_git_dirty_state_and_startup_head_are_not_replaced_by_later_git_com
 
 
 def test_git_state_handles_other_owner_without_persisting_trust_or_running_fsmonitor(tmp_path, monkeypatch):
+    # CI hosts may globally trust every checkout. The control must exercise
+    # Git's default ownership boundary, independently of host policy.
+    monkeypatch.setenv('GIT_CONFIG_NOSYSTEM', '1')
+    monkeypatch.setenv('GIT_CONFIG_GLOBAL', os.devnull)
     root = tmp_path / 'release'
     root.mkdir()
     def git(*args):
