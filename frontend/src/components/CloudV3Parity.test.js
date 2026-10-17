@@ -27,7 +27,7 @@ test('cloud favorites persist by user account and role and reject a shared uid',
 })
 test('NTE restores guides and the original full ledger panel',async t=>{
  const root=mount(t,Card,{account:account('tajiduo'),role:'r',userId:'u'})
- assert.ok(btn(root,'角色攻略'));btn(root,'抽卡统计').props.onClick();await tick();btn(root,'查看抽卡统计').props.onClick();await tick();assert.match(content(root),/逐抽账本/);assert.doesNotMatch(content(root),/暂未开放/)
+ btn(root,'角色与探索').props.onClick();await tick();assert.ok(btn(root,'浏览全部攻略'));btn(root,'抽卡统计').props.onClick();await tick();btn(root,'查看抽卡统计').props.onClick();await tick();assert.match(content(root),/逐抽账本/);assert.doesNotMatch(content(root),/暂未开放/)
 })
 test('Endfield uses original dashboard without fetching another authorization identity',async t=>{
  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}));setAccountScope({user_id:'u',account_id:'a',role_id:'r',provider:'hypergryph'})

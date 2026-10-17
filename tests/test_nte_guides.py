@@ -116,3 +116,15 @@ async def test_response_limit_and_api_security(tmp_path):
         assert route.call_count == 0
         assert (await client.get('/api/nte/guides/sources/495234')).status_code == 502
         assert (await client.get('/api/nte/guides', headers={'Host':'evil.invalid'})).status_code == 403
+
+
+def test_partial_summaries_keep_source_version_pages_and_explicit_gaps():
+    partial = [g for g in guide_catalog()['guides'] if g['status'] == 'original_only']
+    assert len(partial) == 18
+    for g in partial:
+        assert g['partial_reviewed_at'] == '2026-10-18'
+        assert g['source_id'] == 491439
+        assert len([s for s in g['sections'] if s['items']]) >= 3
+        assert any(s['note'] and not s['items'] for s in g['sections'])
+        assert all(s['pages'] == g['pages'] for s in g['sections'])
+        assert g['gap_note']

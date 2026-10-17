@@ -6,14 +6,14 @@ const Nte=await loadVue(new URL('./NteRolesPanel.vue',import.meta.url))
 const Wuwa=await loadVue(new URL('./WuwaRoles.vue',import.meta.url))
 const Browser=await loadVue(new URL('./WuwaGuideBrowser.vue',import.meta.url))
 const NteGuides=await loadVue(new URL('./NteGuides.vue',import.meta.url))
-test('NTE runtime search executes phonetic match and emits stable guide ID on explicit click',async t=>{
+test('NTE runtime search executes phonetic match and opens a guide for the stable ID on explicit click',async t=>{
   const selected=[]
   const root=mount(t,Nte,{snap:{payload:{schema_version:1,entries:[{id:'1020',name:'哈尼娅'},{id:'1019',name:'薄荷'}]}},onGuide:id=>selected.push(id)})
   nodes(root,'input').find(n=>n.props.type==='search').props.onInput({target:{value:' HNY '}})
   await nextTick()
   assert.equal(nodes(root,'li').filter(n=>n.props.class?.includes('role-card')).length,1)
   nodes(root,'button').find(n=>n.props['aria-label']==='查看哈尼娅攻略').props.onClick()
-  assert.deepEqual(selected,['1020'])
+  await nextTick();assert.equal(nodes(root,'dialog').length,1);assert.match(content(nodes(root,'dialog')[0]),/哈尼娅/)
 })
 test('Wuwa search has no detail request until explicit role selection and uses canonical ID',async t=>{
   const urls=[]

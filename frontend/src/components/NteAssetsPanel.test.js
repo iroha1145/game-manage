@@ -101,3 +101,14 @@ test('broken recommendation images retain an accessible link and descriptive con
   assert.match(content(root), /推荐说明.*图片暂时无法加载/)
   assert.equal(nodes(root, 'a')[0].props.href, 'https://example.com/team.png')
 })
+
+
+test('official asset pictures fail back without losing ownership or fields',async t=>{
+ for(const [kind,id] of [['realestate','bigword_l_1'],['vehicles','vehicle008']]){
+  const root=card(t,kind,{entries:[{id,name:'有来源的资产',owned:null,base:[{name:'车辆耐久',value:'-1'}]}]})
+  const pic=nodes(root,'img')[0];assert.ok(pic.props.src.startsWith('https://webstatic.tajiduo.com/'))
+  pic.props.onError({currentTarget:{src:pic.props.src}});await nextTick()
+  assert.equal(nodes(root,'img').length,0);assert.match(content(root),/有来源的资产.*拥有状态未知/)
+  if(kind==='vehicles')assert.match(content(root),/来源未说明/)
+ }
+})

@@ -73,6 +73,45 @@ REVIEWED = {
 }
 
 
+# 2026-10-18 visual check of the six V1.3 originals from post 491439.
+# Only readable recommendations are transcribed; avatar-only teams and block
+# layouts remain original-image evidence, not guessed text advice.
+PARTIAL_REVIEWED_AT = '2026-10-18'
+PARTIAL = {
+    '九原': ('现实避难所', '副 C 采用森林萤火之心；原图未列次选。', '主词条侧重暴击率，其后灵属性伤害、暴击伤害与攻击百分比。', '极轨终结优先，其后普通攻击、变轨技能、援护技。'),
+    '薄荷': ('最后一朵玫瑰', '主 C 采用森林萤火之心；原图未列次选。', '主词条依次考虑灵属性伤害、暴击率、暴击伤害、攻击百分比。', '普通攻击优先，其后极轨终结、变轨技能、援护技。'),
+    '阿德勒': ('勿忘伞', '辅助可用守卫王国，次选音速蓝刺猬。', '主词条优先防御百分比，其后倾陷；副词条依次考虑防御百分比、防御、倾陷。', '变轨技能优先，其后极轨终结、普通攻击、援护技。'),
+    '白藏': ('茶花会', '主 C 采用真红·双生蝶；原图未列次选。', '主词条考虑咒属性伤害或暴击伤害，其后倾陷。', ''),
+    '早雾': ('好狗狗走四方', '辅助采用音速蓝刺猬；原图未列次选。', '想补输出时考虑暴击率；倾陷与暴击伤害同级。副词条双暴仅限输出用途。', ''),
+    '真红': ('穿过胭红蜃景', '主 C 采用失落光芒；原图未列次选。', '主词条优先暴击率；副词条依次考虑暴击率、暴击伤害、伤害增加和攻击。', ''),
+    '小吱': ('思考喵', '主 C 采用失落光芒；原图未列次选。', '主词条为光属性伤害；副词条优先伤害增加，再考虑暴击伤害、暴击率和攻击百分比。', ''),
+    '埃德嘉': ('扭曲之城的呼唤', '辅助首选缇娅的夜间酒馆，次选音速蓝刺猬。', '主词条依次考虑治疗增益、生命百分比、环合和倾陷。', ''),
+    '浔': ('行进于时间之外', '副 C 采用失落光芒；原图未列次选。', '主词条依次考虑暴击率、光属性伤害、暴击伤害。', '极轨终结优先，其后变轨技能、援护技、普通攻击。'),
+    '主角·零': ('倾世之雨', '副 C 用失落光芒；辅助用音速蓝刺猬，须按定位选择。', '主词条为环合；副词条优先环合，其后双暴，再考虑伤害增加与攻击百分比。', '变轨技能与极轨终结同级，其后援护技、普通攻击。'),
+    '卡厄斯': ('众人追寻之物', '主 C 采用街头拳王；原图未列次选。', '主词条相属性伤害与攻击百分比近似同级，其后暴击伤害。', '普通攻击优先，其后极轨终结、变轨技能、援护技。'),
+    '翳': ('好狗狗走四方', '主 C 采用街头拳王；原图未列次选。', '主词条依次考虑相属性伤害、暴击伤害、暴击率。', '极轨终结优先，其后普通攻击、变轨技能、援护技。'),
+    '哈索尔': ('焰魂狂飙', '副 C 采用街头拳王；原图未列次选。', '主词条依次考虑相属性伤害、暴击伤害、暴击率。', ''),
+    '安魂曲': ('最后一朵玫瑰', '主 C 采用迪亚波罗斯；原图未列次选。', '主词条先考虑暗属性伤害，再考虑暴击率；副词条优先双暴。', ''),
+    '达芙蒂尔': ('漆黑青春妄想', '副 C 采用迪亚波罗斯；原图未列次选。', '主词条倾陷在 3、5 觉优先，与暴击率同级，其后暴击伤害；须结合觉醒等级。', ''),
+    '海月': ('银河暂留', '主 C 采用恶魔之血·诅咒；原图未列次选。', '主词条先考虑暴击率，再考虑魂属性伤害；攻击百分比与暴击伤害同级。', ''),
+    '哈尼娅': ('引爆全场', '辅助首选音速蓝刺猬，次选恶魔之血·诅咒。', '主词条倾陷与环合同级，先于魂属性伤害，其后双暴。', ''),
+    '法帝娅': ('永恒圆舞曲', '辅助采用小小大冒险；副 C 采用静谧山庄，须按定位选择。', '主词条先考虑生命百分比，其后心灵伤害，再考虑魂属性伤害和双暴。', ''),
+}
+
+
+def partial_sections(guide):
+    weapon, sets, stats, skills = PARTIAL[guide['name']]
+    values = {'weapons': f'原图列在首位的弧盘为「{weapon}」。其余备选与适用条件请核对原图。',
+              'sets': sets, 'stats': stats, 'skills': skills, 'teams': ''}
+    result = []
+    for key in SECTIONS:
+        note = ('配队仅有角色头像，未逐一核实名字，不生成固定队伍。' if key == 'teams' else
+                '原图文字尚未完整核对，保留原图页入口。' if not values[key] else
+                '仅核对 V1.3 原图可读文字；完整备选、驱动块形状及新版本适用性须查看原图。')
+        result.append(section(key, guide['pages'], *([values[key]] if values[key] else []), note=note))
+    return result
+
+
 def guide_catalog():
     guides = [{'id': '黑羽', 'name': '黑羽', 'aliases': [], 'element': '魂', 'role': '主 C / 副 C / 辅助',
                'source_id': 495234, 'pages': [1, 2, 3, 4, 5]}]
@@ -84,4 +123,8 @@ def guide_catalog():
         guide['status'] = 'reviewed' if guide['name'] in REVIEWED else 'original_only'
         guide['sections'] = REVIEWED.get(guide['name'], [section(key, guide['pages'], note='尚未整理文字推荐，可打开对应原图页查看。') for key in SECTIONS])
         guide['reviewed_at'] = REVIEWED_AT if guide['status'] == 'reviewed' else None
+        if guide['name'] in PARTIAL:
+            guide['sections'] = partial_sections(guide)
+            guide['partial_reviewed_at'] = PARTIAL_REVIEWED_AT
+            guide['gap_note'] = '已核对部分弧盘、卡带与词条文字；配队头像、完整技能或布局未全部核实，不标记为完整摘要。'
     return deepcopy({'reviewed_at': REVIEWED_AT, 'guides': guides, 'sources': list(SOURCES.values())})

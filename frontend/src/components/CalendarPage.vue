@@ -259,13 +259,13 @@ async function closeDetail() {
 .agenda-list { display:grid; gap:10px; margin-top:16px; }
 .agenda-item { position:relative; display:grid; justify-items:start; gap:6px; width:100%; min-height:84px; padding:14px 40px 14px 14px; border:1px solid var(--card-border); border-radius:16px; background:var(--card-bg); color:var(--text); text-align:left; }
 .agenda-artwork { width:100%; height:100%; border-radius:inherit; position:absolute; inset:0; object-position:center 35%; }
-.agenda-item:has(.agenda-artwork) { min-height:126px; overflow:hidden; color:#fff; background:#18212b; }
-.agenda-item:has(.agenda-artwork)::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(7,13,22,.94),rgba(7,13,22,.8) 48%,rgba(7,13,22,.16)); z-index:1; }
-.agenda-item:has(.agenda-artwork) > :not(.agenda-artwork):not(svg) { position:relative; z-index:2; }
-.agenda-item:has(.agenda-artwork) strong { max-width:88%; text-shadow:0 1px 3px #000; }
-.agenda-item:has(.agenda-artwork) small { color:rgba(255,255,255,.92); text-shadow:0 1px 3px #000; }
-.agenda-item:has(.agenda-artwork) .agenda-pill { color:#fff; border:1px solid rgba(255,255,255,.3); background:rgba(7,13,22,.78); }
-.agenda-item:has(.agenda-artwork) > svg { position:absolute; color:#fff; z-index:2; }
+.agenda-item { min-height:126px; overflow:hidden; color:#fff; background:color-mix(in srgb,var(--game-accent) 28%,#18212b); }
+.agenda-item::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(7,13,22,.94),rgba(7,13,22,.8) 48%,rgba(7,13,22,.16)); z-index:1; }
+.agenda-item > :not(.agenda-artwork):not(svg) { position:relative; z-index:2; }
+.agenda-item strong { max-width:88%; text-shadow:0 1px 3px #000; }
+.agenda-item small { color:rgba(255,255,255,.92); text-shadow:0 1px 3px #000; }
+.agenda-item .agenda-pill { color:#fff; border:1px solid rgba(255,255,255,.3); background:rgba(7,13,22,.78); }
+.agenda-item > svg { position:absolute; color:#fff; z-index:2; }
 .agenda-item > svg { position:absolute; right:14px; top:16px; color:var(--text-muted); transition:transform var(--duration-fast) var(--ease-smooth-out), color var(--duration-quick) var(--ease-smooth-out); }
 @media (hover: hover) and (pointer: fine) { .agenda-item:hover { border-color:var(--border-strong); } .agenda-item:hover > svg { color:var(--accent); transform:translateX(2px); } }
 .agenda-item:active { transform:translateY(1px); }

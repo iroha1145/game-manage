@@ -36,8 +36,8 @@ const index = buildSearchIndex({ pages, games, snapshots, now })
 test('the index holds pages, games, their tabs, named roles once, and only events still running', () => {
   assert.deepEqual(index.filter(item => item.kind === 'role').map(item => [item.title, item.href]), [['今汐', '#/game/wuthering_waves?tab=roles'], ['长离', '#/game/wuthering_waves?tab=roles'], ['零', '#/game/nte?tab=characters']])
   assert.deepEqual(index.filter(item => item.kind === 'event').map(item => [item.title, item.href]), [['海市寻游', '#/calendar?game=wuthering_waves']])
-  // NTE shows a group only when the game has one of its capabilities; guides always.
-  assert.deepEqual(sectionsFor(games[1]).map(([id]) => id), ['overview', 'characters', 'guides'])
+  // NTE shows a group only when the game has one of its capabilities; guides are inside characters.
+  assert.deepEqual(sectionsFor(games[1]).map(([id]) => id), ['overview', 'characters'])
   assert.equal(index.filter(item => item.kind === 'section' && item.gameId === 'wuthering_waves').length, 8)
 })
 
@@ -45,7 +45,7 @@ test('an empty query offers pages and games; a query ranks title matches before 
   assert.deepEqual(searchItems(index, '').map(item => item.title), ['今日总览', '活动日历', '鸣潮', '异环'])
   assert.deepEqual(searchItems(index, '鸣潮抽卡').map(item => item.href), ['#/game/wuthering_waves?tab=gacha'])
   // 「角色」 finds the tabs named for roles, not every role through its hint.
-  assert.deepEqual(searchItems(index, '角色').map(item => item.title), ['角色', '角色与探索', '角色攻略'])
+  assert.deepEqual(searchItems(index, '角色').map(item => item.title), ['角色', '角色与探索'])
   assert.equal(searchItems(index, '今汐')[0].kind, 'role')
   assert.deepEqual(searchItems(index, '没有这个').length, 0)
   assert.deepEqual(groupResults(searchItems(index, '鸣潮')).map(group => group.label), ['游戏', '栏目', '角色', '活动'])

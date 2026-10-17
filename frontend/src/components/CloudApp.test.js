@@ -35,7 +35,9 @@ for (const failingNews of [false, true]) test(`overview refresh stays busy throu
   const firstReads = paths.length
   refresh.props.onClick(); await tick(); assert.equal(paths.length, firstReads)
   while (pending.some(p => p.path.endsWith('/snapshot/account'))) {
-    for (const request of pending.splice(0)) request.resolve()
+    for (let i=pending.length-1;i>=0;i--) {
+      if(pending[i].path.endsWith('/snapshot/account')) pending.splice(i,1)[0].resolve()
+    }
     await tick()
   }
   for (let i = 0; i < 4; i++) await tick()
@@ -66,14 +68,14 @@ test('public Bilibili authorization entry is visible only for the website admini
 test('minute session check defers during an accepted refresh and resumes after short tracking settles', async t => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] })
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
-  let identityReads = 0, posts = 0, reads = 0
+  let identityReads = 0, posts = 0, reads = 0, postReads = 0
   t.mock.method(globalThis, 'fetch', async path => {
     let data
     if (path === '/api/identity/me') { identityReads++; data = { user_id: 'A' } }
     else if (path.endsWith('/csrf')) data = { csrf_token: 'fixture' }
     else if (path === '/api/accounts') data = { accounts: [{ account_id: 'a', provider: 'hypergryph', state: 'active', capabilities: ['account'], roles: [{ role_id: 'r', is_default: true }] }] }
     else if (path.endsWith('/refresh/account')) { posts++; data = { state: 'queued' } }
-    else if (path.endsWith('/snapshot/account')) { reads++; data = { account_id:'a',role_id:'r',state: 'ok', payload: { role_id:'r',nickname: reads > 3 ? '定时交互新快照' : '定时交互旧快照' }, poll_status: { refresh_state: posts && reads === 3 ? 'queued' : 'idle' } } }
+    else if (path.endsWith('/snapshot/account')) { reads++; if(posts)postReads++; data = { account_id:'a',role_id:'r',state: 'ok', payload: { role_id:'r',nickname: postReads > 1 ? '定时交互新快照' : '定时交互旧快照' }, poll_status: { refresh_state: posts && postReads === 1 ? 'queued' : 'idle' } } }
     else data = { state: 'never', payload: null }
     return new Response(JSON.stringify(data))
   })
@@ -86,22 +88,22 @@ test('minute session check defers during an accepted refresh and resumes after s
   assert.match(content(root), /刷新已排队/)
   t.mock.timers.tick(2000); await tick()
   assert.match(content(root), /定时交互新快照/); assert.doesNotMatch(content(root), /刷新已排队|刷新结果未确认/)
-  assert.equal(reads, 4); assert.equal(posts, 1)
+  assert.equal(postReads, 2); assert.equal(posts, 1)
   t.mock.timers.tick(58000); await tick(); await tick()
   assert.equal(identityReads, 2, 'normal session checks resume on the next minute')
-  assert.equal(reads, 5)
+  assert.equal(postReads, 3)
 })
 test('refresh UI converges without the minute timer and public never state is explicit', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
-  let posts = 0, reads = 0
+  let posts = 0, reads = 0, postReads = 0
   t.mock.method(globalThis, 'fetch', async path => {
     let data
     if (path === '/api/identity/me') data = { user_id: 'A' }
     else if (path.endsWith('/csrf')) data = { csrf_token: 'fixture' }
     else if (path === '/api/accounts') data = { accounts: [{ account_id: 'a', provider: 'hypergryph', state: 'active', capabilities: ['account'], roles: [{ role_id: 'r', is_default: true }] }] }
     else if (path.endsWith('/refresh/account')) { posts++; data = { state: 'queued' } }
-    else if (path.endsWith('/snapshot/account')) { reads++; data = { account_id:'a',role_id:'r',state: 'ok', payload: { role_id:'r',nickname: reads > 3 ? '新快照' : '旧快照' }, poll_status: { refresh_state: posts && reads === 3 ? 'queued' : 'idle' } } }
+    else if (path.endsWith('/snapshot/account')) { reads++; if(posts)postReads++; data = { account_id:'a',role_id:'r',state: 'ok', payload: { role_id:'r',nickname: postReads > 1 ? '新快照' : '旧快照' }, poll_status: { refresh_state: posts && postReads === 1 ? 'queued' : 'idle' } } }
     else data = { state: 'never', payload: null }
     return new Response(JSON.stringify(data))
   })
@@ -112,7 +114,7 @@ test('refresh UI converges without the minute timer and public never state is ex
   t.mock.timers.tick(0); await tick(); assert.match(content(root), /刷新已排队/)
   t.mock.timers.tick(2000); await tick(); assert.equal(refresh.props.disabled, false)
   assert.doesNotMatch(content(root), /刷新已排队|正在读取状态/)
-  assert.match(content(root), /新快照/); assert.equal(posts, 1); assert.equal(reads, 4)
+  assert.match(content(root), /新快照/); assert.equal(posts, 1); assert.equal(postReads, 2)
   nodes(root,'button').find(n=>content(n)==='公告与资讯').props.onClick();await tick()
   assert.match(content(root), /尚未采集公告与资讯/); assert.doesNotMatch(content(root), /暂无公告与资讯/)
 })

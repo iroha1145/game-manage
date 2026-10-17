@@ -1,4 +1,5 @@
 <script setup>
+import { nteItemLabel } from '../nte-display.js'
 import { computed, reactive, ref, watch } from 'vue'
 import { nteGuidePoints, nteModuleTitles } from '../nte-modules.js'
 import { areaViews, catalogRole, gachaView, gauge, GLYPHS, houseView, officialPullIcon, progressView, roleBreakdown, rosterOrder, vehicleView } from '../nte-charts.js'
@@ -36,7 +37,7 @@ const show=value=>value===null || value===undefined || value==='' || (typeof val
 const percent=g=>g.known ? `${Math.round(g.pct)}%` : '—'
 // A ring only draws from counts it knows; RingGauge takes numbers, the source may send numeric text.
 const ring=g=>({value:g.known ? Number(g.current) : null,max:g.known ? Number(g.total) : null})
-const guideRoles=['黑羽','残虹','灵可','伊洛伊','娜娜莉'].map(name=>({name,icon:nteRoleIcon(name)}))
+
 
 const account=computed(()=>({
   name:show(p.value.nickname),
@@ -77,7 +78,7 @@ const luckSegments=computed(()=>[['short','欧 / 超欧'],['medium','普通 / �
 const poolBars=computed(()=>gacha.value.pools.map(pool=>({label:pool.name,value:pool.draws})))
 const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
   src:(()=>{const url=safeUrl(officialPullIcon(item.entry.item_id));return url && !failed.has(url) ? url : ''})(),
-  label:String(item.entry.name || item.entry.item_id || '?'),day:item.time==null ? '' : monthDay(item.time)})))
+  label:nteItemLabel(item.entry.item_id,item.entry.name),day:item.time==null ? '' : monthDay(item.time)})))
 </script>
 <template>
   <section v-reveal class="cap-card nte-module-card" :class="`module-${capability}`">
@@ -90,9 +91,11 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
         <li v-for="metric in nteGuidePoints" :key="metric.label"><span>{{ metric.label }}</span><strong>{{ metric.value }}</strong></li>
         <li class="guide-kinds"><span class="chip-list"><span v-for="kind in ['弧盘', '配队', '套装', '属性', '技能']" :key="kind" class="chip">{{ kind }}</span></span></li>
       </ul>
-      <HRail label="已整理攻略的角色" class="rail guide-rail"><figure v-for="role in guideRoles" :key="role.name" class="guide-role"><NteIcon :src="role.icon" :name="role.name" size="xl" /><figcaption>{{ role.name }}</figcaption></figure></HRail>
+      <p>完整角色攻略目录已并入角色练度，可搜索并查看原图与摘要。</p>
     </div>
 
+    <p v-else-if="!payload && snap?.reading" class="module-state" role="status">正在读取{{ title }}…</p>
+    <p v-else-if="!payload && snap?.readError" class="module-state" role="status">{{ snap.readError }}</p>
     <p v-else-if="!payload" class="module-state">{{ snap?.payload && snap.payload.schema_version !== 1 ? '数据格式已更新，请刷新' : '暂无数据，请刷新后查看' }}</p>
 
     <div v-else-if="capability === 'account'" class="account-body">
@@ -176,7 +179,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
       <p v-if="!entries.length" class="module-state">{{ capability === 'vehicles' ? '暂无载具明细' : '暂无资产明细' }}</p>
       <HRail v-else :label="capability === 'vehicles' ? '载具列表' : '房产列表'" class="rail assets-rail">
         <article v-for="(house, index) in houses" :key="`h${index}`" class="asset-card" :class="{ off: house.owned !== true }">
-          <div class="asset-cover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="GLYPHS.house" /></svg><span class="asset-badge">{{ OWNERSHIP[house.owned] }}</span></div>
+          <div class="asset-cover"><img v-if="usable(house.image)" :src="usable(house.image)" alt="" loading="lazy" referrerpolicy="no-referrer" @error="broken(house.image)" /><svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="GLYPHS.house" /></svg><span class="asset-badge">{{ OWNERSHIP[house.owned] }}</span></div>
           <strong class="asset-name" :title="house.name">{{ house.name || '未命名房产' }}</strong>
           <div class="asset-meta">
             <span v-if="residents(house.residents).length" class="stack"><NteIcon v-for="resident in residents(house.residents).slice(0, 3)" :key="resident.name" :src="resident.icon" :name="resident.name" size="small" /></span>
@@ -186,7 +189,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
           </div>
         </article>
         <article v-for="(car, index) in vehicles" :key="`v${index}`" class="asset-card" :class="{ off: car.owned !== true, showcase: car.showcase }">
-          <div class="asset-cover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="GLYPHS.car" /></svg><span class="asset-badge">{{ car.showcase ? '展示中' : OWNERSHIP[car.owned] }}</span></div>
+          <div class="asset-cover"><img v-if="usable(car.image)" :src="usable(car.image)" alt="" loading="lazy" referrerpolicy="no-referrer" @error="broken(car.image)" /><svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="GLYPHS.car" /></svg><span class="asset-badge">{{ car.showcase ? '展示中' : OWNERSHIP[car.owned] }}</span></div>
           <strong class="asset-name" :title="car.name">{{ car.name || '未命名载具' }}</strong>
           <dl v-if="car.base.length" class="car-stats"><div v-for="stat in car.base.slice(0, 3)" :key="stat.name"><dt>{{ stat.name }}</dt><dd>{{ stat.value }}</dd></div></dl>
         </article>
@@ -352,6 +355,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 .own-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .asset-card{display:grid;align-content:start;gap:8px;width:172px}
 .asset-cover{position:relative;display:grid;place-items:center;height:100px;overflow:hidden;border-radius:var(--radius-tile);background:var(--game-tone);color:var(--game-accent)}
+.asset-cover>img{width:100%;height:100%;object-fit:contain}
 .asset-cover svg{width:48px;height:48px}
 .asset-card.off .asset-cover{background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2);color:var(--text-faint)}
 .asset-card.showcase .asset-cover{box-shadow:inset 0 0 0 2px var(--game-vivid)}

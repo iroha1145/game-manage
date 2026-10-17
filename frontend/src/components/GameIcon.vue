@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, ref, unref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, ref, unref, watch } from 'vue'
 import { gameStyle } from '../dashboard.js'
 import { theme } from '../theme.js'
 import { officialGameIcons, officialGameIconFallbacks } from '../game-artwork.js'
@@ -15,12 +15,26 @@ const icons = computed(() => [...new Set([
   ...(officialGameIconFallbacks[props.gameId] || []),
   theme.value === 'light' && style.value.iconLight || style.value.icon,
 ].filter(Boolean))])
-watch([() => props.gameId, theme], () => { failed.value = 0 })
+let recoveryTimer, recovered = false
+function imageFailed() {
+  const officialFailed = icons.value[failed.value] === officialGameIcons[props.gameId]
+  failed.value++
+  if (officialFailed && !recovered) {
+    recovered = true
+    recoveryTimer = setTimeout(() => { failed.value = 0 }, 1500)
+  }
+}
+watch([() => props.gameId, theme], () => {
+  clearTimeout(recoveryTimer)
+  recovered = false
+  failed.value = 0
+})
+onBeforeUnmount(() => clearTimeout(recoveryTimer))
 </script>
 
 <template>
   <span class="game-icon" :style="{ color: style.color }">
-    <img v-if="icons[failed] && !unref(imageMode)" :src="icons[failed]" :alt="`${name || gameId}图标`" decoding="async" referrerpolicy="no-referrer" @error="failed++" />
+    <img v-if="icons[failed] && !unref(imageMode)" :src="icons[failed]" :alt="`${name || gameId}图标`" decoding="async" referrerpolicy="no-referrer" @error="imageFailed" />
     <span v-else aria-hidden="true">{{ style.mark }}</span>
   </span>
 </template>

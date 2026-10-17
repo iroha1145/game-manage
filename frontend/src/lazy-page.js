@@ -1,11 +1,17 @@
 import { defineAsyncComponent, h } from 'vue'
 
-// An update replaces the built chunks, so a tab opened earlier can ask for one
-// that no longer exists; only a reload picks up the new build.
-const staleBuild = {
+// A failed download does not prove that a deployment changed the page.
+const failedPage = {
   inheritAttrs: false,
-  render: () => h('div', { class: 'empty-page' }, [h('p', '界面已更新，请刷新页面后重试。'),
+  render: () => h('div', { class: 'empty-page', role: 'alert' }, [h('p', '页面模块加载失败，请刷新页面后重试。'),
     h('button', { class: 'ui-button', onClick: () => window.location.reload() }, '刷新页面')]),
 }
+const loadingPage = {
+  inheritAttrs: false,
+  render: () => h('p', { class: 'empty-page', role: 'status' }, '正在加载页面…'),
+}
 
-export const lazyPage = loader => defineAsyncComponent({ loader, errorComponent: staleBuild })
+export const lazyPage = loader => defineAsyncComponent({
+  loader, loadingComponent: loadingPage, delay: 200, timeout: 15000,
+  errorComponent: failedPage,
+})

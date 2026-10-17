@@ -4,8 +4,18 @@ import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
 import { nextTick } from 'vue'
 const Overview = await loadVue(new URL('./OverviewPage.vue', import.meta.url))
 const Module = await loadVue(new URL('./NteModuleCard.vue', import.meta.url))
+const Wuwa = await loadVue(new URL('./WuwaDashboard.vue', import.meta.url))
 const Assessment = await loadVue(new URL('./RoleAssessment.vue', import.meta.url))
 const visible = n => n.type === 'details' && !n.props.open ? '' : [n.text, ...n.children.map(visible)].filter(Boolean).join(' ')
+
+test('pending private reads do not claim an empty NTE roster or a zero Wuwa roster', t => {
+  const root=mount(t,Module,{capability:'roles',snap:{reading:true,payload:null}})
+  assert.match(content(root),/正在读取/)
+  assert.doesNotMatch(content(root),/暂无数据/)
+  const wuwa=mount(t,Wuwa,{configured:true,initialSection:'roles',snaps:{roles:{reading:true,payload:null}}})
+  assert.match(content(wuwa),/正在读取/)
+  assert.doesNotMatch(content(wuwa),/已记录 0|暂无角色记录/)
+})
 
 test('overview keeps useful values and update times without source diagnostics or raw errors', t => {
   const root = mount(t, Overview, { games: [{game_id:'nte',display_name:'异环',capabilities:['stamina'],credentials_configured:true}],

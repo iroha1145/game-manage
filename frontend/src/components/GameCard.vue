@@ -37,7 +37,7 @@ const props = defineProps({
 const emit = defineEmits(['refresh', 'calendar', 'esports-snapshot', 'esports-browse'])
 const reauthorizationRequired = computed(() => props.cloudAccount?.state === 'expired' || props.collectionStatus.some(row => row.game_id === props.game.game_id && row.state === 'auth_expired'))
 const errorNotice = computed(() => reauthorizationRequired.value ? '社区授权已失效，请到社区账号重新登录。' : props.externalError ? '暂时无法更新数据，请稍后重试。' : '')
-const activeSection = ref(props.initialSection)
+const activeSection = ref(props.game.game_id==='nte' && props.initialSection==='guides'?'characters':props.initialSection)
 const nteGuideId=ref(''), nteFocusId=ref('')
 function openNteGuide(id){nteGuideId.value=id;activeSection.value='guides'}
 function openNteRole(id){nteFocusId.value=id;nteGuideId.value='';activeSection.value='characters'}
@@ -57,7 +57,7 @@ const groups = computed(() => [
   { id: 'characters', label: '角色与探索', caps: ['roles', 'exploration', 'calabash'] },
   { id: 'assets', label: '房产与载具', caps: ['realestate', 'vehicles'] },
   { id: 'teams', label: '官方配队', caps: ['teams'] },
-  { id: 'guides', label: '角色攻略', caps: ['guides'] },
+
   { id: 'gacha', label: '抽卡统计', caps: ['gacha'] },
   { id: 'news', label: '公告与资讯', caps: ['announcement', 'news'] },
 ].filter(group => group.id === 'guides' ? props.game.game_id === 'nte' : group.caps.some(cap => cap !== 'events' && props.game.capabilities.includes(cap))))
@@ -127,10 +127,11 @@ function capProps(cap) {
     <WuwaDashboard v-if="game.game_id === 'wuthering_waves'" :snaps="externalSnapshots" :configured="game.credentials_configured" :initial-section="initialSection" @calendar="emit('calendar')" />
     <LolDashboard v-else-if="game.game_id === 'league_of_legends'" :snaps="externalSnapshots" :esports-browse="esportsBrowse" @esports-snapshot="emit('esports-snapshot', $event)" @esports-browse="emit('esports-browse', $event)" @refresh="emit('refresh')" />
     <EndfieldDashboard v-else-if="game.game_id === 'endfield'" :snaps="externalSnapshots" :configured="game.credentials_configured" :auth-account="authAccount" :refreshing="externalRefreshing" :initial-section="initialSection" :cloud-account="cloudAccount" :cloud-role="cloudRole" :is-admin="isAdmin" @calendar="emit('calendar')" @refresh="emit('refresh')" />
-    <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" :can-maintain="!cloudAccount || isAdmin" :character-id="nteGuideId" @role="openNteRole" /></NteModuleCard>
+
     <div v-else class="cap-list">
       <template v-for="cap in visibleCaps" :key="cap">
-        <NteModuleCard v-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :artwork="cap === 'account' ? banner : []" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
+        <NteRolesPanel v-if="cap==='roles'" :snap="externalSnapshots.roles" :account-id="cloudScope || externalSnapshots.account?.payload?.role_id || ''" :focus-character-id="nteFocusId" :initial-guide-browser="initialSection==='guides'" :can-maintain="!cloudAccount || isAdmin" />
+        <NteModuleCard v-else-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :artwork="cap === 'account' ? banner : []" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
           <component :is="capComponent(cap)" v-bind="{...capProps(cap),...(cap==='roles' ? {focusCharacterId:nteFocusId,detailMode:!!nteFocusId,onGuide:openNteGuide} : {})}" />
         </NteModuleCard>
       </template>

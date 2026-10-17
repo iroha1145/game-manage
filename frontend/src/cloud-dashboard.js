@@ -6,17 +6,17 @@ import { collectionState } from './snapshot-state.js'
 const REFRESH_READ_INTERVAL = 2000, REFRESH_READ_LIMIT = 10, REFRESH_TRACK_TIMEOUT = 30000
 export function createCloudDashboard(overrides = {}) {
   const api = { ...identity, ...accounts, obtainCsrf, ...overrides }
-  const state = reactive({ user: null, accounts: [], selected: null, role: '', snapshots: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, ready: false, logoutFailed: false, refreshing: {}, refreshPending: {}, revision: 0 })
+  const state = reactive({ user: null, accounts: [], selected: null, role: '', snapshots: {}, readStates: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, ready: false, logoutFailed: false, refreshing: {}, refreshPending: {}, revision: 0 })
   let epoch = 0, disposed = false
   let overviewGeneration = 0
-  const refreshVersions = new Map(), readVersions = new Map(), refreshJobs = new Map()
+  const refreshVersions = new Map(), readVersions = new Map(), refreshJobs = new Map(), reads = new Map(), scopedReads = new Map()
   const current = version => !disposed && version === epoch
   function stopRefresh(cap, job = refreshJobs.get(cap)) {
     if (!job || refreshJobs.get(cap) !== job) return
     clearTimeout(job.timer); clearTimeout(job.deadline); refreshJobs.delete(cap); state.refreshPending[cap] = false
   }
   function stopTracking() { for (const [cap, job] of refreshJobs) { state.refreshing[cap] = '刷新结果未确认，请稍后重试。'; stopRefresh(cap, job) } }
-  function clear() { stopTracking(); epoch++; overviewGeneration++; state.revision++; setAccountScope(null); Object.assign(state, { user: null, accounts: [], selected: null, role: '', snapshots: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, refreshing: {}, refreshPending: {} }) }
+  function clear() { stopTracking(); reads.clear(); scopedReads.clear(); epoch++; overviewGeneration++; state.revision++; setAccountScope(null); Object.assign(state, { user: null, accounts: [], selected: null, role: '', snapshots: {}, readStates: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, refreshing: {}, refreshPending: {} }) }
   const stop = subscribeSessionInvalidation(clear)
   async function initialize() {
     stopTracking()
@@ -47,10 +47,20 @@ export function createCloudDashboard(overrides = {}) {
     } catch (error) { if (current(version) && error.name !== 'AbortError') state.error = error.message }
   }
   function selectAccount(account, role) {
+    const nextRole = role || account?.roles?.find(row => row.is_default)?.role_id || account?.roles?.[0]?.role_id || ''
+    if (account && state.selected && nextRole === state.role && ['account_id','provider','version','grant_id','state'].every(key => account[key] === state.selected[key])) { state.selected = account; return }
     stopTracking()
-    epoch++; state.revision++; state.selected = account; state.role = role || account?.roles?.find(row => row.is_default)?.role_id || account?.roles?.[0]?.role_id || ''
-    state.snapshots = {}; state.refreshing = {}; state.refreshPending = {}; state.error = ''; state.loading = false
+    reads.clear(); scopedReads.clear()
+    epoch++; state.revision++; state.selected = account; state.role = nextRole
+    state.snapshots = {}; state.readStates = {}; state.refreshing = {}; state.refreshPending = {}; state.error = ''; state.loading = false
     setAccountScope(account && state.role ? { user_id: state.user?.user_id, account_id: account.account_id, role_id: state.role, provider: account.provider, version:account.version, grant_id:account.grant_id } : null)
+  }
+  function scopedSnapshot(account, role, cap) {
+    const key=JSON.stringify([epoch,state.user?.user_id,account.account_id,role,account.provider,account.version,account.grant_id,cap,refreshVersions.get(cap),state.refreshing[cap]==='正在排队'])
+    if(scopedReads.has(key)) return scopedReads.get(key)
+    const pending=Promise.resolve(api.getAccountSnapshot(account.account_id,role,cap)).finally(()=>{if(scopedReads.get(key)===pending)scopedReads.delete(key)})
+    scopedReads.set(key,pending)
+    return pending
   }
   async function loadOverview() {
     const version = ++overviewGeneration, owner = state.user?.user_id, accountVersion = JSON.stringify(state.accounts)
@@ -64,25 +74,36 @@ export function createCloudDashboard(overrides = {}) {
         const caps = accounts.accountCapabilities(account).filter(cap => ['account','stamina','gacha'].includes(cap))
         const old = state.overview[account.account_id]
         const entry = { role, version: account.version, grant_id: account.grant_id, roles: account.roles, snapshots: old?.role === role ? { ...old.snapshots } : {} }
+        const publish = () => { if (valid()) state.overview[account.account_id] = { ...entry, snapshots: { ...entry.snapshots } } }
+        publish()
         await Promise.all(caps.map(async cap => {
-          try { entry.snapshots[cap] = account.account_id === state.selected?.account_id && role === state.role && state.snapshots[cap] ? state.snapshots[cap] : await api.getAccountSnapshot(account.account_id, role, cap) }
+          try { entry.snapshots[cap] = account.account_id === state.selected?.account_id && role === state.role && state.snapshots[cap] ? state.snapshots[cap] : await scopedSnapshot(account, role, cap) }
           catch (error) { if (error.name !== 'AbortError') entry.snapshots[cap] = { ...(entry.snapshots[cap] || { payload: null }), state: 'error', error: error.message } }
+          publish()
         }))
-        if (valid()) state.overview[account.account_id] = entry
       }))
     } finally { if (version === overviewGeneration) state.overviewLoading = false }
   }
-  async function loadSnapshot(cap, trackedJob) {
+  function loadSnapshot(cap, trackedJob) {
+    const key = JSON.stringify([epoch, cap, refreshVersions.get(cap), !!trackedJob])
+    if (reads.has(key)) return reads.get(key)
+    const pending = readSnapshot(cap, trackedJob).finally(() => { if (reads.get(key) === pending) reads.delete(key) })
+    reads.set(key, pending)
+    return pending
+  }
+  async function readSnapshot(cap, trackedJob) {
     const version = epoch, account = state.selected?.account_id, role = state.role
     const refreshVersion = refreshVersions.get(cap), mutationPending = state.refreshing[cap] === '正在排队'
     const readVersion = (readVersions.get(cap) || 0) + 1
     readVersions.set(cap, readVersion)
     const valid = () => current(version) && refreshVersion === refreshVersions.get(cap) && readVersion === readVersions.get(cap) && (!trackedJob || refreshJobs.get(cap) === trackedJob)
     if (!account || !role) return
+    state.readStates[cap] = { status:'loading', startedAt:Date.now(), error:'' }
     try {
-      const data = await api.getAccountSnapshot(account, role, cap)
+      const data = await scopedSnapshot(state.selected, role, cap)
       if (valid()) {
         state.snapshots[cap] = data
+        state.readStates[cap] = { status:'success', startedAt:null, error:'' }
         const entry = state.overview[account]
         if (entry?.role === role) entry.snapshots[cap] = data
         if (!mutationPending && state.refreshing[cap] !== '正在排队') {
@@ -99,6 +120,7 @@ export function createCloudDashboard(overrides = {}) {
     }
     catch (error) { if (valid() && error.name !== 'AbortError') {
       state.snapshots[cap] = { ...(state.snapshots[cap] || { payload: null }), state: 'error', error: error.message }
+      state.readStates[cap] = { status:'error', startedAt:null, error:error.message }
       if (refreshJobs.has(cap) && !mutationPending) { state.refreshing[cap] = '刷新失败，显示上次的数据。'; stopRefresh(cap) }
     } }
   }
@@ -107,6 +129,7 @@ export function createCloudDashboard(overrides = {}) {
     function timeout() {
       if (!valid()) return
       state.refreshing[cap] = '刷新仍未完成，请稍后重试。'
+      if(state.readStates[cap]?.status==='loading') state.readStates[cap]={status:'error',startedAt:null,error:'读取状态尚未确认，请稍后重试；已有数据仍保留。'}
       // Ignore a hanging/late read after the bounded tracking window.
       readVersions.set(cap, (readVersions.get(cap) || 0) + 1); stopRefresh(cap, job)
     }

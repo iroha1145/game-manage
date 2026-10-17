@@ -6,13 +6,14 @@ import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
 const Card = await loadVue(new URL('./GameCard.vue', import.meta.url))
 const game = (game_id, capabilities) => ({game_id,display_name:game_id,capabilities,credentials_configured:false})
 
-test('integrated NTE keeps inline resources and the independent guide entry', async t => {
+test('integrated NTE keeps inline resources and guides inside the role module', async t => {
   const root=mount(t,Card,{game:game('nte',['stamina','roles']),externalSnapshots:{stamina:{payload:{schema_version:1,current:0,maximum:320}}}})
   assert.ok(nodes(root,'progress').some(n=>n.props.value===0 && n.props.max===320))
   assert.ok(!nodes(root,'button').some(n=>/查看体力/.test(content(n))))
-  const guides=nodes(root,'button').find(n=>content(n)==='角色攻略')
+  const guides=nodes(root,'button').find(n=>content(n)==='浏览全部攻略')
   assert.ok(guides);guides.props.onClick();await nextTick()
-  assert.ok(nodes(root,'button').some(n=>content(n)==='查看角色攻略'))
+  assert.equal(nodes(root,'dialog').length,1)
+  assert.ok(!nodes(root,'nav').filter(n=>n.props['aria-label']==='游戏数据分区').some(n=>content(n).includes('角色攻略')))
 })
 
 test('ordinary local shell hides collection diagnostics and keeps a useful reauthorization notice', t => {
@@ -49,11 +50,10 @@ test('NTE guides receive the account roles for the owned-only filter', async t =
             { id:'乙', name:'乙', aliases:[], element:'灵', role:'辅助', status:'reviewed', source_id:1, pages:[1], sections:[] }] }
   t.mock.method(globalThis,'fetch',async url=>({ok:true,json:async()=>url.endsWith('/guides') ? catalog : { id:1, images:[], paragraphs:[] }}))
   const root=mount(t,Card,{game:game('nte',['roles']),externalSnapshots:{roles:{payload:{schema_version:1,entries:[{name:'甲'}]}}}})
-  nodes(root,'button').find(n=>content(n)==='角色攻略').props.onClick();await nextTick()
-  nodes(root,'button').find(n=>content(n)==='查看角色攻略').props.onClick()
+  nodes(root,'button').find(n=>content(n)==='浏览全部攻略').props.onClick()
   for (let i=0;i<3;i++) { await new Promise(setImmediate); await nextTick() }
-  nodes(root,'input').find(n=>n.props.type==='checkbox').props['onUpdate:modelValue'](true);await nextTick()
-  const listed=nodes(root,'button').map(n=>n.props['aria-label']).filter(label=>/^查看.攻略$/.test(label||''))
+  nodes(nodes(root,'dialog')[0],'input').find(n=>n.props.type==='checkbox').props['onUpdate:modelValue'](true);await nextTick()
+  const listed=nodes(nodes(root,'dialog')[0],'button').map(n=>n.props['aria-label']).filter(label=>/^查看.攻略$/.test(label||''))
   assert.deepEqual(listed,['查看甲攻略'])
   assert.doesNotMatch(content(root),/尚无角色资料/)
 })

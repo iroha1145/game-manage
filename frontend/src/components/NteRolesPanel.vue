@@ -7,31 +7,46 @@ import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
 import NteIcon from './NteIcon.vue'
-import NteEquippedDetails from './NteEquippedDetails.vue'
-import RoleAssessment from './RoleAssessment.vue'
+import NteRoleDetail from './NteRoleDetail.vue'
+import NteRoleDialog from './NteRoleDialog.vue'
+import { roleBreakdown } from '../nte-charts.js'
+import { levelBands } from '../wuwa-charts.js'
+import BarChart from './BarChart.vue'
+import DonutChart from './DonutChart.vue'
+
 import { nteRoleIcon, nteNamedIcon, nteSkillIcon } from '../nte-icons.js'
 
-const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: [String,Object], default: '' }, focusCharacterId:{type:String,default:''}, imageMode:{type:Boolean,default:false}, detailMode:{type:Boolean,default:false} })
+const props = defineProps({ snap: { type: Object, default: null }, accountId: { type: [String,Object], default: '' }, focusCharacterId:{type:String,default:''}, imageMode:{type:Boolean,default:false}, detailMode:{type:Boolean,default:false}, guideCharacterId:{type:String,default:''}, initialGuideBrowser:Boolean, canMaintain:{type:Boolean,default:true} })
 const emit=defineEmits(['guide'])
+const openedKey=ref(null),detailTab=ref('panel'),browseGuides=ref(props.initialGuideBrowser)
+function openRole(role,tab='panel'){openedKey.value=keyOf(role);detailTab.value=tab;browseGuides.value=false}
+function openOwned(id){const role=roles.value.find(row=>roleId(row)===String(id));if(role)openRole(role)}
+
 const payload = computed(() => props.snap?.payload ?? null)
 const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 const legacy = computed(() => payload.value !== null && payload.value.schema_version !== 1)
 const list = value => Array.isArray(value) ? value.filter(row => row && typeof row === 'object') : []
 const roles = computed(() => legacy.value ? [] : list(payload.value?.entries))
+const breakdown=computed(()=>roleBreakdown(roles.value))
+const qualitySegments=computed(()=>breakdown.value.quality.map((row,i)=>({...row,color:['var(--chart-1)','var(--chart-2)','var(--chart-3)'][i%3]})))
+
 const search = ref(''), quality = ref(''), element = ref(''), favoritesOnly = ref(false), sort = ref('level'), direction = ref('desc')
 const favorites = ref([]), storageError = ref(''), selected = ref([]), failedImages = reactive(new Set())
 const canPersist = computed(() => Boolean(favoritesKey(props.accountId)))
+const openedRole=computed(()=>roles.value.find(role=>keyOf(role)===openedKey.value)||null)
 const keyOf = role => roleId(role) ? `id:${roleId(role)}` : `row:${roles.value.indexOf(role)}`
+watch(()=>props.guideCharacterId,id=>{if(id){const role=roles.value.find(row=>roleId(row)===id);openedKey.value=role?keyOf(role):null;detailTab.value='guide';browseGuides.value=!role}},{immediate:true})
 watch(() => props.accountId, () => {
   if (props.imageMode) return
   const loaded = loadFavorites(props.accountId)
   favorites.value = loaded.ids; storageError.value = loaded.error ?? ''; selected.value = []; favoritesOnly.value = false
 }, { immediate: true })
-watch(roles, () => { selected.value = selected.value.filter(key => roles.value.some(role => keyOf(role) === key)) })
+watch(()=>props.accountId,()=>{openedKey.value=null;browseGuides.value=false})
+watch(roles, () => { if(openedKey.value && !openedRole.value)openedKey.value=null; selected.value = selected.value.filter(key => roles.value.some(role => keyOf(role) === key)) })
 const options = field => [...new Set(roles.value.map(role => role[field]).filter(value => typeof value === 'string' && value))].sort((a, b) => a.localeCompare(b, 'zh-CN'))
 const qualities = computed(() => options('quality')), elements = computed(() => options('element'))
 const visible = computed(() => filterRoles(roles.value, { search: search.value, quality: quality.value, element: element.value, favoritesOnly: favoritesOnly.value, favorites: favorites.value, sort: sort.value, direction: direction.value }))
-watch(()=>props.focusCharacterId,id=>{if(id)search.value=id},{immediate:true})
+watch(()=>[props.focusCharacterId,roles.value],([id])=>{if(id&&!props.detailMode&&!props.imageMode)openOwned(id)},{immediate:true})
 const compared = computed(() => selected.value.map(key => roles.value.find(role => keyOf(role) === key)).filter(Boolean))
 const groups = computed(() => comparisonGroups(compared.value))
 const qualityCount = value => roles.value.filter(role => role.quality === value).length
@@ -60,6 +75,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
   <section class="cap-card nte-roles-panel" :class="{ 'role-detail-view': detailMode, 'is-image': imageMode }">
     <div class="cap-title">
       角色练度
+      <button v-if="!imageMode && !detailMode" type="button" class="ui-button small-button" @click="browseGuides=true">浏览全部攻略</button>
       <InfoHint v-if="roles.length" text="收藏保存在当前浏览器，按账号与角色分别保存。" />
       <span v-if="snap?.stale" class="badge badge-stale">数据可能过期</span>
       <span v-if="roles.length" class="chip-list summary">
@@ -69,12 +85,15 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
       </span>
       <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}</span>
     </div>
-    <p v-if="payload === null" class="empty">暂无数据，请刷新后查看</p>
+    <p v-if="snap?.reading && payload === null" class="empty" role="status">正在读取角色…</p>
+    <p v-else-if="snap?.readError && payload === null" class="empty" role="alert">{{ snap.readError }}</p>
+    <p v-else-if="payload === null" class="empty">暂无数据，请刷新后查看</p>
     <p v-else-if="legacy" class="empty">数据格式已更新，请刷新</p>
     <p v-else-if="!roles.length" class="empty">暂无数据</p>
     <template v-else>
       <p v-if="imageMode && !detailMode" class="notice">完整角色概览。查看装备、属性与技能详情：异环 角色 名称</p>
-      <div v-if="!imageMode" class="toolbar">
+      <div v-if="!imageMode && !detailMode" class="roster-charts"><DonutChart :segments="qualitySegments" label="角色品质分布" unit="位" :size="120"><b>{{ roles.length }}</b></DonutChart><BarChart :items="breakdown.element" label="角色元素分布" /><BarChart :items="levelBands(roles)" label="角色等级分布" unit=" 位" /></div>
+      <div v-if="!imageMode && !detailMode" class="toolbar">
         <input class="grow" type="search" aria-label="搜索角色" placeholder="名称、别名、拼音或首字母" :value="search" @input="$event.isComposing || (search = $event.target.value)" @compositionend="search = $event.target.value" />
         <MenuSelect v-model="quality" label="品质筛选" :options="[{ value: '', label: '全部品质' }, ...qualities]" />
         <MenuSelect v-model="element" label="元素筛选" :options="[{ value: '', label: '全部元素' }, ...elements]" />
@@ -85,7 +104,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
       </div>
       <p v-if="!canPersist && !imageMode" class="notice">登录账号后可收藏角色。</p>
       <p v-if="storageError" class="notice" role="status">{{ storageError }}</p>
-      <div v-if="!imageMode" class="compare-tray" role="group" aria-label="角色对比选择">
+      <div v-if="!imageMode && !detailMode" class="compare-tray" role="group" aria-label="角色对比选择">
         <div class="compare-heading">
           <strong>角色对比</strong>
           <span class="compare-count">已选 {{ selected.length }} / 4</span>
@@ -117,43 +136,32 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
               </div>
             </div>
             <div class="role-heading">
-              <strong :title="role.name">{{ display(role.name) }}</strong>
+              <button v-if="!imageMode && !detailMode" type="button" class="role-open" :aria-label="`查看${role.name || '角色'}面板`" @click="openRole(role)">{{ display(role.name) }}</button><strong v-else :title="role.name">{{ display(role.name) }}</strong>
               <span class="role-sub"><span class="rank" :class="`rank-${role.quality}`">{{ display(role.quality) }}</span><span>{{ display(role.element) }}</span></span>
             </div>
             <span class="level">Lv{{ display(role.level) }}</span>
-            <button v-if="!imageMode" type="button" class="ui-button small-button guide-link" :aria-label="`查看${role.name || '角色'}攻略`" :disabled="!roleId(role)" @click="emit('guide',roleId(role))">攻略</button>
+            <button v-if="!imageMode" type="button" class="ui-button small-button guide-link" :aria-label="`查看${role.name || '角色'}攻略`" :disabled="!roleId(role)" @click="openRole(role,'guide')">攻略</button>
           </div>
-          <p v-if="imageMode && !detailMode" class="chip-list"><span class="chip">觉醒 <b>{{ display(role.awaken_level) }}</b></span><span class="chip">混频 <b>{{ display(role.mix_level) }}</b></span><span class="chip">羁遇累计经验 <b>{{ display(role.affinity_exp) }}</b></span></p>
-          <details v-if="!imageMode || detailMode" class="role-more" :open="imageMode || detailMode || (focusCharacterId===roleId(role) && !!focusCharacterId)">
+          <p v-if="!detailMode" class="chip-list"><span class="chip">觉醒 <b>{{ display(role.awaken_level) }}</b></span><span class="chip">混频 <b>{{ display(role.mix_level) }}</b></span><span v-if="imageMode" class="chip">羁遇累计经验 <b>{{ display(role.affinity_exp) }}</b></span></p>
+          <details v-if="detailMode" class="role-more" :open="imageMode || detailMode || (focusCharacterId===roleId(role) && !!focusCharacterId)">
             <summary :data-render-block="imageMode ? '' : undefined">
               <span class="chip">觉醒 <b>{{ display(role.awaken_level) }}</b></span>
               <span class="chip">混频 <b>{{ display(role.mix_level) }}</b></span>
-              <span class="chip">羁遇累计经验 <b>{{ display(role.affinity_exp) }}</b></span>
+              <span v-if="imageMode" class="chip">羁遇累计经验 <b>{{ display(role.affinity_exp) }}</b></span>
               <span class="sr-only">{{ role.name || '角色' }}详情</span>
               <AppIcon name="chevron" :size="14" class="t-disclosure" />
             </summary>
-            <div class="detail-body">
-              <div :data-render-block="imageMode ? '' : undefined"><RoleAssessment game="nte" :character-id="roleId(role)" :scope-key="accountId" :image-mode="imageMode" :initial-assessment="role.assessment" /></div>
-              <section class="detail-group" :data-render-block="imageMode ? '' : undefined">
-                <h4>弧盘</h4>
-                <p v-if="role.weapon" class="weapon"><NteIcon :src="nteNamedIcon('weapons', role.weapon.name)" :name="role.weapon.name || '弧盘'" size="small" /><strong>{{ display(role.weapon.name) }}</strong><span class="chip">{{ display(role.weapon.quality) }}</span><span class="chip">Lv{{ display(role.weapon.level) }}</span><span class="chip">混频 <b>{{ display(role.weapon.mix_level) }}</b></span></p>
-                <p v-else class="muted">暂无数据</p>
-              </section>
-              <section v-for="group in [{ name: '属性', rows: role.properties, value: 'value' }, { name: '战技', rows: role.skills, value: 'level' }, { name: '城区技能', rows: role.city_skills, value: 'level' }]" :key="group.name" class="detail-group" :data-render-block="imageMode ? '' : undefined">
-                <h4>{{ group.name }}</h4>
-                <dl v-if="list(group.rows).length" class="detail-rows"><div v-for="(entry, index) in list(group.rows)" :key="index"><dt class="skill-name"><NteIcon v-if="group.value === 'level'" :src="nteSkillIcon(role.id, entry.name)" :name="entry.name || '技能'" size="small" /><span :title="display(entry.name)">{{ display(entry.name) }}</span></dt><dd>{{ group.value === 'level' && display(entry[group.value]) !== '未提供' ? 'Lv' : '' }}{{ display(entry[group.value]) }}</dd></div></dl>
-                <p v-else class="muted">暂无数据</p>
-              </section>
-              <NteEquippedDetails :role="role" :image-mode="imageMode" />
-            </div>
+            <NteRoleDetail :role="role" :account-id="accountId" :image-mode="imageMode" />
           </details>
         </li>
       </ul>
     </template>
+    <NteRoleDialog v-if="!imageMode && !detailMode && (openedRole || browseGuides)" :role="openedRole" :roles="roles" :account-id="accountId" :initial-tab="detailTab" :character-id="guideCharacterId" :can-maintain="canMaintain" @close="openedKey=null;browseGuides=false" @role="openOwned" />
   </section>
 </template>
 
 <style scoped>
+.roster-charts{display:grid;grid-template-columns:180px minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:center;margin:12px 0 24px}.role-open{padding:0;border:0;background:none;text-align:left;color:var(--text);font:inherit;font-weight:600;cursor:pointer}.role-open:hover{color:var(--accent)}.role-open:focus-visible{outline:2px solid var(--accent)}@media(max-width:560px){.roster-charts{grid-template-columns:1fr}}
 .skill-name { display:flex;align-items:center;gap:6px;min-width:0; }
 .skill-name > span:last-child { overflow:hidden;text-overflow:ellipsis; }
 .nte-roles-panel { min-width: 0; overflow-wrap: anywhere; }
@@ -189,7 +197,8 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 /* Role cards (mockup .role-card): a white card with 6px of frame, a tone panel with the
    portrait at its bottom right and the level as a white tag on it, then the name and one
    muted line. Favourite and compare sit on the panel; 攻略 and the details are below. */
-.role-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; align-items: start; }
+.nte-roles-panel:not(.is-image):not(.role-detail-view) .role-art{height:112px}
+.role-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px; align-items: start; }
 .role-detail-view .role-grid { grid-template-columns: 1fr; }
 .role-card { min-width: 0; padding: 6px; border: 1px solid var(--card-border); border-radius: 22px; background: var(--card-bg); box-shadow: var(--card-shadow); }
 .role-card.compared { border-color: var(--game-vivid); box-shadow: 0 0 0 1px var(--game-vivid); }

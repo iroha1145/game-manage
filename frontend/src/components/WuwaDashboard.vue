@@ -98,6 +98,7 @@ const portrait = computed(() => {
   return main ? [...roleArtwork(main), characterIcon(main.role_id)] : []
 })
 const banner = computed(() => gameBanner('wuthering_waves', props.snaps))
+const activeRead = computed(() => current.value[({gacha:'account',history:'account'})[section.value] || section.value])
 </script>
 <template>
   <div class="wuwa-dashboard">
@@ -131,6 +132,8 @@ const banner = computed(() => gameBanner('wuthering_waves', props.snaps))
       <p v-else-if="!configured" class="wuwa-panel wuwa-empty">
         请先登录鸣潮账号以查看私人档案。
       </p>
+      <p v-else-if="section !== 'profile' && activeRead?.reading && !activeRead?.payload" class="wuwa-panel" role="status">正在读取数据…</p>
+      <p v-else-if="section !== 'profile' && activeRead?.readError && !activeRead?.payload" class="wuwa-panel" role="status">{{ activeRead.readError }}</p>
       <div v-else-if="section === 'profile'" class="wuwa-bento">
         <WuwaModuleCard v-reveal v-parallax class="span-7 profile-account is-hero" title="账号档案" :snap="current.account" :sheet-width="640">
           <template #preview>

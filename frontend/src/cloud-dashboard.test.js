@@ -14,6 +14,43 @@ function setup(t, api) {
 }
 const snapshot = (refresh_state, state = 'ok', nickname = 'new') => ({ payload: { nickname }, state, poll_status: { refresh_state, state } })
 
+test('overview and selected page coalesce only the same scoped snapshot GET', async t=>{
+ let finish,calls=0
+ const dashboard=setup(t,{getAccountSnapshot:()=>{calls++;return new Promise(resolve=>{finish=resolve})}})
+ dashboard.state.snapshots={}
+ dashboard.state.accounts=[{...account,capabilities:['account']}]
+ const page=dashboard.loadSnapshot('account'),overview=dashboard.loadOverview()
+ await flush();assert.equal(calls,1)
+ finish(snapshot('idle'));await Promise.all([page,overview])
+ assert.equal(dashboard.state.overview.a.snapshots.account.payload.nickname,'new')
+})
+
+test('overview displays each capability as it arrives while another read is pending', async t => {
+  let finish
+  const dashboard = createCloudDashboard({ getAccountSnapshot: async (_id, _role, cap) => {
+    if(cap === 'account') return new Promise(resolve => { finish = resolve })
+    return { state:'ok', payload:{ current:123, maximum:240 } }
+  } })
+  t.after(dashboard.dispose)
+  dashboard.state.user={user_id:'fixture-user'}
+  dashboard.state.accounts=[{...account,capabilities:['account','stamina'],version:1,grant_id:'fixture-grant'}]
+  const pending=dashboard.loadOverview(); await flush()
+  assert.equal(dashboard.state.overview.a?.snapshots.stamina?.payload.current,123)
+  assert.equal(dashboard.state.overviewLoading,true)
+  finish({state:'ok',payload:{nickname:'fixture'}}); await pending
+})
+
+test('snapshot read state is loading until success and is cleared on a scope switch', async t => {
+  let finish
+  const dashboard=setup(t,{getAccountSnapshot:()=>new Promise(resolve=>{finish=resolve})})
+  const pending=dashboard.loadSnapshot('roles')
+  assert.equal(dashboard.state.readStates?.roles?.status,'loading')
+  finish({state:'ok',payload:[]}); await pending
+  assert.equal(dashboard.state.readStates.roles.status,'success')
+  dashboard.selectAccount({...account,account_id:'other'})
+  assert.deepEqual(dashboard.state.readStates,{})
+})
+
 test('accepted refresh reads queued, running and idle snapshots promptly without another upstream refresh', async t => {
   let requests = 0, reads = 0
   const results = [snapshot('queued', 'ok', 'old'), snapshot('running', 'ok', 'old'), snapshot('idle')]
@@ -50,6 +87,7 @@ test('bounded tracking stops even if a read hangs; late read cannot replace a ne
   await dashboard.refresh('account'); t.mock.timers.tick(0); await flush()
   t.mock.timers.tick(30000); await flush()
   assert.match(dashboard.state.refreshing.account, /仍未完成.*重试/)
+  assert.notEqual(dashboard.state.readStates.account?.status,'loading')
   assert.equal(dashboard.state.snapshots.account.payload.nickname, 'old')
   finish(snapshot('idle', 'ok', 'late')); await flush()
   assert.equal(dashboard.state.snapshots.account.payload.nickname, 'old')

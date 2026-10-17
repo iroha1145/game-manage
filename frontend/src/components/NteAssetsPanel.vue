@@ -1,4 +1,6 @@
 <script setup>
+import { nteAssetImage } from '../nte-artwork.js'
+import { displayVehicleStat } from '../nte-display.js'
 import { computed, reactive, ref, watch } from 'vue'
 import { fetchedLabel } from '../time.js'
 import { percentOf } from '../dashboard.js'
@@ -94,7 +96,7 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
       <div v-else class="asset-list" :class="capability === 'teams' ? 'team-list' : capability === 'vehicles' ? 'vehicle-grid' : 'asset-grid'">
         <details v-for="(entry, index) in filtered" :key="`${entry.id}-${index}`" class="asset t-item" :style="{ '--i': Math.min(index, 11) }" :open="!folded.has(foldKey(entry))" @toggle="onFold($event, foldKey(entry))">
           <summary>
-            <span v-if="capability !== 'teams'" class="asset-cover" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path :d="capability === 'vehicles' ? GLYPHS.car : GLYPHS.house" /></svg></span>
+            <span v-if="capability !== 'teams'" class="asset-cover" aria-hidden="true"><img v-if="imageUrl(nteAssetImage(capability,entry.id))" :src="imageUrl(nteAssetImage(capability,entry.id))" alt="" loading="lazy" referrerpolicy="no-referrer" @error="imageFailed" /><svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path :d="capability === 'vehicles' ? GLYPHS.car : GLYPHS.house" /></svg></span>
             <img v-if="capability === 'teams' && imageUrl(entry.icon_url)" class="team-icon" :src="imageUrl(entry.icon_url)" alt="" loading="lazy" referrerpolicy="no-referrer" @error="imageFailed" />
             <strong class="asset-name" :title="entry.name">{{ entry.name || `${capability === 'teams' ? '推荐' : '资产'} ${entry.id}` }}</strong>
             <template v-if="capability === 'realestate'">
@@ -130,7 +132,7 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
               <section class="detail-group">
                 <h4>基础属性</h4>
                 <dl v-if="list(entry.base).length" class="kv-grid base-stats">
-                  <div v-for="(stat, i) in entry.base" :key="i"><dt>{{ stat.name || '未命名属性' }}</dt><dd>{{ display(stat.value) }}</dd></div>
+                  <div v-for="(stat, i) in entry.base" :key="i"><dt :title="String(stat.value ?? '')">{{ stat.name || '未命名属性' }}</dt><dd>{{ displayVehicleStat(stat) }}</dd></div>
                 </dl>
                 <p v-else class="muted">未提供基础属性</p>
               </section>
@@ -138,8 +140,8 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
                 <h4>进阶属性</h4>
                 <dl v-if="list(entry.advanced).length" class="rows">
                   <div v-for="(stat, i) in entry.advanced" :key="i">
-                    <dt>{{ stat.name || '未命名属性' }}</dt>
-                    <dd class="gauge"><span v-if="percentOf(stat.value, stat.maximum) !== null" class="meter" aria-hidden="true"><i :style="{ '--pct': `${percentOf(stat.value, stat.maximum)}%` }" /></span>{{ display(stat.value) }} / {{ display(stat.maximum) }}</dd>
+                    <dt :title="String(stat.value ?? '')">{{ stat.name || '未命名属性' }}</dt>
+                    <dd class="gauge"><span v-if="percentOf(stat.value, stat.maximum) !== null" class="meter" aria-hidden="true"><i :style="{ '--pct': `${percentOf(stat.value, stat.maximum)}%` }" /></span>{{ displayVehicleStat(stat) }} / {{ display(stat.maximum) }}</dd>
                   </div>
                 </dl>
                 <p v-else class="muted">未提供进阶属性</p>
@@ -206,7 +208,8 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
 @media (hover: hover) and (pointer: fine) { summary:hover { background: var(--hover-bg); } summary:hover > svg { color: var(--text-body); } }
 summary > svg { flex-shrink: 0; margin-left: auto; color: var(--text-faint); }
 .asset-name { min-width: 0; overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.asset-cover { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 30%; color: var(--game-accent); background: var(--game-tone); }
+.asset-cover { display: grid; place-items: center; flex-shrink: 0; width: 104px; height: 70px; border-radius: 30%; color: var(--game-accent); background: var(--game-tone); }
+.asset-cover{border-radius:10px}.asset-cover img{width:100%;height:100%;object-fit:contain}
 .asset-cover svg { width: 22px; height: 22px; }
 .team-icon { width: 48px; height: 48px; flex-shrink: 0; border-radius: 30%; object-fit: cover; }
 .preview { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }

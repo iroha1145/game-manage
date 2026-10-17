@@ -9,6 +9,20 @@ import { wuwaRequest } from './wuwa-api.js'
 import { connectCloudSklandPassport } from './accounts-api.js'
 
 const json = value => new Response(JSON.stringify(value))
+test('a snapshot timeout ends the read distinctly from an account switch', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', (_path, options) => new Promise((_resolve, reject) => {
+    assert.equal('timeoutMs' in options, false)
+    options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+  }))
+  let outcome
+  requestJson('/api/accounts/a/roles/r/snapshot/account', { timeoutMs: 20000 }).catch(error => { outcome = error })
+  t.mock.timers.tick(20000)
+  for(let i=0;i<12;i++) await Promise.resolve()
+  assert.equal(outcome?.name, 'RequestTimeoutError')
+  assert.match(outcome.message, /超时/)
+})
 test('csrf added to every mutation and stable across authenticated writes', async t => {
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
   const requests = []

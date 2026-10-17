@@ -4,6 +4,28 @@ import { eventArtwork } from './event-artwork.js'
 const image = name => `https://images.example.com/${name}.jpg`
 const article = { id:'123', url:'https://official.example.com/post/123', source:'official', images:[image('notice')] }
 const snapshots = { nte:{announcement:{payload:[article]},news:{payload:[{id:'else',published_at:'2026-10-17',images:[image('unrelated')]}]}} }
+
+test('three games with identical notice and version IDs still select their own artwork', () => {
+  const games = ['nte', 'wuthering_waves', 'endfield']
+  const rows = Object.fromEntries(games.map(game => [game, {
+    news: { payload: [{ id:'123', images:[image(game)] }] },
+    events: { version_metadata:{ id:'1.4', banner:image(`${game}-version`), start_source:{post_id:'123'} } },
+  }]))
+  for (const game of games) {
+    assert.deepEqual(eventArtwork({gameId:game,post_id:'123'},rows),[image(game)])
+    assert.deepEqual(eventArtwork({gameId:game,version:'1.4'},rows),[image(`${game}-version`),image(game)])
+    assert.deepEqual(eventArtwork({gameId:game,post_id:'missing',version:'missing'},rows),[])
+  }
+})
+
+test('explicitly contradictory versions cannot share artwork even at the same source ID',()=>{
+  const rows={nte:{news:{payload:[{id:'123',version:'1.3',images:[image('old')]}]}}}
+  assert.deepEqual(eventArtwork({gameId:'nte',source_post_id:'123',version:'1.4'},rows),[])
+})
+test('verified Tajiduo hash-route reading URLs share only the exact numeric post ID',()=>{
+  const rows={nte:{news:{payload:[{url:'https://www.tajiduo.com/bbs/index.html#/post?postId=123&id=2',images:[image('exact')]}]}}}
+  assert.deepEqual(eventArtwork({gameId:'nte',source_url:'https://bbs-api.tajiduo.com/bbs/wapi/getPostFull?postId=123'},rows),[image('exact')])
+})
 test('event artwork prefers direct event pictures and exact original notice matches without mutating input', () => {
   const event = { gameId:'nte',source_url:article.url, banner:image('banner'),image_urls:[image('event'),image('event')] }
   const before = JSON.stringify({ event,snapshots })

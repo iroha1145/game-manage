@@ -10,6 +10,10 @@ function sourceKey(value) {
   const safe = safeUrl(value)
   if (!safe) return null
   const url = new URL(safe)
+  if (url.hostname === 'www.tajiduo.com' && url.pathname === '/bbs/index.html' && url.hash.startsWith('#/post?')) {
+    const id = new URLSearchParams(url.hash.slice(7)).get('postId')
+    if (/^\d+$/.test(id || '')) return `tajiduo:${id}`
+  }
   // NTE keeps the API URL in events and the public reading URL in announcements.
   if (url.hostname === 'bbs-api.tajiduo.com' && url.pathname === '/bbs/wapi/getPostFull') {
     const id = url.searchParams.get('postId')
@@ -21,6 +25,8 @@ function sourceKey(value) {
 function sameSource(ref, article) {
   if (!ref || !article) return false
   if (ref.source && article.source && ref.source !== article.source) return false
+  const version = ident(ref.version_id || ref.version), articleVersion = ident(article.version_id || article.version)
+  if (version && articleVersion && version !== articleVersion) return false
   const url = sourceKey(ref.source_url || ref.url)
   const articleUrls = [article.url, ...(Array.isArray(article.original_links) ? article.original_links.map(link => link?.url) : [])].map(sourceKey).filter(Boolean)
   if (url && articleUrls.includes(url)) return true

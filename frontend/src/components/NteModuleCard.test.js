@@ -163,7 +163,7 @@ test('gacha leads with the rating, charts the pools, and lists the newest S pull
 test('guides list what a guide holds and the roles that have a summary, without reading any snapshot', t => {
   const root = mount(t, Module, { capability: 'guides' })
   const text = content(root)
-  for (const expected of ['培养方案', '5 类推荐', '摘要 + 原图', '弧盘', '配队', '套装', '属性', '技能', '黑羽', '残虹', '灵可', '伊洛伊', '娜娜莉', '公开资料']) assert.ok(text.includes(expected), expected)
+  for (const expected of ['培养方案', '5 类推荐', '摘要 + 原图', '弧盘', '配队', '套装', '属性', '技能', '完整角色攻略目录已并入角色练度', '公开资料']) assert.ok(text.includes(expected), expected)
   assert.ok(button(root, '查看角色攻略'))
 })
 

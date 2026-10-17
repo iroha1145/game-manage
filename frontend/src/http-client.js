@@ -72,8 +72,11 @@ function cloudPath(path, method) {
   }
   throw new Error('此功能尚未提供云端接口')
 }
+export class RequestTimeoutError extends Error {
+  constructor() { super('读取超时，请重试；已有数据仍保留。'); this.name = 'RequestTimeoutError' }
+}
 export async function requestJson(path, options = {}) {
-  const { response: returnResponse = false, body, ...rest } = options
+  const { response: returnResponse = false, body, timeoutMs = 0, ...rest } = options
   if (!path.startsWith('/api/') || path.includes('..') || path.includes('\\')) throw new Error('无效的服务路径')
   const current = epoch, scopedCurrent = scopeEpoch, cloud = isCloudMode(), method = (rest.method || 'GET').toUpperCase()
   // Logout must finish after the UI synchronously drops the active scope. Its
@@ -91,11 +94,19 @@ export async function requestJson(path, options = {}) {
   if (body !== undefined) headers['Content-Type'] ??= 'application/json'
   const controller = new AbortController(); if (!logout) controllers.set(controller, bound)
   const signal = rest.signal ? AbortSignal.any([controller.signal, rest.signal]) : controller.signal
+  let deadline
+  const timeout = Number.isFinite(timeoutMs) && timeoutMs > 0 ? new Promise((_resolve, reject) => {
+    deadline = setTimeout(() => {
+      const error = new RequestTimeoutError()
+      controller.abort(error); reject(error)
+    }, timeoutMs)
+  }) : null
+  const bounded = promise => timeout ? Promise.race([promise, timeout]) : promise
   try {
     let result
     try {
-      result = await fetch(path, { ...rest, method, headers, credentials: 'same-origin', cache: 'no-store', referrerPolicy: 'no-referrer', signal,
-        ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }) })
+      result = await bounded(fetch(path, { ...rest, method, headers, credentials: 'same-origin', cache: 'no-store', referrerPolicy: 'no-referrer', signal,
+        ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }) }))
     } catch (error) {
       // An unreachable service rejects with an English TypeError ("Failed to fetch").
       // Keep the type: wrappers with their own wording still recognise it.
@@ -107,7 +118,7 @@ export async function requestJson(path, options = {}) {
       // detail private_query_failed). Only a website-session 401 ends the site session, and so does any 401 that is
       // unreadable or not recognised.
       let denial = null
-      try { denial = await result.clone().json() } catch { /* unreadable: treated as a website-session 401 */ }
+      try { denial = await bounded(result.clone().json()) } catch(error) { if(error instanceof RequestTimeoutError) throw error /* unreadable: treated as a website-session 401 */ }
       if (!logout && stale()) throw cancelled()
       if (denial?.error_code !== 'auth_expired' && denial?.detail !== 'private_query_failed') { invalidateSession(); throw new HttpError(401) }
     }
@@ -120,7 +131,7 @@ export async function requestJson(path, options = {}) {
       }
       return result
     }
-    const data = await result.json().catch(() => null)
+    const data = await bounded(result.json().catch(() => null))
     if (!logout && stale()) throw cancelled()
     if (!result.ok) {
       // Identity errors use detail; only fixed registration codes may cross
@@ -131,6 +142,6 @@ export async function requestJson(path, options = {}) {
     }
     if (data === null && result.status !== 204) throw new Error('服务响应异常，请稍后重试')
     return data
-  } finally { controllers.delete(controller) }
+  } finally { clearTimeout(deadline); controllers.delete(controller) }
 }
 export const requestResponse = (path, options = {}) => requestJson(path, { ...options, response: true })

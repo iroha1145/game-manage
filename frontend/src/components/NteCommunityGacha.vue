@@ -1,4 +1,5 @@
 <script setup>
+import { nteItemLabel } from '../nte-display.js'
 import { computed, reactive, ref, watch } from 'vue'
 import { displayBeijing } from '../time.js'
 import { safeUrl } from '../calendar.js'
@@ -76,8 +77,8 @@ function obtained(value) {
         <p v-if="!group.entries.length" class="empty">该卡池暂无已出 S 明细。</p>
         <ol v-else class="pull-list">
           <li v-for="(entry, index) in group.entries" :key="`${groupIndex}-${entry.item_id}-${index}`" class="pull-row">
-            <div class="reward-icon"><img v-if="icon(entry)" :src="icon(entry)" :alt="entry.name || entry.item_id" loading="lazy" referrerpolicy="no-referrer" @error="imageFailed(entry)" /><span v-else aria-hidden="true">{{ String(entry.name || entry.item_id || '?').slice(0, 2) }}</span></div>
-            <strong class="pull-name" :title="entry.name || entry.item_id">{{ entry.name || entry.item_id || '未知条目' }}</strong>
+            <div class="reward-icon"><img v-if="icon(entry)" :src="icon(entry)" :alt="nteItemLabel(entry.item_id,entry.name)" loading="lazy" referrerpolicy="no-referrer" @error="imageFailed(entry)" /><span v-else aria-hidden="true">{{ nteItemLabel(entry.item_id,entry.name).slice(0, 2) }}</span></div>
+            <strong class="pull-name" :title="entry.name || entry.item_id">{{ nteItemLabel(entry.item_id,entry.name) }}</strong>
             <div class="bar-track" :aria-label="known(entry.pity) ? `本次出 S：${entry.pity} 抽` : '本次抽数未提供'"><div class="pull-bar" :class="tone(entry)" :style="barStyle(entry, group.pool)" /><div class="bar-values"><template v-if="known(entry.pity)"><strong>{{ entry.pity }}</strong><span>抽</span></template><span v-else>本次抽数未提供</span><span v-if="rating(entry)" class="rating" :class="tone(entry)" title="塔吉多社区评价">{{ rating(entry) }}</span></div></div>
             <time class="pull-time">{{ obtained(entry.obtained_at) }}</time>
           </li>

@@ -1,3 +1,5 @@
+import { nteAssetImage } from './nte-artwork.js'
+import { displayVehicleStat } from './nte-display.js'
 // View-models behind the NTE cards and charts. Pure functions (no DOM), so the
 // tests can pin how unknown values, zero and over-target counts are drawn.
 import { percentOf } from './dashboard.js'
@@ -125,7 +127,7 @@ const owned = value => (value === true ? true : value === false ? false : null)
 export function houseView(entry) {
   const furniture = rows(entry?.furniture)
   return {
-    name: label(entry?.name), owned: owned(entry?.owned),
+    name: label(entry?.name), owned: owned(entry?.owned), image: nteAssetImage('realestate',entry?.id),
     residents: (Array.isArray(entry?.resident_ids) ? entry.resident_ids : []).map(String),
     furnitureOwned: furniture.filter(item => item.owned === true).length, furnitureTotal: furniture.length,
   }
@@ -134,9 +136,9 @@ export function houseView(entry) {
 /** A vehicle card: base stats as the source wrote them, advanced stats as gauges, and whether it is the showcased one. */
 export function vehicleView(entry, showId) {
   return {
-    name: label(entry?.name), owned: owned(entry?.owned),
+    name: label(entry?.name), owned: owned(entry?.owned), image: nteAssetImage('vehicles',entry?.id),
     showcase: showId != null && showId !== '' && String(entry?.id) === String(showId),
-    base: rows(entry?.base).map(stat => ({ name: label(stat.name) || '未命名属性', value: stat.value == null || stat.value === '' ? '未知' : String(stat.value) })),
+    base: rows(entry?.base).map(stat => ({ name: label(stat.name) || '未命名属性', value: displayVehicleStat(stat) })),
     advanced: rows(entry?.advanced).map(stat => ({ name: label(stat.name) || '未命名属性', value: stat.value, maximum: stat.maximum, ...gauge(stat.value, stat.maximum) })),
     models: rows(entry?.models).length,
   }

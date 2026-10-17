@@ -45,15 +45,16 @@ test('catalog icons accompany remote role filters and full collapsible equipment
   ]) })
   const role = cards(root)[0]
   assert.match(content(role), /娜娜莉/)
-  assert.ok(nodes(role, 'img').length >= 3, 'role, weapon and role-specific skill use public catalog images')
-  assert.match(content(nodes(role, 'details')[0]), /弧盘.*预备备.*战技.*普通攻击.*Lv5/)
+  assert.ok(nodes(role,'img').length >= 1)
+  button(root,'查看娜娜莉面板').props.onClick();await nextTick()
+  assert.match(content(nodes(root,'dialog')[0]),/弧盘.*预备备.*战技.*普通攻击.*Lv5/)
   choose(root, '排序方向', 'asc'); await nextTick()
   assert.match(content(cards(root)[0]), /低等级角色/)
 })
 test('search and filter inputs update visible cards while retaining full role details', async t => {
   const root = mount(t, Panel, { snap: snap(), accountId: 'a' })
   assert.equal(cards(root).length, 5)
-  for (const expected of ['羁遇累计经验 650', '弧光', '战技一', '城区一', '数据可能过期', '更新于']) assert.ok(content(root).includes(expected))
+  for (const expected of ['角色总数', '数据可能过期', '更新于']) assert.ok(content(root).includes(expected))
   nodes(root, 'input').find(n => n.props['aria-label'] === '搜索角色').props.onInput({ target: { value: '角色1' } })
   await nextTick(); assert.equal(cards(root).length, 1)
   assert.ok(content(cards(root)[0]).includes('角色1'))
@@ -120,4 +121,35 @@ test('search waits for IME composition to finish before filtering', async t => {
   assert.equal(cards(root).length, 5, 'pinyin letters while composing must not filter the list')
   input.props.onCompositionend({ target: { value: '角色2' } }); await nextTick()
   assert.equal(cards(root).length, 1)
+})
+
+
+test('screen roster mounts equipment only after opening a single role',async t=>{
+ const root=mount(t,Panel,{snap:snap(),accountId:'a'})
+ assert.doesNotMatch(content(root),/战技一/)
+ const open=button(root,'查看角色1面板')
+ assert.ok(open)
+ open.props.onClick();await nextTick()
+ assert.equal(nodes(root,'dialog').length,1)
+ assert.match(content(nodes(root,'dialog')[0]),/战技一.*Lv5/)
+ nodes(root,'button').find(n=>content(n)==='关闭详情').props.onClick();await nextTick()
+ assert.equal(nodes(root,'dialog').length,0)
+})
+
+
+test('an open role detail follows new same-scope snapshots and closes when removed',async t=>{
+ const props=reactive({snap:snap(),accountId:'a'})
+ const root=mount(t,Panel,props)
+ button(root,'查看角色1面板').props.onClick();await nextTick()
+ props.snap=snap([{...entries[0],level:90,properties:[{name:'攻击',value:'9999'}]}]);await nextTick()
+ assert.match(content(nodes(root,'dialog')[0]),/Lv90.*攻击.*9999/)
+ props.snap=snap([]);await nextTick();assert.equal(nodes(root,'dialog').length,0)
+})
+
+
+test('first-level roles retain known awakening and mixing and show level distribution',t=>{
+ const root=mount(t,Panel,{snap:snap()})
+ assert.ok(nodes(root,'ol').some(n=>n.props['aria-label']==='角色等级分布'))
+ assert.match(content(cards(root)[0]),/觉醒 0.*混频 1/)
+ assert.doesNotMatch(content(cards(root)[0]),/战技一|城区一/)
 })

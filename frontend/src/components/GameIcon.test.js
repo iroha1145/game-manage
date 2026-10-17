@@ -9,6 +9,18 @@ import { officialGameIcons, officialGameIconFallbacks, officialGameBanners } fro
 
 const GameIcon = await loadVue(new URL('./GameIcon.vue', import.meta.url))
 
+test('an exhausted icon gets only one delayed recovery attempt', async t => {
+  t.mock.timers.enable({apis:['setTimeout']})
+  const root=mount(t,GameIcon,{gameId:'nte'})
+  for(let i=0;i<2;i++){nodes(root,'img')[0].props.onError();await nextTick()}
+  assert.equal(nodes(root,'img').length,0)
+  t.mock.timers.tick(1500);await nextTick()
+  assert.equal(nodes(root,'img')[0]?.props.src,officialGameIcons.nte)
+  for(let i=0;i<2;i++){nodes(root,'img')[0].props.onError();await nextTick()}
+  t.mock.timers.tick(10000);await nextTick()
+  assert.equal(nodes(root,'img').length,0)
+})
+
 test('theme changes retry the correct bundled icon without losing local artwork', async t => {
   t.after(()=>{theme.value='dark';delete globalThis.__LOCAL_GAME_ICONS__})
   const root=mount(t,GameIcon,{gameId:'endfield'})
@@ -93,4 +105,17 @@ test('in image mode the icon is the game mark, never an image request the QQ ren
     assert.match(content(root), new RegExp(gameStyle('nte').mark))
   }
   assert.equal(nodes(mount(t, GameIcon, { gameId: 'nte' }), 'img').length, 1, 'the website still loads official artwork')
+})
+
+
+test('a healthy bundled fallback does not prevent one official-image recovery',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']})
+ const root=mount(t,GameIcon,{gameId:'nte'})
+ nodes(root,'img')[0].props.onError();await nextTick()
+ assert.equal(nodes(root,'img')[0].props.src,gameStyle('nte').icon)
+ t.mock.timers.tick(1500);await nextTick()
+ assert.equal(nodes(root,'img')[0].props.src,officialGameIcons.nte)
+ nodes(root,'img')[0].props.onError();await nextTick()
+ t.mock.timers.tick(10000);await nextTick()
+ assert.equal(nodes(root,'img')[0].props.src,gameStyle('nte').icon)
 })
