@@ -40,7 +40,7 @@ async function backup(){
     let offset=0,next
     do{
       const archive=await request.run(`gacha/export?limit=2000&offset=${offset}`);if(!archive)return
-      const url=URL.createObjectURL(new Blob([JSON.stringify(archive,null,2)],{type:'application/json'}))
+      const url=URL.createObjectURL(new Blob([JSON.stringify(archive)],{type:'application/json'}))
       const a=globalThis.document.createElement('a');a.href=url;a.download=`wuwa-gacha-${offset}.json`;a.click();URL.revokeObjectURL(url)
       next=archive.export_page?.next_offset;offset=next
     }while(next!=null)
