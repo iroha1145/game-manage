@@ -1,5 +1,10 @@
 # QQ shared Vue image runtime
 
+Official protocol checks, repaired upload fields and platform-side conditions
+are recorded in [the 2026-10-17 documentation review](qq-official-compliance.md).
+The dimensions and typography below are project reading constraints, not
+pixel limits specified by QQ.
+
 QQ images retain the website's authorized Vue display data, game colors and
 rounded surfaces, with a separate 720-pixel chat reading layout. Calendar images
 use illustrated activity cards; role, gacha and game reports adapt the shared

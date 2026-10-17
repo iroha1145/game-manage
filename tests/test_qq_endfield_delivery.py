@@ -122,12 +122,13 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
             assert method == 'POST'
             operations.append(path)
             if path == '/v2/groups/fixture-group/files':
-                assert set(body) == {'file_type', 'file_data', 'srv_send_msg'}
+                assert set(body) == {'file_type', 'file_name', 'file_data', 'srv_send_msg'}
                 assert body['file_type'] == 1 and body['srv_send_msg'] is False
                 image = base64.b64decode(body['file_data'], validate=True)
                 assert valid_reply_image(image, max_bytes=1048576)
                 with Image.open(BytesIO(image)) as picture:
                     picture.load()
+                    assert body['file_name'] == ('reply.png' if picture.format=='PNG' else 'reply.jpg')
                     assert picture.width == 720 and 0 < picture.height <= 1440
                 media = 'fixture-media-' + str(len(uploads))
                 uploads.append((image, media))

@@ -22,6 +22,13 @@ Game names and trademarks belong to their respective owners. This is an independ
 
 The website also loads game icons and general game illustrations from publishers' official websites and official app-store listings. Their source pages, image URLs, rights holders, and verification dates are recorded in `frontend/public/game-icons/sources.json`. These external images are not relicensed under GPL. Calendar illustrations come from the event's own images or its explicitly linked source/version notice; general game illustrations are used only as decoration on game pages and the overview. Missing images fall back to the original identifiers and themed surfaces.
 
+QQ replies can include sanitized versions of these external illustrations and
+catalog images. Source attribution and public accessibility do not establish
+permission to reproduce them in bot messages. The operator must verify the
+applicable rights and supply authorization evidence when the platform requires
+it; the source records do not supply that evidence. See the
+[QQ official-document review](docs/qq-official-compliance.md).
+
 ## Bundled font
 
 The web interface bundles the Geist typeface (Copyright 2024 The Geist Project Authors, <https://github.com/vercel/geist-font>) through the npm package `@fontsource-variable/geist` 5.3.0. The built frontend contains its WOFF2 files. Geist is licensed under the SIL Open Font License 1.1, reproduced in [licenses/Geist-OFL-1.1.txt](licenses/Geist-OFL-1.1.txt). Chinese text falls back to the system font; bot images keep their own render font.

@@ -150,14 +150,16 @@ async def test_ambiguous_image_send_never_falls_back_or_repeats(tmp_path):
     state.close()
 
 
-async def test_official_image_upload_does_not_send_message_and_obeys_deadline():
+@pytest.mark.parametrize('scene,kind,target',[('group','groups','group'),('c2c','users','sender')])
+@pytest.mark.parametrize('image_format,file_name',[('PNG','reply.png'),('JPEG','reply.jpg')])
+async def test_official_image_upload_does_not_send_message_and_obeys_deadline(scene,kind,target,image_format,file_name):
     import base64
     from datetime import datetime, timezone, timedelta
     from types import SimpleNamespace
     from game_assistant.qq.client import OfficialQqClient
     from game_assistant.qq.models import InboundMessage, QqIdentity
     now = datetime.now(timezone.utc)
-    message = InboundMessage(QqIdentity('app', 'group', 'group', 'sender'), 'msg', '/yh', now.isoformat(), (now + timedelta(minutes=5)).isoformat())
+    message = InboundMessage(QqIdentity('app', scene, 'group' if scene=='group' else None, 'sender'), 'msg', '/yh', now.isoformat(), (now + timedelta(minutes=5)).isoformat())
     calls = []
     class API:
         def __init__(self, *a, **kw):
@@ -169,14 +171,14 @@ async def test_official_image_upload_does_not_send_message_and_obeys_deadline():
             return {'file_info': 'opaque', 'ttl': 60} if path.endswith('/files') else {'id': 'image-id'}
     client = OfficialQqClient('app', 'fixture-secret', None, None, sdk=SimpleNamespace(QQApiClient=API))
     image = BytesIO()
-    Image.new('RGB', (1080, 160), '#f5f7fb').save(image, 'PNG')
-    png = image.getvalue()
-    assert await client.send_image(message, png, 1) == 'image-id'
-    assert calls[0] == ('/v2/groups/group/files', {'file_type': 1, 'file_data': base64.b64encode(png).decode('ascii'), 'srv_send_msg': False})
-    assert calls[1] == ('/v2/groups/group/messages', {'msg_type': 7, 'media': {'file_info': 'opaque'}, 'msg_id': 'msg', 'msg_seq': 1})
+    Image.new('RGB', (1080, 160), '#f5f7fb').save(image, image_format)
+    payload = image.getvalue()
+    assert await client.send_image(message, payload, 1) == 'image-id'
+    assert calls[0] == (f'/v2/{kind}/{target}/files', {'file_type': 1, 'file_name': file_name, 'file_data': base64.b64encode(payload).decode('ascii'), 'srv_send_msg': False})
+    assert calls[1] == (f'/v2/{kind}/{target}/messages', {'msg_type': 7, 'media': {'file_info': 'opaque'}, 'msg_id': 'msg', 'msg_seq': 1})
     client.now = lambda: now + timedelta(minutes=6)
     with pytest.raises(renderer_module().ImagePreparationFailed):
-        await client.send_image(message, png, 1)
+        await client.send_image(message, payload, 1)
     assert len(calls) == 2
     await client.aclose()
 
