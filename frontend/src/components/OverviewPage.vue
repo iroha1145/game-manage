@@ -8,7 +8,7 @@ import RingGauge from './RingGauge.vue'
 import BarChart from './BarChart.vue'
 import MenuSelect from './MenuSelect.vue'
 import { gameStyle, summaryFor, upcomingEvents, recentNews, formatTime } from '../dashboard.js'
-import { DAY_MS, parseBeijingTime } from '../calendar.js'
+import { DAY_MS, parseBeijingTime, safeUrl } from '../calendar.js'
 import { sourceForGame } from '../source-status.js'
 import { friendlyDataError } from '../cloud-display.js'
 import { share } from '../chart-math.js'
@@ -75,6 +75,15 @@ function resourceNote(card) {
 }
 // The ring shows stamina against its cap, or a win rate out of 100.
 const ring = card => card.summary.metric === 'stamina' ? { value: card.summary.value, max: card.summary.maximum } : card.summary.metric === 'stats' ? { value: card.summary.value, max: 100 } : null
+// The highest-level roles that come with a picture, for the avatar row on each game card.
+const failedAvatars = ref(new Set())
+function roster(card) {
+  const payload = props.snapshots[card.game_id]?.roles?.payload
+  const list = Array.isArray(payload) ? payload : Array.isArray(payload?.entries) ? payload.entries : []
+  const pictured = list.filter(role => role && typeof role === 'object' && safeUrl(role.icon_url) && !failedAvatars.value.has(safeUrl(role.icon_url)))
+  return { total: list.length, shown: pictured.sort((a, b) => (Number(b.level) || 0) - (Number(a.level) || 0)).slice(0, 5).map(role => ({ key: role.role_id ?? role.id ?? role.name, src: safeUrl(role.icon_url) })) }
+}
+function avatarFailed(src) { failedAvatars.value = new Set([...failedAvatars.value, src]) }
 const accentVars = style => ({ '--game-color': style.color, '--game-accent': style.color, '--game-vivid': style.vivid, '--game-vivid-2': style.vivid2 })
 </script>
 
@@ -127,6 +136,7 @@ const accentVars = style => ({ '--game-color': style.color, '--game-accent': sty
           <RingGauge v-if="ring(card)" class="summary-ring" :value="ring(card).value" :max="ring(card).max" :label="metricLabel(card)" :size="92" :stroke="9" :color="card.style.vivid"><span class="ring-pct">{{ card.summary.percent == null ? '—' : `${Math.round(card.summary.percent)}%` }}</span></RingGauge>
           <div class="summary-metric"><p>{{ metricLabel(card) }}</p><div class="summary-number" v-pop>{{ card.summary.metric === 'gacha' && card.summary.pityStatus === 'lower_bound' && card.summary.value != null ? '≥' : '' }}{{ card.summary.value ?? '—' }}<small>{{ card.summary.hasStamina ? `/ ${card.summary.maximum ?? '—'}` : METRIC_UNITS[card.summary.metric] }}</small></div><p class="summary-note">{{ resourceNote(card) }}</p></div>
         </div>
+        <div v-if="roster(card).shown.length" class="summary-roster"><span class="roster-faces"><img v-for="role in roster(card).shown" :key="role.key" :src="role.src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" @error="avatarFailed(role.src)" /></span><span>{{ roster(card).total }} 名角色</span></div>
         <div class="summary-account"><span>{{ card.summary.nickname || '暂无账号数据' }}<small v-if="card.summary.level != null">Lv.{{ card.summary.level }}</small></span><span class="summary-updated">{{ card.summary.fetchedAt ? `更新于 ${formatTime(card.summary.fetchedAt)}` : '尚未更新' }}</span><AppIcon name="arrow" :size="15" /></div>
       </button>
     </div>
@@ -223,6 +233,11 @@ button.ov-next:active { transform:scale(var(--scale-small)); }
 .summary-metric p { font-size:12px; color:var(--text-muted); }
 .summary-number { margin-top:2px; font-size:32px; line-height:38px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; white-space:nowrap; }.summary-number small { font-size:14px; color:var(--text-muted); font-weight:500; margin-left:4px; letter-spacing:0; }
 .summary-note { margin-top:2px; font-size:12px; line-height:18px; color:var(--text-muted); text-wrap:pretty; }
+/* Overlapping avatars of the highest-level roles: the pictures bring the game's colour. */
+.summary-roster { position:relative; display:flex; align-items:center; gap:10px; margin:-4px 0 16px; color:var(--text-muted); font-size:12px; }
+.roster-faces { display:flex; padding-left:8px; }
+.roster-faces img { width:30px; height:30px; margin-left:-8px; border-radius:10px; object-fit:cover; background:var(--surface-soft); box-shadow:0 0 0 2px var(--card-bg), 0 4px 10px -6px rgba(20, 24, 40, .4); transition:transform var(--duration-spring) var(--ease-spring); }
+@media(hover:hover) and (pointer:fine) { .game-summary:hover .roster-faces img { transform:translateY(-2px); } .game-summary:hover .roster-faces img:nth-child(2) { transition-delay:30ms; } .game-summary:hover .roster-faces img:nth-child(3) { transition-delay:60ms; } .game-summary:hover .roster-faces img:nth-child(4) { transition-delay:90ms; } .game-summary:hover .roster-faces img:nth-child(5) { transition-delay:120ms; } }
 .summary-account { position:relative; display:flex; align-items:center; gap:6px; margin-top:auto; padding-top:14px; border-top:1px solid var(--border); color:var(--text); font-size:13px; font-weight:500; }.summary-account>span:first-child { min-width:0; margin-right:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.summary-account small { margin-left:6px; color:var(--text-muted); font-size:12px; font-weight:400; }.summary-updated { color:var(--text-faint); font-size:12px; font-weight:400; white-space:nowrap; }.summary-account svg { color:var(--text-faint); transition:transform var(--duration-medium) var(--ease-smooth-out), color var(--duration-quick) var(--ease-smooth-out); }
 @media(hover:hover) and (pointer:fine) { .game-summary:hover .summary-account svg { color:var(--game-color); transform:translateX(3px); } }
 
