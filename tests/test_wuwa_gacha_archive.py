@@ -228,3 +228,70 @@ def test_two_connection_conflict_check_holds_write_transaction(ledger,tmp_path):
         assert first.read('100','S')['items'][0]['rarity']=='3'
     finally:
         start.set();worker.join(4);first.conn.close();second.conn.close()
+
+
+def fresh():
+    import sqlite3,threading
+    return GachaStore(sqlite3.connect(':memory:',check_same_thread=False),threading.Lock())
+
+
+def anonymous(second, **changes):
+    r=dict(row(second),**changes); r.pop('id'); return r
+
+
+def stored(store):
+    return (store.conn.execute('SELECT pool,draw_id,payload FROM wuwa_gacha ORDER BY pool,draw_id').fetchall(),
+            sorted(item['summary_id'] for item in store._archive_data('100','S')['aggregates']))
+
+
+def pages(store, limit):
+    result,offset=[],0
+    while offset is not None:
+        result.append(store.export('100','S',offset=offset,limit=limit))
+        offset=result[-1]['export_page']['next_offset']
+    return result
+
+
+def test_export_never_splits_identical_anonymous_rows(ledger):
+    # Re-import numbers identical anonymous rows by their order in the file, so a page holding
+    # one of two such rows listed the stored key hash:2 and could not be restored.
+    commit(ledger,doc([anonymous(1),anonymous(1)]))
+    for offset in (0,1):
+        page=ledger.export('100','S',offset=offset,limit=1)
+        assert (page['export_page']['offset'],len(page['list']),page['export_page']['next_offset'])==(0,2,None)
+        restored=fresh(); commit(restored,page)
+        assert stored(restored)==stored(ledger)
+
+
+def test_paged_export_restores_every_row_when_a_page_ends_inside_a_group(ledger):
+    second8=dict(time='2026-01-01 12:00:08')
+    records=[row(9),*[anonymous(8)]*3,dict(row(7),**second8),*[anonymous(8,cardPoolType='2')]*2,row(6),
+             *[anonymous(5,name='另一物品')]*2,row(5),row(4)]
+    commit(ledger,doc(records))
+    summaries=[dict(cardPoolType=99,name=f'五星 {i}',time=f'2026-01-{i+1:02d}',draw_total=i+1) for i in range(5)]
+    commit(ledger,dict(data=dict(uid='100',card_analysis_json=dict(pool=dict(five_cards=summaries)))),source='mcgf')
+    original=stored(ledger)
+    assert len(original[0])==12 and len(original[1])==5
+    for limit in range(1,13):
+        restored=fresh(); chain=pages(ledger,limit)
+        for page in chain:
+            commit(fresh(),page)
+            commit(restored,page)
+        assert stored(restored)==original
+        assert sum(len(p['list']) for p in chain)==12 and sum(len(p['aggregate_items']) for p in chain)==5
+    for offset in range(12):
+        commit(fresh(),ledger.export('100','S',offset=offset,limit=1))
+    assert any(len(page['list'])>1 for page in pages(ledger,1))
+
+
+def test_size_halving_keeps_identical_anonymous_rows_on_one_page(ledger):
+    # Groups of seven: no halved limit (20000, 10000, ..., 1) is a multiple of seven.
+    wide=dict(name='n'*512,resourceId='r'*512,resourceType='t'*512)
+    commit(ledger,doc([anonymous(0,time=f'2026-01-01T00:{g//60:02d}:{g%60:02d}',**wide) for g in range(200) for _ in range(7)]))
+    chain=pages(ledger,20000)
+    restored=fresh()
+    for page in chain:
+        commit(fresh(),page)
+        commit(restored,page)
+    assert stored(restored)==stored(ledger)
+    assert len(chain)>1 and chain[0]['export_page']['limit']%7==0

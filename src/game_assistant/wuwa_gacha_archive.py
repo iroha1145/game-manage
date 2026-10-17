@@ -384,8 +384,13 @@ class ArchiveMixin:
             data=self._archive_data(account,server)
             stored=self.conn.execute('SELECT pool,draw_id,payload FROM wuwa_gacha WHERE account=? AND server=? ORDER BY time DESC,draw_id DESC',
                                       (account,server)).fetchall()
-        paged=offset>0 or len(stored)>limit
-        rows=stored[offset:offset+limit]
+        # Re-import numbers identical anonymous rows within one file, so a page must hold
+        # each run of them whole; such rows share time and key prefix, so they are adjacent here.
+        start,end=offset,offset+limit
+        while 0<start<len(stored) and stored[start-1][2]==stored[start][2]: start-=1
+        while 0<end<len(stored) and stored[end-1][2]==stored[end][2]: end+=1
+        paged=start>0 or end<len(stored)
+        rows=stored[start:end]
         keys={(p,k) for p,k,_ in rows}
         coverage=[]
         for batch in data['batches']:
@@ -400,15 +405,15 @@ class ArchiveMixin:
             legacy=[k for pool,k,_ in rows if pool==p and (p,k) not in covered]
             if legacy:coverage.append(dict(pool=p,draw_ids=legacy,basis='unconfirmed',latest_confirmed=False,
                 continuity_confirmed=False,warnings=['LEGACY_COVERAGE_UNKNOWN'],source='legacy',imported_at='',as_of=None))
-        aggregate_page=data['aggregates'][offset:offset+limit]
+        aggregate_page=data['aggregates'][start:end]
         page_size=max(len(rows),len(aggregate_page))
         total=max(len(stored),len(data['aggregates']))
         result=dict(format=OWN_FORMAT,format_version=1,info=dict(uid=account,server_id=server),
                     list=[json.loads(raw) for _,_,raw in rows],coverage=coverage,rules=data['rules'],
                     aggregate_items=aggregate_page,warnings=[],
                     timestamp_basis='source_display_time; timezone_not_inferred',
-                    export_page=dict(offset=offset,limit=page_size,total=total,record_total=len(stored),
-                        aggregate_total=len(data['aggregates']),next_offset=offset+page_size if offset+page_size<total else None))
+                    export_page=dict(offset=start,limit=page_size,total=total,record_total=len(stored),
+                        aggregate_total=len(data['aggregates']),next_offset=start+page_size if start+page_size<total else None))
         if len(encoded(result).encode())>2*1024*1024:
             if limit>1:
                 return self.export(account,server,offset=offset,limit=max(1,limit//2))
