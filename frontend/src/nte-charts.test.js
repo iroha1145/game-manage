@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { areaViews, gachaRating, gachaTone, gachaView, gauge, houseView, luckTone, officialPullIcon, progressView, pullTime, roleBreakdown, rosterOrder, tintOf, vehicleView } from './nte-charts.js'
+import { areaViews, gachaRating, gachaTone, gachaView, gauge, houseView, luckTone, officialPullIcon, progressView, pullTime, roleBreakdown, rosterOrder, vehicleView } from './nte-charts.js'
 
 test('a gauge needs both counts and a positive total, keeps zero, and reports excess without growing the ring', () => {
   assert.equal(gauge(null, 10).known, false)
@@ -108,9 +108,4 @@ test('houses and vehicles count furniture and read stats as the source wrote the
   assert.equal(car.models, 2)
   assert.equal(vehicleView({ id: 'v1' }, '').showcase, false)
   assert.equal(vehicleView({ id: 'v1' }, undefined).showcase, false)
-})
-
-test('letter tiles take one of two tints, the same one every time', () => {
-  assert.equal(tintOf('星穹旅人'), tintOf('星穹旅人'))
-  assert.ok([tintOf('夜航'), tintOf('海特洛少女'), tintOf('')].every(tint => tint === 0 || tint === 1))
 })

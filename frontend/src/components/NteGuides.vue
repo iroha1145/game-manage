@@ -66,17 +66,17 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
   <section class="nte-guides" aria-label="异环角色攻略">
     <header class="guides-head"><div><h2>角色攻略</h2></div><span v-if="catalog" class="catalog-count">{{ catalog.guides.length }} 名角色原图索引 <b>{{ reviewedCount }} 名已整理摘要</b></span></header>
     <p v-if="catalogLoading" class="notice" role="status">正在加载攻略目录…</p>
-    <div v-else-if="catalogError" class="notice error" role="alert">{{ catalogError }} <button @click="loadCatalog">重试</button></div>
+    <div v-else-if="catalogError" class="notice error" role="alert">{{ catalogError }} <button type="button" class="ui-button small-button" @click="loadCatalog">重试</button></div>
     <template v-else-if="catalog">
       <div class="guides-filters"><label class="search-label">查找角色<input v-model="search" type="search" placeholder="名称、别名、拼音、首字母、属性或定位" /></label><label><input v-model="ownedOnly" type="checkbox" />只看已拥有</label><span class="muted">{{ guides.length }} 名角色</span></div>
-      <p v-if="targetId && !guide" class="notice">未找到该角色形态的已确认攻略，不套用同名或其他形态资料。<button type="button" @click="targetId=''">浏览公开攻略</button></p>
+      <p v-if="targetId && !guide" class="notice">未找到该角色形态的已确认攻略，不套用同名或其他形态资料。<button type="button" class="ui-button small-button" @click="targetId=''">浏览公开攻略</button></p>
       <p v-if="ownedOnly && !roles.length" class="notice">尚无角色资料，可关闭“只看已拥有”浏览公开攻略，或登录并刷新角色数据。</p>
       <p v-else-if="!guides.length" class="notice">没有匹配的角色，试试其他关键词。</p>
       <nav v-if="!guide && guides.length && !targetId" class="role-list" aria-label="攻略角色候选"><button v-for="item in guides" :key="item.id" :aria-label="`查看${item.name}攻略`" @click="selectGuide(item.id)">{{ item.name }}</button></nav>
       <div v-if="guide" class="guides-layout">
         <nav ref="roleList" class="role-list" aria-label="攻略角色列表"><button v-for="item in guides" :key="item.id" :aria-pressed="guide.id === item.id" :aria-label="`查看${item.name}攻略`" @click="selectGuide(item.id)"><NteIcon :src="nteRoleIcon(item.name)" :name="item.name" /><span><strong>{{ item.name }}</strong><small>{{ item.element }} · {{ item.role }}</small></span><span class="guide-dot" :class="{ reviewed:item.status === 'reviewed' }" :title="item.status === 'reviewed' ? '已整理摘要' : '原图索引'" /></button></nav>
         <div class="guide-main">
-          <button v-for="role in owned" :key="entryCharacterId(role)" type="button" :aria-label="`查看本人${characterLabel('nte',role)}`" @click="emit('role',entryCharacterId(role))">查看本人 {{ characterLabel('nte',role) }} 面板</button>
+          <button v-for="role in owned" :key="entryCharacterId(role)" type="button" class="ui-button soft small-button" :aria-label="`查看本人${characterLabel('nte',role)}`" @click="emit('role',entryCharacterId(role))">查看本人 {{ characterLabel('nte',role) }} 面板</button>
           <header class="role-heading"><NteIcon :src="nteRoleIcon(guide.name)" :name="guide.name" size="xl" /><div><p class="kicker">{{ guide.element }} · {{ guide.role }}</p><h3>{{ guide.name }} <span>培养攻略</span></h3></div><span class="version">V{{ sourceMeta?.version || '未知' }} 资料</span></header>
           <p class="provenance">{{ sourceMeta?.author }}</p>
           <details data-render-collapsed><summary>资料详情</summary><p v-if="guide.reviewed_at">摘要核对于 {{ guide.reviewed_at }}</p>
@@ -85,11 +85,11 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
           <p v-else-if="sourceLoading" class="source-status" role="status">正在核对原帖与图片…</p>
           <p v-else-if="source?.stale" class="source-status">当前展示缓存保存的旧版来源资料。</p></details>
           <p v-if="guide.status === 'original_only'" class="notice">文字推荐待整理。已定位到原图第 {{ guide.pages.join('、') }} 页，可查看该角色的五类配装信息。</p>
-          <div v-if="guide.status === 'reviewed'" class="advice-grid"><article v-for="(section, index) in guide.sections" :key="section.key" class="advice-card"><header><h4>{{ section.title }}</h4></header><ul v-if="section.items.length"><li v-for="(item, i) in section.items" :key="i"><NteGuideVisual :text="item" :section-key="section.key" :role-name="guide.name" /></li></ul><p v-else class="muted">暂无已整理的文字推荐</p><details v-if="section.note" class="section-note"><summary>适用条件与说明</summary><p>{{ section.note }}</p></details><button :disabled="sourceLoading || !source || !section.pages.some(n => n <= totalImages)" @click="showPage(section.pages[0])">查看对应原图 · 第 {{ section.pages.join('、') }} 页 ↗</button></article></div>
-          <section ref="sourcePanel" class="source-card" aria-label="攻略原图与来源"><header><div><h4>原图与来源</h4><a v-if="originalLink" :href="originalLink" target="_blank" rel="noopener noreferrer">{{ sourceMeta.title }} ↗</a></div><button v-if="canMaintain" :disabled="sourceLoading" @click="loadSource(true)">{{ sourceLoading ? '读取中…' : '刷新原帖' }}</button></header>
+          <div v-if="guide.status === 'reviewed'" class="advice-grid"><article v-for="(section, index) in guide.sections" :key="section.key" class="advice-card"><header><h4>{{ section.title }}</h4></header><ul v-if="section.items.length"><li v-for="(item, i) in section.items" :key="i"><NteGuideVisual :text="item" :section-key="section.key" :role-name="guide.name" /></li></ul><p v-else class="muted">暂无已整理的文字推荐</p><details v-if="section.note" class="section-note"><summary>适用条件与说明</summary><p>{{ section.note }}</p></details><button type="button" class="text-link" :disabled="sourceLoading || !source || !section.pages.some(n => n <= totalImages)" @click="showPage(section.pages[0])">查看对应原图 · 第 {{ section.pages.join('、') }} 页 ↗</button></article></div>
+          <section ref="sourcePanel" class="source-card" aria-label="攻略原图与来源"><header><div><h4>原图与来源</h4><a v-if="originalLink" :href="originalLink" target="_blank" rel="noopener noreferrer">{{ sourceMeta.title }} ↗</a></div><button v-if="canMaintain" type="button" class="ui-button small-button" :disabled="sourceLoading" @click="loadSource(true)">{{ sourceLoading ? '读取中…' : '刷新原帖' }}</button></header>
             <p class="muted">更新于 {{ date(source?.fetched_at) }}（北京时间）<span v-if="source?.published_at"> · 发布：{{ date(source.published_at) }}（北京时间）</span><span v-if="source?.edited_at"> · 编辑：{{ date(source.edited_at) }}（北京时间）</span></p>
             <p v-if="source?.refresh_deferred" class="muted">刚刚已尝试刷新，请稍后重试。</p>
-            <template v-if="totalImages"><div class="image-toolbar"><span>原图第 {{ page }} / {{ totalImages }} 页</span><button v-for="n in totalImages" :key="n" :aria-pressed="page === n" :aria-label="`查看原图第${n}页`" @click="showPage(n)">{{ n }}</button><a v-if="currentImage" :href="currentImage" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">新窗口查看大图 ↗</a></div>
+            <template v-if="totalImages"><div class="image-toolbar"><span>原图第 {{ page }} / {{ totalImages }} 页</span><nav class="segmented" aria-label="原图页码"><button v-for="n in totalImages" :key="n" type="button" :aria-pressed="page === n" :aria-label="`查看原图第${n}页`" @click="showPage(n)">{{ n }}</button></nav><a v-if="currentImage" :href="currentImage" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">新窗口查看大图 ↗</a></div>
               <p class="image-caption">{{ sourceMeta.author }} 原作 · 保留署名与水印 · {{ guide.name }} 对应第 {{ guide.pages.join('、') }} 页</p>
               <img v-if="currentImage && !imageFailed" class="guide-image" :src="currentImage" :alt="`${sourceMeta.title} 第 ${page} 页`" loading="lazy" referrerpolicy="no-referrer" @error="imageFailed = true" />
               <p v-else class="notice">原图暂时无法显示，请通过来源链接查看。</p>
@@ -103,89 +103,88 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
 </template>
 
 <style scoped>
-.nte-guides { color:var(--text); min-width:0; }
-.guides-head { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:4px 0 16px; }
+/* Only ever shown inside the detail sheet, so its layout answers to the sheet's width (container
+   queries), not the window's. */
+.nte-guides { container-type:inline-size; color:var(--text); min-width:0; }
+.guides-head { display:flex; align-items:center; justify-content:flex-start; padding:0 0 16px; }
 .kicker { color:var(--accent); font-size:12px; margin:0 0 4px; font-weight:500; }
-.guides-head h2 { font-size:18px; line-height:26px; margin-bottom:2px; font-weight:600; letter-spacing:-.01em; }
+/* The sheet's header already says 角色攻略; the heading stays for screen readers only. */
+.guides-head h2 { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
 .muted, .provenance, .source-status { color:var(--text-muted); font-size:12px; line-height:1.8; }
-.catalog-count { font-size:12px; color:var(--text-muted); text-align:right; }
+.catalog-count { font-size:12px; color:var(--text-muted); }
 .catalog-count b { display:block; color:var(--accent); font-weight:500; margin-top:2px; }
 .guides-filters { display:flex; align-items:center; gap:12px 20px; flex-wrap:wrap; margin-bottom:16px; font-size:13px; }
 .guides-filters label { display:flex; align-items:center; gap:9px; }
 .search-label { flex:1; min-width:240px; }
-.search-label input { flex:1; max-width:360px; min-height:36px; background:var(--card-bg); border:1px solid var(--border); border-radius:999px; padding:7px 16px; font:inherit; font-size:13px; color:var(--text); box-shadow:var(--btn-shadow); }
+.search-label input { flex:1; max-width:360px; min-height:38px; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-control); padding:7px 13px; font:inherit; font-size:13px; color:var(--text); }
 .guides-filters input[type=checkbox] { accent-color:var(--accent); }
 .guides-layout { display:grid; grid-template-columns:minmax(0,1fr); gap:18px; align-items:start; }
-/* The roles are one scrolling row of portrait tiles; the chosen one is the saturated tile. */
+/* The roles are one scrolling row of portrait tiles; the chosen one is filled with the tone. */
 .role-list { display:flex; gap:10px; overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x proximity; padding:6px 4px 12px; margin:0 -4px; scrollbar-width:none; }
 .role-list::-webkit-scrollbar { display:none; }
-.role-list button { position:relative; flex:0 0 auto; display:grid; justify-items:center; align-content:start; gap:8px; width:100px; padding:14px 6px 12px; border:0; border-radius:var(--radius-tile); background:var(--card-bg); box-shadow:var(--card-shadow); color:var(--text); text-align:center; cursor:pointer; scroll-snap-align:start; }
+.role-list button { position:relative; flex:0 0 auto; display:grid; justify-items:center; align-content:start; gap:8px; width:100px; padding:14px 6px 12px; border:0; border-radius:var(--radius-tile); background:var(--surface-soft); box-shadow:inset 0 0 0 1px var(--overlay-2); color:var(--text); text-align:center; cursor:pointer; scroll-snap-align:start; }
 .role-list .nte-icon { --size:56px; }
 .role-list strong { display:block; max-width:88px; overflow:hidden; font-size:13px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 .role-list small { display:block; max-width:88px; margin-top:2px; overflow:hidden; color:var(--text-muted); font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
-.role-list button[aria-pressed=true] { background:linear-gradient(160deg,color-mix(in srgb,var(--game-vivid) 80%,black),color-mix(in srgb,var(--game-vivid-2) 72%,black)); color:#fff; box-shadow:0 18px 34px -20px var(--game-vivid); }
-.role-list button[aria-pressed=true] small { color:rgba(255,255,255,.86); }
-@media(hover:hover) and (pointer:fine) { .role-list button:not([aria-pressed=true]):hover { transform:translateY(-3px); box-shadow:var(--card-hover-shadow); } }
-.role-list button:active { transform:scale(var(--scale-small)); }
+.role-list button[aria-pressed=true] { background:var(--game-tone); box-shadow:none; }
+.role-list button[aria-pressed=true] .nte-icon { background:var(--card-bg); }
+.role-list button[aria-pressed=true] small { color:var(--game-accent); }
+@media(hover:hover) and (pointer:fine) { .role-list button:not([aria-pressed=true]):hover { box-shadow:inset 0 0 0 1px var(--border-strong); } }
+.role-list button:active { transform:translateY(1px); }
 .guide-dot { position:absolute; top:10px; right:10px; width:7px; height:7px; border-radius:50%; background:var(--border-strong); flex-shrink:0; }
 .guide-dot.reviewed { background:var(--game-vivid); }
-.role-list button[aria-pressed=true] .guide-dot.reviewed { background:#fff; }
-/* Before one is chosen, the matches are plain pills. */
+.role-list button[aria-pressed=true] .guide-dot.reviewed { background:var(--game-accent); }
+/* Before one is chosen, the matches are plain buttons. */
 .nte-guides > .role-list { flex-wrap:wrap; overflow:visible; padding:0; margin:0 0 14px; }
-.nte-guides > .role-list button { width:auto; padding:6px 14px; border-radius:999px; font-size:13px; }
+.nte-guides > .role-list button { width:auto; padding:6px 14px; border:1px solid var(--border); border-radius:10px; background:var(--card-bg); box-shadow:none; font-size:13px; }
 .guide-main { min-width:0; }
-.guide-main > button { min-height:32px; margin:0 8px 12px 0; padding:4px 14px; border:1px solid var(--border); border-radius:999px; background:var(--card-bg); box-shadow:var(--btn-shadow); color:var(--text); font-size:13px; font-weight:500; line-height:20px; cursor:pointer; }
-.role-heading { display:flex; gap:16px; align-items:center; padding:16px 18px; border-radius:var(--radius-card); background:linear-gradient(150deg,color-mix(in srgb,var(--game-vivid) 16%,var(--card-bg)),var(--card-bg) 70%); box-shadow:var(--card-shadow); }
+.guide-main > .ui-button { margin:0 8px 12px 0; }
+.role-heading { display:flex; gap:16px; align-items:center; padding:16px 18px; border-radius:var(--radius-tile); background:var(--game-tone); }
+.role-heading .nte-icon { background:var(--card-bg); }
 .role-heading > div { min-width:0; flex:1; }
-.role-heading h3 { font-size:22px; line-height:30px; font-weight:600; letter-spacing:-.02em; }
-.role-heading h3 span { color:var(--text-muted); font-size:14px; font-weight:400; margin-left:7px; letter-spacing:0; }
-.version { border-radius:var(--radius-chip); background:var(--card-bg); box-shadow:inset 0 0 0 1px var(--border); padding:3px 12px; font-size:12px; color:var(--text-body); white-space:nowrap; }
+.role-heading .kicker { color:var(--game-accent); }
+.role-heading h3 { color:var(--text); font-size:22px; line-height:30px; font-weight:600; letter-spacing:-.03em; }
+.role-heading h3 span { color:var(--game-accent); font-size:14px; font-weight:400; margin-left:7px; letter-spacing:0; }
+.version { border-radius:var(--radius-chip); background:var(--card-bg); padding:3px 12px; font-size:12px; color:var(--game-accent); white-space:nowrap; }
 .provenance { margin-top:12px; }
-.notice { padding:12px 16px; background:var(--card-bg); border-radius:var(--radius-well); box-shadow:var(--card-shadow); font-size:13px; line-height:1.7; margin-bottom:14px; }
-.warning { color:var(--attention-text); background:var(--attention-bg); box-shadow:none; }
-.error { color:var(--danger); }
+.notice { padding:12px 16px; background:var(--surface-soft); border-radius:var(--radius-well); font-size:13px; line-height:1.7; margin-bottom:14px; }
+.warning { color:var(--attention-text); background:var(--attention-bg); }
+.error { color:var(--danger); background:var(--danger-bg); }
 .source-status { margin:10px 0; }
-/* Five advice cards: two wide ones, then three narrower; each wears a series swatch in order. */
-.advice-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:14px; margin-top:14px; }
-.advice-card { grid-column:span 3; border-radius:var(--radius-card); padding:18px; background:var(--card-bg); box-shadow:var(--card-shadow); min-width:0; display:flex; flex-direction:column; }
-.advice-card:nth-child(n+3) { grid-column:span 2; }
-.advice-card:nth-child(1) { --series:var(--chart-1); } .advice-card:nth-child(2) { --series:var(--chart-2); } .advice-card:nth-child(3) { --series:var(--chart-3); } .advice-card:nth-child(4) { --series:var(--chart-4); } .advice-card:nth-child(5) { --series:var(--chart-5); }
+/* Five advice cards, two across; a lone last one takes the full row. */
+.advice-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:14px; }
+.advice-card { border:1px solid var(--card-border); border-radius:var(--radius-tile); padding:16px; background:var(--card-bg); min-width:0; display:flex; flex-direction:column; }
+.advice-card:last-child:nth-child(odd) { grid-column:1/-1; }
 .advice-card header { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
-.advice-card header::before { content:''; width:10px; height:10px; border-radius:3px; background:var(--series,var(--accent)); }
+.advice-card header::before { content:''; width:10px; height:10px; border-radius:3px; background:var(--game-vivid); }
 .advice-card h4 { margin:0; font-size:15px; font-weight:600; }
 .advice-card ul { list-style:none; padding-left:0; display:grid; gap:10px; font-size:13px; line-height:1.8; }
 .section-note { font-size:12px; line-height:1.8; color:var(--text-muted); margin-top:12px; }
-.advice-card button { align-self:flex-start; margin-top:auto; padding-top:14px; border:0; background:none; color:var(--accent); font-size:13px; font-weight:500; cursor:pointer; }
-.advice-card button:disabled { color:var(--text-muted); cursor:default; opacity:.6; }
-.source-card { margin-top:18px; border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); padding:18px; }
+.advice-card .text-link { align-self:flex-start; margin-top:auto; padding-top:14px; }
+.source-card { margin-top:18px; border:1px solid var(--card-border); border-radius:var(--radius-tile); background:var(--card-bg); padding:18px; }
 .source-card>header { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:12px; }
 .source-card h4 { margin:0 0 6px; font-size:15px; font-weight:600; }
 .source-card a { color:var(--accent); font-size:13px; line-height:1.7; }
-.source-card button, .notice button { min-height:32px; background:var(--card-bg); border:1px solid var(--border); border-radius:999px; padding:4px 14px; color:var(--text-body); font-size:13px; font-weight:500; line-height:20px; cursor:pointer; }
-.source-card button:disabled { opacity:.5; }
 .image-toolbar { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:16px 0 12px; font-size:12px; color:var(--text-muted); }
-.image-toolbar button { min-width:32px; padding:4px 10px; }
-.image-toolbar button[aria-pressed=true] { color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
 .image-toolbar a { margin-left:auto; font-size:12px; }
 .image-caption { font-size:12px; color:var(--text-muted); margin-bottom:10px; }
-.guide-image { display:block; width:100%; height:auto; border-radius:var(--radius-tile); background:var(--surface-soft); }
+.guide-image { display:block; width:100%; height:auto; border-radius:var(--radius-well); background:var(--surface-soft); }
 .original-text { margin-top:16px; font-size:13px; }
 .original-text summary { color:var(--text-muted); cursor:pointer; }
 .original-text p { margin-top:12px; line-height:1.8; overflow-wrap:anywhere; }
-.nte-guides button:focus-visible, .nte-guides a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
-@media(max-width:1050px) { .advice-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .advice-card, .advice-card:nth-child(n+3) { grid-column:span 1; } .advice-card:last-child { grid-column:1/-1; } }
-@media(max-width:650px) {
+.role-list button:focus-visible { border-radius:var(--radius-tile); }
+.nte-guides > .role-list button:focus-visible { border-radius:10px; }
+@container (max-width:560px) {
   .guides-head { align-items:flex-start; }
   .catalog-count { line-height:1.6; }
   .role-heading { flex-wrap:wrap; padding:14px; }
   .role-heading h3 span { font-size:12px; }
   .source-card { padding:14px; }
   .source-card>header { align-items:flex-start; }
-  .source-card>header button { white-space:nowrap; }
   .image-toolbar a { flex-basis:100%; margin-top:6px; }
   .search-label { min-width:100%; }
   .search-label input { min-width:0; }
   .advice-grid { grid-template-columns:minmax(0,1fr); }
-  .advice-card, .advice-card:nth-child(n+3) { grid-column:1/-1; padding:14px; }
+  .advice-card { padding:14px; }
 }
 </style>

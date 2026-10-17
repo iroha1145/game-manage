@@ -203,7 +203,7 @@ function pityGauge(item) {
 .ledger h3 { font-size:14px; font-weight:600; }
 .ledger-head { position:relative; margin-bottom:0; }
 .saved-count { display:inline-flex; align-items:center; gap:4px; margin-left:4px; color:var(--text-muted); font-size:12px; font-weight:400; }
-.saved-count b { color:var(--text); font-size:20px; line-height:24px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+.saved-count b { color:var(--text); font-size:20px; line-height:24px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
 .head-actions { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; margin-left:auto; }
 .export-warning { flex-basis:100%; margin:0; color:var(--stale-text); font-size:12px; }
 .check { display:inline-flex; align-items:center; gap:6px; color:var(--text-body); font-size:13px; font-weight:400; cursor:pointer; }
@@ -215,24 +215,23 @@ function pityGauge(item) {
 .notice.error { background:var(--danger-bg); color:var(--danger); }
 .muted { color:var(--text-muted); font-size:12px; line-height:1.6; }
 
-/* Import and rule panels: collapsed one-line disclosures until needed. They sit
-   in the ledger card, so they take a tone step instead of an outline. */
-.panel { border-radius:var(--radius-tile); background:var(--surface-soft); }
+/* Import and rule panels: collapsed one-line disclosures until needed, soft tiles with a hairline. */
+.panel { border-radius:var(--radius-tile); background:var(--surface-soft); box-shadow:inset 0 0 0 1px var(--overlay-2); }
 .panel > summary { display:flex; align-items:center; gap:8px; min-height:44px; padding:8px 14px 8px 16px; border-radius:var(--radius-tile); color:var(--text); font-size:14px; font-weight:600; list-style:none; cursor:pointer; }
 .panel > summary::-webkit-details-marker { display:none; }
 .panel > summary > svg { margin-left:auto; color:var(--text-faint); }
-.panel > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.panel > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius-tile); }
 @media (hover:hover) and (pointer:fine) { .panel > summary:hover { background:var(--hover-bg); } }
 .panel-body { display:grid; gap:12px; padding:4px 16px 16px; font-size:13px; }
 .file-row, .panel-actions { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
 .file-picker { display:inline-flex; flex-wrap:wrap; align-items:center; gap:8px; color:var(--text-body); font-size:13px; }
 .file-picker input { max-width:100%; color:var(--text-muted); font-size:13px; }
-.file-picker input::file-selector-button { margin-right:8px; padding:4px 14px; border:1px solid var(--border-strong); border-radius:999px; background:var(--card-bg); color:var(--text-body); font:inherit; cursor:pointer; }
+.file-picker input::file-selector-button { margin-right:8px; padding:4px 14px; border:1px solid var(--border-strong); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text-body); font:inherit; cursor:pointer; }
 .file-name { color:var(--text-muted); font-size:12px; }
 .coverage { display:grid; gap:4px; }
 .coverage label { display:flex; align-items:flex-start; gap:8px; color:var(--text-body); line-height:20px; }
 .coverage input { margin-top:3px !important; }
-.preview { display:grid; gap:6px; padding:10px 14px; border-radius:var(--radius-well); background:var(--card-bg); line-height:1.6; }
+.preview { display:grid; gap:6px; padding:10px 14px; border-radius:var(--radius-well); background:var(--card-bg); box-shadow:inset 0 0 0 1px var(--overlay-2); line-height:1.6; }
 .preview-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 .preview-head strong { font-weight:600; }
 .preview .warn { color:var(--warning-text); }
@@ -245,7 +244,7 @@ function pityGauge(item) {
 
 /* Pool cards: the ring towards the hard pity beside the pity numbers. */
 .pool-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap:12px; }
-.pool-card { display:grid; gap:8px; min-width:0; padding:16px 18px; border-radius:var(--radius-tile); background:var(--surface-soft); font-size:13px; overflow-wrap:anywhere; }
+.pool-card { display:grid; gap:8px; min-width:0; padding:16px 18px; border-radius:var(--radius-tile); background:var(--surface-soft); box-shadow:inset 0 0 0 1px var(--overlay-2); font-size:13px; overflow-wrap:anywhere; }
 .pool-card:has(.pity-ring) { grid-template-columns:auto minmax(0, 1fr); column-gap:16px; }
 .pool-card:has(.pity-ring) > :not(.pity-ring):not(.pity-kv) { grid-column:1 / -1; }
 .pity-ring { grid-row:2 / span 1; align-self:center; }
@@ -253,7 +252,7 @@ function pityGauge(item) {
 .pool-card-head { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
 .pool-card-head > button { margin-left:auto; }
 .pity-kv { --kv-min:100px; }
-.pity-kv dd { font-size:20px; line-height:26px; letter-spacing:-.02em; font-variant-numeric:proportional-nums; }
+.pity-kv dd { font-size:20px; line-height:26px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
 .pool-card .kv-grid.tiles > div, .pity-kv > div { padding:0; background:none; }
 .sep::before { content:'·'; margin:0 6px; color:var(--text-faint); }
 .requirements { margin:0; padding-left:16px; list-style:disc; color:var(--text-muted); font-size:12px; line-height:1.6; }

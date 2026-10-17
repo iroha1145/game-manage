@@ -97,20 +97,21 @@ function obtained(value) {
 /* Header: title, source tag and the official rating on one line, read time right. */
 .stats-header { position:relative; }
 .stats-header h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.01em; }
-.source-tag { padding:0 8px; border-radius:var(--radius-chip); background:var(--overlay-3); color:var(--text-body); font-size:12px; font-weight:400; line-height:20px; }
+.source-tag { padding:0 8px; border-radius:var(--radius-chip); background:var(--control-track); color:var(--text-body); font-size:12px; font-weight:400; line-height:20px; }
 .luck-title { display:inline-flex; align-items:baseline; gap:6px; padding:1px 10px; border-radius:var(--radius-chip); color:var(--text); line-height:20px; }
 .luck-title small { font-size:12px; font-weight:400; }
 .luck-title strong { font-size:13px; font-weight:600; }
 .luck-title.unknown { color:var(--text-muted); }
 .read-time time { color:var(--text-muted); font-variant-numeric:tabular-nums; }
 
-/* Pool totals: a tile per pool, the count large on the left, S stats stacked right. */
+/* Pool totals: a soft tile per pool, the count large on the left, S stats stacked right; the chosen pool is filled with the tone. */
 .pool-overview { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap:12px; }
-.pool-stat { display:grid; grid-template-columns:1fr auto; grid-template-areas:"name name" "total stats"; align-items:end; gap:4px 12px; min-width:0; padding:16px 18px; border-radius:var(--radius-tile); background:var(--surface-soft); }
-.pool-stat.active { background:linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 20%, var(--card-bg)), color-mix(in srgb, var(--game-vivid-2) 10%, var(--card-bg)) 85%); }
+.pool-stat { display:grid; grid-template-columns:1fr auto; grid-template-areas:"name name" "total stats"; align-items:end; gap:4px 12px; min-width:0; padding:16px 18px; border-radius:var(--radius-tile); background:var(--surface-soft); box-shadow:inset 0 0 0 1px var(--overlay-2); }
+.pool-stat.active { background:var(--game-tone); box-shadow:none; }
+.pool-stat.active :is(h3, dt, .draw-total > span) { color:var(--game-accent); }
 .pool-stat h3 { grid-area:name; overflow:hidden; color:var(--text-muted); font-size:12px; font-weight:500; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
 .draw-total { grid-area:total; display:flex; align-items:baseline; gap:4px; }
-.draw-total strong { font-size:32px; line-height:38px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.draw-total strong { font-size:32px; line-height:38px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
 .draw-total > span { color:var(--text-muted); font-size:14px; }
 .pool-stat dl { grid-area:stats; display:grid; gap:1px; margin:0 0 4px; }
 .pool-stat dl > div { display:flex; align-items:baseline; justify-content:flex-end; gap:8px; }
@@ -124,11 +125,11 @@ function obtained(value) {
 .history-bar h3 span { margin-left:4px; color:var(--text-muted); font-size:12px; font-weight:400; }
 .pull-list { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
 .pull-row { display:grid; grid-template-columns:36px minmax(72px, 128px) minmax(0, 1fr) auto; align-items:center; gap:12px; min-width:0; min-height:36px; }
-.reward-icon { display:grid; place-items:center; width:36px; height:36px; overflow:hidden; border-radius:30%; background:linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 24%, var(--card-bg)), color-mix(in srgb, var(--game-vivid) 9%, var(--card-bg))); }
+.reward-icon { display:grid; place-items:center; width:36px; height:36px; overflow:hidden; border-radius:30%; background:var(--game-tone); }
 .reward-icon img { width:100%; height:100%; object-fit:cover; }
-.reward-icon > span { color:color-mix(in srgb, var(--game-vivid) 58%, var(--text)); font-size:12px; font-weight:600; }
+.reward-icon > span { color:var(--game-accent); font-size:12px; font-weight:600; }
 /* A picture the bot could not fetch is swapped for its name; keep that readable in the tile. */
-.reward-icon :deep(.render-missing-image) { display:-webkit-box; padding:0 3px; overflow:hidden; font-size:11px; line-height:1.2; text-align:center; overflow-wrap:anywhere; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.reward-icon :deep(.render-missing-image) { display:-webkit-box; padding:0 3px; overflow:hidden; color:var(--game-accent); font-size:11px; line-height:1.2; text-align:center; overflow-wrap:anywhere; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .pull-name { min-width:0; overflow:hidden; color:var(--text); font-size:14px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
 .pull-time { color:var(--text-muted); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .bar-track { position:relative; height:30px; min-width:0; border-radius:var(--radius-control); background:var(--track); }

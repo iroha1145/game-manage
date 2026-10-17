@@ -150,13 +150,6 @@ export function catalogRole(id) {
   return catalogById.get(String(id)) || null
 }
 
-/** Which of two series colours a name takes, so letter tiles differ from one another but stay stable. */
-export function tintOf(name) {
-  let sum = 0
-  for (const char of String(name || '')) sum += char.codePointAt(0)
-  return sum % 2
-}
-
 // Original line art (24-unit boxes, stroked) for the cover tiles of houses and vehicles.
 export const GLYPHS = {
   house: 'M3.5 11.2 12 4l8.5 7.2 M5.5 9.8V20h13V9.8 M10 20v-5.2h4V20',

@@ -69,7 +69,7 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
 </script>
 
 <template>
-  <section class="nte-assets cap-card">
+  <section class="nte-assets cap-card" :class="{ 'is-image': imageMode }">
     <header class="cap-title">
       <h3>{{ titles[capability] }}</h3>
       <InfoHint :text="capability === 'teams' ? '来源：塔吉多官方配队推荐 · 公共内容' : '来源：塔吉多已登录角色资产'" />
@@ -177,10 +177,10 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
 .muted { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 .mono { font-family: var(--font-mono); font-size: 12px; }
 
-/* Header count: 拥有 3 / 8 with a small ring in the NTE colour. */
+/* Header count: 拥有 3 / 8 with a small ring in the game's line colour. */
 .owned-count { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; font-variant-numeric: tabular-nums; }
 .owned-label { color: var(--text-muted); font-size: 12px; font-weight: 400; }
-.owned-count b { color: var(--text); font-size: 20px; line-height: 24px; font-weight: 600; letter-spacing: -.02em; }
+.owned-count b { color: var(--text); font-size: 20px; line-height: 24px; font-weight: 550; letter-spacing: -.03em; }
 .owned-count small { color: var(--text-muted); font-size: 13px; font-weight: 500; }
 .owned-ring { display: inline-flex; margin-left: 6px; }
 
@@ -194,17 +194,19 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
 /* Vehicle cards are all the same shape, so a plain grid keeps rows aligned. */
 .vehicle-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
 .base-stats { --kv-min: 84px; gap: 8px; }
-.base-stats > div { padding: 10px 12px; border-radius: var(--radius-well); background: var(--card-bg); }
+/* On the page a stat with its unit (267 km/h) needs a wider tile than the bot image's ellipsis allows. */
+.nte-assets:not(.is-image) .base-stats { --kv-min: 112px; }
+.base-stats > div { padding: 10px 12px; border-radius: var(--radius-well); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .base-stats dd { font-size: 15px; line-height: 20px; }
-/* Entries sit inside the panel card, so they take a tone step and no outline. */
-.asset { min-width: 0; border-radius: var(--radius-tile); background: var(--surface-soft); }
+/* Entries are soft tiles with a hairline. */
+.asset { min-width: 0; border-radius: var(--radius-tile); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 summary { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px 8px 10px; border-radius: var(--radius-tile); list-style: none; cursor: pointer; color: var(--text); font-size: 13px; }
 summary::-webkit-details-marker { display: none; }
-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-tile); }
 @media (hover: hover) and (pointer: fine) { summary:hover { background: var(--hover-bg); } summary:hover > svg { color: var(--text-body); } }
 summary > svg { flex-shrink: 0; margin-left: auto; color: var(--text-faint); }
 .asset-name { min-width: 0; overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.asset-cover { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 30%; color: color-mix(in srgb, var(--game-vivid) 70%, var(--text)); background: linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 26%, var(--card-bg)), color-mix(in srgb, var(--game-vivid) 9%, var(--card-bg))); }
+.asset-cover { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 30%; color: var(--game-accent); background: var(--game-tone); }
 .asset-cover svg { width: 22px; height: 22px; }
 .team-icon { width: 48px; height: 48px; flex-shrink: 0; border-radius: 30%; object-fit: cover; }
 .preview { flex: 1 1 0; min-width: 0; overflow: hidden; color: var(--text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
@@ -213,14 +215,14 @@ summary > svg { flex-shrink: 0; margin-left: auto; color: var(--text-faint); }
 /* Ownership sits at the right edge so the states line up down each column. */
 .ownership { flex-shrink: 0; margin-left: auto; padding: 0 10px; border-radius: var(--radius-chip); font-size: 12px; font-weight: 500; line-height: 22px; white-space: nowrap; }
 .ownership + .sr-only + svg { margin-left: 0; }
-.ownership.owned { background: color-mix(in srgb, var(--game-vivid) 16%, var(--card-bg)); color: var(--game-accent); }
+.ownership.owned { background: var(--game-tone); color: var(--game-accent); }
 .ownership.unowned { background: var(--overlay-3); color: var(--text-muted); }
 .ownership.unknown { color: var(--text-faint); }
 .state { font-size: 12px; color: var(--text-muted); }
 .state.owned { color: var(--game-accent); }
 
 .detail-body { display: grid; gap: 10px; padding: 2px 12px 14px; overflow-wrap: anywhere; }
-.detail-group { padding: 12px 14px; border-radius: var(--radius-well); background: var(--card-bg); }
+.detail-group { padding: 12px 14px; border-radius: var(--radius-well); background: var(--card-bg); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .detail-group h4 { margin: 0 0 4px; color: var(--text-muted); font-size: 12px; font-weight: 500; }
 .rows { margin: 0; padding: 0; list-style: none; font-size: 13px; }
 .rows > li, .rows > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
@@ -241,7 +243,7 @@ summary > svg { flex-shrink: 0; margin-left: auto; color: var(--text-faint); }
 .recommendation-images { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 10px; align-items: start; }
 .recommendation-images a { display: block; color: var(--accent); font-size: 12px; }
 @media (min-width: 900px) { .recommendation-images a:first-child { grid-column: span 2; } }
-.recommendation-images img { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; border-radius: var(--radius-tile); background: var(--card-bg); }
+.recommendation-images img { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; border-radius: var(--radius-tile); }
 a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 600px) { .recommendation-images { grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr)); } }
 @media (max-width: 480px) { .preview { display: none; } }

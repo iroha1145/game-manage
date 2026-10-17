@@ -40,14 +40,14 @@ const accountStats = computed(() => [
 ])
 // Three different counts, so they take the first three series colours in order.
 const accountRings = computed(() => [
-  { name: '成就', value: data.value.achievement_count, total: data.value.achievement_total, series: 'var(--chart-1)' },
-  { name: '房产', value: data.value.house_count, total: data.value.house_total, series: 'var(--chart-2)' },
-  { name: '载具', value: data.value.vehicle_count, total: data.value.vehicle_total, series: 'var(--chart-3)' },
+  { name: '成就', value: data.value.achievement_count, total: data.value.achievement_total, series: 'var(--game-vivid, var(--game-nte-vivid))' },
+  { name: '房产', value: data.value.house_count, total: data.value.house_total, series: 'var(--game-vivid, var(--game-nte-vivid))' },
+  { name: '载具', value: data.value.vehicle_count, total: data.value.vehicle_total, series: 'var(--game-vivid, var(--game-nte-vivid))' },
 ])
 const staminaRows = computed(() => [
-  { name: '本性像素', current: data.value.current, total: data.value.maximum, series: 'var(--chart-1)' },
-  { name: '都市活力', current: data.value.city_current, total: data.value.city_maximum, series: 'var(--chart-2)' },
-  { name: '日常活跃', current: data.value.daily_activity, total: 100, series: 'var(--chart-3)' },
+  { name: '本性像素', current: data.value.current, total: data.value.maximum, series: 'var(--game-vivid, var(--game-nte-vivid))' },
+  { name: '都市活力', current: data.value.city_current, total: data.value.city_maximum, series: 'var(--game-vivid, var(--game-nte-vivid))' },
+  { name: '日常活跃', current: data.value.daily_activity, total: 100, series: 'var(--game-vivid, var(--game-nte-vivid))' },
 ])
 // Medals are tiers rather than a series: gold, a pale silver and bronze.
 const medals = computed(() => [
@@ -174,53 +174,53 @@ const medals = computed(() => [
 .k { min-width: 0; color: var(--text-body); }
 .ring-pct { color: var(--text); font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
 .ring-pct.large { font-size: 22px; letter-spacing: -.02em; }
-.big { font-weight: 600; letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
-.big small { margin-left: 4px; color: var(--text-muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+.big { font-weight: 550; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.big small { margin-left: 4px; color: var(--text-muted); font-size: 13px; font-weight: 400; letter-spacing: 0; }
 
-/* Account: the name on a coloured tile, plain levels as tone tiles, owned counts as rings. */
+/* Account: the name on the game's tone, plain levels as soft tiles, owned counts as rings. */
 .identity { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
-.identity-avatar { display: grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px; border-radius: 30%; color: #fff; font-size: 24px; font-weight: 600; background: linear-gradient(160deg, color-mix(in srgb, var(--game-vivid) 80%, black), color-mix(in srgb, var(--game-vivid-2) 72%, black)); }
+.identity-avatar { display: grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px; border-radius: 30%; color: var(--game-accent); font-size: 24px; font-weight: 600; background: var(--game-tone); }
 .identity-copy { display: grid; justify-items: start; gap: 6px; min-width: 0; }
 .identity-copy > strong { color: var(--text); font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -.02em; }
 .account-grid { --kv-min: 120px; grid-template-columns: repeat(auto-fit, minmax(var(--kv-min), 1fr)); gap: 10px; }
 .account-grid > div { padding: 14px 16px; border-radius: var(--radius-tile); }
-.account-grid dd { margin-top: 2px; font-size: 26px; line-height: 32px; letter-spacing: -.03em; font-variant-numeric: proportional-nums; }
+.account-grid dd { margin-top: 2px; font-size: 26px; line-height: 32px; font-weight: 550; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .ring-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 10px; margin: 10px 0 0; }
-.ring-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "dt ring" "dd ring"; align-items: center; gap: 2px 12px; padding: 14px 16px; border-radius: var(--radius-tile); background: var(--surface-soft); }
+.ring-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "dt ring" "dd ring"; align-items: center; gap: 2px 12px; padding: 14px 16px; border-radius: var(--radius-tile); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .ring-stat dt { grid-area: dt; align-self: end; color: var(--text-muted); font-size: 12px; line-height: 18px; }
-.ring-stat dd { grid-area: dd; align-self: start; margin: 0; color: var(--text); font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: proportional-nums; white-space: nowrap; }
-.ring-stat dd small { margin-left: 4px; color: var(--text-muted); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+.ring-stat dd { grid-area: dd; align-self: start; margin: 0; color: var(--text); font-size: 20px; line-height: 26px; font-weight: 550; letter-spacing: -.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ring-stat dd small { margin-left: 4px; color: var(--text-muted); font-size: 13px; font-weight: 400; letter-spacing: 0; }
 .ring-stat > span { grid-area: ring; }
 
 /* Stamina: one ring per resource, and the weekly attempts beside them. */
 .stamina-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px; }
-.ring-tile { position: relative; display: grid; justify-items: center; align-content: center; gap: 10px; min-width: 0; padding: 16px 8px 14px; border-radius: var(--radius-tile); background: var(--surface-soft); }
+.ring-tile { position: relative; display: grid; justify-items: center; align-content: center; gap: 10px; min-width: 0; padding: 16px 8px 14px; border-radius: var(--radius-tile); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .ring-tile .k { color: var(--text-muted); font-size: 12px; line-height: 18px; font-weight: 500; }
-.ring-tile .v { color: var(--text); font-size: 19px; line-height: 24px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: proportional-nums; white-space: nowrap; }
-.ring-tile .v small { color: var(--text-muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
-.ring-tile.weekly .v { font-size: 32px; line-height: 38px; letter-spacing: -.03em; }
+.ring-tile .v { color: var(--text); font-size: 19px; line-height: 24px; font-weight: 550; letter-spacing: -.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ring-tile .v small { color: var(--text-muted); font-size: 12px; font-weight: 400; letter-spacing: 0; }
+.ring-tile.weekly .v { font-size: 32px; line-height: 38px; letter-spacing: -.04em; }
 
 /* Achievements: the ring and its total, the medal split beside them, then one bar per category. */
 .progress-top { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; }
 .progress-copy { display: grid; gap: 2px; min-width: 120px; }
 .progress-copy .big { font-size: 34px; line-height: 40px; }
-.medals { margin-left: auto; padding: 14px 18px; border-radius: var(--radius-tile); background: var(--surface-soft); }
+.medals { margin-left: auto; padding: 14px 18px; border-radius: var(--radius-tile); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .categories { margin-top: 18px; }
 .gauges > .bar-row { grid-template-columns: 76px minmax(60px, 1fr) minmax(76px, auto); min-height: 30px; }
 .bar-row > .v { font-variant-numeric: tabular-nums; }
 .bar-row > .v small { font-size: 12px; }
-/* <progress> keeps the native semantics (the tests read value/max) and takes the meter look. */
-progress { display: block; appearance: none; width: 100%; height: 8px; border: none; border-radius: 999px; overflow: hidden; background: var(--track); }
-progress::-webkit-progress-bar { background: var(--track); border-radius: 999px; }
-progress::-webkit-progress-value { background: linear-gradient(90deg, var(--game-vivid), color-mix(in srgb, var(--game-vivid) 70%, #fff)); border-radius: 999px; }
-progress::-moz-progress-bar { background: linear-gradient(90deg, var(--game-vivid), color-mix(in srgb, var(--game-vivid) 70%, #fff)); border-radius: 999px; }
+/* <progress> keeps the native semantics (the tests read value/max) and takes the meter look: a thin track with a solid fill. */
+progress { display: block; appearance: none; width: 100%; height: 6px; border: none; border-radius: 6px; overflow: hidden; background: var(--track); }
+progress::-webkit-progress-bar { background: var(--track); border-radius: 6px; }
+progress::-webkit-progress-value { background: var(--game-vivid); border-radius: 6px; }
+progress::-moz-progress-bar { background: var(--game-vivid); border-radius: 6px; }
 progress.sr-only { position: absolute; width: 1px; height: 1px; }
 /* Unknown counts draw no bar at all: a dashed hairline instead of a 0% track. */
 .meter-none { display: block; height: 0; border-top: 1px dashed var(--border-strong); }
 
 /* Exploration: a tile per area, the detail kinds as thin bars below. */
 .area-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
-.area { display: grid; align-content: start; gap: 10px; min-width: 0; padding: 16px; border-radius: var(--radius-tile); background: var(--surface-soft); }
+.area { display: grid; align-content: start; gap: 10px; min-width: 0; padding: 16px; border-radius: var(--radius-tile); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .area-head { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .area-row { display: grid; gap: 2px; min-width: 0; }
 .area-row > .k { overflow: hidden; color: var(--text); font-size: 15px; line-height: 22px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -234,10 +234,10 @@ progress.sr-only { position: absolute; width: 1px; height: 1px; }
 .area-details .v small { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
 .target-met { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: var(--radius-chip); background: var(--success-bg); color: var(--success); font-size: 12px; font-weight: 500; line-height: 18px; }
 
-/* Community card: a letter tile, the name and chips, the link as a pill. */
+/* Community card: a letter tile, the name and chips, the link as a button. */
 .record-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .record { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
-.record-avatar { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 30%; color: color-mix(in srgb, var(--game-vivid) 60%, var(--text)); font-size: 20px; font-weight: 600; background: linear-gradient(150deg, color-mix(in srgb, var(--game-vivid) 24%, var(--card-bg)), color-mix(in srgb, var(--game-vivid) 9%, var(--card-bg))); }
+.record-avatar { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 30%; color: var(--game-accent); font-size: 20px; font-weight: 600; background: var(--game-tone); }
 .record-main { display: grid; gap: 6px; min-width: 0; flex: 1 1 220px; }
 .record-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .record-name > strong { color: var(--text); font-size: 16px; line-height: 22px; font-weight: 600; }

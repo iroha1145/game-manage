@@ -14,9 +14,9 @@ const rows = value => Array.isArray(value) ? value : []
 </template>
 <style scoped>
 .nte-equipped-details{display:grid;gap:10px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
-/* Each block is a white tile inside the role's tone card. */
-.nte-equipped-details>section{margin:0;padding:12px 14px;border-radius:var(--radius-well);background:var(--card-bg)}
-.nte-equipped-details section section{margin-top:8px;padding:0;background:none}
+/* Each block is a soft tile with a hairline inside the role's white card. */
+.nte-equipped-details>section{margin:0;padding:12px 14px;border-radius:var(--radius-well);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
+.nte-equipped-details section section{margin-top:8px;padding:0;background:none;box-shadow:none}
 .nte-equipped-details h4,.nte-equipped-details h5{margin:0 0 4px;color:var(--text-muted);font-size:12px;font-weight:500}
 .nte-equipped-details p{margin:4px 0;white-space:pre-wrap}
 .nte-equipped-details dl>div{display:flex;justify-content:space-between;gap:12px}

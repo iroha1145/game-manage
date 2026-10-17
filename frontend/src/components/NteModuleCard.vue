@@ -39,10 +39,10 @@ const guideRoles=['黑羽','残虹','灵可','伊洛伊','娜娜莉'].map(name=>
 const account=computed(()=>({
   name:show(p.value.nickname),initial:String(p.value.nickname||'异').slice(0,1),
   stats:[{label:'等级',value:show(p.value.level)},{label:'世界等级',value:show(p.value.world_level)},{label:'大亨等级',value:show(p.value.tycoon_level)},{label:'活跃天数',value:show(p.value.active_days),unit:'天'}],
-  rings:[['成就',p.value.achievement_count,p.value.achievement_total,'var(--chart-1)'],['房产',p.value.house_count,p.value.house_total,'var(--chart-2)'],['载具',p.value.vehicle_count,p.value.vehicle_total,'var(--chart-3)']]
+  rings:[['成就',p.value.achievement_count,p.value.achievement_total,'var(--game-vivid)'],['房产',p.value.house_count,p.value.house_total,'var(--game-vivid)'],['载具',p.value.vehicle_count,p.value.vehicle_total,'var(--game-vivid)']]
     .map(([label,current,total,color])=>({label,color,...gauge(current,total)})),
 }))
-const stamina=computed(()=>[['本性像素',p.value.current,p.value.maximum,'var(--chart-1)'],['都市活力',p.value.city_current,p.value.city_maximum,'var(--chart-2)'],['日常活跃',p.value.daily_activity,100,'var(--chart-3)']]
+const stamina=computed(()=>[['本性像素',p.value.current,p.value.maximum,'var(--game-vivid)'],['都市活力',p.value.city_current,p.value.city_maximum,'var(--game-vivid)'],['日常活跃',p.value.daily_activity,100,'var(--game-vivid)']]
   .map(([label,current,total,color])=>({label,color,...gauge(current,total)})))
 const progress=computed(()=>progressView(p.value))
 const MEDAL={gold:'var(--chart-4)',silver:'color-mix(in srgb,var(--text-faint) 62%,var(--card-bg))',bronze:'var(--chart-2)'}
@@ -59,7 +59,6 @@ const areas=computed(()=>areaViews(p.value.areas))
 
 const owned=computed(()=>gauge(p.value.owned_count,p.value.total))
 const entries=computed(()=>(Array.isArray(p.value.entries) ? p.value.entries : []).filter(entry=>entry && typeof entry==='object'))
-const TINTS=['var(--game-vivid)','var(--game-vivid-2)','var(--chart-3)','var(--chart-4)']
 const houses=computed(()=>props.capability==='realestate' ? entries.value.map(houseView) : [])
 const vehicles=computed(()=>props.capability==='vehicles' ? entries.value.map(entry=>vehicleView(entry,p.value.show_id)) : [])
 const OWNERSHIP={true:'已拥有',false:'未拥有',null:'状态未知'}
@@ -79,8 +78,8 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
   label:String(item.entry.name || item.entry.item_id || '?'),day:item.time==null ? '' : monthDay(item.time)})))
 </script>
 <template>
-  <section v-reveal class="nte-module-card" :class="`module-${capability}`">
-    <header class="mod-head"><h2>{{ title }}</h2><button v-if="!inline" type="button" class="ui-button small-button mod-open" @click="opened = true">查看{{ title }}<AppIcon name="arrow" :size="14" /></button></header>
+  <section v-reveal class="cap-card nte-module-card" :class="`module-${capability}`">
+    <header class="mod-head"><h2>{{ title }}</h2><button v-if="!inline" type="button" class="ui-button soft small-button mod-open" @click="opened = true">查看{{ title }}<AppIcon name="arrow" :size="14" /></button></header>
 
     <div v-if="capability === 'record'" class="inline-content"><slot /></div>
 
@@ -147,7 +146,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
         <figure v-for="({ role, src }, index) in roster" :key="role.id ?? index" class="role-tile">
           <img v-if="src" class="role-avatar" :src="src" alt="" loading="lazy" referrerpolicy="no-referrer" @error="broken(src)" />
           <NteIcon v-else :src="nteRoleIcon(role.id)" :name="role.name || '角色'" size="xl" />
-          <figcaption><strong :title="role.name">{{ role.name || '未命名' }}</strong><span class="meta"><i v-if="role.quality" class="rank" :style="{ '--q': qualityColor(role.quality) }">{{ role.quality }}</i><span v-if="role.level != null">Lv{{ role.level }}</span></span></figcaption>
+          <figcaption><strong :title="role.name">{{ role.name || '未命名' }}</strong><span class="meta"><i v-if="role.quality" class="rank" :class="`rank-${role.quality}`">{{ role.quality }}</i><span v-if="role.level != null">Lv{{ role.level }}</span></span></figcaption>
         </figure>
       </HRail>
     </div>
@@ -173,8 +172,8 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
       </div>
       <p v-if="!entries.length" class="module-state">{{ capability === 'vehicles' ? '暂无载具明细' : '暂无资产明细' }}</p>
       <HRail v-else :label="capability === 'vehicles' ? '载具列表' : '房产列表'" class="rail assets-rail">
-        <article v-for="(house, index) in houses" :key="`h${index}`" class="asset-card" :class="{ off: house.owned !== true }" :style="{ '--tint': TINTS[index % TINTS.length] }">
-          <div class="asset-cover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="GLYPHS.house" /></svg><span class="glass asset-badge">{{ OWNERSHIP[house.owned] }}</span></div>
+        <article v-for="(house, index) in houses" :key="`h${index}`" class="asset-card" :class="{ off: house.owned !== true }">
+          <div class="asset-cover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="GLYPHS.house" /></svg><span class="asset-badge">{{ OWNERSHIP[house.owned] }}</span></div>
           <strong class="asset-name" :title="house.name">{{ house.name || '未命名房产' }}</strong>
           <div class="asset-meta">
             <span v-if="residents(house.residents).length" class="stack"><NteIcon v-for="resident in residents(house.residents).slice(0, 3)" :key="resident.name" :src="resident.icon" :name="resident.name" size="small" /></span>
@@ -183,8 +182,8 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
             <span v-if="house.furnitureTotal" class="muted"><b>{{ house.furnitureOwned }}</b>/{{ house.furnitureTotal }} 件家具</span>
           </div>
         </article>
-        <article v-for="(car, index) in vehicles" :key="`v${index}`" class="asset-card" :class="{ off: car.owned !== true, showcase: car.showcase }" :style="{ '--tint': TINTS[index % TINTS.length] }">
-          <div class="asset-cover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="GLYPHS.car" /></svg><span class="glass asset-badge">{{ car.showcase ? '展示中' : OWNERSHIP[car.owned] }}</span></div>
+        <article v-for="(car, index) in vehicles" :key="`v${index}`" class="asset-card" :class="{ off: car.owned !== true, showcase: car.showcase }">
+          <div class="asset-cover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="GLYPHS.car" /></svg><span class="asset-badge">{{ car.showcase ? '展示中' : OWNERSHIP[car.owned] }}</span></div>
           <strong class="asset-name" :title="car.name">{{ car.name || '未命名载具' }}</strong>
           <dl v-if="car.base.length" class="car-stats"><div v-for="stat in car.base.slice(0, 3)" :key="stat.name"><dt>{{ stat.name }}</dt><dd>{{ stat.value }}</dd></div></dl>
         </article>
@@ -195,7 +194,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
       <p v-if="!teams.length" class="module-state">暂无官方配队推荐</p>
       <span v-else class="kicker">官方推荐 <b class="count">{{ teams.length }}</b></span>
       <HRail v-if="teams.length" label="官方配队推荐" class="rail teams-rail">
-        <article v-for="(team, index) in teams" :key="team.key" class="team-card" :style="{ '--tint': TINTS[index % 2] }">
+        <article v-for="team in teams" :key="team.key" class="team-card">
           <div class="team-pic">
             <img v-if="team.cover" :src="team.cover" :alt="`${team.name}配队图`" loading="lazy" referrerpolicy="no-referrer" @error="broken(team.cover)" />
             <span v-else class="team-fallback" aria-hidden="true">{{ String(team.name).slice(0, 1) }}</span>
@@ -230,7 +229,7 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
               <div class="pull-pic">
                 <img v-if="item.src" :src="item.src" alt="" loading="lazy" referrerpolicy="no-referrer" @error="broken(item.src)" />
                 <span v-else class="pull-letter" aria-hidden="true">{{ item.label.slice(0, 1) }}</span>
-                <span v-if="item.rating" class="glass pull-rating">{{ item.rating }}</span>
+                <span v-if="item.rating" class="pull-rating">{{ item.rating }}</span>
               </div>
               <strong class="pull-name" :title="item.label">{{ item.label }}</strong>
               <span class="pull-meta"><template v-if="item.entry.pity != null"><b>{{ item.entry.pity }}</b> 抽 · </template>{{ item.pool }}</span>
@@ -248,11 +247,11 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
   </section>
 </template>
 <style scoped>
-/* A white card with a faint wash of the game colour in its corner, like the
-   game cards on the overview. Cards that share a row stretch to one height and
-   keep their footer at the bottom. */
-.nte-module-card{--hot:linear-gradient(160deg,color-mix(in srgb,var(--game-vivid) 80%,black),color-mix(in srgb,var(--game-vivid-2) 72%,black));position:relative;isolation:isolate;display:flex;flex-direction:column;gap:16px;min-width:0;align-self:stretch;grid-column:1/-1;padding:22px;overflow:hidden;background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-card);box-shadow:var(--card-shadow)}
-.nte-module-card::before{content:'';position:absolute;z-index:-1;right:-90px;top:-110px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--game-vivid) 14%,transparent),transparent 70%);pointer-events:none}
+/* The card is the shared .cap-card (white, hairline). Cards in a row stretch to one
+   height and keep their footer at the bottom. Colour comes only from the game's tone:
+   a feature block is filled with it, its labels take the ink, and everything else is a
+   soft tile with a hairline. */
+.nte-module-card{display:flex;flex-direction:column;gap:16px;align-self:stretch;grid-column:1/-1}
 /* Stamina with progress, and houses with vehicles, sit side by side; alone they take the full row. */
 .nte-module-card.module-stamina,.nte-module-card.module-progress,.nte-module-card.module-realestate,.nte-module-card.module-vehicles{grid-column:auto}
 .nte-module-card.module-stamina:not(:has(+ .module-progress)),.nte-module-card.module-progress:not(.module-stamina + .module-progress),.nte-module-card.module-realestate:not(:has(+ .module-vehicles)),.nte-module-card.module-vehicles:not(.module-realestate + .module-vehicles){grid-column:1/-1}
@@ -260,50 +259,50 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 .module-record>.mod-head{min-width:96px}
 .module-record>.inline-content{flex:1 1 360px;min-width:0}
 .nte-module-card.module-record footer{margin:0 0 0 auto}
-.module-account{background:linear-gradient(150deg,color-mix(in srgb,var(--game-vivid) 16%,var(--card-bg)),var(--card-bg) 62%)}
-.mod-head{display:flex;align-items:center;gap:12px;min-height:32px}
-.mod-head h2{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em;color:var(--text)}
+.mod-head{display:flex;align-items:center;gap:12px;min-height:34px}
+.mod-head h2{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.02em;color:var(--text)}
 .mod-open{margin-left:auto}
 .inline-content :deep(.cap-card){margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
 .inline-content :deep(.cap-title),.inline-content :deep(.fetched-at){display:none}
 .module-state{color:var(--text-muted);font-size:13px;line-height:1.7}
-.module-state.weekly{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:2px 12px 2px 10px;border-radius:var(--radius-chip);background:var(--surface-soft);color:var(--text-body);font-size:12px;font-weight:500;line-height:22px}
+.module-state.weekly{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:2px 12px 2px 10px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text-body);font-size:12px;font-weight:500;line-height:22px}
 .module-error{color:var(--danger);font-size:13px;line-height:1.7}
 .nte-module-card footer{display:flex;gap:10px;margin-top:auto;min-height:12px;color:var(--text-faint);font-size:12px}
 .old{color:var(--stale-text)}
 .kicker{color:var(--text-muted);font-size:12px;line-height:18px;font-weight:500}
 .kicker .count{margin-left:2px;color:var(--text);font-size:13px;font-weight:600}
 /* Big numerals carry a small unit at about half their size. */
-.big,.mid{font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums;white-space:nowrap}
+.big,.mid{font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .big{font-size:32px;line-height:38px}
-.mid{font-size:20px;line-height:26px;letter-spacing:-.02em}
-.big small,.mid small,.ring-value small{margin-left:4px;color:var(--text-muted);font-size:13px;font-weight:500;letter-spacing:0}
+.mid{font-size:20px;line-height:26px;letter-spacing:-.03em}
+.big small,.mid small,.ring-value small{margin-left:4px;color:var(--text-muted);font-size:13px;font-weight:400;letter-spacing:0}
 .ring-pct{color:var(--text);font-size:14px;font-weight:600;letter-spacing:-.01em}
 .ring-pct.large{font-size:20px;letter-spacing:-.02em}
 .own-copy{display:grid;gap:1px;min-width:0}
 .rail{--rail-gap:12px;--rail-pad:2px;--rail-pad-block:10px}
 .teams-rail{--rail-gap:16px}
 
-/* Account: a name and four numerals, then what is owned as rings. */
-.account-body{display:grid;gap:18px}
-.account-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 32px}
+/* Account: the name and four numerals on the tone, then what is owned as rings. */
+.account-body{display:grid;gap:12px}
+.account-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 32px;padding:18px 20px;border-radius:var(--radius-tile);background:var(--game-tone)}
 .account-id{display:flex;align-items:center;gap:16px;min-width:0}
-.account-avatar{display:grid;place-items:center;flex-shrink:0;width:68px;height:68px;border-radius:22px;color:#fff;font-size:28px;font-weight:600;background:var(--hot);box-shadow:0 16px 28px -16px var(--game-vivid),inset 0 1px 0 rgba(255,255,255,.32)}
+.account-avatar{display:grid;place-items:center;flex-shrink:0;width:60px;height:60px;border-radius:20px;background:var(--card-bg);color:var(--game-accent);font-size:26px;font-weight:600}
 .account-name{display:grid;justify-items:start;gap:6px;min-width:0}
-.account-name strong{font-size:26px;line-height:32px;font-weight:600;letter-spacing:-.02em;overflow-wrap:anywhere}
+.account-name strong{color:var(--text);font-size:24px;line-height:30px;font-weight:600;letter-spacing:-.03em;overflow-wrap:anywhere}
+.account-name .chip{background:var(--card-bg);color:var(--game-accent)}
 .account-stats{display:flex;flex-wrap:wrap;gap:12px 36px;margin:0}
 .account-stats>div{display:grid;align-content:start;gap:2px}
-.account-stats dt{color:var(--text-muted);font-size:12px;line-height:18px}
-.account-stats dd{margin:0;font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums;white-space:nowrap}
-.account-stats dd small{margin-left:3px;color:var(--text-muted);font-size:14px;font-weight:500;line-height:1;letter-spacing:0}
+.account-stats dt{color:var(--game-accent);font-size:12px;line-height:18px}
+.account-stats dd{margin:0;color:var(--text);font-size:30px;line-height:36px;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.account-stats dd small{margin-left:3px;color:var(--game-accent);font-size:14px;font-weight:400;line-height:1;letter-spacing:0}
 .own-rings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0;padding:0;list-style:none}
-.own-ring{display:flex;align-items:center;gap:14px;min-width:0;padding:14px 16px;border-radius:var(--radius-tile);background:var(--surface-soft)}
+.own-ring{display:flex;align-items:center;gap:14px;min-width:0;padding:14px 16px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
 .own-ring.plain{justify-content:flex-start;padding-left:20px}
 
 /* Stamina: three rings, one per resource. */
 .stamina-body{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;flex:1}
-.ring-tile{position:relative;display:grid;justify-items:center;align-content:center;gap:10px;min-width:0;padding:16px 8px 14px;border-radius:var(--radius-tile);background:var(--surface-soft)}
-.ring-value{color:var(--text);font-size:19px;line-height:24px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:proportional-nums;white-space:nowrap}
+.ring-tile{position:relative;display:grid;justify-items:center;align-content:center;gap:10px;min-width:0;padding:16px 8px 14px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
+.ring-value{color:var(--text);font-size:19px;line-height:24px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ring-value small{font-size:12px}
 
 /* Achievements: the ring and its medals, then one thin bar per category. */
@@ -314,40 +313,45 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 .legend.medals{margin:2px 0 0}
 .categories{--bar-label:26%;gap:4px;margin:0;padding:0}
 
-/* Roles: counts and levels in a row of tone panels, every role as a portrait below. */
+/* Roles: counts and levels in a row of soft tiles, every role as a small portrait card below. */
 .roles-body{display:grid;gap:16px;min-width:0}
 .roles-summary{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,.7fr);gap:12px}
-.sum-panel{display:grid;align-content:center;gap:6px;min-width:0;padding:16px 18px;border-radius:var(--radius-tile);background:var(--surface-soft)}
+.sum-panel{display:grid;align-content:center;gap:6px;min-width:0;padding:16px 18px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
 .sum-levels{grid-auto-flow:column;grid-auto-columns:1fr;align-content:center;gap:12px;margin:0}
 .sum-levels dt{color:var(--text-muted);font-size:12px;line-height:18px}
-.sum-levels dd{margin:0;font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums}
-.donut-total{font-size:24px;line-height:26px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums}
+.sum-levels dd{margin:0;font-size:32px;line-height:38px;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.donut-total{font-size:24px;line-height:26px;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .donut-total + small{color:var(--text-muted);font-size:12px}
-.role-tile{display:grid;justify-items:center;gap:8px;width:96px;margin:0;text-align:center}
-.role-avatar{width:72px;height:72px;border-radius:30%;object-fit:cover;background:var(--surface-soft)}
-.role-tile figcaption{display:grid;justify-items:center;gap:3px;max-width:100%}
-.role-tile strong{max-width:100%;overflow:hidden;color:var(--text);font-size:13px;line-height:18px;font-weight:500;text-overflow:ellipsis;white-space:nowrap}
+/* The portrait sits on the tone, bottom right, the way the role cards do; the name and a muted line follow. */
+.role-tile{display:grid;align-content:start;gap:8px;width:100px;margin:0;text-align:left}
+.role-avatar{display:block;width:100px;height:100px;border-radius:14px;background:var(--game-tone);object-fit:contain;object-position:right bottom}
+.role-tile .nte-icon[data-size]{--size:100px;border-radius:14px}
+.role-tile figcaption{display:grid;justify-items:start;gap:3px;max-width:100%;padding:0 2px}
+.role-tile strong{max-width:100%;overflow:hidden;color:var(--text);font-size:13px;line-height:18px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
 .meta{display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);font-size:12px;font-variant-numeric:tabular-nums}
-.rank{padding:0 6px;border-radius:var(--radius-chip);background:color-mix(in srgb,var(--q) 16%,transparent);color:color-mix(in srgb,var(--q) 55%,var(--text));font-size:12px;font-style:normal;font-weight:600;line-height:18px}
+.rank{padding:0 6px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text-body);font-size:12px;font-style:normal;font-weight:600;line-height:18px}
+.rank-S{background:var(--game-tone);color:var(--game-accent)}
 
 /* Exploration: one tile per area, its detail lines as thin bars. */
 .area-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px;margin:0;padding:0;list-style:none}
-.area-tile{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px 14px;align-content:start;min-width:0;padding:16px;border-radius:var(--radius-tile);background:var(--surface-soft)}
+.area-tile{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px 14px;align-content:start;min-width:0;padding:16px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
 .area-name{overflow:hidden;color:var(--text);font-size:14px;line-height:20px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
 .target-met{justify-self:start;margin-top:2px;padding:0 8px;border-radius:var(--radius-chip);background:var(--success-bg);color:var(--success);font-size:12px;font-style:normal;font-weight:500;line-height:18px}
 .area-details{--bar-label:34%;grid-column:1/-1;gap:0;margin-top:6px;padding-top:8px;border-top:1px solid var(--border)}
 .area-details .bar-row{min-height:24px;font-size:12px}
 .area-details .v small{margin-left:1px}
 
-/* Houses and vehicles: cover tiles in a rail; the one on show is the saturated card. */
+/* Houses and vehicles: a tone cover per card in a rail; one not owned steps back to a soft tile. */
 .assets-body{display:grid;gap:16px;min-width:0}
 .own-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .asset-card{display:grid;align-content:start;gap:8px;width:172px}
-.asset-cover{position:relative;display:grid;place-items:center;height:100px;overflow:hidden;border-radius:var(--radius-tile);color:color-mix(in srgb,var(--tint) 72%,var(--text));background:linear-gradient(150deg,color-mix(in srgb,var(--tint) 34%,var(--card-bg)),color-mix(in srgb,var(--tint) 10%,var(--card-bg)))}
+.asset-cover{position:relative;display:grid;place-items:center;height:100px;overflow:hidden;border-radius:var(--radius-tile);background:var(--game-tone);color:var(--game-accent)}
 .asset-cover svg{width:48px;height:48px}
-.asset-card.off .asset-cover{color:var(--text-faint);background:var(--surface-soft)}
-.asset-card.showcase .asset-cover{color:#fff;background:var(--hot);box-shadow:0 18px 32px -20px var(--game-vivid)}
-.asset-badge{position:absolute;left:8px;top:8px;padding:1px 10px;border-radius:var(--radius-chip);color:var(--text);font-size:12px;font-weight:500;line-height:20px}
+.asset-card.off .asset-cover{background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2);color:var(--text-faint)}
+.asset-card.showcase .asset-cover{box-shadow:inset 0 0 0 2px var(--game-vivid)}
+.asset-badge{position:absolute;left:8px;top:8px;padding:1px 8px;border-radius:var(--radius-chip);background:var(--card-bg);color:var(--game-accent);font-size:12px;font-weight:500;line-height:20px}
+.asset-card.off .asset-badge{color:var(--text-muted)}
+.asset-card.showcase .asset-badge{background:var(--accent-fill);color:var(--accent-ink)}
 .asset-name{overflow:hidden;color:var(--text);font-size:14px;line-height:20px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
 .asset-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;font-size:12px}
 .asset-meta .muted{color:var(--text-muted)}
@@ -360,11 +364,11 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 .car-stats dt{color:var(--text-muted)}
 .car-stats dd{margin:0;color:var(--text);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
 
-/* Official teams: the picture leads, with glass badges over it. */
+/* Official teams: the picture leads, with frosted badges over it. */
 .team-card{display:grid;align-content:start;gap:12px;width:clamp(260px,calc((100% - 32px) / 3),420px)}
-.team-pic{position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:var(--radius-tile);background:linear-gradient(150deg,color-mix(in srgb,var(--tint) 30%,var(--card-bg)),color-mix(in srgb,var(--tint) 10%,var(--card-bg)))}
+.team-pic{position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:var(--radius-tile);background:var(--game-tone)}
 .team-pic>img{display:block;width:100%;height:100%;object-fit:cover}
-.team-fallback{display:grid;place-items:center;height:100%;color:color-mix(in srgb,var(--tint) 60%,var(--text));font-size:48px;font-weight:600}
+.team-fallback{display:grid;place-items:center;height:100%;color:var(--game-accent);font-size:48px;font-weight:600}
 .team-badge{position:absolute;left:10px;bottom:10px;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 20px);padding:4px 14px 4px 4px;border-radius:var(--radius-chip);color:var(--text);font-size:13px;line-height:22px}
 .team-badge:not(:has(img)){padding-left:14px}
 .team-badge b{overflow:hidden;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
@@ -372,43 +376,43 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 .team-count{position:absolute;right:10px;top:10px;padding:1px 10px;border-radius:var(--radius-chip);color:var(--text);font-size:12px;font-weight:500;line-height:20px}
 .team-desc{display:-webkit-box;overflow:hidden;color:var(--text-body);font-size:13px;line-height:1.65;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
-/* Gacha: the rating and totals, pools as bars, the luck split, then the newest S pulls. */
+/* Gacha: the rating on the tone, then pools as bars, the luck split, and the newest S pulls. */
 .gacha-body{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
 .gacha-body>*{min-width:0}
-.gacha-hero{grid-column:span 4;display:grid;align-content:space-between;gap:10px;padding:18px 20px;border-radius:var(--radius-tile);background:linear-gradient(150deg,color-mix(in srgb,var(--game-vivid) 22%,var(--card-bg)),color-mix(in srgb,var(--game-vivid-2) 12%,var(--card-bg)) 80%)}
-.luck{font-size:30px;line-height:36px;font-weight:600;letter-spacing:-.03em;overflow-wrap:anywhere}
+.gacha-hero{grid-column:span 4;display:grid;align-content:space-between;gap:10px;padding:18px 20px;border-radius:var(--radius-tile);background:var(--game-tone)}
+.gacha-hero .kicker,.luck-nums dt{color:var(--game-accent)}
+.luck{color:var(--text);font-size:30px;line-height:36px;font-weight:600;letter-spacing:-.03em;overflow-wrap:anywhere}
 .luck-nums{display:flex;gap:28px;margin:0}
-.luck-nums dt{color:var(--text-muted);font-size:12px;line-height:18px}
-.luck-nums dd{margin:0;font-size:24px;line-height:30px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:proportional-nums}
-.gacha-pools{grid-column:span 5;display:grid;align-content:start;gap:2px;padding:16px 18px 12px;border-radius:var(--radius-tile);background:var(--surface-soft)}
-.gacha-luck{grid-column:span 3;display:grid;align-content:start;gap:10px;padding:16px 18px;border-radius:var(--radius-tile);background:var(--surface-soft)}
+.luck-nums dt{font-size:12px;line-height:18px}
+.luck-nums dd{margin:0;color:var(--text);font-size:24px;line-height:30px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.gacha-pools{grid-column:span 5;display:grid;align-content:start;gap:2px;padding:16px 18px 12px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
+.gacha-luck{grid-column:span 3;display:grid;align-content:start;gap:10px;padding:16px 18px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
 .gacha-empty{grid-column:span 8;align-self:center}
 .gacha-reach{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin:0;padding:0;list-style:none}
 .gacha-reach .mid small{font-size:12px}
 .gacha-recent{grid-column:1/-1;display:grid;gap:4px}
-.pull-card{position:relative;display:grid;align-content:start;gap:4px;width:136px;padding:8px 8px 12px;border-radius:var(--radius-tile);background:var(--surface-soft)}
-.pull-pic{position:relative;display:grid;place-items:center;aspect-ratio:3/4;overflow:hidden;border-radius:calc(var(--radius-tile) - 6px);background:linear-gradient(160deg,color-mix(in srgb,var(--game-vivid) 22%,var(--card-bg)),color-mix(in srgb,var(--game-vivid-2) 10%,var(--card-bg)))}
+.pull-card{position:relative;display:grid;align-content:start;gap:4px;width:136px;padding:8px 8px 12px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
+.pull-pic{position:relative;display:grid;place-items:center;aspect-ratio:3/4;overflow:hidden;border-radius:calc(var(--radius-tile) - 6px);background:var(--game-tone)}
 .pull-pic>img{width:100%;height:100%;object-fit:cover;object-position:top}
-.pull-letter{color:color-mix(in srgb,var(--game-vivid) 60%,var(--text));font-size:40px;font-weight:600}
-.pull-rating{position:absolute;left:6px;top:6px;padding:0 9px;border-radius:var(--radius-chip);color:var(--text);font-size:12px;font-weight:500;line-height:20px}
+.pull-letter{color:var(--game-accent);font-size:40px;font-weight:600}
+.pull-rating{position:absolute;left:6px;top:6px;padding:0 8px;border-radius:var(--radius-chip);background:var(--card-bg);color:var(--text);font-size:12px;font-weight:500;line-height:20px}
 .pull-name{overflow:hidden;margin-top:4px;color:var(--text);font-size:13px;line-height:18px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
 .pull-meta{overflow:hidden;color:var(--text-muted);font-size:12px;line-height:18px;text-overflow:ellipsis;white-space:nowrap}
 .pull-meta b{color:var(--text);font-weight:600}
 .pull-day{color:var(--text-faint);font-size:12px;line-height:16px;font-variant-numeric:tabular-nums}
-/* Only the newest pull is saturated. */
-.pull-card.newest{background:var(--hot);box-shadow:0 20px 38px -22px var(--game-vivid)}
-.pull-card.newest :is(.pull-name,.pull-meta,.pull-meta b,.pull-day){color:#fff}
-.pull-card.newest .pull-pic{background:rgba(255,255,255,.2)}
-.pull-card.newest .pull-letter{color:#fff}
+/* Only the newest pull is filled with the tone. */
+.pull-card.newest{background:var(--game-tone);box-shadow:none}
+.pull-card.newest :is(.pull-meta,.pull-day){color:var(--game-accent)}
+.pull-card.newest .pull-pic{background:var(--card-bg)}
 
 /* Guides: what a guide holds, and the roles that have a summary. */
 .guides-body{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:20px;align-items:center}
 .guide-points{display:grid;gap:10px;margin:0;padding:0;list-style:none}
-.guide-points li{display:grid;gap:2px;padding:14px 16px;border-radius:var(--radius-tile);background:var(--surface-soft)}
+.guide-points li{display:grid;gap:2px;padding:14px 16px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
 .guide-points span{color:var(--text-muted);font-size:12px;line-height:18px}
 .guide-points strong{font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.02em}
 .guide-kinds{padding-block:12px !important}
-.guide-role{display:grid;justify-items:center;gap:10px;width:clamp(120px,calc((100% - 48px) / 5),190px);margin:0;padding:18px 8px 14px;border-radius:var(--radius-tile);background:var(--surface-soft)}
+.guide-role{display:grid;justify-items:center;gap:10px;width:clamp(120px,calc((100% - 48px) / 5),190px);margin:0;padding:18px 8px 14px;border-radius:var(--radius-tile);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
 .guide-role figcaption{color:var(--text);font-size:13px;line-height:18px;font-weight:500}
 
 @media(max-width:1240px){.gacha-hero{grid-column:span 5}.gacha-pools{grid-column:span 7}.gacha-luck{grid-column:1/-1}}
@@ -420,8 +424,9 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
 @media(max-width:650px){
   .roles-summary{grid-template-columns:minmax(0,1fr)}
   .account-body .own-ring{flex-direction:column;align-items:flex-start;gap:10px;padding:14px}
-  .nte-module-card{padding:16px;gap:14px;border-radius:20px}
-  .account-avatar{width:56px;height:56px;border-radius:18px;font-size:24px}
+  .nte-module-card{padding:18px;gap:14px}
+  .account-top{padding:16px}
+  .account-avatar{width:52px;height:52px;border-radius:17px;font-size:24px}
   .account-name strong{font-size:22px;line-height:28px}
   .account-stats{gap:10px 24px}
   .account-stats dd{font-size:26px;line-height:32px}
