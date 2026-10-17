@@ -20,8 +20,8 @@ service-readable Noto Simplified Chinese font, obtained under its own license.
 No Windows font is bundled. Both modes reuse `--font-sans` and the application's
 theme tokens; image mode loads those explicit font bytes and validates real CJK
 glyphs. Keep the website's Noto family installed/available when comparing modes.
-Missing build, font or browser produces the existing text fallback for migrated
-kinds. Other QQ kinds retain their existing Pillow compatibility renderer.
+Missing build, font or browser produces the existing text fallback. Game panels
+and notices use the same runtime; no Pillow card renderer remains.
 
 Every job gets a new browser context, no storage state, cookies or account token,
 timezone Asia/Shanghai, fixed width 1080, reduced motion and blocked service
