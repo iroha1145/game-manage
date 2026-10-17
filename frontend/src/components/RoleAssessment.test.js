@@ -114,6 +114,43 @@ test('a comparison still pending when the weights change is dropped', async t =>
   assert.match(content(root), /变化 100.00%/)
 })
 
+test('picking another A or B removes the comparison, and both picks are locked while one runs', async t => {
+  const { root, press, click, field, settle, answer } = editor(t, { held: ['POST /compare'] })
+  await click(open)
+  const pending = press('同模型重新计算并对比'); await settle()
+  assert.equal(field('select', '配置 A').props.disabled, true); assert.equal(field('select', '配置 B').props.disabled, true)
+  await answer('POST /compare', comparison); await pending; await settle()
+  assert.match(content(root), /变化 100.00%/)
+  field('select', '配置 B').props.onChange({ target: { value: 'id1' } }); await settle()
+  assert.doesNotMatch(content(root), /变化 100.00%/)
+})
+
+test('saving a configuration moves B to it and removes the comparison of the previous pair', async t => {
+  const { root, click, field } = editor(t)
+  await click(open); await click('同模型重新计算并对比')
+  assert.match(content(root), /变化 100.00%/)
+  await click('保存配置')
+  assert.equal(field('select', '配置 B').props.value, 'new-id')
+  assert.doesNotMatch(content(root), /变化 100.00%/)
+})
+
+test('deleting a configuration removes the comparison even when the list cannot be read again', async t => {
+  let deleted = false
+  t.mock.method(globalThis, 'fetch', async (path, options = {}) => {
+    const method = options.method || 'GET'
+    if (path.endsWith('/compare')) return reply(comparison)
+    if (method === 'DELETE') { deleted = true; return reply({ deleted: true }) }
+    if (deleted) return { ok: false, status: 503, json: async () => ({ detail: 'unavailable' }) }
+    return reply({ model: { game: 'wuthering_waves', character_id: 'c1', version: 'v1', wuwa_weights: { attack_flat: '0.1' } }, configurations: [saved('id1'), saved('id2')] })
+  })
+  const root = mount(t, Assessment, reactive({ game: 'wuthering_waves', characterId: 'c1', scopeKey: 'a' }))
+  const click = async label => { await nodes(root, 'button').find(node => content(node) === label).props.onClick(); for (let i = 0; i < 4; i++) await nextTick() }
+  await click(open); await click('同模型重新计算并对比')
+  assert.match(content(root), /变化 100.00%/)
+  await click('删除配置')
+  assert.doesNotMatch(content(root), /变化 100.00%/)
+})
+
 test('editing the advanced JSON removes the score and the comparison computed from the old input', async t => {
   const { root, click, field, settle } = editor(t)
   await click(open); await click('读取已采集装备副本'); await click('评价当前输入'); await click('同模型重新计算并对比')
