@@ -6,6 +6,31 @@ import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 import { configureHttpClient } from '../http-client.js'
 const CloudApp = await loadVue(new URL('../CloudApp.vue', import.meta.url))
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
+
+test('public read failures do not label a successful private game as unreadable',async t=>{
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  t.mock.method(globalThis,'fetch',async path=>{
+    if(path.startsWith('/api/public/')) throw new Error('读取超时，请重试；已有数据仍保留。')
+    return new Response(JSON.stringify(path==='/api/identity/me'?{user_id:'A'}:path.endsWith('/csrf')?{csrf_token:'fixture'}:path==='/api/accounts'?{accounts:[{account_id:'a',provider:'kuro',state:'active',capabilities:['account','stamina'],roles:[{role_id:'r',is_default:true}]}]}:{state:'ok',payload:{nickname:'合成角色',level:1,current:100,maximum:240}}))
+  })
+  const root=mount(t,CloudApp);for(let i=0;i<8;i++)await tick()
+  assert.match(content(root),/活动日历.*读取超时/)
+  assert.doesNotMatch(content(root),/读取异常|暂时无法读取/)
+})
+
+test('restoring an accounts page does not load private snapshots',async t=>{
+  const previous=globalThis.window
+  globalThis.window={location:{hash:'#/accounts'},addEventListener(){},removeEventListener(){},scrollTo(){}}
+  t.after(()=>{globalThis.window=previous})
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  const calls=[]
+  t.mock.method(globalThis,'fetch',async path=>{
+    calls.push(path)
+    return new Response(JSON.stringify(path==='/api/identity/me'?{user_id:'A'}:path.endsWith('/csrf')?{csrf_token:'fixture'}:path==='/api/accounts'?{accounts:[{account_id:'a',provider:'kuro',state:'active',capabilities:['account'],roles:[{role_id:'r',is_default:true}]}]}:{}))
+  })
+  mount(t,CloudApp);for(let i=0;i<6;i++)await tick()
+  assert.deepEqual(calls.filter(p=>p.includes('/snapshot/')),[])
+})
 for (const failingNews of [false, true]) test(`overview refresh stays busy through every read even when news fails: ${failingNews}`, async t => {
   configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
   let hold = false
@@ -356,4 +381,21 @@ test('web authorization and role menus read the selected identity without defaul
   assert.ok(!calls.some(call=>call.method==='PUT'||call.path.endsWith('/default-role')))
   const roleMenu=nodes(root,'ul').find(n=>n.props['aria-label']==='查看角色')
   assert.deepEqual(nodes(roleMenu,'li').map(n=>n.props['data-value']),['second-default','second-other'])
+})
+
+
+for(const page of ['accounts','calendar'])test(`entering the already selected game from ${page} starts private reads`,async t=>{
+  const previous=globalThis.window
+  globalThis.window={location:{hash:`#/${page}`},addEventListener(){},removeEventListener(){},scrollTo(){}}
+  t.after(()=>{globalThis.window=previous})
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  const calls=[]
+  t.mock.method(globalThis,'fetch',async path=>{
+    calls.push(path)
+    return new Response(JSON.stringify(path==='/api/identity/me'?{user_id:'A'}:path.endsWith('/csrf')?{csrf_token:'fixture'}:path==='/api/accounts'?{accounts:[{account_id:'a',provider:'kuro',state:'active',capabilities:['account'],roles:[{role_id:'r',is_default:true}]}]}:{state:'ok',payload:{nickname:'合成角色'}}))
+  })
+  const root=mount(t,CloudApp);for(let i=0;i<6;i++)await tick()
+  assert.deepEqual(calls.filter(p=>p.includes('/snapshot/')),[])
+  nodes(root,'button').find(n=>content(n).includes('授权 1')).props.onClick();for(let i=0;i<6;i++)await tick()
+  assert.equal(calls.filter(p=>p.endsWith('/snapshot/account')).length,1)
 })

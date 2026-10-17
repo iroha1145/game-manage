@@ -139,3 +139,15 @@ def test_a_note_for_next_year_published_on_new_years_eve_is_not_active_yet():
     result = calendar_from_posts([future, current], 'wuthering_waves', datetime(2027, 1, 2, tzinfo=timezone.utc))
     assert result['version'] == '1.6'
     assert [e['end_at'] for e in result['events']] == ['2027-01-20T03:59:00+08:00']
+
+
+def test_equal_quality_news_preserves_native_pictures_and_their_provenance():
+    primary=notice('维护公告',id='123');primary.update(content_status='full',images=[],version='1.4')
+    native=dict(title='维护公告',body='其他完整正文',source='community',content_status='full',
+                images=['https://official.example/banner.jpg'],url='https://community.example/123',version='1.4')
+    merged=merge_news([primary],[native])[0]
+    assert merged['body']==primary['body']
+    assert merged['images']==native['images']
+    assert merged['image_sources']==[{'url':native['images'][0],'source_url':native['url']}]
+    native['version']='1.3'
+    assert len(merge_news([primary],[native]))==2

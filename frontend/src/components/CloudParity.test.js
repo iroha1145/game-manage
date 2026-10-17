@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick } from 'vue'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, flushAsyncComponents } from '../test-utils/vue.js'
 import { configureHttpClient } from '../http-client.js'
 import { createCloudDashboard } from '../cloud-dashboard.js'
 const Card = await loadVue(new URL('./CloudGameCard.vue', import.meta.url))
@@ -9,18 +9,20 @@ const App = await loadVue(new URL('../CloudApp.vue', import.meta.url))
 const Status = await loadVue(new URL('./CloudSnapshotStatus.vue', import.meta.url))
 const Calendar = await loadVue(new URL('./CalendarPage.vue', import.meta.url))
 const Articles = await loadVue(new URL('./AnnouncementList.vue', import.meta.url))
-const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
+const tick = flushAsyncComponents
 const button = (root, label) => nodes(root, 'button').find(n => content(n) === label)
 const account = (provider, id = provider) => ({ account_id: id, provider, state: 'active', capabilities: ['account', 'stamina'], roles: [{ role_id: `${id}-default`, display_name: `${id}默认角色`, is_default: true }, { role_id: `${id}-other`, display_name: `${id}另一角色` }] })
 test('wuwa card forwards calendar and shows public news inside its existing tab', async t => {
   let opened = 0
   const root = mount(t, Card, { account: account('kuro'), role: 'kuro-default', publicSnapshots: { news: { state: 'ok', fetched_at: '2026-10-14T00:00:00Z', payload: [{ title: '公共卡池公告', content: '合成公告' }] } }, onCalendar: () => opened++ })
+  await flushAsyncComponents()
   button(root, '活动日历').props.onClick(); assert.equal(opened, 1)
   button(root, '公告与资讯').props.onClick(); await tick()
   assert.match(content(root), /公共卡池公告/)
 })
 test('nte uses original module summaries and restored guide entry', async t => {
   const root = mount(t, Card, { account: { ...account('tajiduo'), capabilities: ['account','stamina','roles','realestate','gacha'] }, role: 'tajiduo-default', snapshots: { stamina: { payload: { schema_version:1,current:0,maximum:120 } } } })
+  await flushAsyncComponents()
   assert.ok(button(root, '角色与探索')); assert.ok(button(root, '房产与载具'))
   assert.ok(nodes(root, 'section').some(n => n.props.class?.includes('nte-module-card')))
   button(root,'角色与探索').props.onClick();await tick();assert.ok(button(root,'浏览全部攻略'));assert.doesNotMatch(content(root), /暂未开放/)

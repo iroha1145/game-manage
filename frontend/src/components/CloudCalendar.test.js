@@ -8,7 +8,7 @@ import { configureHttpClient } from '../http-client.js'
 const CloudApp = await loadVue(new URL('../CloudApp.vue', import.meta.url))
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
 const games = ['wuthering_waves', 'nte', 'endfield']
-const calendarReads = games.flatMap(game => ['events','news'].map(cap => `/api/public/games/${game}/${cap}`))
+const calendarReads = games.map(game => `/api/public/games/${game}/events`)
 const response = data => new Response(JSON.stringify(data))
 const events = name => ({ state: 'ok', fetched_at: '2026-10-13T00:00:00Z', payload: [{ name, category: '官方活动', start_at: null, end_at: null, source_title: `${name}原始公告`, source_url: 'https://example.com/synthetic-calendar', end_precision: 'version_end', end_text: '版本更新维护前' }] })
 const button = (root, label) => nodes(root, 'button').find(node => content(node) === label)
@@ -49,7 +49,7 @@ test('cloud calendar defaults to all three games with one local filter and retai
   choose(root, '筛选游戏', 'nte'); await tick()
   assert.match(content(root), /nte合成活动/)
   assert.doesNotMatch(content(root), /wuthering_waves合成活动|endfield合成活动/)
-  assert.equal(calls.filter(call => call.path.startsWith('/api/public/')).length, 6)
+  assert.equal(calls.filter(call => call.path.startsWith('/api/public/')).length, 3)
   nodes(root, 'button').find(node => node.props['aria-label'] === '查看活动详情：nte合成活动').props.onClick(); await tick()
   assert.match(content(root), /nte合成活动原始公告/)
   assert.match(content(root), /版本更新维护前/)
@@ -64,7 +64,7 @@ test('calendar filtering during cache reads keeps the selection and does not rep
   const read = button(root, '刷新活动')
   assert.equal(read.props.disabled, true)
   await read.props.onClick(); await tick()
-  assert.equal(calls.filter(call => call.path.startsWith('/api/public/')).length, 6)
+  assert.equal(calls.filter(call => call.path.startsWith('/api/public/')).length, 3)
   finish.forEach(resolve => resolve()); await tick(); await tick()
   assert.match(content(root), /nte加载活动/)
   assert.doesNotMatch(content(root), /wuthering_waves加载活动|endfield加载活动/)
@@ -130,10 +130,10 @@ test('changing authenticated user discards cached and delayed calendar state', a
   t.mock.timers.enable({ apis: ['setInterval'] })
   let owner = 'A', delayed = false
   const finish = []
-  const artwork = name => ({state:'ok',payload:[{url:'https://example.com/synthetic-calendar',images:[`https://example.com/${name}.jpg`]}]})
+  const artwork = name => [{url:'https://example.com/synthetic-calendar',images:[`https://example.com/${name}.jpg`]}]
   const { root } = await fixture(t, path => delayed
-    ? new Promise(resolve => finish.push(() => resolve(response(path.endsWith('/news') ? artwork('late-A-artwork') : events('换用户前迟到活动')))))
-    : response(path.endsWith('/news') ? artwork(`${owner}-artwork`) : events(`${owner}用户活动`)), () => owner)
+    ? new Promise(resolve => finish.push(() => resolve(response({...events('换用户前迟到活动'),artwork_sources:artwork('late-A-artwork')}))))
+    : response({...events(`${owner}用户活动`),artwork_sources:artwork(`${owner}-artwork`)}), () => owner)
   await openCalendar(root); assert.match(content(root), /A用户活动/)
   nodes(root, 'button').find(node => node.props['aria-label'] === '查看活动详情：A用户活动').props.onClick(); await tick()
   assert.ok(nodes(root,'img').some(img=>img.props.src==='https://example.com/A-artwork.jpg'))
@@ -156,14 +156,13 @@ test('overview keeps the original local layout without a duplicate public news b
   assert.deepEqual(calls.filter(call=>call.path.startsWith('/api/public/')).map(call=>call.path),calendarReads)
 })
 
-test('cloud calendar reads existing news pictures and matches the activity source without collecting data', async t => {
+test('cloud calendar reads lean artwork once per game without news bodies or collection', async t => {
   const {root,calls}=await fixture(t,path=>{
     const game=path.split('/')[4]
-    if(path.endsWith('/news')) return response({state:'ok',payload:[
+    return response({state:'ok',artwork_sources:[
       {id:'source-1',url:`https://example.com/${game}/source`,images:[`https://example.com/${game}/activity.jpg`]},
       {id:'other',url:`https://example.com/${game}/other`,images:[`https://example.com/${game}/unrelated.jpg`]},
-    ]})
-    return response({state:'ok',payload:[{name:`${game}配图活动`,source_post_id:'source-1',source_url:`https://example.com/${game}/source`,start_at:'2026-10-01T12:00:00+08:00',end_at:'2026-11-01T12:00:00+08:00'}]})
+    ],payload:[{name:`${game}配图活动`,source_post_id:'source-1',source_url:`https://example.com/${game}/source`,start_at:'2026-10-01T12:00:00+08:00',end_at:'2026-11-01T12:00:00+08:00'}]})
   })
   await openCalendar(root)
   assert.deepEqual(calls.filter(call=>call.path.startsWith('/api/public/')),calendarReads.map(path=>({path,method:'GET'})))
@@ -172,21 +171,20 @@ test('cloud calendar reads existing news pictures and matches the activity sourc
   choose(root,'筛选游戏','nte');await tick()
   assert.ok(nodes(root,'img').some(img=>img.props.src==='https://example.com/nte/activity.jpg'))
   assert.ok(!nodes(root,'img').some(img=>img.props.src==='https://example.com/endfield/activity.jpg'))
-  assert.equal(calls.filter(call=>call.path.startsWith('/api/public/')).length,6)
+  assert.equal(calls.filter(call=>call.path.startsWith('/api/public/')).length,3)
 })
 
-test('news read failure preserves activities and retained artwork without reporting an activity read failure', async t => {
+test('media failure preserves dates without reporting an activity read failure', async t => {
   let round=1
   const {root}=await fixture(t,path=>{
     const game=path.split('/')[4]
-    if(path.endsWith('/news')) return round===1 ? response({state:'ok',payload:[{url:`https://example.com/${game}`,images:[`https://example.com/${game}.jpg`]}]}) : new Response('{}',{status:503})
-    return response({state:'ok',payload:[{name:`${game}第${round}轮活动`,source_url:`https://example.com/${game}`,start_at:'2026-10-01T12:00:00+08:00',end_at:'2026-11-01T12:00:00+08:00'}]})
+    return response({state:'ok',artwork_status:{state:round===1?'ok':'error'},artwork_sources:round===1?[{url:`https://example.com/${game}`,images:[`https://example.com/${game}.jpg`]}]:[],payload:[{name:`${game}第${round}轮活动`,source_url:`https://example.com/${game}`,start_at:'2026-10-01T12:00:00+08:00',end_at:'2026-11-01T12:00:00+08:00'}]})
   })
   await openCalendar(root)
   round=2;await button(root,'刷新活动').props.onClick();await tick()
   for(const game of games) {
     assert.match(content(root),new RegExp(`${game}第2轮活动`))
-    assert.ok(nodes(root,'img').some(img=>img.props.src===`https://example.com/${game}.jpg`))
+    assert.ok(!nodes(root,'img').some(img=>img.props.src===`https://example.com/${game}.jpg`))
   }
   assert.doesNotMatch(content(root),/活动读取失败|活动更新暂不可用/)
 })

@@ -40,6 +40,23 @@ class BilibiliStore:
             row = self.conn.execute('SELECT payload FROM bili_state WHERE game=? AND uid=?', (game, uid)).fetchone()
         return json.loads(row[0]) if row else {'game_id': game, 'uid': uid, 'status': 'idle', 'history_complete': False}
 
+    def update_media(self, game, uid, post_id, images, *, error=None):
+        from .article_content import article_images
+        with self.lock, self.conn:
+            row = self.conn.execute('SELECT payload FROM bili_posts WHERE game=? AND uid=? AND id=?', (game, uid, post_id)).fetchone()
+            if not row:
+                return False
+            payload = json.loads(row[0])
+            verified = article_images(images)
+            payload['media_checked_at'] = datetime.now(timezone.utc).isoformat()
+            if verified and not error:
+                payload.update(images=verified, media_revision=1, media_error=None)
+            else:
+                payload['media_error'] = error or '来源未提供可核实的配图'
+            self.conn.execute('UPDATE bili_posts SET payload=? WHERE game=? AND uid=? AND id=?',
+                (json.dumps(payload, ensure_ascii=False), game, uid, post_id))
+            return True
+
     def set_state(self, game, uid, **values):
         with self.lock, self.conn:
             data = {**self.state(game, uid), **values}

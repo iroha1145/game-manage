@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 
 from game_assistant.event_calendar import BEIJING_TZ as BJ
 
+from .article_content import article_images
+
 logger = logging.getLogger(__name__)
 RULE_VERSION = 6
 REASONS = {'accepted': '有明确日期的游戏内通知', 'video': '视频或转发视频',
@@ -39,9 +41,8 @@ def _body(item):
     text = '\n'.join(dict.fromkeys(p.strip() for p in parts if isinstance(p, str) and p.strip()))
     if item.get('_full_text'):
         text = item['_full_text']
-    pictures = [p.get('url') or p.get('src') for p in opus.get('pics', [])]
-    pictures += [p.get('src') for p in (major.get('draw') or {}).get('items', [])]
-    return text, [p for p in pictures if isinstance(p, str) and p.startswith('https://')], bool(not item.get('_full_text') and (desc.get('has_more') or summary.get('has_more')))
+    pictures = list(opus.get('pics') or []) + list((major.get('draw') or {}).get('items') or [])
+    return text, article_images(pictures, upgrade_http_hosts={'i0.hdslb.com'}), bool(not item.get('_full_text') and (desc.get('has_more') or summary.get('has_more')))
 
 def opus_text(data, uid, id):
     item = data.get('item') or {}
@@ -170,6 +171,15 @@ class BilibiliClient:
         self.user = user.User(int(uid), credential=Credential(**(credentials or {})))
         self.uid = str(uid)
         self.credential = Credential(**(credentials or {}))
+
+    async def media(self, post_id):
+        from bilibili_api import dynamic
+        data = await asyncio.wait_for(dynamic.Dynamic(int(post_id), credential=self.credential).get_info(), timeout=25)
+        item = data.get('item') or {}
+        author = (item.get('modules') or {}).get('module_author') or {}
+        if str(item.get('id_str')) != str(post_id) or str(author.get('mid')) != self.uid:
+            raise SourceError('配图来源身份不匹配')
+        return _body(item)[1]
 
     async def page(self, offset):
         try:

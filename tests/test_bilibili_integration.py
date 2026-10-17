@@ -168,3 +168,29 @@ def test_endfield_notice_with_a_time_that_does_not_exist_keeps_status_and_events
         events = client.get('/api/games/endfield/snapshot/events')
         assert events.status_code == 200
         assert [e['name'] for e in events.json()['payload']] == ['雪降深林']
+
+
+async def test_media_repair_only_updates_allowed_cached_media_without_reclassifying(tmp_path):
+    from game_assistant.sources.bilibili import classify_dynamic
+    app,_=setup(tmp_path);service=app.state.bilibili;now=datetime.now(timezone.utc)
+    row=classify_dynamic(post('1.4版本更新公告\n9月24日活动开启',published=now.timestamp()),UID,now)
+    service.store.save_rows('nte',UID,[row])
+    service.store.set_state('nte',UID,last_success='unchanged',history_complete=True)
+    service.calendar=lambda game:{'events':[{'source_post_id':'1'}],'version_metadata':{}}
+    class Client:
+        def __init__(self,*args):pass
+        async def media(self,post_id):return ['https://i0.hdslb.com/verified.jpg']
+    service.client_factory=Client
+    result=await service.repair_cached_media('nte',['1','999'])
+    updated=service.store.rows('nte',UID)[0]
+    assert result['updated']==1 and result['skipped']==1
+    assert updated['images']==['https://i0.hdslb.com/verified.jpg']
+    assert {k:v for k,v in updated.items() if k not in ('images','media_revision','media_checked_at','media_error')}=={k:v for k,v in row.items() if k!='images'}
+    assert service.store.state('nte',UID)['last_success']=='unchanged'
+    assert service.store.state('nte',UID)['history_complete'] is True
+    class Bad(Client):
+        async def media(self,post_id):raise RuntimeError('not public')
+    service.client_factory=Bad
+    assert (await service.repair_cached_media('nte',['1']))['failed']==1
+    assert service.store.rows('nte',UID)[0]['images']==updated['images']
+    await service.close()

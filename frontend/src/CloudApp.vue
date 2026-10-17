@@ -9,7 +9,7 @@ import { lazyPage } from './lazy-page.js'
 import { useFloatingNavigation } from './floating-navigation.js'
 import { useElasticCards } from './elastic-cards.js'
 import { collectionState } from './snapshot-state.js'
-import { capabilityLabel } from './cloud-display.js'
+import { capabilityLabel, dataReadIssue } from './cloud-display.js'
 import { displayBeijing } from './time.js'
 import AppIcon from './components/AppIcon.vue'
 import GameIcon from './components/GameIcon.vue'
@@ -98,9 +98,10 @@ const overviewSnapshots = computed(() => Object.fromEntries(overviewGames.value.
 })))
 const overviewAccounts = computed(() => Object.fromEntries(overviewGames.value.map(game => [game.game_id,{state:'connected'}])))
 const overviewErrors = computed(() => Object.fromEntries(overviewGames.value.flatMap(game => {
-  const snap=Object.values(overviewSnapshots.value[game.game_id] || {}).find(s=>s?.error || s?.poll_status?.error), error=snap?.error || snap?.poll_status?.error
+  const snap=Object.entries(overviewSnapshots.value[game.game_id] || {}).filter(([cap])=>!['news','events','announcement'].includes(cap)).map(([,snap])=>snap).find(s=>s?.error || s?.poll_status?.error), error=snap?.error || snap?.poll_status?.error
   return error?[[game.game_id,error]]:[]
 })))
+const overviewPublicErrors = computed(()=>Object.fromEntries(overviewGames.value.map(game=>[game.game_id,['events','news'].map(cap=>dataReadIssue(cap,overviewSnapshots.value[game.game_id]?.[cap])).filter(Boolean)])))
 const overviewCollection = computed(() => overviewGames.value.flatMap(game => Object.entries(overviewSnapshots.value[game.game_id] || {}).filter(([cap])=>!['news','events'].includes(cap)).map(([cap,snap])=>({game_id:game.game_id,capability:cap,state:collectionState(snap)==='failed'?'error':snap?.state === 'never' ? 'never' : snap?.state || 'never',last_success_at:snap?.fetched_at}))))
 const selectedGame = computed(() => gameFor(state.selected))
 // Search sees each game with the tabs its cloud page shows (GameCard adds news and events).
@@ -109,6 +110,7 @@ const refreshPending = computed(() => Object.values(state.refreshPending).some(B
 const refreshMessages = computed(() => Object.entries(state.refreshing).filter(([, value]) => value))
 const caps = computed(() => accountCapabilities(state.selected)), dataKey = computed(() => `${state.user?.user_id}:${state.selected?.account_id}:${state.role}:${state.revision}`)
 const publicReadVersions = new Map()
+const publicReads = new Map()
 let timer, stopTheme, publicGeneration = 0, calendarGeneration = 0, themeWipe = 0
 function toggleTheme(event) {
   const next = theme.value === 'light' ? 'dark' : 'light'
@@ -132,7 +134,7 @@ function toggleTheme(event) {
   }
 }
 function clearPublicData() {
-  publicGeneration++; calendarGeneration++; publicReadVersions.clear()
+  publicGeneration++; calendarGeneration++; publicReadVersions.clear(); publicReads.clear()
   publicSnapshots.value = {}
   calendarSnapshots.value = {}; calendarReadErrors.value = {}; calendarLoading.value = false; calendarGame.value = 'all'
 }
@@ -144,7 +146,13 @@ async function logout() { if (logoutBusy.value) return; logoutBusy.value = true;
 async function refresh() { await Promise.all(caps.value.map(cap => dashboard.refresh(cap))) }
 async function readSnapshots() { if (state.user && state.selected?.state !== 'revoked') await Promise.all(caps.value.map(cap => dashboard.loadSnapshot(cap))) }
 async function revoke(id) { try { await revokeSession(id); await getMe(); await dashboard.loadSessions() } catch (error) { if (error.status !== 401 && error.name !== 'AbortError') state.error = error.message } }
-async function readPublicSnapshot(game, cap) {
+function readPublicSnapshot(game, cap) {
+  const key=JSON.stringify([publicGeneration,state.user?.user_id,game,cap])
+  if(publicReads.has(key))return publicReads.get(key)
+  const pending=performPublicRead(game,cap).finally(()=>{if(publicReads.get(key)===pending)publicReads.delete(key)})
+  publicReads.set(key,pending);return pending
+}
+async function performPublicRead(game, cap) {
   const generation = publicGeneration, owner = state.user?.user_id, key = `${game}:${cap}`
   const version = (publicReadVersions.get(key) || 0) + 1
   publicReadVersions.set(key,version)
@@ -192,7 +200,7 @@ async function loadCalendar() {
   try {
     await Promise.all(publicGames.map(async game => {
       const id = game.game_id
-      // News supplies source-matched pictures; its read failure must not hide calendar dates.
+      // Events includes a cache-only artwork index; calendar navigation needs no article bodies.
       await Promise.allSettled([
         (async () => {
           try {
@@ -202,19 +210,22 @@ async function loadCalendar() {
             if (current() && error.name !== 'AbortError') calendarReadErrors.value[id] = error.message
           }
         })(),
-        readPublicSnapshot(id, 'news'),
       ])
     }))
   } finally { if (current()) calendarLoading.value = false }
 }
 watch(()=>state.accounts,()=>{if(routeGame && page.value==='game'){const account=state.accounts.find(a=>a.state!=='revoked' && gameFor(a)===routeGame);if(account && gameFor(state.selected)!==routeGame)openAccount(account)}}, {flush:'post'})
-watch(dataKey, () => { if(page.value === 'overview') readOverview(); else readSnapshots() })
+watch(dataKey, () => { if(page.value === 'overview') readOverview(); else if(page.value === 'game') readSnapshots() })
 watch(() => state.user?.user_id, clearPublicData, { flush: 'sync' })
-watch(page, value => { if (value === 'sessions') dashboard.loadSessions(); if (value === 'calendar') loadCalendar(); if(value === 'overview') readOverview() })
+watch(page, value => { if (value === 'sessions') dashboard.loadSessions(); if (value === 'calendar') loadCalendar(); if(value === 'overview') readOverview(); if(value === 'game') readSnapshots() })
+let polling = false
 onMounted(() => { globalThis.window?.addEventListener('hashchange',syncRoute); globalThis.window?.addEventListener('keydown',handleKey); navigationMedia?.addEventListener('change',mediaChanged); dashboard.initialize().then(enterRoute); stopTheme = followSystem(); timer = setInterval(async () => {
   // initialize invalidates the controller epoch. Let bounded refresh tracking
   // settle first; its snapshot GETs still enforce session ownership and 401.
-  now.value = Date.now(); if (state.user && !refreshPending.value) { await dashboard.initialize(); await readSnapshots(); if(page.value === 'overview') await dashboard.loadOverview() }
+  now.value = Date.now(); if (!state.user || refreshPending.value || polling) return
+  polling = true
+  try { await dashboard.initialize(); if(page.value === 'overview') await readOverview(); else if(page.value === 'game') await Promise.all([readSnapshots(),loadPublic(selectedGame.value)]); else if(page.value === 'calendar') await loadCalendar() }
+  finally { polling = false }
 }, 60000) })
 onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',syncRoute); globalThis.window?.removeEventListener('keydown',handleKey); navigationMedia?.removeEventListener('change',mediaChanged); clearInterval(timer); stopTheme?.(); dashboard.dispose(); clearPublicData() })
 </script>
@@ -241,7 +252,7 @@ onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',sync
       <main id="main-content" ref="mainContent" tabindex="-1" class="workspace-main cloud-content"><p v-if="state.error" role="alert">{{ state.error }}</p>
         <template v-if="page === 'accounts'"><header class="page-heading"><div class="page-heading-copy"><h1>账号与授权</h1></div></header><CloudBilibiliSourcePanel v-if="state.user.is_admin" :key="state.user.user_id" /><QqBindingPanel :key="state.user.user_id" /><AccountSettings :key="state.user.user_id" :accounts="state.accounts" :is-admin="state.user.is_admin" @changed="dashboard.loadAccounts()" /><LoginPanel :key="state.user.user_id" @account-changed="dashboard.loadAccounts()" /><CloudSklandConnect :key="state.user.user_id" :accounts="state.accounts" :user-id="state.user.user_id" @changed="dashboard.loadAccounts()" /></template>
         <section v-else-if="page === 'calendar'" class="cloud-calendar"><div class="cloud-calendar-controls"><button class="ui-button" :disabled="calendarLoading" @click="loadCalendar">刷新活动</button></div><CalendarPage :key="state.user.user_id" :games="publicGames" :snapshots="calendarSnapshots" :initial-game-id="calendarGame" :read-errors="calendarReadErrors" :loading="calendarLoading" show-source-status /></section><section v-else-if="page === 'sessions'" class="cloud-sessions"><header class="page-heading"><div class="page-heading-copy"><h1>网站会话</h1></div><button class="ui-button" @click="dashboard.loadSessions()"><AppIcon name="refresh" :size="15" />刷新</button></header><div class="cap-card session-card"><p class="session-note">撤销后，该设备需要重新登录。</p><article v-for="(session, index) in state.sessions" :key="session.session_id"><AppIcon name="shield" :size="20" /><p>会话 {{ index + 1 }} · 创建 {{ displayBeijing(session.created_at) }} · 过期 {{ displayBeijing(session.expires_at) }}</p><button class="ui-button small-button" @click="revoke(session.session_id)">撤销此会话</button></article></div></section>
-<template v-else><template v-if="page === 'overview'"><OverviewPage :games="overviewGames" :snapshots="overviewSnapshots" :accounts="overviewAccounts" :read-errors="overviewErrors" :collection="overviewCollection" :now="now" :loading="state.loading || state.overviewLoading" :refreshing="{ overview: overviewRefreshing }" @navigate="navigate" @refresh="refreshOverview" /><details class="cloud-owner-note"><summary>数据来源</summary><p v-for="game in overviewGames" :key="game.game_id">{{ game.display_name }} · {{ providerName(overviewOwners[game.game_id]) }} · {{ overviewOwners[game.game_id].roles?.find(r=>r.is_default)?.display_name || overviewOwners[game.game_id].roles?.[0]?.display_name || '未命名角色' }}{{ overviewOwners[game.game_id].roles?.some(r=>r.is_default) ? '（默认）' : '' }}</p></details><p v-if="!state.accounts.length">还没有游戏账号，请到「账号与授权」登录。</p></template><template v-else><header class="cloud-game-heading"><p class="cloud-identity">{{ state.selected ? providerName(state.selected) : '游戏档案' }}</p><label v-if="state.selected">查看授权<MenuSelect class="cloud-identity-menu" label="查看授权" :model-value="state.selected.account_id" :options="state.accounts.filter(a=>gameFor(a)===selectedGame).map((account,index) => ({value:account.account_id,label:`${providerName(account)} · 授权 ${index+1}`}))" @change="openAccount(state.accounts.find(a=>a.account_id === $event))" /></label><label v-if="state.selected">查看角色<MenuSelect class="cloud-identity-menu" label="查看角色" :model-value="state.role" :options="(state.selected.roles || []).map((role,index) => ({value:role.role_id,label:`${role.display_name || `角色 ${index + 1}`}${role.is_default ? '（默认）' : ''}`}))" @change="dashboard.selectAccount(state.selected, $event)" /></label></header><p v-if="!state.accounts.length">还没有游戏账号，请到「账号与授权」登录。</p><p v-if="state.selected?.state === 'revoked'">此项授权已撤销，请重新授权。</p><template v-else-if="state.selected && state.role"><p v-for="[cap, value] in refreshMessages" :key="cap" role="status">{{ capabilityLabel(cap) }}：{{ value }}</p><CloudGameCard :key="`${dataKey}:${routeTab}:${jumps}`" :section="routeTab || 'overview'" :account="state.selected" :role="state.role" :user-id="state.user.user_id" :is-admin="state.user.is_admin" :refreshing="refreshPending" :snapshots="state.snapshots" :read-states="state.readStates" :public-snapshots="publicSnapshots[selectedGame] || {}" @calendar="openCalendar(selectedGame)" @refresh="refresh" /></template><p v-else-if="state.selected && !state.role">此授权暂无角色，请到「账号与授权」检查。</p></template></template>
+<template v-else><template v-if="page === 'overview'"><OverviewPage :games="overviewGames" :snapshots="overviewSnapshots" :accounts="overviewAccounts" :read-errors="overviewErrors" :public-errors="overviewPublicErrors" :collection="overviewCollection" :now="now" :loading="state.loading || state.overviewLoading" :refreshing="{ overview: overviewRefreshing }" @navigate="navigate" @refresh="refreshOverview" /><details class="cloud-owner-note"><summary>数据来源</summary><p v-for="game in overviewGames" :key="game.game_id">{{ game.display_name }} · {{ providerName(overviewOwners[game.game_id]) }} · {{ overviewOwners[game.game_id].roles?.find(r=>r.is_default)?.display_name || overviewOwners[game.game_id].roles?.[0]?.display_name || '未命名角色' }}{{ overviewOwners[game.game_id].roles?.some(r=>r.is_default) ? '（默认）' : '' }}</p></details><p v-if="!state.accounts.length">还没有游戏账号，请到「账号与授权」登录。</p></template><template v-else><header class="cloud-game-heading"><p class="cloud-identity">{{ state.selected ? providerName(state.selected) : '游戏档案' }}</p><label v-if="state.selected">查看授权<MenuSelect class="cloud-identity-menu" label="查看授权" :model-value="state.selected.account_id" :options="state.accounts.filter(a=>gameFor(a)===selectedGame).map((account,index) => ({value:account.account_id,label:`${providerName(account)} · 授权 ${index+1}`}))" @change="openAccount(state.accounts.find(a=>a.account_id === $event))" /></label><label v-if="state.selected">查看角色<MenuSelect class="cloud-identity-menu" label="查看角色" :model-value="state.role" :options="(state.selected.roles || []).map((role,index) => ({value:role.role_id,label:`${role.display_name || `角色 ${index + 1}`}${role.is_default ? '（默认）' : ''}`}))" @change="dashboard.selectAccount(state.selected, $event)" /></label></header><p v-if="!state.accounts.length">还没有游戏账号，请到「账号与授权」登录。</p><p v-if="state.selected?.state === 'revoked'">此项授权已撤销，请重新授权。</p><template v-else-if="state.selected && state.role"><p v-for="[cap, value] in refreshMessages" :key="cap" role="status">{{ capabilityLabel(cap) }}：{{ value }}</p><CloudGameCard :key="`${dataKey}:${routeTab}:${jumps}`" :section="routeTab || 'overview'" :account="state.selected" :role="state.role" :user-id="state.user.user_id" :is-admin="state.user.is_admin" :refreshing="refreshPending" :snapshots="state.snapshots" :read-states="state.readStates" :public-snapshots="publicSnapshots[selectedGame] || {}" @calendar="openCalendar(selectedGame)" @refresh="refresh" /></template><p v-else-if="state.selected && !state.role">此授权暂无角色，请到「账号与授权」检查。</p></template></template>
       </main></div>
 
       <SearchDialog v-if="searchOpen" :pages="searchPages" :games="searchGames" :snapshots="overviewSnapshots" :now="now" @select="jumpTo" @close="searchOpen = false" />

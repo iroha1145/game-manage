@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick } from 'vue'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, flushAsyncComponents } from '../test-utils/vue.js'
 import { configureHttpClient, setAccountScope, requestJson } from '../http-client.js'
 import { favoritesKey, saveFavorites, loadFavorites } from '../nte-roles.js'
 const Card = await loadVue(new URL('./CloudGameCard.vue', import.meta.url))
-const tick = async () => { await new Promise(r=>setImmediate(r)); await nextTick() }
+const tick = flushAsyncComponents
 const btn = (root,text) => nodes(root,'button').find(n=>content(n)===text)
 const account = provider => ({account_id:'a',provider,state:'active',capabilities:['account','roles','realestate','gacha'],roles:[{role_id:'r',display_name:'本人角色'}]})
 test('owned mutations allow only exact local tools routes with CSRF',async t=>{

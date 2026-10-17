@@ -87,3 +87,12 @@ def test_opus_full_text_verifies_identity_and_replaces_truncated_summary():
     ]}}
     assert '9月3日06:00停服维护' in opus_text(raw, UID, '1')
     with pytest.raises(SourceError): opus_text(raw, '999', '1')
+
+
+def test_official_cdn_http_picture_is_upgraded_without_admitting_arbitrary_http():
+    value=post('9月15日版本更新公告')
+    value['modules']['module_dynamic']['major']['opus']['pics']=[
+        {'url':'http://i0.hdslb.com/bfs/new_dyn/verified.jpg'},
+        {'url':'http://unverified.example/picture.jpg'}, {'url':'javascript:bad'},
+        {'url':'//i0.hdslb.com/bfs/new_dyn/verified.jpg'}]
+    assert classify_dynamic(value,UID,NOW)['images']==['https://i0.hdslb.com/bfs/new_dyn/verified.jpg']

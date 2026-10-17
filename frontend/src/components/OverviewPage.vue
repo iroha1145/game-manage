@@ -12,7 +12,7 @@ import MenuSelect from './MenuSelect.vue'
 import { gameStyle, gameVars, summaryFor, upcomingEvents, recentNews, formatTime } from '../dashboard.js'
 import { parseBeijingTime } from '../calendar.js'
 import { sourceForGame } from '../source-status.js'
-import { friendlyDataError } from '../cloud-display.js'
+import { friendlyDataError, capabilityLabel } from '../cloud-display.js'
 import { share } from '../chart-math.js'
 import { dailyTasks, deadlineDays, gachaDigests } from '../overview-data.js'
 import { gameHref, sectionsFor } from '../search-index.js'
@@ -20,7 +20,7 @@ import { vGlide, vParallax, vPop, vReveal } from '../motion.js'
 import { vRefreshFeedback } from '../refresh-feedback.js'
 
 const props = defineProps({ games: { type: Array, default: () => [] }, snapshots: { type: Object, default: () => ({}) },
-  accounts: { type: Object, default: () => ({}) }, readErrors: { type: Object, default: () => ({}) }, refreshErrors: { type: Object, default: () => ({}) },
+  accounts: { type: Object, default: () => ({}) }, readErrors: { type: Object, default: () => ({}) }, publicErrors: { type:Object, default:()=>({}) }, refreshErrors: { type: Object, default: () => ({}) },
   refreshing: { type: Object, default: () => ({}) }, collection: { type: Array, default: () => [] }, now: { type: Number, required: true }, loading: Boolean, refreshLabel: {type:String,default:'刷新数据'} })
 const emit = defineEmits(['navigate', 'refresh'])
 const newsFilter = ref('')
@@ -131,6 +131,7 @@ function quickLinks(card) {
 
     <p v-if="fullGames.length" class="ov-alert" role="status"><AppIcon name="clock" :size="16" />{{ fullGames.map(g => g.display_name).join('、') }}体力已达 90%</p>
     <div v-for="game in notices" :key="game.game_id" class="inline-warning" role="status"><strong>{{ game.display_name }}</strong> · {{ friendlyDataError(refreshErrors[game.game_id] || readErrors[game.game_id],accounts[game.game_id]?.state) }}</div>
+    <template v-for="game in games" :key="`public-${game.game_id}`"><p v-for="issue in publicErrors[game.game_id] || []" :key="issue.capability" class="inline-warning" role="status">{{ game.display_name }} · {{ capabilityLabel(issue.capability) }}：{{ issue.message }}<span v-if="issue.retained">正在显示已有资料。</span></p></template>
 
     <div class="ov-top">
       <section v-if="featured" v-parallax class="ov-hero" :style="gameVars(featured.game_id)" aria-labelledby="ov-hero-title">

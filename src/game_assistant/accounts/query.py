@@ -89,6 +89,8 @@ class PublicQueryResult(QueryResult):
     version: str | None
     bilibili_status: dict | None
     version_metadata: dict | None = None
+    artwork_sources: list[dict] | None = None
+    artwork_status: dict | None = None
 
 
 class CloudPublicQuery:

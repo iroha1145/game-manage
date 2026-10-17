@@ -8,14 +8,14 @@ import GameIcon from './GameIcon.vue'
 import ArtworkImage from './ArtworkImage.vue'
 import { gameBanner } from '../game-visuals.js'
 import AnnouncementList from './AnnouncementList.vue'
-import NteDataCard from './NteDataCard.vue'
-import NteAssetsPanel from './NteAssetsPanel.vue'
-import NteRolesPanel from './NteRolesPanel.vue'
-import NteGachaPanel from './NteGachaPanel.vue'
-import EndfieldDashboard from './EndfieldDashboard.vue'
-import WuwaDashboard from './WuwaDashboard.vue'
-import NteGuides from './NteGuides.vue'
-import NteModuleCard from './NteModuleCard.vue'
+const NteDataCard = lazyPage(() => import('./NteDataCard.vue'))
+const NteAssetsPanel = lazyPage(() => import('./NteAssetsPanel.vue'))
+const NteRolesPanel = lazyPage(() => import('./NteRolesPanel.vue'))
+const NteGachaPanel = lazyPage(() => import('./NteGachaPanel.vue'))
+const EndfieldDashboard = lazyPage(() => import('./EndfieldDashboard.vue'))
+const WuwaDashboard = lazyPage(() => import('./WuwaDashboard.vue'))
+const NteGuides = lazyPage(() => import('./NteGuides.vue'))
+const NteModuleCard = lazyPage(() => import('./NteModuleCard.vue'))
 
 // Only the local workbench shows League of Legends; the cloud never loads this dashboard or its esports tables.
 const LolDashboard = lazyPage(() => import('./LolDashboard.vue'))
@@ -93,8 +93,12 @@ function capProps(cap) {
     accountId: cap === 'roles' && props.cloudScope ? props.cloudScope : props.cloudScope ? `${props.cloudScope.account_id}:${props.cloudScope.role_id}` : ['nte', 'endfield'].includes(props.game.game_id) ? snaps.account?.payload?.role_id || '' : '',
     roles: snaps.roles?.payload?.entries || [],
   }
-  const declared = capComponent(cap)?.props ?? {}
-  return Object.fromEntries(Object.entries(offered).filter(([key]) => key in declared))
+  // Async wrappers do not expose the loaded component's prop declarations.
+  const declared = cap === 'roles' ? ['snap','accountId']
+    : cap === 'gacha' ? ['snap','accountId','roles']
+      : ['realestate','vehicles','teams'].includes(cap) ? ['snap','capability','roles']
+        : ['snap','capability']
+  return Object.fromEntries(Object.entries(offered).filter(([key]) => declared.includes(key)))
 }
 </script>
 

@@ -353,5 +353,7 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
         allow_cloud_route(app, '/api/identity/' + action, ['GET'])
     allow_cloud_route(app, '/api/identity/logout', ['POST'])
     allow_cloud_route(app, '/api/identity/sessions/{session_id}', ['DELETE'])
+    from .cloud_compression import CloudReadCompression
+    app.add_middleware(CloudReadCompression)
     app.add_middleware(CloudBoundary, owner=app, settings=settings)
     return app

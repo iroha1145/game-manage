@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { createRenderer, h } from 'vue'
+import { createRenderer, h, nextTick } from 'vue'
 import { compileScript, parse } from 'vue/compiler-sfc'
 
 const modules = new Map()
@@ -48,4 +48,9 @@ export function choose(root, label, value) {
   const option = list && nodes(list, 'li').find(n => n.props['data-value'] === String(value))
   if (!option) throw new Error(`MenuSelect ${label} has no option ${value}`)
   option.props.onClick()
+}
+
+/** Settle nested async panel imports in component tests without real-time sleeps. */
+export async function flushAsyncComponents() {
+  for(let i=0;i<5;i++) { await new Promise(resolve=>setImmediate(resolve)); await nextTick() }
 }

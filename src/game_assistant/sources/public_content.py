@@ -502,6 +502,13 @@ def merge_events(primary, community, version):
 
 
 def merge_news(primary, community):
+    from .article_content import article_images
+
+    def media(row):
+        pictures = article_images(row.get('images') or [])
+        supplied = {r.get('url'): r for r in row.get('image_sources') or [] if isinstance(r, dict)}
+        return pictures, [{ 'url':url, 'source_url':supplied.get(url, {}).get('source_url') or row.get('url') } for url in pictures]
+
     def rank(item):
         if not item.get('body') and not item.get('images'): return 0
         status = item.get('content_status') or ('full' if item.get('decision') == 'accepted' else '')
@@ -517,17 +524,25 @@ def merge_news(primary, community):
         same = next((item for item in result if
                      (row.get('url') and row['url'] == item.get('url')) or
                      (ident and key(item['title']) == ident and
+                      (not row.get('version') or not item.get('version') or row['version'] == item['version']) and
                       item.get('source') != row.get('source') and
                       (not row.get('published_at') or not item.get('published_at') or
                        row['published_at'][:10] == item['published_at'][:10]))), None)
         if same is not None:
+            old_pictures, old_sources = media(same)
+            new_pictures, new_sources = media(row)
             links = same.setdefault('original_links', [{'url': same.get('url'), 'name': same.get('source_name') or '原文'}])
             for link in [{'url': row.get('url'), 'name': row.get('source_name') or '原文'}, *row.get('original_links', [])]:
                 if link.get('url') and not any(old.get('url') == link['url'] for old in links):
                     links.append(link)
             if rank(row) > rank(same):
-                for field in ('body', 'images', 'summary', 'content_status', 'content_error', 'fetched_at', 'source_stale', '_snapshot_capability'):
+                for field in ('body', 'summary', 'content_status', 'content_error', 'fetched_at', 'source_stale', '_snapshot_capability'):
                     if field in row: same[field] = row[field]
+            pictures = list(dict.fromkeys([*old_pictures, *new_pictures]))
+            if pictures:
+                same['images'] = pictures
+                sources = {r['url']:r for r in [*new_sources, *old_sources]}
+                same['image_sources'] = [sources[url] for url in pictures]
             continue
         result.append(row)
     return result

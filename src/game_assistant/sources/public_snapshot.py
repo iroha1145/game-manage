@@ -102,7 +102,29 @@ def read_public_snapshot(store, game, capability, settings, bilibili=None, *, no
                      stale=stale, source_statuses=source_statuses)
     from game_assistant.version_calendar import snapshot_version
     meta = snapshot_version(game, rows, version=version, stale=stale, statuses=source_statuses, now=now) if capability == 'events' else None
+    media = {}
+    if capability == 'events':
+        try:
+            from .article_content import article_images
+            articles = read_public_snapshot(store, game, 'news', settings, bilibili, now=now)['payload'] or []
+            index = []
+            fields = ('id', 'post_id', 'article_id', 'source', 'url', 'source_url', 'source_post_id', 'version', 'version_id')
+            for article in articles:
+                pictures = article_images([article.get('banner'), article.get('image_url'),
+                    *(article.get('images') or []), *(article.get('image_urls') or [])])
+                if not pictures:
+                    continue
+                item = {key:article[key] for key in fields if article.get(key) is not None}
+                item['images'] = pictures
+                links = [{'url':link['url']} for link in article.get('original_links') or [] if isinstance(link, dict) and isinstance(link.get('url'), str)]
+                if links:
+                    item['original_links'] = links
+                index.append(item)
+            media = dict(artwork_sources=index, artwork_status={'state':'ok' if index else 'missing'})
+        except Exception:
+            # Optional media cannot turn a usable cached date response into a failure.
+            media = dict(artwork_sources=[], artwork_status={'state':'error', 'error':'配图资料读取失败，活动日期仍可查看'})
     return dict(payload=rows if rows or any(snapshots.values()) else None,
                 fetched_at=max(times, default=None), stale=stale,
                 poll_status=effective, primary_source=primary_source, version=version,
-                bilibili_status=state, complete=None, version_metadata=meta)
+                bilibili_status=state, complete=None, version_metadata=meta, **media)

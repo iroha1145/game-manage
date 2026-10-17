@@ -73,6 +73,34 @@ class BilibiliService:
         if game in self.tasks and not self.tasks[game].done(): return
         self.tasks[game] = asyncio.create_task(self.run(game, backfill))
 
+    async def repair_cached_media(self, game, post_ids):
+        if game not in self.sources:
+            raise SourceError('该游戏未配置B站来源')
+        calendar = self.calendar(game)
+        allowed = {str(e.get('source_post_id')) for e in calendar.get('events', [])}
+        meta = calendar.get('version_metadata') or {}
+        start = meta.get('start_source') or {}
+        if start.get('post_id'):
+            allowed.add(str(start['post_id']))
+        cached = {str(r['id']) for r in self.store.rows(game, self.sources[game], days=self.settings.bilibili_history_days, limit=10000)}
+        requested = list(dict.fromkeys(str(i) for i in post_ids))
+        selected = [i for i in requested if i.isdigit() and len(i) <= 32 and i in allowed and i in cached][:20]
+        result = dict(updated=0, missing=0, failed=0, skipped=len(requested)-len(selected))
+        client = self.client_factory(self.sources[game], self.credentials.load().get('bilibili', {}))
+        for index, post_id in enumerate(selected):
+            if index:
+                await asyncio.sleep(1.5)
+            try:
+                images = await asyncio.wait_for(client.media(post_id), timeout=25)
+                changed = self.store.update_media(game, self.sources[game], post_id, images)
+                result['updated' if images and changed else 'missing'] += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.store.update_media(game, self.sources[game], post_id, [], error='配图读取失败，保留已有资料')
+                result['failed'] += 1
+        return result
+
     async def run(self, game, backfill=False, *, history_days=None):
         uid = self.sources[game]
         previous = self.store.state(game, uid)

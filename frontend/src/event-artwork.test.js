@@ -55,3 +55,11 @@ test('NTE API and public notice links share the verified post identity', () => {
   assert.deepEqual(eventArtwork({gameId:'nte',source_url:'https://bbs-api.tajiduo.com/bbs/wapi/getPostFull?postId=123',source:'community'},rows),[image('nte')])
   assert.deepEqual(eventArtwork({gameId:'nte',source_url:'https://unrelated.example.com/bbs/wapi/getPostFull?postId=123',source_post_id:'123'},rows),[])
 })
+
+
+test('lean calendar artwork sources preserve game and version ownership without news bodies',()=>{
+  const snapshot={nte:{events:{artwork_sources:[{...article,version:'1.4'}]}}}
+  assert.deepEqual(eventArtwork({gameId:'nte',source_url:article.url,source:'official',version:'1.4'},snapshot),[image('notice')])
+  assert.deepEqual(eventArtwork({gameId:'nte',source_url:article.url,source:'official',version:'1.3'},snapshot),[])
+  assert.deepEqual(eventArtwork({gameId:'endfield',source_url:article.url,source:'official',version:'1.4'},snapshot),[])
+})

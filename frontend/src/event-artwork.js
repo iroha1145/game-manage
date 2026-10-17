@@ -40,7 +40,7 @@ function sameSource(ref, article) {
 export function eventArtwork(event, snapshots = {}) {
   if (!event || typeof event !== 'object') return []
   const game = snapshots[event.gameId || event.game_id] || {}
-  const articles = ['announcement', 'news'].flatMap(capability => Array.isArray(game[capability]?.payload) ? game[capability].payload : []).filter(row => row && typeof row === 'object')
+  const articles = [...(Array.isArray(game.events?.artwork_sources) ? game.events.artwork_sources : []), ...['announcement', 'news'].flatMap(capability => Array.isArray(game[capability]?.payload) ? game[capability].payload : [])].filter(row => row && typeof row === 'object')
   const output = [...pictures(event), ...articles.filter(article => sameSource(event, article)).flatMap(pictures)]
   const version = ident(event.version_id || event.version)
   const metadata = [event.version_metadata, game.events?.version_metadata].filter(meta => meta && typeof meta === 'object' && version && ident(meta.id || meta.version_id) === version)

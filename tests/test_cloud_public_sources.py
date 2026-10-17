@@ -232,3 +232,30 @@ def test_cloud_http_preserves_public_source_metadata(tmp_path):
         assert data['primary_source'] == 'community' and data['version'] == '3.6'
         assert data['poll_status']['source_statuses']['community']['state'] == 'ok'
         assert data['complete'] is None
+
+
+def test_calendar_media_index_is_cache_only_and_omits_article_bodies():
+    q,store=query()
+    now=datetime.now(timezone.utc).isoformat()
+    save(store,'wuthering_waves','events',[{'name':'活动','source_post_id':'123','source_url':'https://official.example/123'}],now)
+    save(store,'wuthering_waves','announcement',[{'id':'123','title':'公告','body':'完整正文不能进入日历索引','summary':'摘要也不进入',
+         'url':'https://official.example/123','images':['https://official.example/123.jpg'],'private_token':'must-not-return'}],now)
+    result=q.read('wuthering_waves','events')
+    assert result.artwork_sources==[{'id':'123','source':'community','url':'https://official.example/123','images':['https://official.example/123.jpg']}]
+    assert result.artwork_status['state']=='ok'
+    assert result.payload[0]['name']=='活动'
+
+
+def test_calendar_media_cache_failure_does_not_fail_dates():
+    q,store=query()
+    now=datetime.now(timezone.utc).isoformat()
+    save(store,'wuthering_waves','events',[{'name':'保留日期'}],now)
+    original=store.get
+    def broken(game,cap):
+        if cap in ('news','announcement'):raise RuntimeError('private raw exception')
+        return original(game,cap)
+    store.get=broken
+    result=q.read('wuthering_waves','events')
+    assert result.payload[0]['name']=='保留日期'
+    assert result.artwork_status['state']=='error'
+    assert 'private raw exception' not in str(result.artwork_status)

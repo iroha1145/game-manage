@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick } from 'vue'
-import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { loadVue, mount, content, nodes, flushAsyncComponents } from '../test-utils/vue.js'
 
 const NteDataCard = await loadVue(new URL('./NteDataCard.vue', import.meta.url))
 const snap = (payload) => ({ payload: { schema_version: 1, ...payload }, fetched_at: '2026-09-14T10:00:00+08:00', stale: false })
@@ -107,7 +107,7 @@ test('GameCard routes only NTE private capabilities to the native cards', async 
   const supplied = snap({ total_draws: 0, total_s: 0, pools: [], cards: [] })
   const root = mount(t, GameCard, { game: { game_id: 'nte', display_name: '异环', capabilities: ['gacha', 'record', 'events', 'announcement'], credentials_configured: true },
     externalSnapshots: { gacha: supplied, record: supplied, announcement: supplied } })
-  await nextTick()
+  await flushAsyncComponents()
   assert.match(content(root), /抽卡统计/)
   assert.match(content(root), /社区名片/)
   assert.match(content(root), /公告/)
@@ -124,15 +124,15 @@ test('managed game detail uses supplied snapshots and tabs without issuing dupli
   const root = mount(t, GameCard, { game: { game_id: 'nte', display_name: '异环', capabilities: ['account', 'gacha', 'events', 'announcement'], credentials_configured: true },
     externalSnapshots: { account: snap({ nickname: '管理态账号' }), gacha: snap({ total_draws: 80, total_s: 1, pools: [] }) }, initialSection: 'overview' })
   await new Promise(setImmediate)
-  await nextTick()
+  await flushAsyncComponents()
   assert.equal(reads, 0)
   assert.match(content(root), /管理态账号/)
   assert.doesNotMatch(content(root), /统计抽数/)
   const tab = nodes(root, 'button').find(n => content(n) === '抽卡统计')
   assert.ok(tab)
-  tab.props.onClick(); await nextTick()
+  tab.props.onClick(); await flushAsyncComponents()
   assert.equal(nodes(root, 'dialog').length, 0)
-  nodes(root, 'button').find(n => content(n) === '查看抽卡统计').props.onClick(); await nextTick()
+  nodes(root, 'button').find(n => content(n) === '查看抽卡统计').props.onClick(); await flushAsyncComponents()
   assert.match(content(root), /近期抽卡记录/)
   assert.match(content(root), /暂无卡池统计/)
   assert.equal(reads, 0)

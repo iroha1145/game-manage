@@ -150,3 +150,10 @@ def test_resolve_official_column_id_not_found():
          "columns": [{"columnId": 9, "name": "官方资讯"}]}]}}) is None
     assert resolve_official_column_id({"code": 0}) is None
     assert resolve_official_column_id(None) is None
+
+
+def test_structured_official_images_are_combined_with_html_images():
+    row=parse_official_posts({'data':{'posts':[{'postId':1,'subject':'官方公告',
+        'images':[{'url':'https://bbs-upload.tajiduo.com/a.jpg'}, {'url':'javascript:bad'}],
+        'content':'<p>正文</p><img src="//bbs-upload.tajiduo.com/b.jpg">'}]}})[0]
+    assert row.images==['https://bbs-upload.tajiduo.com/a.jpg','https://bbs-upload.tajiduo.com/b.jpg']

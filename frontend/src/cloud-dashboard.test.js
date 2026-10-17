@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { configureHttpClient, requestJson } from './http-client.js'
 import { createCloudDashboard } from './cloud-dashboard.js'
 
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve() }
@@ -13,6 +14,25 @@ function setup(t, api) {
   return dashboard
 }
 const snapshot = (refresh_state, state = 'ok', nickname = 'new') => ({ payload: { nickname }, state, poll_status: { refresh_state, state } })
+
+test('same-owner session checks do not orphan an in-flight snapshot', async t => {
+  let finish
+  const d = createCloudDashboard({ getMe: async () => ({ user_id:'A' }), obtainCsrf: async () => 'csrf',
+    getAccounts: async () => ({ accounts:[account] }), getAccountSnapshot: () => new Promise(resolve => { finish=resolve }) })
+  t.after(d.dispose)
+  await d.initialize(); const pending=d.loadSnapshot('account')
+  await d.initialize(); finish(snapshot('idle')); await pending
+  assert.equal(d.state.readStates.account.status,'success')
+  assert.equal(d.state.snapshots.account.payload.nickname,'new')
+})
+
+test('a session check cannot restore a cleared website identity', async t => {
+  let finish
+  const d=createCloudDashboard({getMe:()=>new Promise(resolve=>{finish=resolve}),obtainCsrf:async()=> 'csrf',getAccounts:async()=>({accounts:[account]})})
+  t.after(d.dispose)
+  const pending=d.initialize();d.clear();finish({user_id:'A'});await pending
+  assert.equal(d.state.user,null)
+})
 
 test('overview and selected page coalesce only the same scoped snapshot GET', async t=>{
  let finish,calls=0
@@ -177,3 +197,18 @@ for (const [name, failure, expected] of [['the service cannot be reached', unrea
     const retry = dashboard.logout(); assert.equal(dashboard.state.logoutFailed, false, 'the retry is under way'); await retry
     assert.equal(dashboard.state.logoutFailed, false); assert.equal(dashboard.state.error, '')
   })
+
+
+test('session reinitialization refreshes CSRF after another tab rotates its cookie',async t=>{
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  let owner='A',csrfReads=0
+  t.mock.method(globalThis,'fetch',async(path,options)=>{
+    if(path.endsWith('/csrf')){csrfReads++;return new Response(JSON.stringify({csrf_token:`csrf-${owner}`}))}
+    if(options.method==='POST')return new Response(JSON.stringify({ok:true}),{status:options.headers['X-CSRF-Token']===`csrf-${owner}`?200:403})
+    return new Response(JSON.stringify(path==='/api/identity/me'?{user_id:owner}:{accounts:[]}))
+  })
+  const d=createCloudDashboard();t.after(d.dispose)
+  await d.initialize();owner='B';await d.initialize()
+  assert.deepEqual(await requestJson('/api/accounts/synthetic/roles/r/refresh/account',{method:'POST'}),{ok:true})
+  assert.equal(csrfReads,2)
+})

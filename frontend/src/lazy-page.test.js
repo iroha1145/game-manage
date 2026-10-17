@@ -15,6 +15,12 @@ test('the League of Legends dashboard, which the cloud never shows, is not part 
   assert.ok(!staticComponents('./components/GameCard.vue').includes('components/LolDashboard.vue'))
   assert.match(readFileSync(new URL('./components/GameCard.vue', import.meta.url), 'utf8'), /lazyPage\(\(\) => import\('\.\/LolDashboard\.vue'\)\)/)
 })
+
+test('game-specific dashboards and guide catalogs load only when their game panel is shown',()=>{
+  const eager=staticComponents('./components/GameCard.vue')
+  for(const name of ['NteRolesPanel','NteAssetsPanel','NteGachaPanel','NteGuides','EndfieldDashboard','WuwaDashboard'])
+    assert.ok(!eager.includes(`${name}.vue`),`${name} is still in every game first-load graph`)
+})
 test('a failed page module offers recovery without claiming a new deployment', async t => {
   const Page = lazyPage(() => Promise.reject(new Error('Failed to fetch dynamically imported module')))
   const root = mount(t, Page); await tick(); await tick()

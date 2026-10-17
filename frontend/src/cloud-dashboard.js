@@ -7,7 +7,7 @@ const REFRESH_READ_INTERVAL = 2000, REFRESH_READ_LIMIT = 10, REFRESH_TRACK_TIMEO
 export function createCloudDashboard(overrides = {}) {
   const api = { ...identity, ...accounts, obtainCsrf, ...overrides }
   const state = reactive({ user: null, accounts: [], selected: null, role: '', snapshots: {}, readStates: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, ready: false, logoutFailed: false, refreshing: {}, refreshPending: {}, revision: 0 })
-  let epoch = 0, disposed = false
+  let epoch = 0, initializeGeneration = 0, disposed = false
   let overviewGeneration = 0
   const refreshVersions = new Map(), readVersions = new Map(), refreshJobs = new Map(), reads = new Map(), scopedReads = new Map()
   const current = version => !disposed && version === epoch
@@ -16,19 +16,20 @@ export function createCloudDashboard(overrides = {}) {
     clearTimeout(job.timer); clearTimeout(job.deadline); refreshJobs.delete(cap); state.refreshPending[cap] = false
   }
   function stopTracking() { for (const [cap, job] of refreshJobs) { state.refreshing[cap] = '刷新结果未确认，请稍后重试。'; stopRefresh(cap, job) } }
-  function clear() { stopTracking(); reads.clear(); scopedReads.clear(); epoch++; overviewGeneration++; state.revision++; setAccountScope(null); Object.assign(state, { user: null, accounts: [], selected: null, role: '', snapshots: {}, readStates: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, refreshing: {}, refreshPending: {} }) }
+  function clear() { stopTracking(); reads.clear(); scopedReads.clear(); epoch++; initializeGeneration++; overviewGeneration++; state.revision++; setAccountScope(null); Object.assign(state, { user: null, accounts: [], selected: null, role: '', snapshots: {}, readStates: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, refreshing: {}, refreshPending: {} }) }
   const stop = subscribeSessionInvalidation(clear)
   async function initialize() {
     stopTracking()
-    const version = ++epoch; state.loading = true
+    let version = ++initializeGeneration; state.loading = true
+    const valid = () => !disposed && version === initializeGeneration
     try {
-      const user = await api.getMe(); if (!current(version)) return
-      await api.obtainCsrf(true); if (!current(version)) return
-      if (state.user && state.user.user_id !== user.user_id) clear()
+      const user = await api.getMe(); if (!valid()) return
+      await api.obtainCsrf(true); if (!valid()) return
+      if (state.user && state.user.user_id !== user.user_id) { clear(); version = initializeGeneration }
       state.user = user; state.error = ''; await loadAccounts()
     }
-    catch (error) { if (current(version) && error.status !== 401 && error.name !== 'AbortError') state.error = error.message }
-    finally { state.ready = true; if (current(version)) state.loading = false }
+    catch (error) { if (valid() && error.status !== 401 && error.name !== 'AbortError') state.error = error.message }
+    finally { if (!disposed) state.ready = true; if (valid()) state.loading = false }
   }
   async function loadAccounts() {
     const version = epoch, user = state.user?.user_id
