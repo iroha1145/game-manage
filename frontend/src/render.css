@@ -28,3 +28,5 @@ body { margin:0; }
 /* Rails lay every card out in the image instead of scrolling them out of the frame. */
 .render-image .h-rail .h-rail-track { overflow:visible; flex-wrap:wrap; margin:0; padding:0; -webkit-mask-image:none; mask-image:none; }
 .render-image .h-rail .h-rail-nav { display:none; }
+/* motion.css is not loaded in bot images, so the tab slips that v-glide inserts would sit in the flow as empty boxes. */
+.render-image .t-glide, .render-image .t-glide-hover { display:none; }
