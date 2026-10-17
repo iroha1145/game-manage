@@ -50,7 +50,11 @@ const staminaNote = computed(() => staminaFull.value ? '该次观测理智已满
 const percentOf = (current, total) => Number.isFinite(current) && Number.isFinite(total) && total > 0 ? Math.round(Math.min(1, current / total) * 100) : null
 const progressItems = computed(() => rows(overview.value.progress).map((item, index) => ({ key: item.id || index, label: item.name || item.title || '进度', current: item.cur, total: item.total,
   note: item.remaining == null ? '' : item.remaining === 0 ? '已完成' : `还需 ${item.remaining}`, percent: percentOf(item.cur, item.total) })))
-const knownTasks = computed(() => rows(overview.value.progress).some(item => ['daily','weekly'].includes(item.id) && item.remaining != null))
+const emptyTodoStatus = computed(() => {
+  const known = new Set(rows(overview.value.progress).filter(item => ['daily', 'weekly'].includes(item.id) && item.remaining != null).map(item => item.id))
+  if (overview.value.todos == null || !known.size) return '任务进度未知。'
+  return known.has('daily') && known.has('weekly') ? '已同步的每日与每周任务已完成。' : '已同步任务暂无待办，部分进度未知。'
+})
 
 // ── Operators ──
 const trainingMetrics = computed(() => [
@@ -133,7 +137,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
       </component>
       <section v-reveal class="ef-card ef-todo"><header><div><h2>已知待办</h2></div></header>
         <ul v-if="rows(overview.todos).length" class="ef-todos"><li v-for="(item,index) in overview.todos" :key="item.id || index"><span>{{ item.name }}</span><strong>还需 {{ display(item.remaining) }}</strong></li></ul>
-        <p v-else class="ef-empty">{{ overview.todos == null || !knownTasks ? '暂无每日或每周任务进度。' : '当前每日与每周任务没有待办项。' }}</p>
+        <p v-else class="ef-empty">{{ emptyTodoStatus }}</p>
       </section>
     </template>
 

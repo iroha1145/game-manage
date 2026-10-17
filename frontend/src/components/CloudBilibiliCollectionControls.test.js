@@ -88,3 +88,30 @@ test('fast collection failure retains counts, reports failure and departure stop
   const count=reads;t.mock.timers.tick(100000);await tick()
   assert.equal(reads,count)
 })
+
+test('source backoff does not claim a rate-limit cause and keeps the actual retry time and retained counts',async t=>{
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  t.mock.timers.enable({apis:['setTimeout']})
+  let row={...source,total:12,article_count:4},posts=0
+  t.mock.method(globalThis,'fetch',async(path,options)=>{
+    if(path.endsWith('/csrf'))return new Response(JSON.stringify({csrf_token:'fixture'}))
+    if(options.method==='POST'){
+      posts++
+      // A source/processing failure can enter backoff after the previous status read.
+      row={...row,status:'error',queue_state:'backoff',failures:1,http_status:502,next_retry:Date.parse('2026-10-17T12:34:00+08:00')/1000}
+      return new Response(JSON.stringify({detail:'source_backoff'}),{status:409})
+    }
+    return new Response(JSON.stringify({sources:[row]}))
+  })
+  const Panel=await loadVue(new URL('./CloudBilibiliCollectionControls.vue',import.meta.url))
+  const root=mount(t,Panel);await tick()
+  await nodes(root,'button').find(n=>content(n)==='采集新动态').props.onClick();await tick()
+  assert.match(content(nodes(root,'p').find(n=>n.props.role==='alert')),/来源暂不可用.*可重试时间/)
+  assert.doesNotMatch(content(root),/请求过于频繁|限流|429/)
+  await nodes(root,'button').find(n=>content(n)==='检查采集状态').props.onClick();await tick()
+  assert.match(content(root),/HTTP 502/)
+  assert.match(content(root),/可重试时间：10\/17 12:34/)
+  assert.match(content(root),/已保存 12 条.*收入资讯 4 条/)
+  assert.equal(nodes(root,'button').find(n=>content(n)==='采集新动态').props.disabled,true)
+  assert.equal(posts,1)
+})

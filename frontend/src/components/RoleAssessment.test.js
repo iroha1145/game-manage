@@ -88,13 +88,13 @@ function editor(t, { held = [], score = () => reply(scored('10.00')) } = {}) {
 
 test('a score is shown for the input it was computed from', async t => {
   const { root, click } = editor(t)
-  await click(open); await click('导入当前穿戴装备'); await click('评价当前输入')
+  await click(open); await click('导入已同步装备'); await click('评价当前输入')
   assert.match(content(root), /已评分.*10.00/)
 })
 
 test('a score still pending when the input changes never appears next to the new input', async t => {
   const late = defer(), { root, press, click, field, settle } = editor(t, { score: body => body.configuration.items[0].stats[0].value === '100' ? late.promise : reply(scored('20.00')) })
-  await click(open); await click('导入当前穿戴装备')
+  await click(open); await click('导入已同步装备')
   const pending = press('评价当前输入'); await settle()
   field('input', '装备1词条值1').props.onInput({ target: { value: '200' } }); await settle()
   late.resolve(reply(scored('10.00'))); await pending; await settle()
@@ -154,7 +154,7 @@ test('deleting a configuration removes the comparison even when the list cannot 
 
 test('editing the advanced JSON removes the score and the comparison computed from the old input', async t => {
   const { root, click, field, settle } = editor(t)
-  await click(open); await click('导入当前穿戴装备'); await click('评价当前输入'); await click('同模型重新计算并对比')
+  await click(open); await click('导入已同步装备'); await click('评价当前输入'); await click('同模型重新计算并对比')
   assert.match(content(root), /已评分.*10.00/); assert.match(content(root), /变化 100.00%/)
   field('textarea', '装备输入 JSON').props.onInput({ target: { value: JSON.stringify([equipment('200')]) } }); await settle()
   assert.doesNotMatch(content(root), /已评分|变化 100.00%/)
@@ -167,13 +167,13 @@ test('editing the advanced JSON removes the score and the comparison computed fr
 
 test('saving or deleting a configuration keeps the score of the input in the editor', async t => {
   const { root, click } = editor(t)
-  await click(open); await click('导入当前穿戴装备'); await click('评价当前输入')
+  await click(open); await click('导入已同步装备'); await click('评价当前输入')
   await click('保存配置'); assert.match(content(root), /已评分.*10.00/)
   await click('删除配置'); assert.match(content(root), /已评分.*10.00/)
 })
 
 const scenarios = [
-  ['reading the equipped copy', '导入当前穿戴装备', 'GET /equipped', { configuration: { items: [equipment('100')], observed_at: null }, assessment: scored('7.00') }],
+  ['reading the equipped copy', '导入已同步装备', 'GET /equipped', { configuration: { items: [equipment('100')], observed_at: null }, assessment: scored('7.00') }],
   ['scoring', '评价当前输入', 'POST /score', scored('10.00')],
   ['comparing', '同模型重新计算并对比', 'POST /compare', comparison],
   ['saving a configuration', '保存配置', 'POST /configurations', { id: 'new-id' }],
@@ -219,7 +219,7 @@ test('a request cut off by the session ending neither shows its error nor frees 
   invalidateSession(); await settle()
   assert.ok(button(open), 'the editor closes with the session')
   await click(open)
-  const next = press('导入当前穿戴装备'); await settle()
+  const next = press('导入已同步装备'); await settle()
   assert.equal(button('保存配置').props.disabled, true)
   await answer('POST /score', scored('10.00')); await cutOff; await settle()
   assert.doesNotMatch(content(root), /会话或角色已变化|已评分/)

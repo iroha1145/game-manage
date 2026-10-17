@@ -285,3 +285,25 @@ test('operator and honor image modes expose no web menus or native selects', t =
     assert.equal(nodes(root,'button').filter(n=>n.props.role==='combobox').length, 0)
   }
 })
+
+
+test('empty todos distinguish unknown, partially known and fully completed task progress', t => {
+  const task = (id, remaining) => ({ id, name: id === 'daily' ? '每日任务' : '每周任务', cur: remaining == null ? null : 100 - remaining, total: 100, remaining })
+  for (const [progress, todos, expected] of [
+    [[], [], '任务进度未知'],
+    [[task('daily', null)], [], '任务进度未知'],
+    [[task('daily', 0)], [], '已同步任务暂无待办，部分进度未知'],
+    [[task('daily', 0), task('weekly', null)], [], '已同步任务暂无待办，部分进度未知'],
+    [[task('daily', 0), task('weekly', 0)], [], '已同步的每日与每周任务已完成'],
+    [[task('daily', 40), task('weekly', null)], [task('daily', 40)], '每日任务 还需 40'],
+  ]) {
+    const data = structuredClone(payload)
+    data.report.overview.progress = progress
+    data.report.overview.todos = todos
+    const root = mount(t, Reports, { payload: data, view: 'overview' })
+    const todo = nodes(root, 'section').find(node => node.props.class?.includes('ef-todo'))
+    assert.ok(todo)
+    assert.ok(content(todo).includes(expected), `${JSON.stringify(progress)}: ${content(todo)}`)
+    assert.doesNotMatch(content(todo), /今日日常已完成|当前每日与每周任务没有待办项/)
+  }
+})

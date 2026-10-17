@@ -6,6 +6,48 @@ import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 import { configureHttpClient } from '../http-client.js'
 const CloudApp = await loadVue(new URL('../CloudApp.vue', import.meta.url))
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
+for (const failingNews of [false, true]) test(`overview refresh stays busy through every read even when news fails: ${failingNews}`, async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  let hold = false
+  const pending = [], paths = []
+  t.mock.method(globalThis, 'fetch', async path => {
+    paths.push(path)
+    if (hold && failingNews && path.startsWith('/api/public/') && path.endsWith('/news')) {
+      return new Response(JSON.stringify({ detail: 'source temporarily unavailable' }), { status: 502 })
+    }
+    if (hold && (path.endsWith('/snapshot/account') || path.startsWith('/api/public/'))) {
+      await new Promise(resolve => pending.push({ path, resolve }))
+    }
+    const data = path === '/api/identity/me' ? { user_id: 'overview-user' }
+      : path.endsWith('/csrf') ? { csrf_token: 'fixture' }
+        : path === '/api/accounts' ? { accounts: [{ account_id: 'overview-account', provider: 'kuro', game: 'wuthering_waves', state: 'active', capabilities: ['account'], roles: [{ role_id: 'overview-role', is_default: true }] }] }
+          : { account_id: 'overview-account', role_id: 'overview-role', state: 'ok', payload: null }
+    return new Response(JSON.stringify(data))
+  })
+  const root = mount(t, CloudApp)
+  for (let i = 0; i < 8; i++) await tick()
+  const refresh = nodes(root, 'button').find(n => String(n.props.class).includes('ov-refresh'))
+  assert.equal(refresh.props.disabled, false)
+  hold = true; refresh.props.onClick(); await tick()
+  assert.ok(pending.some(p => p.path.endsWith('/snapshot/account')))
+  assert.equal(refresh.props.disabled, true)
+  assert.equal(refresh.props['aria-busy'], true)
+  const firstReads = paths.length
+  refresh.props.onClick(); await tick(); assert.equal(paths.length, firstReads)
+  while (pending.some(p => p.path.endsWith('/snapshot/account'))) {
+    for (const request of pending.splice(0)) request.resolve()
+    await tick()
+  }
+  for (let i = 0; i < 4; i++) await tick()
+  assert.ok(pending.some(p => p.path.startsWith('/api/public/')))
+  assert.equal(refresh.props.disabled, true, 'public artwork and event reads are still pending')
+  assert.match(content(refresh), /刷新中/)
+  hold = false
+  for (const request of pending.splice(0)) request.resolve()
+  for (let i = 0; i < 6; i++) await tick()
+  assert.equal(refresh.props.disabled, false)
+  assert.equal(refresh.props['aria-busy'], undefined)
+})
 test('public Bilibili authorization entry is visible only for the website administrator', async t => {
   for (const is_admin of [false,true]) {
     await t.test(String(is_admin), async sub => {

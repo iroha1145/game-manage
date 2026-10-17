@@ -200,3 +200,28 @@ def test_ambiguous_endministrator_never_chooses_a_gender_but_explicit_variant_is
     first=_image(cache,'role',dict(id='endministrator1',name='管理员'))
     second=_image(cache,'role',dict(id='endministrator2',name='管理员'))
     assert first and second and first!=second
+
+
+@pytest.mark.parametrize('progress,expected', [
+    ([], '任务进度未知'),
+    ([{'id':'daily','name':'每日活跃','cur':None,'total':100}], '任务进度未知'),
+    ([{'id':'daily','name':'每日活跃','cur':100,'total':100}], '已同步任务暂无待办，部分进度未知'),
+    ([{'id':'daily','name':'每日活跃','cur':100,'total':100},
+      {'id':'weekly','name':'每周任务','cur':None,'total':100}], '已同步任务暂无待办，部分进度未知'),
+    ([{'id':'daily','name':'每日活跃','cur':100,'total':100},
+      {'id':'weekly','name':'每周任务','cur':100,'total':100}], '已同步的每日与每周任务已完成'),
+])
+def test_empty_todos_respect_unknown_partial_and_complete_task_progress(progress,expected):
+    card=overview_document(snapshot({'progress':progress}),focus='progress')
+    section=next(item for item in card['sections'] if item['category']=='ef_todos')
+    assert section['fields']==[{'label':'状态','value':expected}]
+    assert '今日日常已完成' not in card_to_text(card)
+
+
+def test_known_incomplete_tasks_remain_todos_even_when_other_progress_is_unknown():
+    card=overview_document(snapshot({'progress':[
+        {'id':'daily','name':'每日活跃','cur':60,'total':100},
+        {'id':'weekly','name':'每周任务','cur':None,'total':100},
+    ]}),focus='progress')
+    section=next(item for item in card['sections'] if item['category']=='ef_todos')
+    assert section['fields']==[{'label':'每日活跃','value':'还差 40'}]

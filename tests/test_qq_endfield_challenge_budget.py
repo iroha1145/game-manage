@@ -1,6 +1,8 @@
 """Long cached challenge reports retain all independently timed categories."""
 from copy import deepcopy
 
+import pytest
+
 from game_assistant.endfield_challenges import build_challenge_report
 from game_assistant.qq.cards import card_to_text
 from game_assistant.qq.endfield_presentation import challenge_document
@@ -111,7 +113,8 @@ def test_failed_unknown_and_successful_empty_stay_distinct_in_long_fallback():
     assert coverage(card)['丰碑']=={'记录':'未知 / 未采集','关卡组':'未知 / 未采集'}
     assert coverage(card)['危机']=={'记录':'0 / 0'}
     assert '最近读取失败，尚无成功观测' in text and '本分类抓取时间：未知' in text
-    assert '暂无通关记录' in text
+    assert '当前快照没有挑战记录' in text
+    assert '暂无通关记录' not in text
     assert '最高值：0' in text and '挑战次数：未知' in text
     assert_final_coverage(card)
 
@@ -129,3 +132,15 @@ def test_long_titles_cannot_trigger_normalizer_after_counts_are_calculated():
     assert len(raw['sections'])==len(card['sections'])
     assert [len(section['rows']) for section in raw['sections']]==[len(section['rows']) for section in card['sections']]
     assert_final_coverage(card)
+
+
+@pytest.mark.parametrize('value,expected', [
+    ({'kind':'war'}, None),
+    ({'kind':'war','fetched_at':'2026-10-17T00:00:00Z','supported':False}, None),
+    ({'kind':'war','fetched_at':'2026-10-17T00:00:00Z','records':[]}, '当前快照没有挑战记录'),
+])
+def test_empty_challenge_list_only_describes_available_snapshot(value,expected):
+    card=challenge_document([build_challenge_report(value)])
+    fields={item['label']:item['value'] for item in card['sections'][0]['fields']}
+    assert fields.get('记录说明')==expected
+    assert '暂无通关记录' not in card_to_text(card)

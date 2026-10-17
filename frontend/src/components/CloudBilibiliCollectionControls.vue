@@ -45,7 +45,7 @@ async function refresh(s,backfill){
     await refreshCloudBilibiliSource(s.game_id,backfill,controller.signal)
     if(stopped||invalidated||run!==generation)return
     observed.set(s.game_id,{lastSuccess:s.last_success});await load()
-  }catch(e){if(!stopped&&!invalidated&&run===generation&&e.name!=='AbortError')error.value=({source_busy:'该游戏正在同步或排队中，请稍候。',source_backoff:'请求过于频繁，请到可重试时间后再试。'})[e.detail]||'无法提交任务，请稍后重试'}
+  }catch(e){if(!stopped&&!invalidated&&run===generation&&e.name!=='AbortError')error.value=({source_busy:'该游戏正在同步或排队中，请稍候。',source_backoff:'来源暂不可用，请到可重试时间后再试。'})[e.detail]||'无法提交任务，请稍后重试'}
   finally{if(run===generation)busy.value=false}
 }
 function check(){resetBudget();void load()}

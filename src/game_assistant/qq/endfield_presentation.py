@@ -146,8 +146,8 @@ def challenge_document(reports):
                 view.field('已采集记录',summary['listed_count'])]
         if kind=='crisis':
             fields += [view.field('最高值',summary['highest']),view.field('挑战次数',summary['challenge_count'])]
-        if report['available'] and not report['records']:
-            fields.append(view.field('记录说明','暂无通关记录'))
+        if report['available'] and report['supported'] is not False and not report['records']:
+            fields.append(view.field('记录说明','当前快照没有挑战记录'))
         summaries.append(_section(label+' · 缓存状态',fields=fields,category='ef_challenge'))
         available.append(report['available'] and report['supported'] is not False)
         counts={unit:0 for unit in units[kind]};entries=[]
@@ -235,8 +235,12 @@ def overview_document(snapshot, asset_cache=None, *, focus=None):
             tasks.append({'title': view.text(item.get('name')), 'fields': values})
         sections.append(_section('日常与通行证', rows=tasks, layout='rows', category='ef_tasks'))
         todos = overview['todos']
+        task_progress = [item for item in overview['progress'] if item['id'] in ('daily', 'weekly')]
+        known_ids = {item['id'] for item in task_progress if item['remaining'] is not None}
+        empty_status = ('已同步的每日与每周任务已完成' if known_ids == {'daily', 'weekly'} else
+                        '已同步任务暂无待办，部分进度未知' if known_ids else '任务进度未知')
         sections.append(_section('已知待办', fields=[view.field(view.text(item.get('name')), '还差 ' + view.text(item.get('remaining')))
-                                                   for item in todos] or [view.field('状态', '今日日常已完成')], category='ef_todos'))
+                                                   for item in todos] or [view.field('状态', empty_status)], category='ef_todos'))
     if focus is None:
         training = report['training']['summary']; regions = report['regions']['summary']; ship = report['ship']['summary']
         sections.append(_section('干员与建设', fields=[view.field('已采集干员', training.get('listed_count')),

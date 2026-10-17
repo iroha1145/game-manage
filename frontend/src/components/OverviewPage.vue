@@ -17,6 +17,7 @@ import { share } from '../chart-math.js'
 import { dailyTasks, deadlineDays, gachaDigests } from '../overview-data.js'
 import { gameHref, sectionsFor } from '../search-index.js'
 import { vGlide, vParallax, vPop, vReveal } from '../motion.js'
+import { vRefreshFeedback } from '../refresh-feedback.js'
 
 const props = defineProps({ games: { type: Array, default: () => [] }, snapshots: { type: Object, default: () => ({}) },
   accounts: { type: Object, default: () => ({}) }, readErrors: { type: Object, default: () => ({}) }, refreshErrors: { type: Object, default: () => ({}) },
@@ -123,7 +124,7 @@ function quickLinks(card) {
         </ul>
       </div>
       <div class="ov-actions">
-        <button class="ui-button ov-refresh" :disabled="loading || anyRefreshing || !games.length" @click="emit('refresh')"><AppIcon name="refresh" :size="15" :class="{ spinning: anyRefreshing }" /><span :class="{ 't-shimmer': anyRefreshing }">{{ anyRefreshing ? '刷新中…' : refreshLabel }}</span></button>
+        <button class="ui-button ov-refresh" :disabled="loading || anyRefreshing || !games.length" :aria-busy="anyRefreshing || undefined" @click="emit('refresh')"><AppIcon v-refresh-feedback="anyRefreshing" name="refresh" :size="15" data-icon-motion="off" /><span :class="{ 't-shimmer': anyRefreshing }">{{ anyRefreshing ? '刷新中…' : refreshLabel }}</span></button>
         <button class="ui-button soft" @click="emit('navigate', 'calendar')"><AppIcon name="calendar" :size="15" />活动日历</button>
       </div>
     </header>
