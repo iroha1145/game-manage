@@ -383,15 +383,14 @@ h2 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 4
 h3 { font-size: 15px; font-weight: 600; }
 .muted, .field-hint { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 .accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px; margin-top: 14px; }
-/* Each game is a tone tile with its own colour mark; the accounts page rule in style.css sets the same ground. */
-.account-row { --mark: var(--accent-fill); --mark-2: var(--chart-7); position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; overflow: hidden; border-radius: var(--radius-tile); background: var(--surface-soft); padding: 14px; }
-.account-row[data-game="wuthering_waves"] { --mark: var(--game-wuwa-vivid); --mark-2: var(--game-wuwa-2); }
-.account-row[data-game="nte"] { --mark: var(--game-nte-vivid); --mark-2: var(--game-nte-2); }
-.account-row[data-game="endfield"] { --mark: var(--game-endfield-vivid); --mark-2: var(--game-endfield-2); }
-.account-row::before { content: ''; position: absolute; right: -50px; top: -70px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--mark) 20%, transparent), transparent 70%); pointer-events: none; }
+/* Each game is a white row with a hairline and its mark on the game's pale tone. */
+.account-row { --mark-tone: var(--control-track); --mark-ink: var(--text); position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-tile); background: var(--card-bg); padding: 14px; }
+.account-row[data-game="wuthering_waves"] { --mark-tone: var(--game-wuwa-tone); --mark-ink: var(--game-wuwa); }
+.account-row[data-game="nte"] { --mark-tone: var(--game-nte-tone); --mark-ink: var(--game-nte); }
+.account-row[data-game="endfield"] { --mark-tone: var(--game-endfield-tone); --mark-ink: var(--game-endfield); }
 .account-info { position: relative; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
 /* Placed after the name in the markup (the name leads the row's text); drawn first. */
-.account-mark { order: -1; display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border-radius: 11px; background: linear-gradient(140deg, var(--mark), var(--mark-2)); color: #fff; font-size: 15px; font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); box-shadow: 0 6px 14px -8px var(--mark); }
+.account-mark { order: -1; display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border: 3px solid var(--card-bg); border-radius: 13px; background: var(--mark-tone); box-shadow: 0 0 0 1px var(--card-border); color: var(--mark-ink); font-size: 15px; font-weight: 600; }
 .account-info > strong { font-size: 15px; font-weight: 600; }
 .account-message { flex-basis: 100%; overflow-wrap: anywhere; }
 .nickname { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-muted); }
@@ -400,23 +399,23 @@ h3 { font-size: 15px; font-weight: 600; }
 .connected, .active { color: var(--success); background: var(--success-bg); }
 .expired, .revoked { color: var(--danger); background: var(--danger-bg); }
 .configured { color: var(--stale-text); background: var(--stale-bg); }
-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); box-shadow: var(--btn-shadow); color: var(--text); padding: 6px 14px; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card-bg); box-shadow: var(--btn-shadow); color: var(--text); padding: 6px 14px; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
 @media (hover: hover) and (pointer: fine) { button:not(:disabled):hover { background: var(--button-hover-bg); color: var(--text); } }
-button:not(:disabled):active { transform: scale(var(--scale-medium)); }
+button:not(:disabled):active { transform: translateY(1px); }
 .text-button, .text-button:not(:disabled):hover { background: transparent; border-color: transparent; box-shadow: none; }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .text-button { border: 0; color: var(--accent); min-height: 0; padding: 4px 6px; white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) { .text-button:not(:disabled):hover { color: var(--accent-strong); } }
-.account-actions .text-button { padding: 6px 12px; background: var(--card-bg); box-shadow: var(--btn-shadow); }
-@media (hover: hover) and (pointer: fine) { .account-actions .text-button:not(:disabled):hover { background: var(--card-bg); } }
+.account-actions .text-button { min-height: 36px; padding: 6px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); box-shadow: none; }
+@media (hover: hover) and (pointer: fine) { .account-actions .text-button:not(:disabled):hover { background: var(--panel-bg); border-color: var(--border-strong); } }
 .logout { color: var(--text-muted); }
-.primary { color: var(--accent-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 86%, #fff), var(--accent-fill)); border-color: transparent; box-shadow: var(--btn-primary-shadow); }
+.primary { color: var(--accent-ink); background: var(--accent-fill); border-color: var(--accent-fill); box-shadow: none; }
 @media (hover: hover) and (pointer: fine) { .primary:not(:disabled):hover { color: var(--accent-ink); background: var(--accent-hover); } }
-.primary:not(:disabled):active { transform: scale(var(--scale-small)); }
-.login-form { margin-top: 18px; padding: 18px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 600px; border-radius: var(--radius-tile); background: var(--surface-soft); }
+.primary:not(:disabled):active { transform: translateY(1px); }
+.login-form { margin-top: 18px; padding: 18px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 600px; border: 1px solid var(--border); border-radius: var(--radius-tile); background: var(--panel-bg); }
 label { font-size: 13px; font-weight: 500; margin-top: 4px; }
-input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 10px 14px; font: inherit; color: var(--text); background: var(--card-bg); box-shadow: var(--btn-shadow); }
+input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 10px 13px; font: inherit; color: var(--text); background: var(--card-bg); box-shadow: none; }
 input::placeholder { color: var(--text-faint); }
 input:focus-visible { border-color: var(--accent); outline: none; box-shadow: var(--ring); }
 input[readonly] { background: var(--panel-bg); }

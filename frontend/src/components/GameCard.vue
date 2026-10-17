@@ -5,7 +5,6 @@ import { vGlide, vParallax } from '../motion.js'
 import { lazyPage } from '../lazy-page.js'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
-import GameArt from './GameArt.vue'
 import SourceStatusPanel from './SourceStatusPanel.vue'
 import AnnouncementList from './AnnouncementList.vue'
 import NteDataCard from './NteDataCard.vue'
@@ -105,8 +104,8 @@ function capProps(cap) {
     </div>
 
     <header v-parallax class="card-head game-hero">
-      <GameArt :variant="game.game_id" />
-      <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><h1 class="game-name">{{ game.display_name }}</h1><p v-if="identity" class="game-identity-line">{{ identity }}</p></div></div>
+      <span class="hero-mark-art plx-layer" aria-hidden="true"><GameIcon class="hero-big-mark" :game-id="game.game_id" /></span>
+      <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><p class="game-en" aria-hidden="true">{{ style.english }}</p><h1 class="game-name">{{ game.display_name }}</h1><p v-if="identity" class="game-identity-line">{{ identity }}</p></div></div>
       <span
         v-if="!game.credentials_configured && game.game_id !== 'endfield'"
         class="badge badge-danger"
@@ -156,21 +155,17 @@ function capProps(cap) {
   overflow-wrap: anywhere;
 }
 
-/* Hero: a dark stage with the game's original artwork; the page's one saturated surface. */
-.card-head { position:relative; display:flex; align-items:center; gap:10px 12px; min-height:168px; margin-bottom:24px; padding:28px 28px 28px 30px; flex-wrap:wrap; overflow:hidden; isolation:isolate; border-radius:var(--radius-card); color:#fff; background:radial-gradient(90% 160% at 100% 0%, color-mix(in srgb, var(--game-vivid) 34%, #161827) 0%, #151827 52%, #0f111a 100%); box-shadow:0 1px 2px rgba(20, 24, 40, .2), 0 26px 56px -32px color-mix(in srgb, var(--game-vivid) 70%, #0f111a); }
-.card-head :deep(.game-art) { z-index:-2; }
-/* A dark wash under the title keeps it readable wherever the artwork reaches. */
-.card-head::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg, rgba(15, 17, 26, .72) 0%, rgba(15, 17, 26, .35) 40%, transparent 70%); }
-.card-head > :not(.game-art) { position:relative; }
+/* Hero: the game's pale tone inside a white frame (game-manage-ui-v1), its mark tile
+   bleeding off the bottom edge and drifting a little against the scroll. */
+.card-head { position:relative; display:flex; align-items:center; gap:10px 12px; min-height:160px; margin-bottom:22px; padding:24px 26px; flex-wrap:wrap; overflow:hidden; isolation:isolate; border:6px solid var(--card-bg); border-radius:26px; color:var(--text); background:var(--game-tone); box-shadow:0 0 0 1px var(--card-border), var(--card-shadow); }
+.hero-mark-art { --plx-range:-10px; position:absolute; right:clamp(150px, 24%, 300px); bottom:-36px; z-index:-1; pointer-events:none; }
+.hero-big-mark { width:132px; height:132px; border-radius:34px; background:var(--card-bg); box-shadow:0 18px 40px -22px rgba(38, 40, 46, .4); transform:rotate(-9deg); color:var(--game-accent); font-size:56px; font-weight:600; }
+.game-en { color:var(--game-accent); font-size:11px; font-weight:600; letter-spacing:1.5px; line-height:16px; }
+.card-head > :not(.hero-mark-art) { position:relative; }
 .game-heading { display:flex; align-items:center; gap:16px; margin-right:auto; min-width:0; }
-.detail-monogram { display:grid; place-items:center; font-size:24px; width:56px; height:56px; border-radius:16px; box-shadow:0 0 0 1px rgba(255, 255, 255, .18), 0 12px 24px -10px var(--game-vivid); }
-.game-name { font-size:32px; line-height:40px; font-weight:600; letter-spacing:-.02em; }
-.game-identity-line { margin-top:2px; color:rgba(255, 255, 255, .72); font-size:13px; }
-.card-head .refresh-btn { background:rgba(255, 255, 255, .14); border-color:rgba(255, 255, 255, .22); color:#fff; box-shadow:inset 0 1px 0 rgba(255, 255, 255, .18); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); }
-@media(hover:hover) and (pointer:fine) { .card-head .refresh-btn:hover:not(:disabled) { background:rgba(255, 255, 255, .22); border-color:rgba(255, 255, 255, .3); color:#fff; } }
-.card-head .refresh-btn .t-shimmer { background-image:linear-gradient(90deg, rgba(255, 255, 255, .6) 0%, #fff 45%, rgba(255, 255, 255, .6) 65%); }
-.card-head :focus-visible { outline-color:#fff; }
-.card-head .badge-danger { background:rgba(255, 138, 128, .18); color:#ffc2bb; }
+.detail-monogram { display:grid; place-items:center; width:56px; height:56px; border:3px solid var(--card-bg); border-radius:16px; background:var(--card-bg); box-shadow:0 0 0 1px var(--card-border); font-size:24px; font-weight:600; }
+.game-name { font-size:30px; line-height:38px; font-weight:600; letter-spacing:-.03em; }
+.game-identity-line { margin-top:2px; color:var(--game-accent); font-size:13px; }
 
 .cap-list {
   display: grid;
@@ -180,5 +175,5 @@ function capProps(cap) {
 }
 .detail-navigation { display:flex; justify-content:space-between; gap:10px 16px; align-items:center; margin:0 0 16px; flex-wrap:wrap; }
 @media(max-width:950px) { .cap-list { grid-template-columns:1fr; } }
-@media(max-width:600px) { .card-head { min-height:150px; margin-bottom:16px; padding:22px 18px; gap:12px; }.card-head :deep(.game-art) { opacity:.6; }.game-heading { gap:12px; flex-basis:100%; }.game-name { font-size:26px; line-height:32px; }.detail-monogram { width:44px; height:44px; font-size:20px; border-radius:13px; }.detail-tabs button { padding:4px 10px; } }
+@media(max-width:600px) { .card-head { min-height:150px; margin-bottom:16px; padding:20px 18px; gap:12px; border-radius:24px; }.hero-mark-art { right:-14px; bottom:-40px; transform:scale(.7); transform-origin:100% 100%; }.game-heading { gap:12px; flex-basis:100%; }.game-name { font-size:26px; line-height:32px; }.detail-monogram { width:44px; height:44px; font-size:20px; border-radius:13px; }.detail-tabs button { padding:4px 10px; } }
 </style>

@@ -149,7 +149,6 @@ onBeforeUnmount(() => { clearInterval(timer); clearInterval(clockTimer); stopFol
     <div class="workspace-body" :inert="mobileNavigation && menuOpen">
       <header class="workspace-topbar">
         <div class="topbar-left">
-          <button ref="menuToggle" class="menu-toggle icon-button" :aria-expanded="menuOpen" aria-controls="workspace-sidebar" aria-label="打开导航" @click="openMenu"><AppIcon name="menu" /></button>
           <button class="search-trigger" type="button" aria-haspopup="dialog" :aria-keyshortcuts="macKeys ? 'Meta+K' : 'Control+K'" @click="openSearch"><AppIcon name="search" :size="16" /><span>搜索页面、游戏、活动和角色</span><kbd aria-hidden="true">{{ macKeys ? '⌘ K' : 'Ctrl K' }}</kbd></button>
         </div>
         <div class="topbar-right">
@@ -168,6 +167,12 @@ onBeforeUnmount(() => { clearInterval(timer); clearInterval(clockTimer); stopFol
         <BilibiliSourcePanel v-if="route.page === 'overview' || route.page === 'game'" :game-id="route.page === 'game' ? route.game : ''" @collected="dashboard.loadSnapshots()" />
       </main>
     </div>
+    <nav class="mobile-tabbar" aria-label="常用页面" :inert="mobileNavigation && menuOpen">
+      <a href="#/" :class="{ active: route.page === 'overview' }" :aria-current="route.page === 'overview' ? 'page' : undefined"><AppIcon name="grid" :size="19" /><span>总览</span></a>
+      <a href="#/calendar" :class="{ active: route.page === 'calendar' }" :aria-current="route.page === 'calendar' ? 'page' : undefined"><AppIcon name="calendar" :size="19" /><span>日历</span></a>
+      <a href="#/accounts" :class="{ active: route.page === 'accounts' }" :aria-current="route.page === 'accounts' ? 'page' : undefined"><AppIcon name="user" :size="19" /><span>账号</span></a>
+      <button ref="menuToggle" type="button" :class="{ active: route.page === 'game' }" :aria-expanded="menuOpen" aria-controls="workspace-sidebar" @click="openMenu"><AppIcon name="menu" :size="19" /><span>游戏与菜单</span></button>
+    </nav>
     <SearchDialog v-if="searchOpen" :pages="searchPages" :games="state.games" :snapshots="state.snapshots" :now="now" @select="jumpTo" @close="searchOpen = false" />
   </div>
 </template>

@@ -43,7 +43,7 @@ const radius = computed(() => (props.size - props.stroke) / 2)
 <style scoped>
 .ring-gauge { position:relative; display:grid; place-items:center; width:var(--ring-size); height:var(--ring-size); flex-shrink:0; }
 .ring-gauge svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
-.ring-track { fill:none; stroke:color-mix(in srgb, var(--ring-color) 14%, var(--track)); }
+.ring-track { fill:none; stroke:var(--track); }
 .ring-value { fill:none; stroke:var(--ring-color); stroke-linecap:round; transition:stroke-dasharray var(--duration-slow) var(--ease-smooth-out); animation:ring-draw 900ms var(--ease-smooth-out) backwards; }
 @keyframes ring-draw { from { stroke-dasharray:0 100; } }
 .ring-center { position:relative; display:grid; justify-items:center; gap:2px; text-align:center; line-height:1.1; }

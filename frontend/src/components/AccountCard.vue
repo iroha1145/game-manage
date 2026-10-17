@@ -67,9 +67,9 @@ const rankedSolo = computed(() => {
   flex-shrink: 0;
   width: 42px;
   height: 42px;
-  border-radius: 30%;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--game-vivid, var(--accent)) 28%, var(--card-bg)), color-mix(in srgb, var(--game-vivid-2, var(--game-vivid, var(--accent))) 20%, var(--card-bg)));
-  color: var(--text);
+  border-radius: 14px;
+  background: var(--game-tone, var(--accent-soft));
+  color: var(--game-accent, var(--accent));
   font-size: 18px;
   font-weight: 600;
 }

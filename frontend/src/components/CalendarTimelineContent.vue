@@ -63,24 +63,24 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .timeline-scroll { overflow:visible; flex:none; min-height:140px; scrollbar-color: var(--scrollbar) var(--bg); scrollbar-width: thin; }
 .timeline-canvas { min-width: var(--timeline-min); }
 .timeline-header, .timeline-group { display: grid; grid-template-columns: 184px minmax(0, 1fr); }
-/* The date header frosts the bars that scroll beneath it. */
-.timeline-header { position: sticky; top: 0; z-index: 5; background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+/* The date header stays put over the bars that scroll beneath it. */
+.timeline-header { position: sticky; top: 0; z-index: 5; background: var(--card-bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .timeline-label { position: sticky; left: 0; z-index: 3; background: var(--card-bg); border-right: 1px solid var(--border); }
 .header-label { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 18px 20px; color: var(--text-muted); font-size: 12px; font-weight: 500; }
 .header-label small { color: var(--text-faint); font-size: 12px; font-weight: 400; }
 .date-track, .grid-backdrop { display: grid; grid-template-columns: repeat(var(--day-count), minmax(0, 1fr)); }
 .date-cell { min-height: 78px; display: grid; grid-template-rows: 14px 26px 14px; justify-items: center; align-content: center; gap: 3px; padding: 8px 0; border-right: 1px solid var(--overlay-1); font-family: var(--font-sans); }
 .date-cell small { font-size: 12px; line-height: 16px; color: var(--text-faint); }
-.date-cell strong { display: grid; place-items: center; min-width: 28px; height: 26px; padding: 0 4px; border-radius: 999px; font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 500; line-height: 1; }
+.date-cell strong { display: grid; place-items: center; min-width: 28px; height: 26px; padding: 0 4px; border-radius: 8px; font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 500; line-height: 1; }
 .date-cell.is-month-start strong { font-size: 12px; }
 .date-cell.weekend { background: var(--overlay-1); }
 .date-cell.is-today { color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, transparent); }
-.date-cell.is-today strong { background: var(--accent-fill); color: var(--accent-ink); box-shadow: 0 6px 14px -6px var(--accent-fill); }
+.date-cell.is-today strong { background: var(--accent-fill); color: var(--accent-ink); }
 .day-today { font-size: 11px; font-weight: 500; line-height: 14px; white-space: nowrap; color: var(--accent); }
 .timeline-group { border-bottom: 1px solid var(--border); }
 .timeline-group:last-child { border-bottom: 0; }
 .group-label { display:flex; align-items:flex-start; gap:10px; padding:18px 16px; }
-.game-monogram { width: 32px; height: 32px; background: color-mix(in srgb, var(--game-vivid, var(--game-accent)) 16%, transparent); border-radius: 10px; font-size: 15px; box-shadow: 0 4px 10px -6px var(--game-vivid, var(--game-accent)); }
+.game-monogram { width: 32px; height: 32px; background: var(--game-tone, var(--control-track)); border-radius: 10px; font-size: 15px; box-shadow: inset 0 0 0 1px var(--card-border); }
 .group-label strong { display: block; font-size: 14px; font-weight: 500; line-height: 20px; }
 .group-label small { display: block; color: var(--text-faint); font-size: 12px; line-height: 18px; }
 .group-track { position:relative; overflow:hidden; container-type:inline-size; }
@@ -88,13 +88,13 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .grid-backdrop > div { border-right: 1px solid var(--overlay-2); }
 .grid-backdrop .weekend { background: var(--overlay-1); }
 .grid-backdrop .today-column { background: color-mix(in srgb, var(--accent) 3%, transparent); }
-.today-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; border-radius: 2px; background: linear-gradient(var(--accent-fill), color-mix(in srgb, var(--accent-fill) 25%, transparent)); z-index: 2; pointer-events: none; }
+.today-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--accent-fill); z-index: 2; pointer-events: none; }
 .event-lane { min-height:34px; padding-bottom:2px; position:relative; }
-/* Bars: a rounded wash of the game's vivid pair with faint stripes; the elapsed part is deeper. */
-.timeline-event { position:relative; top:0; min-height:32px; min-width:0; border:0; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--game-vivid, var(--game-accent)) 26%, transparent); border-radius:10px; color:var(--text); background:repeating-linear-gradient(125deg, transparent, transparent 12px, var(--overlay-1) 12px, var(--overlay-1) 14px), linear-gradient(100deg, color-mix(in srgb, var(--game-vivid, var(--game-accent)) 30%, var(--card-bg)), color-mix(in srgb, var(--game-vivid-2, var(--game-accent)) 12%, var(--card-bg))); padding:4px 10px 4px 13px; display:block; text-align:left; overflow:hidden; transition:filter var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
+/* Bars: the game's pale tone with its line colour down the left edge; the elapsed part is deeper. */
+.timeline-event { position:relative; top:0; min-height:32px; min-width:0; border:0; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--game-vivid, var(--game-accent)) 26%, transparent); border-radius:8px; color:var(--text); background:var(--game-tone, var(--control-track)); padding:4px 10px 4px 13px; display:block; text-align:left; overflow:hidden; transition:filter var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
 .timeline-event:not(.is-point)::before { content: ''; position: absolute; inset: 5px auto 5px 4px; width: 3px; border-radius: 3px; background: var(--game-vivid, var(--game-accent)); }
-@media (hover: hover) and (pointer: fine) { .timeline-event:hover { filter: brightness(1.12) saturate(1.08); } }
-.timeline-event:not(.is-point):active { transform: scaleY(0.94); }
+@media (hover: hover) and (pointer: fine) { .timeline-event:hover { box-shadow: inset 0 0 0 1px var(--game-vivid, var(--game-accent)); } }
+.timeline-event:not(.is-point):active { transform: translateY(1px); }
 .timeline-event.is-ended { opacity: .7; }
 .event-summary { display:grid; gap:2px; min-width:0; width:100%; position:relative; }
 .event-heading { display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; min-width:0; }

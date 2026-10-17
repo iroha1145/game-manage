@@ -1,9 +1,10 @@
 <script setup>
 import { ref, onBeforeUnmount } from 'vue'
 import { loginSite, registerSite } from '../identity-api.js'
-import AppIcon from './AppIcon.vue'
-import GameArt from './GameArt.vue'
+import GameIcon from './GameIcon.vue'
+import { gameVars } from '../dashboard.js'
 const emit = defineEmits(['authenticated'])
+const GAMES = [{ id: 'wuthering_waves', name: '鸣潮' }, { id: 'nte', name: '异环' }, { id: 'endfield', name: '终末地' }]
 const registering = ref(false), username = ref(''), password = ref(''), invite = ref(''), error = ref(''), busy = ref(false)
 let disposed = false
 onBeforeUnmount(() => { disposed = true; password.value = ''; invite.value = '' })
@@ -19,8 +20,8 @@ async function submit() {
 <template>
   <section class="site-login">
     <div class="site-login-art">
-      <GameArt variant="orbit" />
-      <span class="site-login-mark" aria-hidden="true"><AppIcon name="spark" :size="22" /></span>
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <div class="site-login-tiles" aria-hidden="true"><span v-for="game in GAMES" :key="game.id" class="login-tile" :style="gameVars(game.id)"><GameIcon :game-id="game.id" /><b>{{ game.name }}</b></span></div>
       <p class="site-login-games">鸣潮 · 异环 · 终末地</p>
     </div>
     <div class="site-login-panel">
@@ -38,18 +39,23 @@ async function submit() {
   </section>
 </template>
 <style scoped>
-/* A dark stage with the orbit artwork beside the form, on one white card. */
-.site-login{width:min(100%,900px);margin:7vh auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);overflow:hidden;border:1px solid var(--card-border);border-radius:var(--radius-shell);background:var(--card-bg);box-shadow:var(--card-hover-shadow)}
-.site-login-art{position:relative;isolation:isolate;display:flex;flex-direction:column;justify-content:space-between;min-height:460px;padding:30px;overflow:hidden;color:#fff;background:radial-gradient(120% 140% at 0% 0%,#2a2f4d 0%,#151827 46%,#0f111a 100%)}
-.site-login-art :deep(.game-art){z-index:-1}
-.site-login-mark{display:grid;place-items:center;width:46px;height:46px;border-radius:15px;background:linear-gradient(140deg,#8b7bff,#4f46e5 55%,#7c3aed);box-shadow:0 10px 24px -12px rgba(79,70,229,.9),inset 0 1px 0 rgba(255,255,255,.25)}
-.site-login-games{margin:0;font-size:24px;font-weight:600;line-height:32px;letter-spacing:-.02em}
+/* One white card: the three games as tone tiles on a warm panel beside the form (game-manage-ui-v1). */
+.site-login{width:min(100%,900px);margin:7vh auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);overflow:hidden;border:1px solid var(--card-border);border-radius:var(--radius-shell);background:var(--card-bg);box-shadow:var(--card-shadow)}
+.site-login-art{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:24px;min-height:460px;margin:7px;padding:26px;overflow:hidden;border-radius:22px;background:var(--control-track)}
+.site-login-tiles{position:relative;height:210px}
+.login-tile{position:absolute;display:grid;justify-items:start;align-content:space-between;width:150px;height:150px;padding:14px;border:4px solid var(--card-bg);border-radius:30px;background:var(--game-tone);box-shadow:0 18px 40px -24px rgba(38,40,46,.45);color:var(--game-accent)}
+.login-tile:nth-child(1){left:0;top:44px;transform:rotate(-8deg)}
+.login-tile:nth-child(2){left:31%;top:0;z-index:2;transform:rotate(3deg)}
+.login-tile:nth-child(3){left:60%;top:56px;transform:rotate(10deg)}
+.login-tile .game-icon{width:44px;height:44px;border-radius:13px;background:var(--card-bg);font-size:18px;font-weight:600}
+.login-tile b{font-size:17px;font-weight:600}
+.site-login-games{margin:0;color:var(--text);font-size:22px;font-weight:600;line-height:30px;letter-spacing:-.02em}
 .site-login-panel{display:grid;align-content:center;gap:18px;padding:44px 40px}
 .site-login form{display:grid;gap:14px}.site-login label{display:grid;gap:7px;font-size:13px;font-weight:500}
-.site-login input{width:100%;min-width:0;min-height:44px;box-sizing:border-box;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);box-shadow:var(--btn-shadow);color:var(--text);font-weight:400}
+.site-login input{width:100%;min-width:0;min-height:44px;box-sizing:border-box;padding:10px 13px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);color:var(--text);font-weight:400}
 .site-login input:focus-visible{border-color:var(--accent);outline:none;box-shadow:var(--ring)}
 .site-login .ui-button.primary{min-height:44px;margin-top:4px}
-h1,p{margin:0}h1{font-size:28px;font-weight:600;line-height:36px;letter-spacing:-.02em}p{line-height:1.6}small{font-size:12px;color:var(--text-muted)}p[role=alert]{color:var(--danger);font-size:13px}
+h1,p{margin:0}h1{font-size:28px;font-weight:600;line-height:36px;letter-spacing:-.03em}p{line-height:1.6}small{font-size:12px;color:var(--text-muted)}p[role=alert]{color:var(--danger);font-size:13px}
 .site-login .text-link{justify-self:start}
-@media(max-width:760px){.site-login{grid-template-columns:1fr;margin:3vh auto}.site-login-art{min-height:200px;padding:22px}.site-login-games{font-size:20px;line-height:28px}.site-login-panel{padding:28px 22px}}
+@media(max-width:760px){.site-login{grid-template-columns:1fr;margin:3vh auto}.site-login-art{min-height:0;padding:20px}.site-login-tiles{height:130px}.login-tile{width:96px;height:96px;padding:10px;border-radius:22px}.login-tile .game-icon{width:32px;height:32px;border-radius:10px;font-size:14px}.login-tile b{font-size:14px}.site-login-games{font-size:19px;line-height:26px}.site-login-panel{padding:28px 22px}}
 </style>

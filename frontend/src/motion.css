@@ -179,18 +179,20 @@
 }
 
 /* Native dialogs keep focus containment until their short exit finishes. */
-.t-dialog { --dialog-shift:8px; --dialog-scale:.99; }
+.t-dialog { --dialog-shift:8px; --dialog-shift-x:0px; --dialog-scale:.99; }
+/* A right-side sheet (.sheet-dialog in style.css) slides in from the right edge instead. */
+.t-dialog.sheet-dialog { --dialog-shift:0px; --dialog-shift-x:30px; --dialog-scale:1; }
 .t-dialog[open] { animation:t-dialog-enter var(--duration-fast) var(--ease-smooth-out); }
 .t-dialog[data-closing] { animation:t-dialog-exit var(--duration-quick) var(--ease-out) both; }
 .t-dialog::backdrop { animation:t-fade-in var(--duration-fast) var(--ease-out); }
 .t-dialog[data-closing]::backdrop { animation:t-fade-in var(--duration-quick) var(--ease-out) reverse both; }
 @keyframes t-dialog-enter {
-  from { opacity:.6; transform:translateY(var(--dialog-shift)) scale(var(--dialog-scale)); }
+  from { opacity:.6; transform:translate(var(--dialog-shift-x), var(--dialog-shift)) scale(var(--dialog-scale)); }
   to { opacity:1; transform:none; }
 }
 @keyframes t-dialog-exit {
   from { opacity:1; transform:none; }
-  to { opacity:0; transform:translateY(var(--dialog-shift)) scale(var(--dialog-scale)); }
+  to { opacity:0; transform:translate(var(--dialog-shift-x), var(--dialog-shift)) scale(var(--dialog-scale)); }
 }
 
 /* Accordion expand (transitions.dev 21) for every native disclosure. Browsers

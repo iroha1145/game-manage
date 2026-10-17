@@ -97,7 +97,7 @@ summary.warn .source-summary { color:var(--stale-text); }
 .source-chevron { color:var(--text-faint); transition:transform var(--duration-fast) var(--ease-smooth-out); }
 .source-panel[open] .source-chevron { transform:rotate(180deg); }
 @media(hover:hover) and (pointer:fine) { summary:hover { background:var(--button-hover-bg); color:var(--text); } summary.danger:hover { background:var(--danger-bg); } }
-summary:active { transform:scale(var(--scale-medium)); }
+summary:active { transform:translateY(1px); }
 /* Popover under the chip; onToggle sets its fixed position and width. It sits
    above the sidebar so a narrow window never hides its first column. */
 .source-body { position:fixed; z-index:45; overflow:auto; border:1px solid var(--border); border-radius:var(--radius-well); background:var(--card-bg); box-shadow:var(--popover-shadow); }
