@@ -512,7 +512,6 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
 .catalog-item details a { display:inline-flex; align-items:center; gap:4px; margin-top:7px; }
 @media(max-width:720px) { .catalog-grid { grid-template-columns:1fr; } }
 .operator-item .ui-button { margin-top:8px; }
-.operator-detail { margin-top:8px; border-top:1px solid var(--border); padding-top:8px; display:grid; gap:5px; }
 .passport-connect { display:flex; align-items:center; justify-content:space-between; gap:8px 16px; flex-wrap:wrap; }
 .passport-connect .hint { margin:0; }
 .manual-connect { margin-top:10px; }
