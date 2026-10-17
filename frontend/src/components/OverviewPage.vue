@@ -239,7 +239,6 @@ function quickLinks(card) {
       <div class="section-heading"><h2>公告与资讯</h2><div class="news-filters"><MenuSelect v-model="newsFilter" label="公告游戏筛选" :options="newsGameOptions" /><MenuSelect v-model="sourceFilter" label="资讯来源" align="end" :options="newsSourceOptions" /></div></div>
       <div class="news-list"><p v-if="!news.length" class="empty-page">{{ loading ? '加载中…' : '暂无公告。' }}</p><article v-for="(item, i) in news" :key="`${item.gameId}:${item.title}:${i}`" class="news-summary t-row" :style="gameVars(item.gameId)"><GameIcon class="news-mark" :game-id="item.gameId" :name="item.gameName" /><div class="news-copy"><a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }} <span>↗</span></a><p v-else>{{ item.title }}</p><div class="news-source">{{ item.gameName }}<span> / {{ item.source_name || (item.capability === 'news' ? '资讯' : '官方公告') }}</span><time v-if="item.published_at">{{ formatTime(item.published_at) }}</time></div></div></article></div>
     </section>
-    <footer class="overview-footer"><span>时间均为北京时间</span></footer>
   </div>
 </template>
 
@@ -421,7 +420,6 @@ function quickLinks(card) {
 .news-summary a,.news-summary .news-copy>p { display:block; color:var(--text); text-decoration:none; font-size:14px; font-weight:500; line-height:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-summary a span { color:var(--text-faint); }
 .news-source { display:flex; align-items:center; gap:6px; margin-top:2px; color:var(--text-muted); font-size:12px; line-height:18px; min-width:0; }.news-source>span { color:var(--text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.news-source time { margin-left:auto; flex-shrink:0; }
 @media(hover:hover) and (pointer:fine) { .news-summary a:hover,.news-summary a:hover span { color:var(--accent); } }
-.overview-footer { margin-top:20px; display:flex; justify-content:space-between; gap:12px; color:var(--text-faint); font-size:12px; }
 
 @media(max-width:1250px) { .ov-top { grid-template-columns:minmax(0, 1.6fr) minmax(270px, 1fr); gap:16px; } .hero-inner { padding-left:22px; } .hero-index { left:16px; } .hero-art { right:2%; } .ov-analytics { grid-template-columns:minmax(0, 1.5fr) minmax(280px, 1fr); gap:16px; } }
 @media(max-width:1000px) { .ov-top,.ov-analytics { grid-template-columns:minmax(0, 1fr); } .ov-tasks .task-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); column-gap:18px; } .task:nth-child(2) { border-top:0; padding-top:0; } }

@@ -107,7 +107,7 @@ button:disabled { cursor:not-allowed; opacity:.5; } button:focus-visible,a:focus
 button,a,input,select,summary { transition: color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), box-shadow var(--duration-quick) var(--ease-smooth-out), opacity var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
 ::selection { background:color-mix(in srgb, var(--accent) 20%, transparent); }
 .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
-.skip-link { position:fixed; left:20px; top:-80px; z-index:200; padding:12px 20px; border-radius:10px; background:var(--card-bg); color:var(--text); box-shadow:var(--popover-shadow); text-decoration:none; }.skip-link:focus { top:16px; }
+.skip-link { position:fixed; left:20px; top:-80px; z-index:200; padding:12px 20px; border-radius:10px; background:var(--card-bg); color:var(--text); text-decoration:none; }.skip-link:focus { top:16px; box-shadow:var(--popover-shadow); }
 .mono { font-family:var(--font-mono); }
 /* Frosted chip: badges and arrows that float over art or a scrolling rail. */
 .glass { background:var(--glass-bg); -webkit-backdrop-filter:var(--glass-filter); backdrop-filter:var(--glass-filter); border:1px solid var(--border); box-shadow:var(--float-shadow); }
