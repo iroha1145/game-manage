@@ -80,7 +80,7 @@ test('an expired game authorization answers 401 without ending the website sessi
   const passport = await connectCloudSklandPassport('a', 'r').catch(error => error)
   assert.equal(cleared, 0, 'an expired Hypergryph authorization ended the website session')
   assert.equal(passport.status, 401); assert.equal(passport.code, 'auth_expired')
-  assert.equal(passport.message, '游戏授权不可用，请到账号设置重新登录')
+  assert.equal(passport.message, '游戏授权不可用，请到「账号与授权」重新登录')
   setAccountScope({ account_id: 'a', role_id: 'r', provider: 'kuro' })
   reply = JSON.stringify({ detail: 'private_query_failed' })
   await assert.rejects(wuwaRequest('roles/1'), /请重新登录鸣潮账号/)
@@ -150,4 +150,15 @@ test('every production fetch remains behind the audited HTTP broker', () => {
   const root = new URL('.',import.meta.url)
   const callers = readdirSync(root,{recursive:true}).filter(name => /\.(js|vue)$/.test(name) && !name.endsWith('.test.js') && /\bfetch\s*\(/.test(readFileSync(new URL(name.replaceAll('\\','/'),root),'utf8')))
   assert.deepEqual(callers,['http-client.js'])
+})
+test('Skland reads in the cloud go to the owned role routes with their query, and only for a Skland authorization', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async path => { calls.push(path); return json({}) })
+  setAccountScope({ account_id: 's', role_id: 'a', provider: 'skland' })
+  const reads = ['card', 'attendance', 'operators/char%2F1', 'challenges?kind=war', 'challenges?kind=monument', 'tools?kind=materials']
+  for (const read of reads) await requestJson(`/api/endfield/skland/${read}`)
+  assert.deepEqual(calls, reads.map(read => `/api/accounts/s/roles/a/endfield/skland/${read}`))
+  setAccountScope({ account_id: 'h', role_id: 'a', provider: 'hypergryph' })
+  await assert.rejects(requestJson('/api/endfield/skland/operators/char1'), /尚未提供云端接口/)
 })

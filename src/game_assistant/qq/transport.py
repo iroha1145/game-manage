@@ -14,7 +14,7 @@ from .models import InboundMessage, QqIdentity
 from .rendering import ImagePreparationFailed
 
 logger=logging.getLogger(__name__)
-IMAGE_FALLBACK_NOTICE='图片暂不可用，当前为文字摘要；完整内容请到网站查看。'
+IMAGE_FALLBACK_NOTICE='图片暂不可用，改发文字版；完整内容请到网站查看。'
 IMAGE_PREPARATION_CODES=frozenset(('qq_image_invalid','qq_image_deadline','qq_image_upload_timeout','qq_image_upload_failed'))
 
 

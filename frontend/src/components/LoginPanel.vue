@@ -5,9 +5,9 @@ import { isCloudMode } from '../http-client.js'
 
 const emit = defineEmits(['account-changed'])
 const GAMES = [{ id: 'wuthering_waves', name: '鸣潮' }, { id: 'nte', name: '异环' }, { id: 'endfield', name: '终末地' }]
-const LOGIN_HINTS = { endfield: '终末地使用鹰角通行证绑定的中国大陆手机号登录，目前只支持官服。' }
-const endfieldConnectionHint = computed(() => isCloudMode() ? '登录后可在下方选择鹰角授权与角色，一键连接森空岛；也可手动授权。' : '登录后可在终末地页面一键连接森空岛。')
-const STATE_LABELS = { connected: '已连接', active: '已授权', configured: '已配置', expired: '登录已失效', revoked: '授权已撤销', unconfigured: '未登录' }
+const LOGIN_HINTS = { endfield: '使用鹰角通行证绑定的手机号登录（仅支持官服）。' }
+const endfieldConnectionHint = computed(() => isCloudMode() ? '登录后可在下方一键连接森空岛。' : '登录后可在终末地页面一键连接森空岛。')
+const STATE_LABELS = { connected: '已登录', active: '已授权', configured: '已登录', expired: '登录已失效', revoked: '授权已撤销', unconfigured: '未登录' }
 const accounts = ref({})
 const statusError = ref('')
 const statusLoading = ref(false)
@@ -272,7 +272,7 @@ async function submitLogin() {
     resetSession()
     mobile.value = ''
     expanded.value = false
-    notice.value = `${selectedName.value}登录成功。前往游戏档案刷新数据。`
+    notice.value = `${selectedName.value}登录成功。`
     emit('account-changed', { game, loggedIn: true })
     await refreshStatus()
   } catch (e) {
@@ -327,13 +327,14 @@ onBeforeUnmount(() => {
 <template>
   <section class="login-panel" aria-labelledby="accounts-title">
     <header class="panel-header">
-      <div><h2 id="accounts-title">社区账号</h2><p class="muted">手机号登录，连接你的游戏数据</p></div>
+      <div><h2 id="accounts-title">社区账号</h2></div>
       <button class="text-button" :disabled="statusLoading || !!busy" @click="refreshStatus">{{ statusLoading ? '读取中…' : '刷新状态' }}</button>
     </header>
     <div class="accounts">
-      <div v-for="game in GAMES" :key="game.id" class="account-row">
+      <div v-for="game in GAMES" :key="game.id" class="account-row" :data-game="game.id">
         <div class="account-info">
           <strong>{{ game.name }}</strong>
+          <span class="account-mark" aria-hidden="true">{{ game.name.slice(0, 1) }}</span>
           <span class="state" :class="accounts[game.id]?.state">{{ accounts[game.id] ? (STATE_LABELS[accounts[game.id].state] || '状态未知') : (statusLoading ? '读取中' : '状态未知') }}</span>
           <span v-if="accounts[game.id]?.nickname" class="nickname">{{ accounts[game.id].nickname }}</span>
           <small v-if="accounts[game.id]?.source === 'config'" class="muted">来自原有配置</small>
@@ -348,13 +349,13 @@ onBeforeUnmount(() => {
     <p v-if="statusError" class="error" role="alert">{{ statusError }}</p>
     <form v-if="expanded" class="login-form" @submit.prevent="submitLogin">
       <div class="form-header"><h3>登录{{ selectedName }}</h3><button type="button" class="text-button" :disabled="!!busy" @click="closeForm">收起</button></div>
-      <p class="muted">{{ LOGIN_HINTS[selectedGame] || '请使用游戏社区绑定的中国大陆手机号。' }}{{ selectedGame === 'endfield' ? endfieldConnectionHint : '' }}退出仅清除本工具授权。</p>
+      <p v-if="LOGIN_HINTS[selectedGame] || selectedGame === 'endfield'" class="muted">{{ LOGIN_HINTS[selectedGame] || '' }}{{ selectedGame === 'endfield' ? endfieldConnectionHint : '' }}</p>
       <label for="community-mobile">手机号</label>
       <input id="community-mobile" v-model.trim="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="11" placeholder="11 位中国大陆手机号" :readonly="!!busy" />
       <p v-if="mobile && !validMobile" class="field-hint">请输入有效的 11 位中国大陆手机号。</p>
       <div class="session-row">
         <button type="button" class="primary" :disabled="!!busy || !validMobile || cooldown > 0" @click="startSession">{{ busy === 'session' ? '准备中…' : (session ? '重新登录' : '开始登录') }}</button>
-        <span v-if="session" class="muted">{{ expired ? '会话已过期' : `本次登录剩余 ${timeLabel}` }}</span>
+        <span v-if="session" class="muted">{{ expired ? '会话已过期' : `剩余 ${timeLabel}` }}</span>
         <span v-else-if="cooldown" class="muted">请 {{ cooldown }} 秒后重试</span>
       </div>
       <template v-if="session && !expired">
@@ -376,49 +377,58 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.login-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--card-shadow); }
+.login-panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); box-shadow: var(--card-shadow); padding: 20px; }
 .panel-header, .form-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+h2 { font-size: 17px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 4px; }
 h3 { font-size: 15px; font-weight: 600; }
 .muted, .field-hint { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
-.accounts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
-.account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
-.account-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px; margin-top: 14px; }
+/* Each game is a white row with a hairline and its mark on the game's pale tone. */
+.account-row { --mark-tone: var(--control-track); --mark-ink: var(--text); position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-tile); background: var(--card-bg); padding: 14px; }
+.account-row[data-game="wuthering_waves"] { --mark-tone: var(--game-wuwa-tone); --mark-ink: var(--game-wuwa); }
+.account-row[data-game="nte"] { --mark-tone: var(--game-nte-tone); --mark-ink: var(--game-nte); }
+.account-row[data-game="endfield"] { --mark-tone: var(--game-endfield-tone); --mark-ink: var(--game-endfield); }
+.account-info { position: relative; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
+/* Placed after the name in the markup (the name leads the row's text); drawn first. */
+.account-mark { order: -1; display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border: 3px solid var(--card-bg); border-radius: 13px; background: var(--mark-tone); box-shadow: 0 0 0 1px var(--card-border); color: var(--mark-ink); font-size: 15px; font-weight: 600; }
+.account-info > strong { font-size: 15px; font-weight: 600; }
 .account-message { flex-basis: 100%; overflow-wrap: anywhere; }
-.nickname { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account-actions { display: flex; flex-shrink: 0; gap: 6px; }
-.state { font-size: 11px; font-weight: 500; line-height: 18px; border-radius: 5px; padding: 1px 7px; color: var(--text-muted); background: var(--overlay-3); }
+.nickname { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-muted); }
+.account-actions { position: relative; display: flex; flex-shrink: 0; gap: 6px; }
+.state { font-size: 12px; font-weight: 500; line-height: 22px; border-radius: var(--radius-chip); padding: 0 10px; color: var(--text-muted); background: var(--card-bg); }
 .connected, .active { color: var(--success); background: var(--success-bg); }
 .expired, .revoked { color: var(--danger); background: var(--danger-bg); }
 .configured { color: var(--stale-text); background: var(--stale-bg); }
-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--card-bg); color: var(--text-body); padding: 5px 12px; font-size: 12px; font-weight: 500; line-height: 18px; cursor: pointer; box-shadow: var(--btn-shadow); transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), box-shadow var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card-bg); box-shadow: var(--btn-shadow); color: var(--text); padding: 6px 14px; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; transition: color var(--duration-quick) var(--ease-smooth-out), border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out), transform var(--duration-quick) var(--ease-smooth-out); }
 @media (hover: hover) and (pointer: fine) { button:not(:disabled):hover { background: var(--button-hover-bg); color: var(--text); } }
-button:not(:disabled):active { transform: scale(var(--scale-medium)); box-shadow: var(--btn-shadow-pressed); }
-.text-button, .text-button:not(:disabled):hover { box-shadow: none; background: transparent; border-color: transparent; }
+button:not(:disabled):active { transform: translateY(1px); }
+.text-button, .text-button:not(:disabled):hover { background: transparent; border-color: transparent; box-shadow: none; }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.text-button { border: 0; color: var(--accent); min-height: 0; padding: 4px; white-space: nowrap; }
+.text-button { border: 0; color: var(--accent); min-height: 0; padding: 4px 6px; white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) { .text-button:not(:disabled):hover { color: var(--accent-strong); } }
+.account-actions .text-button { min-height: 36px; padding: 6px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); box-shadow: none; }
+@media (hover: hover) and (pointer: fine) { .account-actions .text-button:not(:disabled):hover { background: var(--panel-bg); border-color: var(--border-strong); } }
 .logout { color: var(--text-muted); }
-.primary { color: var(--accent-ink); background: var(--accent-fill); border-color: transparent; box-shadow: var(--btn-primary-shadow); }
+.primary { color: var(--accent-ink); background: var(--accent-fill); border-color: var(--accent-fill); box-shadow: none; }
 @media (hover: hover) and (pointer: fine) { .primary:not(:disabled):hover { color: var(--accent-ink); background: var(--accent-hover); } }
-.primary:not(:disabled):active { transform: scale(var(--scale-small)); box-shadow: var(--btn-primary-pressed); }
-.login-form { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 560px; }
-label { font-size: 13px; font-weight: 600; margin-top: 4px; }
-input { width: 100%; min-width: 0; border: 1px solid var(--border-strong); border-radius: 7px; padding: 9px 12px; font: inherit; color: var(--text); background: var(--card-bg); box-shadow: inset 0 1px 2px rgba(16, 24, 40, .04); }
+.primary:not(:disabled):active { transform: translateY(1px); }
+.login-form { margin-top: 18px; padding: 18px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 600px; border: 1px solid var(--border); border-radius: var(--radius-tile); background: var(--panel-bg); }
+label { font-size: 13px; font-weight: 500; margin-top: 4px; }
+input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 10px 13px; font: inherit; color: var(--text); background: var(--card-bg); box-shadow: none; }
 input::placeholder { color: var(--text-faint); }
 input:focus-visible { border-color: var(--accent); outline: none; box-shadow: var(--ring); }
 input[readonly] { background: var(--panel-bg); }
 .session-row, .sms-row { display: flex; align-items: center; gap: 12px; }
 .session-row { flex-wrap: wrap; }
-.sms-row button { flex-shrink: 0; }
+.sms-row button { flex-shrink: 0; min-height: 44px; }
 .captcha-area { min-height: 64px; display: flex; flex-direction: column; gap: 8px; }
-.submit-button { align-self: flex-start; min-width: 132px; }
+.submit-button { align-self: flex-start; min-width: 132px; min-height: 40px; }
 .error, .success { font-size: 13px; line-height: 1.6; margin-top: 12px; overflow-wrap: anywhere; animation: t-rise var(--duration-medium) var(--ease-smooth-out) backwards; }
 .success { display: flex; align-items: flex-start; gap: 8px; }
 .error.is-shaking { animation: t-shake var(--duration-slow) var(--ease-smooth-out) both; }
 .error { color: var(--danger); }
 .success { color: var(--success); }
 @media (pointer: coarse) { button:not(.text-button) { min-height: 44px; } }
-@media (max-width: 640px) { .accounts { grid-template-columns: 1fr; } .login-panel { padding: 12px; } }
+@media (max-width: 640px) { .login-panel { padding: 16px; } .login-form { padding: 14px; } }
 </style>

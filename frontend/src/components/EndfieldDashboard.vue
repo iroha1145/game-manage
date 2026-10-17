@@ -1,6 +1,6 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { formatTime } from '../dashboard.js'
 import {
   getPublic, refreshPublic, getMap, getMapMark, getSklandStatus, connectSkland, connectSklandWithPassport, chooseSklandRole,
   disconnectSkland, getSklandCard, refreshSklandCard, getAttendance, signAttendance,
@@ -18,6 +18,8 @@ import AnnouncementList from './AnnouncementList.vue'
 import EndfieldAttendance from './EndfieldAttendance.vue'
 import EndfieldNewsSummary from './EndfieldNewsSummary.vue'
 import { attendanceEnvelope } from '../endfield-attendance.js'
+import { vGlide } from '../motion.js'
+import EndfieldLocked from './EndfieldLocked.vue'
 
 const props = defineProps({ cloudAccount:Object, cloudRole:String, isAdmin:Boolean, configured:{type:Boolean,default:undefined}, authAccount:Object, refreshing:Boolean, snaps: { type: Object, default: () => ({}) }, initialSection: { type: String, default: 'overview' } })
 const emit = defineEmits(['calendar','refresh'])
@@ -60,14 +62,9 @@ const roleKey = computed(() => selectedRole.value ? `${selectedRole.value.role_i
 const passportView = computed(() => gachaView({snaps:props.snaps,cloudAccount:props.cloudAccount,cloudRole:props.cloudRole,configured:props.configured,authAccount:props.authAccount}))
 const cardPayload = computed(() => card.value?.payload || null)
 const display = value => value === null || value === undefined || value === '' ? '未知' : String(value)
-const dateText = value => value ? formatTime(value) : '未知'
 const list = value => Array.isArray(value) ? value : []
 const humanError = value => value === '暂时无法连接服务，请稍后重试。' ? value : value ? friendlyDataError(value) : ''
 const roleLabel = role => cloud.value ? `${role.nickname || '未命名角色'} · ${role.role_id}` : `${role.nickname || '未命名角色'} · ${role.role_id} / ${role.server_id}`
-const named = value => typeof value === 'string' ? value : (value?.name || value?.title || '未知')
-const regionSummary = item => `等级 ${display(item.level)} · ${list(item.levels).length} 个区域 · ${list(item.settlements).length} 处据点`
-const shipSummary = item => `${item.name || '舱室'} · 等级 ${display(item.level)} · ${list(item.operators).length} 名干员`
-const countPair = item => `${display(item?.count)} / ${display(item?.total)}`
 const roleValue = computed(() => roleKey.value)
 const publicNewsSnap = computed(() => publicData.value?.news ? { ...publicData.value.news, payload: publicData.value.news.items, error: publicError.value } : null)
 const newsSnapshots = computed(() => [publicNewsSnap.value, props.snaps.news, props.snaps.announcement].filter(Boolean))
@@ -283,9 +280,9 @@ async function connectWithPassport() {
   } catch (error) { actionError.value = humanError(error.message); manualOpen.value = true }
   finally { actionBusy.value = false }
 }
-async function selectRole(event) {
-  const role = status.value?.roles?.find(item => `${item.role_id}:${item.server_id}` === event.target.value)
-  if (!role || event.target.value === roleKey.value) { event.target.value = roleKey.value; return }
+async function selectRole(value) {
+  const role = status.value?.roles?.find(item => `${item.role_id}:${item.server_id}` === value)
+  if (!role || value === roleKey.value) return
   clearPrivate(); actionBusy.value = true; actionError.value = ''; actionMessage.value = ''
   try { status.value = await chooseSklandRole(role.role_id, role.server_id) }
   catch (error) { actionError.value = humanError(error.message); await loadStatus(); if (roleKey.value) reloadPrivate() }
@@ -370,12 +367,12 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
 <template>
   <div class="endfield-dashboard">
     <div class="endfield-nav">
-      <nav class="ef-main-nav" aria-label="终末地数据分区">
+      <nav v-glide class="ef-main-nav segmented" aria-label="终末地数据分区">
         <button v-for="[id, label] in primaryTabs" :key="id" type="button" :aria-pressed="section === id" @click="selectSection(id)">{{ label }}</button>
         <button type="button" :aria-expanded="moreOpen" aria-controls="endfield-more-nav" :class="{ active: additionalTabs.some(([id]) => id === section) }" @click="moreOpen = !moreOpen">{{ additionalTabs.find(([id]) => id === section)?.[1] || '更多' }}<AppIcon name="chevron" :size="13" /></button>
       </nav>
       <button type="button" class="text-link ef-calendar-link" @click="emit('calendar')"><AppIcon name="calendar" :size="15" />活动日历<AppIcon name="arrow" :size="15" /></button>
-      <nav v-show="moreOpen" id="endfield-more-nav" class="ef-more-nav" aria-label="其他终末地入口"><button v-for="[id,label] in additionalTabs" :key="id" type="button" :aria-pressed="section === id" @click="selectSection(id)">{{ label }}</button></nav>
+      <nav v-show="moreOpen" id="endfield-more-nav" class="ef-more-nav segmented" aria-label="其他终末地入口"><button v-for="[id,label] in additionalTabs" :key="id" type="button" :aria-pressed="section === id" @click="selectSection(id)">{{ label }}</button></nav>
     </div>
 
     <div v-if="profileSections.includes(section)" class="endfield-stack">
@@ -384,25 +381,25 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
         <p v-if="statusError" class="error" role="alert">{{ statusError }}</p>
         <template v-if="!cloud && !statusBusy && !connected">
           <div v-if="passportAvailable" class="passport-connect">
-            <p class="hint">使用已登录的鹰角通行证连接，无需复制凭据。可查看理智、干员、探索和挑战记录。</p>
-            <button type="button" class="ui-button" :disabled="actionBusy" @click="connectWithPassport">{{ actionBusy ? '连接中…' : '用鹰角通行证连接' }}</button>
+            <button type="button" class="ui-button primary" :disabled="actionBusy" @click="connectWithPassport">{{ actionBusy ? '连接中…' : '用鹰角通行证连接' }}</button>
           </div>
           <p v-else class="hint">在「社区账号」登录终末地后，可一键连接森空岛；也可以手动连接。</p>
           <details class="manual-connect" :open="manualOpen" @toggle="manualOpen = $event.target.open"><summary>手动连接（备用）</summary>
             <form class="field-grid" @submit.prevent="connect">
               <p class="hint">填写森空岛网页会话凭据。凭据只在本机加密保存。</p>
-              <label>森空岛凭据<input v-model="cred" type="password" required autocomplete="off" placeholder="填写 cred" /></label>
+              <label>森空岛凭据<input v-model="cred" type="password" required autocomplete="off" /></label>
               <label>官方设备标识（可选）<input v-model="deviceId" type="password" autocomplete="off" placeholder="已有设备标识时填写" /></label>
               <button type="submit" class="ui-button" :disabled="actionBusy">{{ actionBusy ? '连接中…' : '连接森空岛' }}</button>
             </form>
           </details>
         </template>
-        <div v-else-if="connected && !cloud" class="role-bar"><label><span class="ef-role-label">当前角色</span><select aria-label="森空岛角色" :value="roleKey" :disabled="actionBusy" @change="selectRole"><option value="">请选择角色</option><option v-for="role in list(status.roles)" :key="`${role.role_id}:${role.server_id}`" :value="`${role.role_id}:${role.server_id}`">{{ roleLabel(role) }}</option></select></label><button type="button" class="ui-button" :disabled="actionBusy || !roleKey || cardBusy" @click="loadCard(true)"><AppIcon name="refresh" :size="14" />{{ cardBusy ? '读取中…' : '刷新档案' }}</button><details class="ef-connection-settings"><summary>连接设置</summary><button type="button" class="ui-button" :disabled="actionBusy" @click="disconnect">断开森空岛</button></details></div>
+        <div v-else-if="connected && !cloud" class="role-bar"><label><span class="ef-role-label">当前角色</span><MenuSelect label="森空岛角色" :model-value="roleKey" :disabled="actionBusy" @change="selectRole" :options="[{value:'',label:'请选择角色'},...list(status.roles).map(role=>({value:`${role.role_id}:${role.server_id}`,label:roleLabel(role)}))]" /></label><button type="button" class="ui-button" :disabled="actionBusy || !roleKey || cardBusy" @click="loadCard(true)"><AppIcon name="refresh" :size="14" />{{ cardBusy ? '读取中…' : '刷新档案' }}</button><details class="ef-connection-settings"><summary>连接设置</summary><button type="button" class="ui-button" :disabled="actionBusy" @click="disconnect">断开森空岛</button></details></div>
         <p v-if="connected && !roleKey" class="hint">{{ status.source === 'passport' ? '森空岛绑定的角色与通行证登录的角色不同，请确认后手动选择。' : '请选择一个森空岛角色。' }}</p>
 
-        <p v-if="cloud" class="hint">{{ cloudAccount.provider === 'skland' ? '森空岛档案' : '鹰角寻访' }} · {{ cloudAccount.roles?.find(r=>r.role_id === cloudRole)?.display_name || cloudRole }}。请在页面上方切换授权与角色。</p><p v-if="cloud && !connected" class="hint">当前是鹰角寻访授权；查看档案、干员、探索与挑战需单独选择森空岛授权。</p>
+        <p v-if="cloud" class="hint">{{ cloudAccount.provider === 'skland' ? '森空岛档案' : '鹰角寻访' }} · {{ cloudAccount.roles?.find(r=>r.role_id === cloudRole)?.display_name || cloudRole }}</p><p v-if="cloud && !connected" class="hint">当前是鹰角寻访授权；查看档案、干员、探索与挑战需单独选择森空岛授权。</p>
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p><p v-if="actionMessage" class="hint" role="status">{{ actionMessage }}</p>
       </section>
+      <EndfieldLocked v-if="!roleKey && section !== 'overview'" :section="section" />
 
       <template v-if="section === 'overview'">
         <template v-if="roleKey"><p v-if="cardBusy" class="hint" role="status">正在读取档案…</p><p v-if="cardError" class="error" role="alert">{{ cardError }}</p>
@@ -422,14 +419,13 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
       <EndfieldChallenges v-if="section === 'challenges' && roleKey" :value="challenge" :kind="challengeKind" :busy="challengeBusy" :error="challengeError" @select-kind="challengeKind = $event" @reload="loadChallenge" />
     </div>
 
-    <div v-else-if="section === 'gacha'" class="endfield-stack"><section v-if="passport" class="cap-card"><div class="cap-title">鹰角通行证寻访账号<span v-if="passportView.snapshot?.stale" class="badge badge-stale">寻访待更新</span></div><p v-if="passportView.account" class="identity">{{ passportView.account.nickname || '未知昵称' }} · 角色编号 {{ passportView.account.role_id }}</p><p v-if="passportView.message" class="hint">{{ passportView.message }}</p><button type="button" class="ui-button" :disabled="refreshing" @click="emit('refresh')">{{ refreshing ? '同步中…' : '刷新寻访数据' }}</button></section><EndfieldGachaPanel v-if="passport && passportView.accountId" :snap="passportView.snapshot" :account-id="passportView.accountId" /><p v-if="!passport" class="cap-card hint">寻访数据使用独立鹰角授权，请在页面上方切换。</p></div>
+    <div v-else-if="section === 'gacha'" class="endfield-stack"><section v-if="passport" class="cap-card ef-identity-card"><div class="cap-title">鹰角通行证寻访账号<span v-if="passportView.snapshot?.stale" class="badge badge-stale">寻访待更新</span></div><p v-if="passportView.account" class="identity">{{ passportView.account.nickname || '未知昵称' }} · 角色编号 {{ passportView.account.role_id }}</p><p v-if="passportView.message" class="hint">{{ passportView.message }}</p><button type="button" class="ui-button" :disabled="refreshing" @click="emit('refresh')">{{ refreshing ? '同步中…' : '刷新寻访数据' }}</button></section><EndfieldGachaPanel v-if="passport && passportView.accountId" :snap="passportView.snapshot" :account-id="passportView.accountId" /><p v-if="!passport" class="cap-card hint">寻访数据使用独立鹰角授权，请在页面上方切换。</p></div>
 
-    <div v-else-if="section === 'map'" class="endfield-stack"><section class="cap-card"><div class="cap-title">官方地图</div><form class="map-filters" @submit.prevent="submitMapSearch"><label>地图<select v-model="mapId"><option value="">请选择地图</option><option v-for="item in list(map?.maps)" :key="item.id" :value="item.id">{{ item.name }}</option></select></label><label>区域<select v-model="levelId"><option value="">默认区域</option><option v-for="item in list(selectedMap?.levels)" :key="item.id" :value="item.id">{{ item.name }}</option></select></label><label>点位类型<select v-model="typeId"><option value="">全部类型</option><option v-for="item in list(map?.categories)" :key="item.id" :value="item.id">{{ item.name }}</option></select></label><label>搜索点位<input v-model="mapQuery" type="search" placeholder="输入名称" /></label><button type="submit" class="ui-button" :disabled="mapBusy">搜索</button></form><p v-if="mapBusy" class="hint" role="status">正在读取地图点位…</p><p v-if="mapError" class="error" role="alert">{{ mapError }}</p><p v-if="map?.stale" class="badge badge-stale">地图待更新</p><p v-if="!mapBusy && !list(map?.marks).length" class="empty">暂无匹配点位</p><ul v-else class="mark-list"><li v-for="(mark, i) in list(map?.marks)" :key="mark.id || i"><div><strong>{{ display(mark.name) }}</strong><p class="hint">坐标 {{ display(mark.x) }}，{{ display(mark.y) }}，{{ display(mark.z) }}<span v-if="mark.description"> · {{ mark.description }}</span></p></div><div class="actions"><button type="button" class="ui-button" :disabled="markBusy" @click="loadMark(mark)">查看详情</button><a v-if="safeExternalUrl(mark.url)" :href="safeExternalUrl(mark.url)" target="_blank" rel="noopener noreferrer">官方地图<AppIcon name="arrow" :size="14" /></a></div></li></ul><section v-if="markDetail || markBusy || markError" class="inner-card mark-detail"><p v-if="markBusy" class="hint" role="status">正在读取点位详情…</p><p v-if="markError" class="error" role="alert">{{ markError }}</p><template v-if="markDetail"><h3>{{ markDetail.typeSub?.name || markDetail.typeMain?.name || "地图点位" }}</h3><p v-if="markDetail.desc">{{ markDetail.desc }}</p><p>坐标：{{ display(markDetail.pos?.x) }}，{{ display(markDetail.pos?.y) }}，{{ display(markDetail.pos?.z) }}</p><a v-if="safeExternalUrl(markDetail.link)" :href="safeExternalUrl(markDetail.link)" target="_blank" rel="noopener noreferrer">{{ markDetail.linkText || "查看官方说明" }}<AppIcon name="arrow" :size="14" /></a></template></section><div v-if="map?.total > map?.limit" class="actions"><button type="button" class="ui-button" :disabled="mapBusy || mapOffset === 0" @click="mapOffset = Math.max(0, mapOffset - map.limit)">上一页</button><span class="hint">{{ mapOffset + 1 }}–{{ Math.min(mapOffset + map.limit, map.total) }} / {{ map.total }}</span><button type="button" class="ui-button" :disabled="mapBusy || mapOffset + map.limit >= map.total" @click="mapOffset += map.limit">下一页</button></div></section><section class="cap-card"><div class="cap-title">官方百科与养成</div><p v-if="publicBusy" class="hint" role="status">正在读取官方入口…</p><p v-if="publicError" class="error" role="alert">{{ publicError }}</p><p v-if="!officialTools.length" class="empty">暂未取得官方入口</p><ul v-else class="tool-grid"><li v-for="tool in officialTools" :key="tool.id"><a :href="safeExternalUrl(tool.url)" target="_blank" rel="noopener noreferrer"><strong>{{ tool.name }}</strong><AppIcon name="arrow" :size="14" /></a><p class="hint">{{ tool.description }}</p><p v-if="tool.status === 'unavailable'" class="hint">请前往官网查询；本页暂不能读取百科目录。</p></li></ul></section>
+    <div v-else-if="section === 'map'" class="endfield-stack"><section class="cap-card"><div class="cap-title">官方地图</div><form class="map-filters" @submit.prevent="submitMapSearch"><label>地图<MenuSelect v-model="mapId" label="地图" :options="[{value:'',label:'请选择地图'},...list(map?.maps).map(item=>({value:item.id,label:item.name}))]" /></label><label>区域<MenuSelect v-model="levelId" label="区域" :options="[{value:'',label:'默认区域'},...list(selectedMap?.levels).map(item=>({value:item.id,label:item.name}))]" /></label><label>点位类型<MenuSelect v-model="typeId" label="点位类型" :options="[{value:'',label:'全部类型'},...list(map?.categories).map(item=>({value:item.id,label:item.name}))]" /></label><label>搜索点位<input v-model="mapQuery" type="search" placeholder="输入名称" /></label><button type="submit" class="ui-button primary" :disabled="mapBusy">搜索</button></form><p v-if="mapBusy" class="hint" role="status">正在读取地图点位…</p><p v-if="mapError" class="error" role="alert">{{ mapError }}</p><p v-if="map?.stale" class="badge badge-stale">地图待更新</p><p v-if="!mapBusy && !list(map?.marks).length" class="empty">暂无匹配点位</p><ul v-else class="mark-list"><li v-for="(mark, i) in list(map?.marks)" :key="mark.id || i"><div><strong>{{ display(mark.name) }}</strong><p class="hint">坐标 {{ display(mark.x) }}，{{ display(mark.y) }}，{{ display(mark.z) }}<span v-if="mark.description"> · {{ mark.description }}</span></p></div><div class="actions"><button type="button" class="ui-button" :disabled="markBusy" @click="loadMark(mark)">查看详情</button><a v-if="safeExternalUrl(mark.url)" :href="safeExternalUrl(mark.url)" target="_blank" rel="noopener noreferrer">官方地图<AppIcon name="arrow" :size="14" /></a></div></li></ul><section v-if="markDetail || markBusy || markError" class="inner-card mark-detail"><p v-if="markBusy" class="hint" role="status">正在读取点位详情…</p><p v-if="markError" class="error" role="alert">{{ markError }}</p><template v-if="markDetail"><h3>{{ markDetail.typeSub?.name || markDetail.typeMain?.name || "地图点位" }}</h3><p v-if="markDetail.desc">{{ markDetail.desc }}</p><p>坐标：{{ display(markDetail.pos?.x) }}，{{ display(markDetail.pos?.y) }}，{{ display(markDetail.pos?.z) }}</p><a v-if="safeExternalUrl(markDetail.link)" :href="safeExternalUrl(markDetail.link)" target="_blank" rel="noopener noreferrer">{{ markDetail.linkText || "查看官方说明" }}<AppIcon name="arrow" :size="14" /></a></template></section><div v-if="map?.total > map?.limit" class="actions"><button type="button" class="ui-button" :disabled="mapBusy || mapOffset === 0" @click="mapOffset = Math.max(0, mapOffset - map.limit)">上一页</button><span class="hint">{{ mapOffset + 1 }}–{{ Math.min(mapOffset + map.limit, map.total) }} / {{ map.total }}</span><button type="button" class="ui-button" :disabled="mapBusy || mapOffset + map.limit >= map.total" @click="mapOffset += map.limit">下一页</button></div></section><section class="cap-card"><div class="cap-title">官方百科与养成</div><p v-if="publicBusy" class="hint" role="status">正在读取官方入口…</p><p v-if="publicError" class="error" role="alert">{{ publicError }}</p><p v-if="!officialTools.length" class="empty">暂未取得官方入口</p><ul v-else class="tool-grid"><li v-for="tool in officialTools" :key="tool.id"><a :href="safeExternalUrl(tool.url)" target="_blank" rel="noopener noreferrer"><strong>{{ tool.name }}</strong><AppIcon name="arrow" :size="14" /></a><p class="hint">{{ tool.description }}</p><p v-if="tool.status === 'unavailable'" class="hint">请前往官网查询；本页暂不能读取百科目录。</p></li></ul></section>
       <section class="cap-card"><div class="cap-title">森空岛资料查询<span v-if="toolData?.stale" class="badge badge-stale">待更新</span></div>
-        <p class="hint">连接森空岛角色后，可尝试读取官方资料目录。配队与养成方案请使用上方官网入口。</p>
         <form class="map-filters" @submit.prevent="loadTool">
-          <label>资料类别<select v-model="toolKind"><option v-for="[kind,label] in toolKinds" :key="kind" :value="kind">{{ label }}</option></select></label>
-          <button type="submit" class="ui-button" :disabled="toolBusy || !roleKey">查询资料</button>
+          <label>资料类别<MenuSelect v-model="toolKind" label="资料类别" :options="toolKinds.map(([value,label])=>({value,label}))" /></label>
+          <button type="submit" class="ui-button primary" :disabled="toolBusy || !roleKey">查询资料</button>
         </form>
         <p v-if="!roleKey" class="hint">请先在概览中连接并选择森空岛角色。</p>
         <p v-if="toolBusy" class="hint" role="status">正在读取官方资料…</p>
@@ -437,7 +433,7 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
         <p v-if="toolData?.supported === false" class="hint">这类资料暂时无法读取。</p>
         <template v-else-if="toolData?.payload">
           <label class="tool-search">筛选结果<input v-model="toolQuery" type="search" placeholder="按名称或编号筛选" /></label>
-          <p v-if="!toolRows.length" class="empty">暂无匹配资料；若目录格式变化，请前往官网查看。</p>
+          <p v-if="!toolRows.length" class="empty">暂无匹配资料</p>
           <div v-else class="catalog-grid"><article v-for="(item,i) in toolPageRows" :key="item.id || i" class="inner-card catalog-item">
             <h3>{{ display(item.name) }}</h3><p class="hint">{{ toolSummary(item) || '资料待补充' }}</p>
             <p v-if="toolDescription(item)" class="catalog-description">{{ toolDescription(item) }}</p>
@@ -455,53 +451,129 @@ onUnmounted(() => { destroyed = true; mapController?.abort(); ++statusSeq; ++pri
         </template>
       </section></div>
 
-    <div v-else-if="section === 'blueprints'" class="endfield-stack"><p v-if="cloud && cloudAccount.provider !== 'skland'" class="cap-card hint">蓝图保存在森空岛授权与角色的本人空间，请在页面上方选择森空岛授权。</p><section v-else class="cap-card"><div class="cap-title">蓝图收藏<button type="button" class="ui-button" :disabled="blueprintBusy" @click="downloadBlueprints">导出备份</button></div><p class="hint">{{ cloud ? '分享码和备注保存在当前用户、授权与角色的云端空间。' : '分享码和备注保存在本机。' }}</p><form class="field-grid" @submit.prevent="submitBlueprint"><label>名称<input v-model="blueprintName" type="text" maxlength="100" required /></label><label>分享码<input v-model="blueprintCode" type="text" maxlength="2000" required /></label><label>备注<textarea v-model="blueprintNotes" maxlength="2000" rows="2" /></label><div class="actions"><button type="submit" class="ui-button" :disabled="blueprintBusy">{{ editingId === null ? '保存蓝图' : '保存修改' }}</button><button v-if="editingId !== null" type="button" class="ui-button" @click="resetBlueprint">取消编辑</button></div></form><p v-if="blueprintError" class="error" role="alert">{{ blueprintError }}</p><p v-if="blueprintMessage" class="hint" role="status">{{ blueprintMessage }}</p><p v-if="blueprintBusy" class="hint" role="status">正在处理蓝图…</p><p v-if="!blueprintBusy && !blueprints.length" class="empty">还没有收藏蓝图</p><ul v-else class="blueprint-list"><li v-for="item in blueprints" :key="item.id"><strong>{{ item.name }}</strong><code>{{ item.code }}</code><p v-if="item.notes" class="hint">{{ item.notes }}</p><div class="actions"><button type="button" class="ui-button" @click="copyCode(item.code)">复制分享码</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="editBlueprint(item)">编辑</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="removeBlueprint(item.id)">删除</button></div></li></ul></section></div>
+    <div v-else-if="section === 'blueprints'" class="endfield-stack"><p v-if="cloud && cloudAccount.provider !== 'skland'" class="cap-card hint">蓝图按森空岛角色保存，请在页面上方切换森空岛授权。</p><section v-else class="cap-card"><div class="cap-title">蓝图收藏<button type="button" class="ui-button" :disabled="blueprintBusy" @click="downloadBlueprints">导出备份</button></div><form class="field-grid" @submit.prevent="submitBlueprint"><label>名称<input v-model="blueprintName" type="text" maxlength="100" required /></label><label>分享码<input v-model="blueprintCode" type="text" maxlength="2000" required /></label><label>备注<textarea v-model="blueprintNotes" maxlength="2000" rows="2" /></label><div class="actions"><button type="submit" class="ui-button primary" :disabled="blueprintBusy">{{ editingId === null ? '保存蓝图' : '保存修改' }}</button><button v-if="editingId !== null" type="button" class="ui-button" @click="resetBlueprint">取消编辑</button></div></form><p v-if="blueprintError" class="error" role="alert">{{ blueprintError }}</p><p v-if="blueprintMessage" class="hint" role="status">{{ blueprintMessage }}</p><p v-if="blueprintBusy" class="hint" role="status">正在处理蓝图…</p><p v-if="!blueprintBusy && !blueprints.length" class="empty">还没有收藏蓝图</p><ul v-else class="blueprint-list"><li v-for="item in blueprints" :key="item.id"><strong>{{ item.name }}</strong><code>{{ item.code }}</code><p v-if="item.notes" class="hint">{{ item.notes }}</p><div class="actions"><button type="button" class="ui-button" @click="copyCode(item.code)">复制分享码</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="editBlueprint(item)">编辑</button><button type="button" class="ui-button" :disabled="blueprintBusy" @click="removeBlueprint(item.id)">删除</button></div></li></ul></section></div>
 
     <div v-else-if="section === 'news'" class="endfield-stack"><AnnouncementList game-id="endfield" :snap="newsSnapshots[0]" :extra-snaps="newsSnapshots.slice(1)"><template #actions><button v-if="canMaintain" type="button" class="ui-button" :disabled="publicBusy" @click="loadPublic(true)"><AppIcon name="refresh" :size="14" />{{ publicBusy ? '正在读取…' : '刷新资讯' }}</button></template></AnnouncementList><p v-if="publicBusy" class="hint" role="status">正在读取公开资讯…</p><p v-if="publicError && !publicNewsSnap" class="error" role="alert">{{ publicError }}</p></div>
   </div>
 </template>
 
 <style scoped>
-.record-detail { margin-top:10px; border-top:1px solid var(--border); padding-top:10px; }.record-detail summary { cursor:pointer; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }.record-detail summary strong,.record-detail summary .hint { margin-left:auto; }.record-detail .inner-card { margin-top:8px; }.record-detail summary:focus-visible { outline:2px solid var(--game-accent); outline-offset:3px; }
-.endfield-dashboard{min-width:0}.endfield-nav{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;margin-bottom:16px}.endfield-stack{display:grid;gap:12px}.endfield-grid,.operator-grid,.tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.cap-title{justify-content:space-between}.cap-title .ui-button{font-size:12px}.hint{color:var(--text-muted);font-size:12px;line-height:1.55;overflow-wrap:anywhere}.error{color:var(--danger);font-size:12px;overflow-wrap:anywhere}.identity{font-weight:600;font-size:14px;color:var(--text);margin-top:8px}.muted{color:var(--text-muted);font-size:11px;font-weight:400;margin-left:8px}.field-grid{display:grid;gap:10px;max-width:600px}.field-grid label,.role-bar label,.map-filters label{display:grid;gap:5px;color:var(--text-muted);font-size:12px}.field-grid input,.field-grid textarea,.role-bar select,.map-filters :is(select,input){box-sizing:border-box;width:100%;min-height:36px;border:1px solid var(--border);border-radius:7px;padding:7px 9px;background:var(--card-bg);color:var(--text)}.field-grid textarea{resize:vertical}.field-grid .ui-button{justify-self:start}.role-bar,.map-filters,.actions{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.role-bar label{min-width:min(100%,240px);flex:1}.map-filters label{min-width:min(100%,150px);flex:1}.map-filters label:last-of-type{flex:2}.ui-button{display:inline-flex;align-items:center;gap:5px}.fact-list{display:grid;gap:8px;margin-top:12px}.fact-list div,.plain-list li,.mark-list li{display:flex;justify-content:space-between;gap:12px;align-items:start;padding:9px 0;border-bottom:1px solid var(--border)}.fact-list dt,.plain-list span{color:var(--text-muted);font-size:12px}.fact-list dd{margin:0;color:var(--text);font-weight:600;font-size:13px}.plain-list strong{font-size:13px;font-weight:600;color:var(--text);text-align:right}.plain-list small{display:block;margin-top:3px;color:var(--text-faint)}.inner-card,.tool-grid li{border:1px solid var(--border);border-radius:9px;background:var(--panel-bg);padding:12px;min-width:0}.inner-card h3{font-size:13px;color:var(--text);margin:0 0 6px}.inner-card p{font-size:12px;color:var(--text-muted);line-height:1.5;overflow-wrap:anywhere}.mark-list strong,.blueprint-list strong{font-size:13px}.mark-list a,.tool-grid a{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--accent);text-decoration:none}.tool-grid a{justify-content:space-between;width:100%}.blueprint-list li,.news-list li{padding:12px 0;border-top:1px solid var(--border)}.blueprint-list code{display:block;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-muted);font-size:12px;margin:6px 0}.blueprint-list .actions{margin-top:9px}.news-list a{color:var(--accent);font-size:13px}.news-list strong{font-size:13px}@media(max-width:720px){.endfield-grid,.operator-grid,.tool-grid{grid-template-columns:1fr}.role-bar>*{width:100%}.map-filters label,.map-filters label:last-of-type{min-width:100%}.endfield-nav .segmented{width:100%}.mark-list li{flex-direction:column}}
-.attendance-summary{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}.attendance-summary strong{color:var(--text);font-size:14px}.attendance-summary span{color:var(--text-muted);font-size:12px}
-.tool-search{display:grid;gap:5px;color:var(--text-muted);font-size:12px;margin:12px 0}.tool-search input{box-sizing:border-box;min-height:36px;border:1px solid var(--border);border-radius:7px;padding:7px 9px;background:var(--card-bg);color:var(--text)}
-.catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.catalog-item{display:grid;gap:5px;align-content:start}.catalog-item h3{margin:0}.catalog-description{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.catalog-item details{margin-top:4px;border-top:1px solid var(--border);padding-top:6px;color:var(--text-muted);font-size:12px;overflow-wrap:anywhere}.catalog-item summary{cursor:pointer;color:var(--accent)}.catalog-item details li{padding:4px 0;border-bottom:1px solid var(--border)}.catalog-item details a{display:inline-flex;align-items:center;gap:4px;margin-top:7px}@media(max-width:720px){.catalog-grid{grid-template-columns:1fr}}
-.operator-item .ui-button{margin-top:8px;font-size:12px}.operator-detail{margin-top:8px;border-top:1px solid var(--border);padding-top:8px;display:grid;gap:5px}
-.passport-connect{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}.passport-connect .hint{margin:0}.manual-connect{margin-top:10px}.manual-connect>summary{cursor:pointer;color:var(--text-muted);font-size:12px;margin-bottom:8px}
-.endfield-nav { position:relative; gap:12px; margin-bottom:20px; }
-.ef-main-nav { display:flex; align-items:stretch; gap:0; flex:1; border-bottom:1px solid var(--border); }
-.ef-main-nav>button { display:flex; justify-content:center; align-items:center; gap:6px; padding:13px 17px; min-height:44px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); font-size:13px; white-space:nowrap; }
-.ef-main-nav>button[aria-pressed=true],.ef-main-nav>button.active { color:var(--game-endfield); border-bottom-color:var(--game-endfield); background:var(--accent-soft); }
-.ef-main-nav>button:hover { color:var(--text); background:var(--hover-bg); }
-.ef-more-nav { display:flex; gap:8px; flex-wrap:wrap; width:100%; padding:12px; border:1px solid var(--border); background:var(--panel-bg); }
-.ef-more-nav>button { min-height:40px; border:1px solid transparent; background:transparent; color:var(--text-muted); font-size:12px; padding:8px 13px; }
-.ef-more-nav>button[aria-pressed=true] { color:var(--game-endfield); border-color:var(--border); background:var(--accent-soft); }
-.ef-connection { border-radius:0; box-shadow:none; border-left:2px solid var(--border); }
-.ef-connection.is-connected { display:flex; align-items:center; flex-wrap:wrap; gap:12px 20px; padding:12px 16px; border-left-color:var(--game-endfield); }
-.ef-connection.is-connected>.cap-title { margin:0; font-size:12px; }
-.ef-connection.is-connected>p { flex-basis:100%; margin:0; }
-.ef-connection-dot { width:5px; height:5px; background:var(--text-faint); }
-.ef-connection-dot.connected { background:var(--game-endfield); }
+.endfield-dashboard { min-width:0; }
+/* Tabs: the shared segmented control with a sliding slip (v-glide); 更多 opens a second row. */
+.endfield-nav { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px 16px; margin-bottom:16px; }
+.ef-main-nav { justify-self:start; }
+.ef-more-nav { grid-column:1 / -1; justify-self:start; }
+.ef-main-nav > button { display:inline-flex; align-items:center; gap:4px; }
+.ef-main-nav > button[aria-expanded] > svg { transition:transform var(--duration-fast) var(--ease-smooth-out); }
+.ef-main-nav > button[aria-expanded="true"] > svg { transform:rotate(180deg); }
+.ef-calendar-link { white-space:nowrap; }
+
+/* One 12-column bento per tab. Cards span the row unless a rule below gives them a share. */
+.endfield-stack { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; min-width:0; }
+.endfield-stack > * { grid-column:1 / -1; min-width:0; }
+.ef-attendance { grid-column:span 5; }
+.ef-connection ~ .ef-gacha-summary { grid-column:span 7; }
+.ef-connection ~ .ef-news-summary { grid-column:span 5; }
+.ef-attendance ~ .ef-news-summary { grid-column:1 / -1; }
+p.empty.cap-card { padding:24px; }
+.endfield-stack > p.error { padding:10px 16px; border-radius:var(--radius-tile); background:var(--danger-bg); }
+.endfield-stack > p.hint { padding:0 4px; }
+
+.hint { color:var(--text-muted); font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
+.error { color:var(--danger); font-size:13px; overflow-wrap:anywhere; }
+.identity { font-weight:500; font-size:14px; color:var(--text); }
+.cap-title { justify-content:space-between; }
+.ui-button { display:inline-flex; align-items:center; gap:5px; }
+
+/* Forms: white fields on a hairline, like the shared toolbar inputs. */
+.field-grid { display:grid; gap:10px; max-width:600px; }
+.field-grid label, .role-bar label, .map-filters label { display:grid; gap:5px; color:var(--text-muted); font-size:12px; }
+.field-grid input, .field-grid textarea, .map-filters input, .tool-search input { box-sizing:border-box; width:100%; min-height:38px; border:1px solid var(--border); border-radius:var(--radius-control); padding:7px 14px; background:var(--card-bg); color:var(--text); font-size:13px; }
+.role-bar :deep(.menu-select), .map-filters :deep(.menu-select) { width:100%; min-width:0; }
+.role-bar :deep(.menu-select-trigger), .map-filters :deep(.menu-select-trigger) { min-height:38px; }
+.field-grid :is(input,textarea):focus-visible, .map-filters input:focus-visible, .tool-search input:focus-visible { border-color:var(--game-accent,var(--game-endfield)); outline:0; box-shadow:var(--ring); }
+.field-grid textarea { resize:vertical; }
+.field-grid .ui-button { justify-self:start; }
+.role-bar, .map-filters, .actions { display:flex; gap:8px; align-items:end; flex-wrap:wrap; }
+.role-bar label { min-width:min(100%,240px); flex:1; }
+.map-filters label { min-width:min(100%,150px); flex:1; }
+.map-filters label:last-of-type { flex:2; }
+
+/* Connection: a roomy invitation until a role is connected, then a slim strip with the role switcher. */
+.ef-connection { display:grid; gap:12px; align-content:start; padding:22px 26px; }
+.ef-connection > .cap-title { justify-content:flex-start; gap:8px 10px; margin:0; }
+.ef-connection-dot { width:8px; height:8px; border-radius:50%; background:var(--text-faint); }
+.ef-connection-dot.connected { background:var(--game-vivid); }
+.ef-connection:not(.is-connected) { padding:28px 30px; }
+.ef-connection:not(.is-connected) > * { max-width:min(540px,100%); }
+.ef-connection:not(.is-connected) > .cap-title { font-size:20px; line-height:28px; }
+.ef-connection.is-connected { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; padding:12px 18px; }
+.ef-connection.is-connected > .cap-title { font-size:14px; }
+.ef-connection.is-connected > p { flex-basis:100%; margin:0; }
 .ef-connection .role-bar { flex:1; align-items:center; justify-content:flex-end; gap:10px; }
 .ef-connection .role-bar label { display:flex; gap:8px; align-items:center; min-width:180px; max-width:380px; }
-.ef-role-label { font-size:11px; white-space:nowrap; }
-.ef-connection .role-bar select { min-width:0; width:100%; border-radius:0; min-height:36px; }
-.ef-connection .ui-button { border-radius:0; }
-.ef-connection-settings { position:relative; font-size:11px; color:var(--text-muted); }
-.ef-connection-settings>summary { cursor:pointer; padding:10px 0; white-space:nowrap; }
+.ef-role-label { font-size:12px; white-space:nowrap; }
+.ef-connection .role-bar :deep(.menu-select) { min-width:0; width:100%; }
+.ef-connection-settings { position:relative; font-size:12px; color:var(--text-muted); }
+.ef-connection-settings > summary { cursor:pointer; padding:10px 0; white-space:nowrap; }
 .ef-connection-settings .ui-button { position:absolute; z-index:5; right:0; top:100%; min-width:120px; background:var(--card-bg); box-shadow:var(--popover-shadow); }
-@media(max-width:900px) { .ef-main-nav>button { flex:1; padding:12px 10px; }.ef-calendar-link { font-size:11px; }.ef-connection .role-bar { justify-content:flex-start; } }
+.passport-connect { display:flex; align-items:center; justify-content:space-between; gap:8px 16px; flex-wrap:wrap; }
+.passport-connect .hint { margin:0; }
+.passport-connect .ui-button { min-height:40px; padding-inline:20px; }
+.manual-connect > summary { cursor:pointer; color:var(--text-muted); font-size:13px; margin-bottom:8px; }
+
+/* 抽卡统计: the passport account is a slim strip above the bento. */
+.ef-identity-card { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; padding:12px 18px; }
+.ef-identity-card > .cap-title { flex:0 0 auto; margin:0; font-size:14px; }
+.ef-identity-card .identity { margin:0; }
+.ef-identity-card .hint { flex-basis:100%; margin:0; }
+.ef-identity-card > .ui-button { margin-left:auto; }
+
+/* 地图与图鉴 · 蓝图收藏: lists keep their rows; boxes inside a card take a tone step. */
+.inner-card, .tool-grid li { border-radius:var(--radius-tile); background:var(--surface-soft); padding:14px; min-width:0; }
+.inner-card h3 { font-size:14px; font-weight:600; color:var(--text); margin:0 0 6px; }
+.inner-card p { font-size:13px; color:var(--text-muted); line-height:1.6; overflow-wrap:anywhere; }
+.cap-card > p.badge { margin:10px 0 4px; }
+.mark-list li { display:flex; justify-content:space-between; gap:12px; align-items:start; padding:12px 0; border-bottom:1px solid var(--border); }
+.mark-list strong, .blueprint-list strong { font-size:13px; font-weight:500; }
+.mark-list a, .tool-grid a, .inner-card a { display:inline-flex; align-items:center; gap:4px; font-size:13px; color:var(--accent); text-decoration:none; }
+.tool-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.tool-grid a { justify-content:space-between; width:100%; }
+.tool-grid a strong { font-weight:500; }
+.blueprint-list { margin-top:14px; }
+.blueprint-list li { padding:12px 0; border-top:1px solid var(--border); }
+.blueprint-list code { display:block; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--text-muted); font-size:12px; margin:6px 0; }
+.blueprint-list .actions { margin-top:9px; }
+.tool-search { display:grid; gap:5px; color:var(--text-muted); font-size:12px; margin:12px 0; }
+.catalog-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.catalog-item { display:grid; gap:5px; align-content:start; }
+.catalog-item h3 { margin:0; }
+.catalog-description { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+.catalog-item details { margin-top:4px; border-top:1px solid var(--border-strong); padding-top:6px; color:var(--text-muted); font-size:13px; overflow-wrap:anywhere; }
+.catalog-item summary { cursor:pointer; color:var(--accent); }
+.catalog-item details li { padding:4px 0; border-bottom:1px solid var(--border-strong); }
+.catalog-item details a { display:inline-flex; align-items:center; gap:4px; margin-top:7px; }
+
+@media(max-width:900px) {
+  .ef-attendance, .ef-connection ~ .ef-gacha-summary, .ef-connection ~ .ef-news-summary { grid-column:1 / -1; }
+  .ef-connection .role-bar { justify-content:flex-start; }
+}
+@media(max-width:720px) {
+  .tool-grid, .catalog-grid { grid-template-columns:1fr; }
+  .role-bar > * { width:100%; }
+  .map-filters label, .map-filters label:last-of-type { min-width:100%; }
+  .mark-list li { flex-direction:column; }
+}
 @media(max-width:600px) {
-  .ef-main-nav { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); flex-basis:100%; }
-  .ef-main-nav>button { padding:11px 5px; font-size:12px; }
-  .ef-calendar-link { margin-left:auto; }
-  .ef-more-nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding:6px; gap:4px; }
+  .endfield-nav { grid-template-columns:minmax(0,1fr); }
+  .ef-calendar-link { justify-self:end; }
+  .ef-connection:not(.is-connected) { padding:24px 20px; }
   .ef-connection.is-connected { padding:12px; gap:12px; }
   .ef-connection .role-bar { width:100%; gap:8px; }
-  .ef-connection .role-bar>label { flex-basis:100%; max-width:none; }
-  .ef-connection .role-bar>button,.ef-connection .role-bar>details { width:auto; }
-  .ef-connection .role-bar>details { margin-left:auto; }
+  .ef-connection .role-bar > label { flex-basis:100%; max-width:none; }
+  .ef-connection .role-bar > button, .ef-connection .role-bar > details { width:auto; }
+  .ef-connection .role-bar > details { margin-left:auto; }
   .ef-connection-settings .ui-button { width:auto; }
+  .ef-identity-card { padding:12px 16px; }
 }
 </style>

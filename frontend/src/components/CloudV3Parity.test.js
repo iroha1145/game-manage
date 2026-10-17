@@ -48,7 +48,7 @@ test('NTE full ledger preview and import stay in the current owner scope',async 
  const disclosure=nodes(root,'details').find(n=>content(n).includes('本人逐抽账本'));disclosure.props.onToggle({target:{open:true}});await tick()
  await nodes(root,'input').find(n=>n.props.type==='file').props.onChange({target:{files:[{name:'fixture.json',size:30,text:async()=>'{"format":"synthetic"}'}]}});await tick()
  await btn(root,'校验并预览').props.onClick();await tick();assert.match(content(root),/新增 1/)
- await btn(root,'确认导入到本人空间').props.onClick();await tick();assert.match(content(root),/导入完成/)
+ await btn(root,'确认导入到当前账号').props.onClick();await tick();assert.match(content(root),/导入完成/)
  const write=calls.find(([path])=>path.endsWith('/import'));assert.equal(write[0],'/api/accounts/a/roles/r/nte/gacha/import');assert.equal(JSON.parse(write[1].body).preview_id,'ticket');assert.equal(write[1].headers['X-CSRF-Token'],'fixture')
 })
 test('Endfield blueprint create edit delete and export use only the selected Skland identity',async t=>{

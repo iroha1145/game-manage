@@ -18,15 +18,16 @@ watch(current, () => { failed.value = false })
         <img v-if="!failed" :key="current" :src="current" :alt="`${guide.author} · ${guide.scope} · 阵容图 ${index + 1}`" loading="lazy" decoding="async" referrerpolicy="no-referrer" @error="failed = true" />
         <span v-else class="wuwa-muted">图片暂未加载，点击重试查看大图，或通过下方入口查看原帖。</span>
       </a>
-      <figcaption class="wuwa-meta">{{ guide.author }} 原帖配图 · {{ index + 1 }}/{{ images.length }} · 点击图片查看大图</figcaption>
+      <figcaption class="wuwa-meta">{{ guide.author }} 原帖配图 · {{ index + 1 }}/{{ images.length }}</figcaption>
     </figure>
   </section>
 </template>
 <style scoped>
 .guide-lineups { margin: 16px 0; }
 .guide-lineups .wuwa-tabs { flex-wrap: wrap; margin-bottom: 14px; }
+.guide-lineups .wuwa-tabs .ui-button[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); font-weight: 600; }
 figure { margin: 0; }
 figure a { display: block; max-width: 680px; margin: 0 auto; }
-figure img { display: block; width: 100%; height: auto; border-radius: 8px; }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--card-border); border-radius: var(--radius-well); }
 figcaption { text-align: center; margin-top: 10px; }
 </style>

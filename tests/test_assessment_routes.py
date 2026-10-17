@@ -1,3 +1,4 @@
+import json
 from fastapi import HTTPException
 from game_assistant.assessment_routes import install_assessment_routes
 from game_assistant.accounts.models import AccountScope
@@ -13,6 +14,10 @@ class Accounts:
     def describe(self,scope):
         if self.revoked: raise HTTPException(404,'account_not_found')
         return dict(game='wuthering_waves',version=1)
+
+
+class NteAccounts(Accounts):
+    def describe(self,scope): return dict(game='nte',version=1)
 
 
 def test_authorized_model_save_configuration_compare_csrf_and_revocation(identity,tmp_path):
@@ -103,8 +108,6 @@ def test_projection_uses_current_scope_model_and_strips_unrelated_private_data(t
 def test_nte_model_whose_weights_do_not_fit_its_catalog_is_refused(identity,tmp_path):
     # Saved, such a model would make every later NTE score unscorable (INVALID_WEIGHT).
     from tests.test_personal_assessment import nte_model
-    class NteAccounts(Accounts):
-        def describe(self,scope): return dict(game='nte',version=1)
     client=identity[3]; store=install_assessment_routes(client.app,NteAccounts(),tmp_path/'private')
     register(identity)
     path='/api/accounts/owned/roles/role/assessment/nte/c1/model'
@@ -112,6 +115,38 @@ def test_nte_model_whose_weights_do_not_fit_its_catalog_is_refused(identity,tmp_
     main_weight_on_a_sub_only_row=dict(good,nte_profile=dict(good['nte_profile'],mainstat_weights={'attack':'1'}))
     assert write(client,path,main_weight_on_a_sub_only_row,method='put').status_code==422
     assert write(client,path,good,method='put').status_code==200
+    store.close()
+
+
+def test_observation_id_bound_is_checked_on_save_and_old_rows_fail_scoring_alike(identity,tmp_path):
+    # Two copies of one substat collapse into collapsed_observation_ids, which holds at most 256 characters.
+    # A 257-character ID used to be saved, then made /score answer 422 and /compare crash with a 500.
+    from tests.test_personal_assessment import nte_model
+    client=identity[3]; store=install_assessment_routes(client.app,NteAccounts(),tmp_path/'private')
+    register(identity)
+    path='/api/accounts/owned/roles/role/assessment/nte/c1'
+    model=nte_model().model_dump(mode='json')
+    assert write(client,path+'/model',model,method='put').status_code==200
+    def configuration(observation):
+        stat=dict(canonical_id='attack',observation_id=observation,value='10',unit='flat')
+        return dict(game='nte',character_id='c1',name='json',source='user_configured',
+            items=[dict(id='i1',nte=dict(kind='drive',quality='custom',area='4',substats_complete=True,substats=[stat,dict(stat)]))])
+    def failure(response): return response.status_code,response.json().get('detail')
+    good=write(client,path+'/configurations',configuration('x'*256)).json()['id']
+    assert write(client,path+'/compare',dict(a=good,b=good)).json()['a']['value']=='8.00'
+    assert failure(write(client,path+'/configurations',configuration('x'*257)))==(422,'invalid_input')
+    assert failure(write(client,path+'/score',dict(configuration=configuration('x'*257))))==(422,'invalid_input')
+    # A row stored before the bound stays listed and deletable; scoring or comparing it is refused the same way.
+    stale=write(client,path+'/configurations',configuration('x')).json()['id']
+    with store.db: store.db.execute('UPDATE personal_assessment SET payload=? WHERE id=?',(json.dumps(configuration('x'*257)),stale))
+    assert [row['id'] for row in client.get(path).json()['configurations']]==[good,stale]
+    assert failure(write(client,path+'/score',dict(id=stale)))==(422,'invalid_scoring_input')
+    assert failure(write(client,path+'/compare',dict(a=good,b=stale)))==(422,'invalid_scoring_input')
+    assert write(client,path+'/configurations/'+stale,method='delete').status_code==200
+    # A stored model that no longer validates fails /compare as it fails /score.
+    with store.db: store.db.execute("UPDATE personal_assessment SET payload=? WHERE kind='model'",(json.dumps(dict(model,version='v'*257)),))
+    for route,body in (('/score',dict(id=good)),('/compare',dict(a=good,b=good))):
+        assert failure(write(client,path+route,body))==(422,'invalid_scoring_input')
     store.close()
 
 

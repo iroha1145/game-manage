@@ -1,13 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 import { configureHttpClient, requestJson, invalidateSession } from '../http-client.js'
 const CloudApp = await loadVue(new URL('../CloudApp.vue', import.meta.url))
 const Connector = await loadVue(new URL('./CloudSklandConnect.vue', import.meta.url))
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
 const button = (root, text) => nodes(root, 'button').find(node => content(node) === text)
-const select = (root, label) => nodes(root, 'select').find(node => node.props['aria-label'] === label)
+const menuTrigger = (root, label) => nodes(root, 'button').find(node => node.props.role === 'combobox' && node.props['aria-label'] === label)
 const submit = (root, label) => nodes(root, 'form').find(node => node.props['aria-label'] === label).props.onSubmit({ preventDefault() {} })
 const account = (id, provider = 'hypergryph', state = 'active') => ({ account_id: id, grant_id: `grant-${id}`, version: 1, game: 'endfield', provider, state, capabilities: [], roles: [{ role_id: `role-${id}`, display_name: `角色${id}`, is_default: true }, { role_id: `other-${id}`, display_name: `备选${id}`, is_default: false }] })
 async function setup(t, handler, rows = [account('A'), account('B'), account('profile', 'skland')]) {
@@ -25,10 +25,10 @@ async function setup(t, handler, rows = [account('A'), account('B'), account('pr
   return { root, calls, rows }
 }
 async function chooseSource(root, id = 'B', role = 'other-B') {
-  const accounts = select(root, '用于连接森空岛的鹰角授权')
+  const accounts = menuTrigger(root, '用于连接森空岛的鹰角授权')
   assert.ok(accounts, 'cloud account page must offer owned source selection')
-  accounts.props.onChange({ target: { value: id } }); await tick()
-  select(root, '用于连接森空岛的鹰角角色').props.onChange({ target: { value: role } }); await tick()
+  choose(root, '用于连接森空岛的鹰角授权', id); await tick()
+  choose(root, '用于连接森空岛的鹰角角色', role); await tick()
 }
 
 test('cloud passport button submits selected internal IDs with CSRF then refreshes independent authorizations', async t => {
@@ -65,7 +65,7 @@ test('an expired Hypergryph authorization is reported as such and does not sign 
   const { root } = await setup(t, path => path.endsWith('/skland/passport') ? new Response(JSON.stringify({ error_code: 'auth_expired', detail: '鹰角授权已失效，请重新登录' }), { status: 401 }) : null)
   await chooseSource(root)
   await submit(root, '通过鹰角授权连接森空岛'); await tick(); await tick()
-  assert.match(content(root), /游戏授权不可用，请到账号设置重新登录；已有授权已保留/)
+  assert.match(content(root), /游戏授权不可用，请到「账号与授权」重新登录；已有授权已保留/)
   assert.doesNotMatch(content(root), /网站登录|网站会话已失效/)
   assert.ok(button(root, '一键连接森空岛档案'), 'the account page is still shown')
 })
@@ -130,7 +130,7 @@ test('busy cloud passport blocks duplicate submits until the request settles', a
   const { root, calls } = await setup(t, path => path.endsWith('/skland/passport') ? new Promise(resolve => { finish = resolve }) : null)
   await chooseSource(root)
   const pending = submit(root, '通过鹰角授权连接森空岛'); await tick()
-  assert.equal(select(root, '用于连接森空岛的鹰角授权').props.disabled, true)
+  assert.equal(menuTrigger(root, '用于连接森空岛的鹰角授权').props.disabled, true)
   await submit(root, '通过鹰角授权连接森空岛'); await tick()
   assert.equal(calls.filter(call => call.path.endsWith('/skland/passport')).length, 1)
   finish(new Response('{}', { status: 503 })); await pending; await tick()
@@ -139,10 +139,13 @@ test('busy cloud passport blocks duplicate submits until the request settles', a
 
 test('source selector excludes revoked, expired, foreign-owned and non-Hypergryph rows and rejects fabricated roles', async t => {
   const { root, calls } = await setup(t, null, [account('A'), account('revoked', 'hypergryph', 'revoked'), account('expired', 'hypergryph', 'expired'), account('skland', 'skland'), { ...account('foreign'), user_id: 'different-owner' }])
-  const chooser = select(root, '用于连接森空岛的鹰角授权')
+  const chooser = menuTrigger(root, '用于连接森空岛的鹰角授权')
   assert.ok(chooser)
-  assert.deepEqual(nodes(chooser, 'option').filter(node => node.props.value).map(node => node.props.value), ['A'])
-  await chooseSource(root, 'A', 'role-skland')
+  const choices=nodes(root,'ul').find(node=>node.props.role==='listbox'&&node.props['aria-label']==='用于连接森空岛的鹰角授权')
+  assert.deepEqual(nodes(choices,'li').filter(node=>node.props['data-value']).map(node=>node.props['data-value']), ['A'])
+  choose(root,'用于连接森空岛的鹰角授权','A'); await tick()
+  const roleOptions=nodes(root,'ul').find(node=>node.props['aria-label']==='用于连接森空岛的鹰角角色')
+  assert.ok(!nodes(roleOptions,'li').some(node=>node.props['data-value']==='role-skland'))
   await submit(root, '通过鹰角授权连接森空岛'); await tick()
   assert.equal(calls.filter(call => call.path.endsWith('/skland/passport')).length, 0)
   assert.equal(button(root, '一键连接森空岛档案').props.disabled, true)

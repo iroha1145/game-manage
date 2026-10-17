@@ -2,6 +2,19 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
 import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { characterIcon } from '../wuwa-icons.js'
+
+test('a missing role picture retries the same character catalog before showing its initial', async t => {
+  const Roles = await loadVue(new URL('./WuwaRoles.vue', import.meta.url))
+  const root = mount(t, Roles, { snap: { payload: [{ role_id: 1102, name: '散华', level: 60, icon_url: 'https://web-static.kurobbs.com/missing.png' }] } })
+  const picture = () => nodes(root, 'img').find(node => node.props.alt === '散华')
+  assert.equal(picture().props.src, 'https://web-static.kurobbs.com/missing.png')
+  picture().props.onError(); await nextTick()
+  assert.equal(picture().props.src, characterIcon(1102))
+  picture().props.onError(); await nextTick()
+  assert.equal(picture(), undefined)
+  assert.match(content(root), /散华/)
+})
 
 test('image role preserves nested source attributes while raw supplemental keys stay absent', async t => {
   const Detail=await loadVue(new URL('./WuwaRoleDetail.vue',import.meta.url))

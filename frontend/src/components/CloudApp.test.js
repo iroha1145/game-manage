@@ -2,10 +2,52 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Window } from 'happy-dom'
 import { nextTick } from 'vue'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 import { configureHttpClient } from '../http-client.js'
 const CloudApp = await loadVue(new URL('../CloudApp.vue', import.meta.url))
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
+for (const failingNews of [false, true]) test(`overview refresh stays busy through every read even when news fails: ${failingNews}`, async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  let hold = false
+  const pending = [], paths = []
+  t.mock.method(globalThis, 'fetch', async path => {
+    paths.push(path)
+    if (hold && failingNews && path.startsWith('/api/public/') && path.endsWith('/news')) {
+      return new Response(JSON.stringify({ detail: 'source temporarily unavailable' }), { status: 502 })
+    }
+    if (hold && (path.endsWith('/snapshot/account') || path.startsWith('/api/public/'))) {
+      await new Promise(resolve => pending.push({ path, resolve }))
+    }
+    const data = path === '/api/identity/me' ? { user_id: 'overview-user' }
+      : path.endsWith('/csrf') ? { csrf_token: 'fixture' }
+        : path === '/api/accounts' ? { accounts: [{ account_id: 'overview-account', provider: 'kuro', game: 'wuthering_waves', state: 'active', capabilities: ['account'], roles: [{ role_id: 'overview-role', is_default: true }] }] }
+          : { account_id: 'overview-account', role_id: 'overview-role', state: 'ok', payload: null }
+    return new Response(JSON.stringify(data))
+  })
+  const root = mount(t, CloudApp)
+  for (let i = 0; i < 8; i++) await tick()
+  const refresh = nodes(root, 'button').find(n => String(n.props.class).includes('ov-refresh'))
+  assert.equal(refresh.props.disabled, false)
+  hold = true; refresh.props.onClick(); await tick()
+  assert.ok(pending.some(p => p.path.endsWith('/snapshot/account')))
+  assert.equal(refresh.props.disabled, true)
+  assert.equal(refresh.props['aria-busy'], true)
+  const firstReads = paths.length
+  refresh.props.onClick(); await tick(); assert.equal(paths.length, firstReads)
+  while (pending.some(p => p.path.endsWith('/snapshot/account'))) {
+    for (const request of pending.splice(0)) request.resolve()
+    await tick()
+  }
+  for (let i = 0; i < 4; i++) await tick()
+  assert.ok(pending.some(p => p.path.startsWith('/api/public/')))
+  assert.equal(refresh.props.disabled, true, 'public artwork and event reads are still pending')
+  assert.match(content(refresh), /刷新中/)
+  hold = false
+  for (const request of pending.splice(0)) request.resolve()
+  for (let i = 0; i < 6; i++) await tick()
+  assert.equal(refresh.props.disabled, false)
+  assert.equal(refresh.props['aria-busy'], undefined)
+})
 test('public Bilibili authorization entry is visible only for the website administrator', async t => {
   for (const is_admin of [false,true]) {
     await t.test(String(is_admin), async sub => {
@@ -43,7 +85,7 @@ test('minute session check defers during an accepted refresh and resumes after s
   assert.equal(identityReads, 1, 'minute check must not invalidate active short tracking')
   assert.match(content(root), /刷新已排队/)
   t.mock.timers.tick(2000); await tick()
-  assert.match(content(root), /定时交互新快照/); assert.doesNotMatch(content(root), /刷新已排队|刷新状态待确认/)
+  assert.match(content(root), /定时交互新快照/); assert.doesNotMatch(content(root), /刷新已排队|刷新结果未确认/)
   assert.equal(reads, 4); assert.equal(posts, 1)
   t.mock.timers.tick(58000); await tick(); await tick()
   assert.equal(identityReads, 2, 'normal session checks resume on the next minute')
@@ -160,7 +202,7 @@ test('the sessions page lists the sessions after a reload on it and asks once pe
   assert.match(content(root), /会话 1/)
   // A button changes the page and then the hash; the browser reports the new hash with a hashchange event after that.
   const open = async name => { const changed = new Promise(resolve => browser.addEventListener('hashchange', resolve, { once: true })); nodes(root, 'button').find(n => content(n) === name).props.onClick(); await changed; for (let i = 0; i < 4; i++) await tick() }
-  await open('本人游戏看板'); await open('网站会话')
+  await open('今日总览'); await open('网站会话')
   assert.equal(listed(), 2, 'opening the page by its navigation button must ask once per visit')
 })
 
@@ -181,7 +223,7 @@ test('logging in again after a logout on the sessions page asks for the list onc
       : path === '/api/identity/sessions' ? { sessions: [{ session_id: 's1', created_at: '2026-10-16T14:02:00Z', expires_at: '2026-10-23T14:02:00Z' }] } : { state: 'never', payload: null }))
   })
   const root = mount(t, CloudApp); for (let i = 0; i < 6; i++) await tick()
-  await nodes(root, 'button').find(n => content(n) === '退出网站').props.onClick(); for (let i = 0; i < 6; i++) await tick()
+  await nodes(root, 'button').find(n => content(n) === '退出登录').props.onClick(); for (let i = 0; i < 6; i++) await tick()
   assert.match(content(root), /网站登录/); assert.equal(browser.location.hash, '#/sessions', 'a logout leaves the address alone')
   const inputs = nodes(root, 'input'), before = listed()
   inputs.find(x => x.props.name === 'username').props['onUpdate:modelValue']('alice')
@@ -259,4 +301,57 @@ test('cloud public events render the real calendar with unknown dates and source
   assert.match(content(detail),/开始时间.*未知.*截止时间.*未知/);assert.match(content(detail),/公开活动公告/)
   assert.ok(calls.includes('/api/public/games/wuthering_waves/events'))
   assert.ok(calls.every(path=>!path.startsWith('/api/games/')))
+})
+
+test('a logout that fails keeps a retry on screen instead of the login form, and the retry ends the session', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const retried = { resolve: null }, logouts = []
+  t.mock.method(globalThis, 'fetch', async path => {
+    if (path === '/api/identity/logout') {
+      logouts.push(path)
+      if (logouts.length === 1) throw new TypeError('Failed to fetch')
+      return new Promise(resolve => { retried.resolve = () => resolve(new Response('{"status":"ok"}')) })
+    }
+    return new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] } : { state: 'never', payload: null }))
+  })
+  const root = mount(t, CloudApp); await tick(); await tick()
+  const logout = () => nodes(root, 'button').find(n => content(n) === '退出登录')
+  await logout().props.onClick(); for (let i = 0; i < 4; i++) await tick()
+  assert.doesNotMatch(content(root), /网站登录/, 'the page claims to be signed out although the site session may still be valid')
+  assert.match(content(root), /退出登录未完成/)
+  assert.ok(logout(), 'there is no button to retry with')
+  const retry = logout().props.onClick(); await tick(); await tick()
+  assert.match(content(root), /退出中…/); assert.doesNotMatch(content(root), /退出登录未完成|网站登录/)
+  retried.resolve(); await retry; for (let i = 0; i < 4; i++) await tick()
+  assert.match(content(root), /网站登录/); assert.doesNotMatch(content(root), /退出登录未完成|退出中/)
+  assert.equal(logouts.length, 2)
+})
+test('a logout answered with 401 ends at the login form without a retry', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', async path => path === '/api/identity/logout' ? new Response('{"detail":"authentication_required"}', { status: 401 })
+    : new Response(JSON.stringify(path === '/api/identity/me' ? { user_id: 'A', is_admin: false } : path.endsWith('/csrf') ? { csrf_token: 'fixture' } : path === '/api/accounts' ? { accounts: [] } : { state: 'never', payload: null })))
+  const root = mount(t, CloudApp); await tick(); await tick()
+  await nodes(root, 'button').find(n => content(n) === '退出登录').props.onClick(); for (let i = 0; i < 4; i++) await tick()
+  assert.match(content(root), /网站登录/); assert.doesNotMatch(content(root), /退出登录未完成/)
+  assert.equal(nodes(root, 'button').some(n => content(n) === '退出登录'), false)
+})
+
+test('web authorization and role menus read the selected identity without default-role writes',async t=>{
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  const accounts=['first','second'].map(id=>({account_id:id,provider:'hypergryph',state:'active',capabilities:['account'],roles:[{role_id:`${id}-default`,display_name:`${id}默认角色`,is_default:true},{role_id:`${id}-other`,display_name:`${id}备选角色`}]}))
+  const calls=[]
+  t.mock.method(globalThis,'fetch',async(path,options)=>{
+    calls.push({path,method:options.method})
+    const data=path==='/api/identity/me'?{user_id:'owner'}:path.endsWith('/csrf')?{csrf_token:'fixture'}:path==='/api/accounts'?{accounts}:{state:'never',payload:null}
+    return new Response(JSON.stringify(data))
+  })
+  const root=mount(t,CloudApp);await tick();await tick()
+  nodes(root,'button').find(n=>content(n).includes('授权 1')).props.onClick();await tick();await tick()
+  assert.equal(nodes(root,'select').length,0)
+  choose(root,'查看授权','second');await tick();await tick()
+  choose(root,'查看角色','second-other');await tick();await tick()
+  assert.ok(calls.some(call=>call.path==='/api/accounts/second/roles/second-other/snapshot/account'))
+  assert.ok(!calls.some(call=>call.method==='PUT'||call.path.endsWith('/default-role')))
+  const roleMenu=nodes(root,'ul').find(n=>n.props['aria-label']==='查看角色')
+  assert.deepEqual(nodes(roleMenu,'li').map(n=>n.props['data-value']),['second-default','second-other'])
 })

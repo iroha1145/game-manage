@@ -60,7 +60,9 @@ def install_assessment_routes(app,accounts=None,private_root=None,snapshots=None
     def configuration(scope,game,character,identity):
         row=next((r for r in store.read(scope,game,character,'configuration') if r['id']==identity),None)
         if not row: raise HTTPException(404,'configuration_not_found')
-        return Configuration.model_validate(row['data'])
+        # A row stored before a contract was tightened stays listed and deletable but cannot be scored.
+        try: return Configuration.model_validate(row['data'])
+        except ValidationError: raise HTTPException(422,'invalid_scoring_input') from None
 
     def validate(cls,body,game,character):
         try:
@@ -106,7 +108,9 @@ def install_assessment_routes(app,accounts=None,private_root=None,snapshots=None
     async def comparison(request:Request,game:Literal['nte','wuthering_waves'],character:Character,authorization=Depends(owner)):
         body=await read_body(request,authorization,game); scope=authorization[0]
         if set(body)!= {'a','b'} or not all(isinstance(body[k],str) for k in body): raise HTTPException(422,'invalid_input')
-        return compare(configuration(scope,game,character,body['a']),configuration(scope,game,character,body['b']),selected(scope,game,character))
+        a,b=configuration(scope,game,character,body['a']),configuration(scope,game,character,body['b'])
+        try: return compare(a,b,selected(scope,game,character))
+        except ValueError: raise HTTPException(422,'invalid_scoring_input') from None
 
     @router.get('/{game}/{character}/equipped')
     async def equipped(game:Literal['nte','wuthering_waves'],character:Character,authorization=Depends(owner)):

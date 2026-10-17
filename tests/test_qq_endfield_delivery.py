@@ -69,8 +69,9 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
     app = create_cloud_app(Settings(
         cloud_db_path=str(tmp_path / 'cloud.db'), cloud_allowed_origins=['https://cloud.example'],
         qq_app_id='app', qq_service_token='fixture-service', qq_images_enabled=True,
-        qq_image_font_path=font,qq_browser_render_executable_path=executable), start_scheduler=False)
+        qq_image_font_path=font,qq_image_max_bytes=1048576,qq_browser_render_executable_path=executable), start_scheduler=False)
     service = app.state.qq_query
+    service.clock = lambda: datetime.fromisoformat(NOW)
     service.query_service = query
     query.accounts._listeners.append(service.invalidate)
     identity = QqIdentity('app', 'group', 'fixture-group', 'fixture-sender')
@@ -121,13 +122,14 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
             assert method == 'POST'
             operations.append(path)
             if path == '/v2/groups/fixture-group/files':
-                assert set(body) == {'file_type', 'file_data', 'srv_send_msg'}
+                assert set(body) == {'file_type', 'file_name', 'file_data', 'srv_send_msg'}
                 assert body['file_type'] == 1 and body['srv_send_msg'] is False
                 image = base64.b64decode(body['file_data'], validate=True)
                 assert valid_reply_image(image, max_bytes=1048576)
                 with Image.open(BytesIO(image)) as picture:
                     picture.load()
-                    assert picture.width == 1080 and picture.width * picture.height <= 16_000_000
+                    assert body['file_name'] == ('reply.png' if picture.format=='PNG' else 'reply.jpg')
+                    assert picture.width == 720 and 0 < picture.height <= 1440
                 media = 'fixture-media-' + str(len(uploads))
                 uploads.append((image, media))
                 return {'file_info': media}

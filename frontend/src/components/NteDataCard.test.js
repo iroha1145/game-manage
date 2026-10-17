@@ -112,8 +112,9 @@ test('GameCard routes only NTE private capabilities to the native cards', async 
   assert.match(content(root), /社区名片/)
   assert.match(content(root), /公告/)
   assert.doesNotMatch(content(root), /敬请期待/)
+  assert.ok(nodes(root, 'section').some(n => String(n.props.class).includes('detail-cap')))
   const other = mount(t, GameCard, { game: { game_id: 'other', display_name: '其他', capabilities: ['gacha'], credentials_configured: true }, externalSnapshots: {} })
-  assert.match(content(other), /敬请期待/)
+  assert.ok(!nodes(other, 'section').some(n => String(n.props.class).includes('detail-cap')))
 })
 
 test('managed game detail uses supplied snapshots and tabs without issuing duplicate reads', async (t) => {

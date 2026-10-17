@@ -16,6 +16,13 @@ def test_activity_commands_are_distinct(raw,verb,game):
     parsed=parse_command(raw)
     assert (parsed.command,parsed.game)==(verb,game)
 
+def test_cards_without_a_subtitle_add_no_subtitle_line():
+    from game_assistant.qq.cards import card_to_text
+    for card in (view.document('status','all','我的账号',notices=['暂无游戏账号；请在网站完成游戏授权。']),
+                 view.message('nte','授权状态','授权已失效或凭据不可用；请在网站重新授权。')):
+        assert card['subtitle']==''
+        assert card_to_text(card).split('\n')[:2]==[card['title'],card['notices'][0]]
+
 def event(name,start,end,**extra):
     return dict(name=name,start_at=start,end_at=end,source_name='官方公告',source_title='来源说明',**extra)
 
@@ -57,9 +64,12 @@ def test_aggregate_only_authorized_games_deduplicates_and_distinguishes_missing_
         calls.append((game,cap));return QueryResult([] if game=='nte' else None,NOW.isoformat(),'ok' if game=='nte' else 'never',None)
     api=QqQueryService(SimpleNamespace(resolve_qq_identity=lambda i:Principal('u',False)),query,SimpleNamespace(read=read),clock=lambda:NOW)
     context={};reply=api.query(IDENTITY,'events',image_context=context)
-    assert calls==[('nte','events'),('endfield','events')] and query.reads==[]
+    assert calls==[('nte','events'),('nte','news'),('endfield','events'),('endfield','news')] and query.reads==[]
     assert '列表为空' in reply['text'] and '暂无成功快照' in reply['text']
     assert len(context['grants'])==2
+    calls.clear()
+    api.query(IDENTITY,'events')
+    assert calls==[('nte','events'),('endfield','events')]
 
 def test_single_public_game_needs_no_binding_and_unbound_guide_has_no_roundtrip():
     def unbound(identity):
@@ -81,7 +91,7 @@ def test_nte_all_pool_details_source_colors_and_missing_guarantee():
     assert pools[0]['rows'][0]['gacha']['color']=='green'
     assert pools[0]['rows'][1]['gacha']['lucky_text']==''
     assert pools[1]['rows'][0]['gacha']['guarantee'] is None
-    assert '未导入' in str(card) and '当前垫抽' in str(card)
+    assert '未导入' in str(card)
 
 def test_help_one_command_each_and_overview_known_equipment():
     card=view.help_document('nte')

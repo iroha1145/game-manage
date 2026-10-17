@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick } from 'vue'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 
 const Dashboard = await loadVue(new URL('./EndfieldDashboard.vue', import.meta.url))
 const flush = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
@@ -31,8 +31,7 @@ test('role switch immediately clears old card and ignores its late response', as
   await flush()
   assert.match(content(root), /旧角色/)
   assert.match(content(root), /通行证/)
-  const select = nodes(root, 'select')[0]
-  select.props.onChange({ target: { value: 'new:1' } })
+  choose(root, '森空岛角色', 'new:1')
   await flush()
   cardResolvers[0](response({ payload: { base: { name: '旧数据' } } }))
   await flush()
@@ -170,7 +169,7 @@ test('changing catalog while a request is pending enables a new query', async t 
   const form = nodes(root, 'form').find(n => nodes(n, 'button').some(b => content(b) === '查询资料'))
   form.props.onSubmit({ preventDefault() {} })
   await flush()
-  nodes(form, 'select')[0].props['onUpdate:modelValue']('weapons')
+  choose(form, '资料类别', 'weapons')
   await flush()
   finishOld(response({ payload: { chars: [{ id: 'old', name: '旧干员' }] } }))
   await flush()
@@ -194,8 +193,7 @@ test('changing a map category returns to the first page', async t => {
   nodes(root, 'button').find(b => content(b) === '下一页').props.onClick()
   await flush()
   assert.ok(calls.at(-1).includes('offset=100'))
-  const filters = nodes(root, 'form').find(f => nodes(f, 'select').length === 3)
-  nodes(filters, 'select')[2].props['onUpdate:modelValue']('ore')
+  choose(root, '点位类型', 'ore')
   await flush(); await flush()
   assert.ok(calls.at(-1).includes('type_id=ore') && calls.at(-1).includes('offset=0'))
 })
@@ -259,7 +257,7 @@ test('a passport session whose role differs from Skland asks the user to choose'
 })
 
 for (const [label, failing, act] of [
-  ['role switch', '/skland/role', root => nodes(root, 'select')[0].props.onChange({ target: { value: 'new:1' } })],
+  ['role switch', '/skland/role', root => choose(root, '森空岛角色', 'new:1')],
   ['disconnect', '/skland/connection', root => nodes(root, 'button').find(n => content(n) === '断开森空岛').props.onClick()],
 ]) test(`a failed ${label} reloads the challenge records instead of the profile card`, async t => {
   const calls = []
@@ -296,7 +294,7 @@ for (const [initialSection, attendanceCalls] of [['overview', 1], ['operators', 
   const root = mount(t, Dashboard, { snaps: {}, initialSection })
   await flush(); await flush()
   calls.length = 0
-  nodes(root, 'select')[0].props.onChange({ target: { value: 'new:1' } })
+  choose(root, '森空岛角色', 'new:1')
   await flush(); await flush()
   assert.equal(calls.filter(url => url.endsWith('/card')).length, 1)
   assert.equal(calls.filter(url => url.endsWith('/attendance')).length, attendanceCalls)
@@ -313,10 +311,9 @@ test('choosing the role placeholder puts the dropdown back on the active role', 
   })
   const root = mount(t, Dashboard, { snaps: {} })
   await flush(); await flush()
-  const target = { value: '' }
-  nodes(root, 'select')[0].props.onChange({ target })
+  choose(root, '森空岛角色', '')
   await flush()
-  assert.equal(target.value, 'old:1')
+  assert.equal(nodes(nodes(root, 'ul').find(n => n.props['aria-label'] === '森空岛角色'), 'li').find(n => n.props['aria-selected']).props['data-value'], 'old:1')
   assert.match(content(root), /旧档案/)
   assert.ok(!calls.some(([method, url]) => method === 'POST' && url.endsWith('/skland/role')))
 })
@@ -353,4 +350,87 @@ test('a failed copy and a successful copy replace each other in the blueprint li
     assert.match(content(root), shown)
     assert.doesNotMatch(content(root), hidden)
   }
+})
+
+test('a profile refresh whose answer cannot be read keeps the profile and says so', async t => {
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: '7', server_id: '1', nickname: '管理员' }], selected_role_id: '7', selected_server_id: '1' })
+    if (url.endsWith('/card')) return response({ payload: { base: { name: '档案昵称甲', level: 20 }, progress: [] } })
+    if (url.endsWith('/skland/refresh')) return new Response('{"payload":', { status: 200 })
+    return response({ supported: false })
+  })
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush(); await flush()
+  assert.match(content(root), /档案昵称甲/)
+  nodes(root, 'button').find(n => content(n).includes('刷新档案')).props.onClick()
+  await flush()
+  assert.match(content(root), /档案昵称甲/)
+  assert.match(content(root), /待更新/)
+  assert.match(content(nodes(root, 'p').find(n => n.props.role === 'alert')), /暂时无法读取，请稍后重试。/)
+  assert.doesNotMatch(content(root), /暂无档案数据/)
+})
+
+test('a blueprint save whose answer cannot be read keeps the form and the list and says so', async t => {
+  const previous = { Document: globalThis.Document, ShadowRoot: globalThis.ShadowRoot }   // the v-model directive's update hook looks for both
+  Object.assign(globalThis, { Document: class {}, ShadowRoot: class {} })
+  t.after(() => { for (const [name, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[name]; else globalThis[name] = value } })
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    calls.push(`${options.method || 'GET'} ${url}`)
+    return options.method === 'POST' && url.endsWith('/blueprints') ? new Response('{"payload":', { status: 200 }) : blueprintFetch(url)
+  })
+  const root = mount(t, Dashboard, { snaps: {}, initialSection: 'blueprints' })
+  await flush(); await flush()
+  const [name, code] = nodes(root, 'input')
+  name.props['onUpdate:modelValue']('新蓝图'); code.props['onUpdate:modelValue']('NEW-CODE'); await flush()
+  await nodes(root, 'form')[0].props.onSubmit({ preventDefault() {} }); await flush()
+  assert.deepEqual([name.value, code.value], ['新蓝图', 'NEW-CODE'])
+  assert.match(content(nodes(root, 'p').find(n => n.props.role === 'alert')), /暂时无法读取，请稍后重试。/)
+  assert.match(content(root), /工厂/)
+  assert.equal(calls.filter(call => call === 'GET /api/endfield/blueprints').length, 1, 'the list was read again as if the save had worked')
+})
+
+test('profile tabs show an outline of what connecting unlocks until a role is chosen, and the overview never does', async t => {
+  let connected = false
+  const status = () => connected
+    ? { connected: true, roles: [{ role_id: '7', server_id: '1', nickname: '管理员' }], selected_role_id: '7', selected_server_id: '1' }
+    : { connected: false, passport_available: true, roles: [] }
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.endsWith('/status')) return response(status())
+    if (url.endsWith('/skland/passport')) { connected = true; return response(status()) }
+    if (url.endsWith('/card')) return response({ payload: { operators: [{ id: 'a', name: '干员甲', level: 3 }] } })
+    return response({ supported: false })
+  })
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush()
+  assert.doesNotMatch(content(root), /连接森空岛并选择角色后/)
+  for (const [tab, note] of [['全员练度', /稀有度与精英阶段分布/], ['地区建设', /各地区调度券、据点与区域收集进度/], ['帝江号', /各舱室驻守干员的心情与信赖/]]) {
+    nodes(root, 'button').find(n => content(n) === tab).props.onClick(); await flush()
+    assert.match(content(root), new RegExp(`连接森空岛并选择角色后，这里显示${note.source}`))
+    // The outline is decoration: no controls, and it is hidden from assistive tech.
+    const outline = nodes(root, 'section').find(n => n.props['aria-label'] === '连接后可查看的内容')
+    assert.equal(nodes(outline, 'button').length, 0)
+    assert.equal(nodes(outline, 'div').find(n => String(n.props.class).includes('locked-grid')).props['aria-hidden'], 'true')
+  }
+  nodes(root, 'button').find(n => content(n) === '概览').props.onClick(); await flush()
+  assert.doesNotMatch(content(root), /连接森空岛并选择角色后/)
+  // Once a role is connected the real tab replaces the outline.
+  nodes(root, 'button').find(n => content(n) === '用鹰角通行证连接').props.onClick(); await flush(); await flush()
+  nodes(root, 'button').find(n => content(n) === '全员练度').props.onClick(); await flush(); await flush()
+  assert.doesNotMatch(content(root), /连接森空岛并选择角色后/)
+  assert.match(content(root), /干员甲/)
+})
+
+test('the section tabs are one pill track with a pressed state and the 更多 pills keep their own row', async t => {
+  t.mock.method(globalThis, 'fetch', async () => response({ connected: false, roles: [] }))
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush()
+  const [main, more] = nodes(root, 'nav')
+  assert.equal(main.props.class, 'ef-main-nav segmented')
+  assert.equal(more.props.class, 'ef-more-nav segmented')
+  assert.deepEqual(nodes(main, 'button').map(n => [content(n), n.props['aria-pressed'] ?? n.props['aria-expanded']]), [['概览', true], ['全员练度', false], ['地区建设', false], ['帝江号', false], ['抽卡统计', false], ['更多', false]])
+  assert.equal(nodes(more, 'button').length, 5)
+  nodes(more, 'button').find(n => content(n) === '蓝图收藏').props.onClick(); await flush()
+  const toggle = nodes(main, 'button').at(-1)
+  assert.equal(content(toggle), '蓝图收藏'); assert.ok(String(toggle.props.class).includes('active'))
 })

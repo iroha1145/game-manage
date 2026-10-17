@@ -1,13 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { nextTick, reactive } from 'vue'
+import { nextTick } from 'vue'
 import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
 import { configureHttpClient } from '../http-client.js'
 import { createCloudDashboard } from '../cloud-dashboard.js'
 const Card = await loadVue(new URL('./CloudGameCard.vue', import.meta.url))
 const App = await loadVue(new URL('../CloudApp.vue', import.meta.url))
-const Details = await loadVue(new URL('./CloudAccountDetails.vue', import.meta.url))
-const Profile = await loadVue(new URL('./CloudSklandProfile.vue', import.meta.url))
 const Status = await loadVue(new URL('./CloudSnapshotStatus.vue', import.meta.url))
 const Calendar = await loadVue(new URL('./CalendarPage.vue', import.meta.url))
 const Articles = await loadVue(new URL('./AnnouncementList.vue', import.meta.url))
@@ -51,66 +49,9 @@ test('cloud owner overview navigates to wuwa and its calendar preselects the gam
   assert.ok(nodes(root,'button').some(n => n.props['aria-label'] === '筛选游戏' && content(n).includes('鸣潮')))
   assert.ok(paths.every(path => !path.startsWith('/api/games/') && !path.startsWith('/api/collection')))
 })
-test('skland detail selectors use every allowed challenge/tool kind and isolate late categories', async t => {
-  configureHttpClient({mode:'cloud'}); t.after(() => configureHttpClient({mode:'local'}))
-  const calls=[]; let delayed
-  t.mock.method(globalThis,'fetch',async path => { calls.push(path); if(path.endsWith('kind=war')) return new Promise(resolve=>{delayed=()=>resolve(new Response(JSON.stringify({kind:'war',fetched_at:'2026-10-15T01:00:00Z',records:[{name:'过期战争'}]}))) }); return new Response(JSON.stringify(path.includes('/challenges') ? {kind:'monument',fetched_at:'2026-10-15T02:00:00Z',records:[{name:'当前挑战'}]} : {payload:[{name:'工具目录'}]})) })
-  const props=reactive({account:account('skland'),role:'skland-default'}), root=mount(t,Details,props)
-  const type=nodes(root,'select')[0]; type.props['onUpdate:modelValue']('challenges'); await tick()
-  const kind=nodes(root,'select')[1]; assert.equal(kind.children.filter(n=>n.type==='option').length,3)
-  const pending=button(root,'读取详情').props.onClick(); await tick()
-  kind.props['onUpdate:modelValue']('monument'); await tick(); await button(root,'读取详情').props.onClick(); await tick(); delayed(); await pending; await tick()
-  assert.match(content(root),/当前挑战/); assert.doesNotMatch(content(root),/过期战争/)
-  type.props['onUpdate:modelValue']('tools'); await tick(); const tools=nodes(root,'select')[1]; assert.equal(tools.children.filter(n=>n.type==='option').length,5)
-  tools.props['onUpdate:modelValue']('materials'); await tick(); await button(root,'读取详情').props.onClick(); await tick()
-  assert.ok(calls.some(p=>p.endsWith('kind=monument'))); assert.ok(calls.some(p=>p.endsWith('kind=materials')))
-})
-test('skland profile preserves structured exploration, assigned operators and zero counts', t => {
-  const root=mount(t,Profile,{payload:{base:{name:'本人档案'},regions:[{name:'谷地',money:{count:0,total:10},levels:[{name:'矿区',puzzles:{count:0,total:3},chests:{count:2,total:4}}],settlements:[{name:'据点甲',level:0}]}],ship:[{name:'舱室甲',level:0,operators:[{name:'驻守甲',physicalStrength:0,favorability:1}]}],achievements:{count:0,medals:[{achievementData:{id:'m',name:'勋章甲',cateName:'探索'}}]}}})
-  assert.match(content(root),/矿区.*醚质.*0.*3/); assert.match(content(root),/据点甲/); assert.match(content(root),/驻守甲.*心情.*0%/); assert.match(content(root),/勋章甲/)
-  assert.match(content(root),/信赖 友好 0%/);assert.match(content(root),/奖章分类/)
-})
 test('public source state uses nested source statuses and retains original Beijing content time',t=>{
   const root=mount(t,Status,{capabilities:['news'],snapshots:{news:{state:'ok',fetched_at:'2026-10-14T00:00:00Z',primary_source:'bilibili',version:'3.0',poll_status:{source_statuses:{community:{state:'error',last_success_at:'2026-10-13T00:00:00Z',error:'原生来源失败'},bilibili:{state:'ok',last_success_at:'2026-10-14T00:00:00Z'}}}}}})
   assert.match(content(root),/原生来源失败/);assert.match(content(root),/2026-10-14 08:00/);assert.match(content(root),/版本 3.0/)
-})
-test('cloud saved profile propagates stale, failed state and error to both shared reports with original time',async t=>{
- configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
- let source={}
- t.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({...source,fetched_at:'2025-12-31T01:00:00Z',payload:{ship:[],achievements:{medals:[]}}})))
- const root=mount(t,Details,{account:account('skland'),role:'skland-default'})
- for(const state of [{stale:true},{state:'error'},{error:'保留旧资料'},{state:'ok'},{state:'success'}]) {
-  source=state;await button(root,'读取详情').props.onClick();await tick()
-  const reports=nodes(root,'footer').filter(node=>node.props.class==='ef-source')
-  assert.equal(reports.length,2)
-  for(const footer of reports) {
-   assert.match(content(footer),/同步于 2025-12-31 09:00/)
-   assert.equal(content(footer).includes('正在显示已有资料，等待更新'),!['ok','success'].includes(state.state))
-  }
- }
-})
-test('operator changes clear details synchronously and prevent an old response being shown for new selection',async t=>{
-  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
-  let finish
-  t.mock.method(globalThis,'fetch',async()=>new Promise(resolve=>{finish=()=>resolve(new Response(JSON.stringify({payload:{name:'旧干员',weapon:{name:'旧武器'}}}))) }))
-  const root=mount(t,Details,{account:account('skland'),role:'skland-default',snapshot:{payload:{operators:[{id:'a',name:'干员甲'},{id:'b',name:'干员乙'}]}}})
-  nodes(root,'select')[0].props['onUpdate:modelValue']('operators');await tick()
-  nodes(root,'select')[1].props['onUpdate:modelValue']('a');await tick()
-  const pending=button(root,'读取详情').props.onClick();await tick()
-  nodes(root,'select')[1].props['onUpdate:modelValue']('b');await tick();finish();await pending;await tick()
-  assert.doesNotMatch(content(root),/旧干员|旧武器/)
-})
-test('actual cloud operator entry consumes the endpoint operator envelope with independent obtained time',async t=>{
- configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
- const calls=[]
- t.mock.method(globalThis,'fetch',async path=>{calls.push(path);return new Response(JSON.stringify({operator:{name:'契约干员甲',obtained_at:'2025-12-31T17:02:00Z',weapon:{name:'契约武器'},tactical_item:{name:'契约战术道具',rarity:0}},fetched_at:'2026-10-15T01:00:00Z'}))})
- const root=mount(t,Details,{account:account('skland'),role:'skland-default',snapshot:{payload:{operators:[{id:'a',name:'干员甲'}]}}})
- nodes(root,'select')[0].props['onUpdate:modelValue']('operators');await tick()
- nodes(root,'select')[1].props['onUpdate:modelValue']('a');await tick()
- await button(root,'读取详情').props.onClick();await tick()
- assert.match(content(root),/契约干员甲 · 干员配装/);assert.match(content(root),/契约武器/);assert.match(content(root),/契约战术道具/)
- assert.match(content(root),/来源时间：2026-10-15 09:00/);assert.match(content(root),/获得时间 2026-01-01 01:02/)
- assert.deepEqual(calls,['/api/accounts/skland/roles/skland-default/endfield/skland/operators/a'])
 })
 test('public partial-source failures distinguish fresh contributing fallback from retained stale data', t=>{
   for(const stale of [false,true]) {

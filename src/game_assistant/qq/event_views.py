@@ -149,7 +149,7 @@ def version_document(snapshots, *, now, asset_cache=None):
             scope = '历史/陈旧来源版本 '+str(ident)
         fields = [view.field('范围', scope), view.field('覆盖', '已公布活动汇总 · 覆盖待核验'),
                   view.field('版本开放', meta.get('start_date') or '未知'),
-                  view.field('版本结束', meta.get('end_at') or meta.get('end_date') or '未知；不按活动截止推算')]
+                  view.field('版本结束', meta.get('end_at') or meta.get('end_date') or '未知')]
         fields += [view.field('来源诊断', detail) for detail in meta.get('diagnostics', [])]
         output = []
         for item in entries:
@@ -171,7 +171,7 @@ def version_document(snapshots, *, now, asset_cache=None):
     sections.append(dict(title='公共快照状态', layout='rows', rows=states))
     card = view.document('list', next(iter(snapshots)) if len(snapshots)==1 else 'all', '版本活动日历',
         sections=sections, subtitle='各游戏独立版本 · 已结束、进行中与未来活动 · 北京时间',
-        notices=['未知版本或陈旧来源只展示已知活动；完整清单覆盖待核验。'],
+        notices=['未知版本仅展示已公布的活动。'],
         footer='计算时间：'+now.strftime('%Y-%m-%d %H:%M'))
     card['version'] = 3
     return card

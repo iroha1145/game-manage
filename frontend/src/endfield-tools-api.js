@@ -13,7 +13,13 @@ async function request(path, { method = 'GET', body, signal } = {}) {
     if (error.name === 'AbortError') throw error
     throw new Error('暂时无法连接服务，请稍后重试。')
   }
-  const data = await response.json().catch(() => ({}))
+  let data
+  try { data = await response.json() } catch (error) {
+    // A cancelled read stays an abort. A success that cannot be read is unknown, not an empty answer; only "no content" is empty.
+    if (error?.name === 'AbortError') throw error
+    if (response.ok && response.status !== 204) throw new Error('服务返回的数据无法读取，请稍后重试。')
+    data = {}
+  }
   if (!response.ok) {
     const detail = data.detail || data.error
     throw new Error(safeDetail(detail, response.status === 422 ? '输入内容格式不正确，请检查名称、分享码和备注。' : '请求未完成，请稍后重试。'))

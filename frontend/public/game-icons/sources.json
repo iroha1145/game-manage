@@ -5,7 +5,31 @@
     "creator": "game-manage contributors",
     "license": "GPL-3.0-only",
     "kind": "original text identifier; not official game artwork",
-    "file_light": "wuthering_waves-mark-light.svg"
+    "file_light": "wuthering_waves-mark-light.svg",
+    "official_icon": {
+      "url": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2d/ec/31/2dec3156-fd95-b0cb-f686-4d413151bbc9/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
+      "owner": "KURO GAMES",
+      "website": "https://wutheringwaves.kurogames.com/en/main",
+      "store_listing": "https://apps.apple.com/us/app/wuthering-waves/id6475033368",
+      "verified_at": "2026-10-17",
+      "kind": "external official game icon; loaded at runtime, not bundled",
+      "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
+      "evidence": "Official App Store listing, seller HK KURO GAMES LIMITED; artworkUrl512 from Apple lookup API. Website favicon provides a separate 36x36 publisher-hosted fallback.",
+      "fallback_urls": [
+        "https://wutheringwaves.kurogames.com/static4.0/favicon.ico"
+      ]
+    },
+    "official_banners": {
+      "urls": [
+        "https://wutheringwaves.kurogames.com/static4.0/assets/main-bg-7d3fbb99.jpg"
+      ],
+      "kind": "general game illustration; not a current-version or event assertion",
+      "owner": "KURO GAMES",
+      "website": "https://wutheringwaves.kurogames.com/en/main",
+      "verified_at": "2026-10-17",
+      "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
+      "evidence": "Official website script mainBg asset, 1920x1080."
+    }
   },
   {
     "game_id": "nte",
@@ -13,7 +37,29 @@
     "creator": "game-manage contributors",
     "license": "GPL-3.0-only",
     "kind": "original text identifier; not official game artwork",
-    "file_light": "nte-mark-light.svg"
+    "file_light": "nte-mark-light.svg",
+    "official_icon": {
+      "url": "https://nte.perfectworld.com/public/images/icon.png",
+      "owner": "Hotta Studio / Perfect World Games",
+      "website": "https://nte.perfectworld.com/cn/index.html",
+      "store_listing": null,
+      "verified_at": "2026-10-17",
+      "kind": "external official game icon; loaded at runtime, not bundled",
+      "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
+      "evidence": "Official website apple-touch-icon.",
+      "fallback_urls": []
+    },
+    "official_banners": {
+      "urls": [
+        "https://nte.perfectworld.com/public/images/share.jpg"
+      ],
+      "kind": "general game illustration; not a current-version or event assertion",
+      "owner": "Hotta Studio / Perfect World Games",
+      "website": "https://nte.perfectworld.com/cn/index.html",
+      "verified_at": "2026-10-17",
+      "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
+      "evidence": "Official website og:image, 1200x675."
+    }
   },
   {
     "game_id": "league_of_legends",
@@ -21,7 +67,29 @@
     "creator": "game-manage contributors",
     "license": "GPL-3.0-only",
     "kind": "original text identifier; not official game artwork",
-    "file_light": "league_of_legends-mark-light.svg"
+    "file_light": "league_of_legends-mark-light.svg",
+    "official_icon": {
+      "url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/news_live/d3b7bd9decb1e1672dcb80be4f8bc1aa05490dc1-110x70.svg?accountingTag=LoL",
+      "owner": "Riot Games",
+      "website": "https://www.leagueoflegends.com/en-us/",
+      "store_listing": null,
+      "verified_at": "2026-10-17",
+      "kind": "external official game icon; loaded at runtime, not bundled",
+      "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
+      "evidence": "Official website favicon; original SVG includes intentional space around the emblem.",
+      "fallback_urls": []
+    },
+    "official_banners": {
+      "urls": [
+        "https://cmsassets.rgpub.io/sanity/images/dsfx7636/news/565197caf987af4e4da307df6e2b235a28714736-837x469.jpg"
+      ],
+      "kind": "general game illustration; not a current-version or event assertion",
+      "owner": "Riot Games",
+      "website": "https://www.leagueoflegends.com/en-us/",
+      "verified_at": "2026-10-17",
+      "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
+      "evidence": "Official website og:image, 837x469."
+    }
   },
   {
     "game_id": "endfield",
@@ -29,6 +97,28 @@
     "creator": "game-manage contributors",
     "license": "GPL-3.0-only",
     "kind": "original text identifier; not official game artwork",
-    "file_light": "endfield-mark-light.svg"
+    "file_light": "endfield-mark-light.svg",
+    "official_icon": {
+      "url": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/7f/73/70/7f7370d4-6f46-19fe-0941-b24e9713f5e2/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
+      "owner": "Hypergryph / Shanghai Hypergryph Talos Network Technology Co.,Ltd.",
+      "website": "https://endfield.hypergryph.com",
+      "store_listing": "https://apps.apple.com/cn/app/id6753859465",
+      "verified_at": "2026-10-17",
+      "kind": "external official game icon; loaded at runtime, not bundled",
+      "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
+      "evidence": "Official App Store listing linked by the official website; artworkUrl512 from Apple lookup API. Website og:image provides a separate 256x256 publisher-hosted fallback.",
+      "fallback_urls": [
+        "https://web.hycdn.cn/endfield/official-v4/_next/static/media/share.dc935341.jpg"
+      ]
+    },
+    "official_banners": {
+      "urls": [],
+      "kind": "general game illustration; not a current-version or event assertion",
+      "owner": "Hypergryph / Shanghai Hypergryph Talos Network Technology Co.,Ltd.",
+      "website": "https://endfield.hypergryph.com",
+      "verified_at": "2026-10-17",
+      "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
+      "evidence": "No suitable general landscape artwork selected; website share image is square."
+    }
   }
 ]

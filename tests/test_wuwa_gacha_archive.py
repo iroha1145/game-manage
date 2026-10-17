@@ -185,6 +185,14 @@ def test_aggregate_only_backup_pages_restore_every_summary(ledger,tmp_path):
     assert restored.read('100','S')['total']==0
 
 
+def test_own_export_restores_into_the_store_that_made_it(ledger):
+    # Unknown pool and resource, and no server in the file: diagnostics stored in discovery order.
+    rows=[dict(cardPoolType=99,name='五星',time='2026-01-01',draw_total=3)]
+    commit(ledger,dict(data=dict(uid='100',card_analysis_json=dict(pool=dict(five_cards=rows)))),source='mcgf')
+    assert commit(ledger,ledger.export('100','S'))['inserted']==0
+    assert ledger.read('100','S')['aggregates']['total']==1
+
+
 def test_own_archive_top_warning_and_gap_cannot_restore_exact_pity(ledger,tmp_path):
     commit(ledger,doc([row(1,5),row(2)]),latest_confirmed=True,continuity_confirmed=True)
     ledger.set_rule('100','S',dict(pool='1',hard_pity=80,reset_rarity='5',version='personal',sharing='independent',basis='user_configured'))
@@ -228,3 +236,106 @@ def test_two_connection_conflict_check_holds_write_transaction(ledger,tmp_path):
         assert first.read('100','S')['items'][0]['rarity']=='3'
     finally:
         start.set();worker.join(4);first.conn.close();second.conn.close()
+
+
+def fresh():
+    import sqlite3,threading
+    return GachaStore(sqlite3.connect(':memory:',check_same_thread=False),threading.Lock())
+
+
+def anonymous(second, **changes):
+    r=dict(row(second),**changes); r.pop('id'); return r
+
+
+def stored(store):
+    return (store.conn.execute('SELECT pool,draw_id,payload FROM wuwa_gacha ORDER BY pool,draw_id').fetchall(),
+            sorted(item['summary_id'] for item in store._archive_data('100','S')['aggregates']))
+
+
+def pages(store, limit):
+    result,offset=[],0
+    while offset is not None:
+        result.append(store.export('100','S',offset=offset,limit=limit))
+        offset=result[-1]['export_page']['next_offset']
+    return result
+
+
+def test_export_never_splits_identical_anonymous_rows(ledger):
+    # Re-import numbers identical anonymous rows by their order in the file, so a page holding
+    # one of two such rows listed the stored key hash:2 and could not be restored.
+    commit(ledger,doc([anonymous(1),anonymous(1)]))
+    for offset in (0,1):
+        page=ledger.export('100','S',offset=offset,limit=1)
+        assert (page['export_page']['offset'],len(page['list']),page['export_page']['next_offset'])==(0,2,None)
+        restored=fresh(); commit(restored,page)
+        assert stored(restored)==stored(ledger)
+
+
+def test_paged_export_restores_every_row_when_a_page_ends_inside_a_group(ledger):
+    second8=dict(time='2026-01-01 12:00:08')
+    records=[row(9),*[anonymous(8)]*3,dict(row(7),**second8),*[anonymous(8,cardPoolType='2')]*2,row(6),
+             *[anonymous(5,name='另一物品')]*2,row(5),row(4)]
+    commit(ledger,doc(records))
+    summaries=[dict(cardPoolType=99,name=f'五星 {i}',time=f'2026-01-{i+1:02d}',draw_total=i+1) for i in range(5)]
+    commit(ledger,dict(data=dict(uid='100',card_analysis_json=dict(pool=dict(five_cards=summaries)))),source='mcgf')
+    original=stored(ledger)
+    assert len(original[0])==12 and len(original[1])==5
+    for limit in range(1,13):
+        restored=fresh(); chain=pages(ledger,limit)
+        for page in chain:
+            commit(fresh(),page)
+            commit(restored,page)
+        assert stored(restored)==original
+        assert sum(len(p['list']) for p in chain)==12 and sum(len(p['aggregate_items']) for p in chain)==5
+    for offset in range(12):
+        commit(fresh(),ledger.export('100','S',offset=offset,limit=1))
+    assert any(len(page['list'])>1 for page in pages(ledger,1))
+
+
+def test_size_halving_keeps_identical_anonymous_rows_on_one_page(ledger):
+    # Groups of seven: no halved limit (20000, 10000, ..., 1) is a multiple of seven.
+    wide=dict(name='n'*512,resourceId='r'*512,resourceType='t'*512)
+    commit(ledger,doc([anonymous(0,time=f'2026-01-01T00:{g//60:02d}:{g%60:02d}',**wide) for g in range(200) for _ in range(7)]))
+    chain=pages(ledger,20000)
+    restored=fresh()
+    for page in chain:
+        commit(fresh(),page)
+        commit(restored,page)
+    assert stored(restored)==stored(ledger)
+    assert len(chain)>1 and chain[0]['export_page']['limit']%7==0
+
+
+def test_expired_previews_are_dropped_by_every_store_entry(ledger,monkeypatch):
+    # A ticket holds its decoded records; an expired one stayed in memory until the next preview.
+    from game_assistant import wuwa_gacha_archive
+    clock=[1000.0]
+    monkeypatch.setattr(wuwa_gacha_archive.time,'monotonic',lambda:clock[0])
+    rule=dict(pool='1',hard_pity=80,reset_rarity='5',version='user',sharing='independent',basis='user_configured')
+    entries=dict(read=lambda:ledger.read('100','S'),export=lambda:ledger.export('100','S'),
+                 set_rule=lambda:ledger.set_rule('100','S',rule))
+    for name,entry in entries.items():
+        ledger.preview(doc([row(i) for i in range(30)]),'100','S',session='v1')
+        clock[0]+=599; entry()
+        assert len(ledger._previews)==1,name
+        clock[0]+=1; entry()
+        assert ledger._previews=={},name
+    p=ledger.preview(doc([row(1)]),'100','S',session='v1')
+    clock[0]+=600
+    with pytest.raises(ValueError,match='预览已过期'):ledger.commit_preview(p['preview_id'],'100','S',session='v1')
+    assert ledger._previews=={}
+    first=ledger.preview(doc([row(1)]),'100','S',session='v1')['preview_id']
+    for _ in range(16):ledger.preview(doc([row(1)]),'100','S',session='v1')
+    assert len(ledger._previews)==16 and first not in ledger._previews
+
+
+def test_own_archive_with_two_rules_for_one_pool_is_refused(ledger):
+    # An edited archive giving one pool two rules imported, and INSERT OR IGNORE kept the first.
+    commit(ledger,doc([row(1)]))
+    archive=ledger.export('100','S')
+    rule=dict(pool='1',hard_pity=80,reset_rarity='5',version='user',sharing='independent',basis='user_configured')
+    restored=fresh()
+    with pytest.raises(ValueError,match='同一卡池的归档规则冲突'):
+        restored.preview(dict(archive,rules=[rule,dict(rule,hard_pity=90)]),'100','S')
+    assert restored.read('100','S')['total']==0
+    commit(restored,dict(archive,rules=[rule,dict(rule)]))
+    assert restored.read('100','S')['rules']==[rule]

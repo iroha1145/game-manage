@@ -13,5 +13,13 @@ const rows = value => Array.isArray(value) ? value : []
   </div>
 </template>
 <style scoped>
-.nte-equipped-details{font-size:12px;line-height:1.6;overflow-wrap:anywhere}.nte-equipped-details section{margin-top:10px}.nte-equipped-details h4,.nte-equipped-details h5{margin:5px 0}.nte-equipped-details p{margin:4px 0;white-space:pre-wrap}.nte-equipped-details dl>div{display:flex;justify-content:space-between;gap:12px}.nte-equipped-details dd{margin:0}
+.nte-equipped-details{display:grid;gap:10px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+/* Each block is a soft tile with a hairline inside the role's white card. */
+.nte-equipped-details>section{margin:0;padding:12px 14px;border-radius:var(--radius-well);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2)}
+.nte-equipped-details section section{margin-top:8px;padding:0;background:none;box-shadow:none}
+.nte-equipped-details h4,.nte-equipped-details h5{margin:0 0 4px;color:var(--text-muted);font-size:12px;font-weight:500}
+.nte-equipped-details p{margin:4px 0;white-space:pre-wrap}
+.nte-equipped-details dl>div{display:flex;justify-content:space-between;gap:12px}
+.nte-equipped-details dd{margin:0}
+.nte-equipped-details details{padding:4px 14px}
 </style>

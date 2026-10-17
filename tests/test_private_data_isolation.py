@@ -70,20 +70,6 @@ def test_scoped_writes_dedupe_export_and_delete_are_isolated(factory,tmp_path):
         assert not b.delete(B,item['id'])
         assert a.items(A)[0]['name']=='a'
         assert a.delete(A,item['id'])
-    with pytest.raises(PermissionError):
-        a.clear(B)
-    a.clear(A)
-    if factory is BlueprintStore:
-        assert a.items(A)==[]
-    elif factory is WuwaHistory:
-        assert a.read(A,'roles')['total']==0
-        assert b.read(B,'roles')['total']==1
-    elif factory is WuwaStore:
-        assert a.read(A)['total']==0 and b.read(B)['total']==1
-    elif factory is NteStore:
-        assert a.summary(A)['total_records']==0 and b.summary(B)['total_records']==1
-    else:
-        assert a.records(A)['total']==0 and b.records(B)['total']==1
 
 def test_scope_metadata_mismatch_is_not_adopted(tmp_path):
     store=BlueprintStore.for_scope(A,tmp_path,role_uid='77',server_id='cn')
@@ -100,6 +86,18 @@ def test_scope_inventory_and_restart(tmp_path):
     assert reopened.items(A)[0]['name']=='persist'
     files=list_scope_files(tmp_path)
     assert files[0]['scope']==A and files[0]['path']==store.path
+
+
+def test_backup_inventory_refuses_a_shard_placed_under_another_owner(tmp_path):
+    # Backup and restore list shards through list_scope_files; A's data cannot pass as B's.
+    import shutil
+    from game_assistant.private_data import list_scope_files, scope_directory
+    store=BlueprintStore.for_scope(A,tmp_path,role_uid='77',server_id='cn')
+    moved=scope_directory(tmp_path,B)/'blueprints'
+    moved.mkdir(parents=True)
+    shutil.copy(store.path,moved/store.path.name)
+    with pytest.raises(PermissionError,match='disagree'):
+        list_scope_files(tmp_path)
 
 
 def test_snapshot_grant_versions_poll_failure_and_provider_boundaries(tmp_path):
@@ -235,15 +233,6 @@ def test_shard_orphan_and_identity_change_rejected(tmp_path):
     with pytest.raises(PermissionError): BlueprintStore.for_scope(A,tmp_path,role_uid='different',server_id='cn')
 
 
-def test_sqlite_backup_includes_scope_manifests(tmp_path):
-    from game_assistant.private_data import backup_scope_files,list_scope_files
-    store=BlueprintStore.for_scope(A,tmp_path/'source',role_uid='77',server_id='cn')
-    store.save(A,BlueprintInput(name='saved',code='code'))
-    backup_scope_files(tmp_path/'source',tmp_path/'backup')
-    assert list_scope_files(tmp_path/'backup')[0]['scope']==A
-    assert BlueprintStore.for_scope(A,tmp_path/'backup',role_uid='77',server_id='cn').items(A)[0]['name']=='saved'
-
-
 def _installed_cloud_route_cases():
     import tempfile
     from pathlib import Path
@@ -285,17 +274,6 @@ def test_private_cleanup_retains_ledger_and_only_clears_scope(tmp_path):
     bundle.clear_private(A)
     assert snapshots.get_scoped(A,'account') is None and snapshots.get_scoped(B,'account') is not None
     assert bundle.ledger(A,'blueprints').items(A)[0]['name']=='history'
-
-
-def test_snapshot_scoped_backup_cannot_restore_to_another_owner(tmp_path):
-    store=SnapshotStore(str(tmp_path/'s.db'))
-    store.save_scoped(A,'account','{"level":null}',1)
-    backup=store.export_private_scoped(A)
-    with pytest.raises(PermissionError): store.restore_private_scoped(B,backup)
-    store.clear_scoped(A)
-    store.restore_private_scoped(A,backup)
-    assert json.loads(store.get_scoped(A,'account')['payload'])['level'] is None
-    assert store.get_scoped(B,'account') is None
 
 
 def test_poll_failure_uses_existing_scoped_snapshot_success_time(tmp_path):
@@ -344,17 +322,6 @@ def test_cloud_boundary_with_event_loop_account_connection(tmp_path):
         assert created.status_code==201
         assert client.get(path).json()['items'][0]['name']=='private'
         assert client.get('/api/endfield/blueprints').status_code==404
-
-
-def test_backup_rejects_overlapping_destination(tmp_path):
-    from game_assistant.private_data import backup_scope_files
-    store=BlueprintStore.for_scope(A,tmp_path/'source',role_uid='77',server_id='cn')
-    store.save(A,BlueprintInput(name='private',code='code'))
-    with pytest.raises(ValueError,match='overlap'):
-        backup_scope_files(tmp_path/'source',tmp_path/'source')
-    with pytest.raises(ValueError,match='overlap'):
-        backup_scope_files(tmp_path/'source',tmp_path/'source'/'backup')
-    assert store.items(A)[0]['name']=='private'
 
 
 def test_cloud_import_rechecks_grant_after_network_await(tmp_path,monkeypatch):

@@ -1,4 +1,4 @@
-"""Bounded private PNG rendering from validated display documents or legacy text.
+"""Shared renderer contract and the bounded render queue for QQ images.
 
 No remote assets or disk cache. Fonts are operator-provided system fonts;
 Ubuntu operators can install fonts-noto-cjk. Windows fonts are never bundled.
@@ -6,7 +6,6 @@ Ubuntu operators can install fonts-noto-cjk. Windows fonts are never bundled.
 import asyncio
 from collections import OrderedDict
 import hashlib
-from io import BytesIO
 import json
 import logging
 import re
@@ -14,12 +13,11 @@ from pathlib import Path
 import threading
 import time
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import ImageFont
 
 from game_assistant.accounts.models import AccountScope, QueryResult
 from .commands import safe_text
 from .cards import validate_card_document, card_to_text, image_references
-from . import card_rendering
 
 TEMPLATE_VERSION = 'qq-unified-3-endfield-6'
 logger = logging.getLogger(__name__)
@@ -31,7 +29,7 @@ qq_browser_not_ready qq_browser_page_limit qq_browser_private_field
 qq_browser_runtime_unavailable qq_browser_selected_role_unavailable
 qq_browser_shared_content_incomplete qq_browser_shared_content_unavailable qq_browser_unsupported_panel
 qq_image_cjk_font_unavailable qq_image_pixel_limit qq_image_safe_summary_required
-qq_image_size_limit qq_image_summary_too_long qq_image_text_card_mismatch qq_image_time_limit
+qq_image_size_limit qq_image_text_card_mismatch qq_image_time_limit
 '''.split())
 
 
@@ -142,74 +140,12 @@ class SummaryRenderer:
         except Exception:
             raise RenderingUnavailable('qq_image_cjk_font_unavailable') from None
 
-    def render_summary(self, scope: AccountScope, result: QueryResult) -> bytes:
-        key = self.cache_key(scope, result)
-        with self.lock:
-            now = time.monotonic()
-            for expired, (_, expiry, _) in list(self.cache.items()):
-                if expiry <= now:
-                    del self.cache[expired]
-            if key in self.cache:
-                self.cache.move_to_end(key)
-                return self.cache[key][2]
-            generation = self.generation
-        font = self._font()
-        payload = self._payload(result)
-        if 'card' in payload:
-            try:
-                png = card_rendering.render_card(payload['card'],font=font,max_bytes=self.max_bytes,
-                    max_pixels=self.max_pixels,budget_seconds=self.budget_seconds,asset_cache=self.asset_cache)
-            except ValueError as error:
-                raise RenderingUnavailable(str(error)) from None
-        else:
-            png = self._render_text(payload['text'],font)
-        with self.lock:
-            if self.generation != generation:
-                return png
-            if self.cache_entries:
-                accounts = frozenset([scope.account_id]+[s['account_id'] for s in payload.get('scopes',[])])
-                owner = (scope.user_id, accounts)
-                self.cache[key] = (owner, time.monotonic() + self.cache_ttl, png)
-                while len(self.cache) > self.cache_entries:
-                    self.cache.popitem(last=False)
-        return png
-
-    def _render_text(self, text, font):
-        started = time.monotonic()
-        # The owned template is simple text on a card, with hard pixel bounds.
-        lines = []
-        for paragraph in text.split('\n'):
-            current = ''
-            for char in paragraph:
-                if font.getlength(current + char) > 996:
-                    lines.append(current)
-                    current = ''
-                current += char
-            lines.append(current)
-        if len(lines) > 64:
-            raise RenderingUnavailable('qq_image_summary_too_long')
-        height = max(160,72+len(lines)*44)
-        if height>2400 or 1080*height>self.max_pixels:
-            raise RenderingUnavailable('qq_image_pixel_limit')
-        image = Image.new('RGB', (1080, height), '#f5f7fb')
-        draw = ImageDraw.Draw(image)
-        for index, line in enumerate(lines):
-            draw.text((42, 30 + index * 44), line, font=font, fill='#172235')
-        output = BytesIO()
-        image.save(output, format='PNG', optimize=True)
-        png = output.getvalue()
-        if len(png) > self.max_bytes:
-            raise RenderingUnavailable('qq_image_size_limit')
-        if time.monotonic()-started>self.budget_seconds:
-            raise RenderingUnavailable('qq_image_time_limit')
-        return png
-
 
 class RenderQueue:
     """One worker, up to ten admitted requests, with strict caller deadlines.
 
-Timed-out CPU work keeps its slot until the worker really finishes. Cancelling
-the HTTP request never causes a second thread to render concurrently.
+Timed-out work keeps its slot until the worker really finishes. Cancelling
+the HTTP request never starts a second render concurrently.
 """
     def __init__(self, renderer, *, queue_limit=10):
         self.renderer = renderer
@@ -234,9 +170,7 @@ the HTTP request never causes a second thread to render concurrently.
                         logger.warning('QQ render fallback: qq_render_queue_expired')
                         return None
                     try:
-                        if hasattr(self.renderer, 'render_summary_async'):
-                            return await self.renderer.render_summary_async(scope, result, budget_seconds=max(0, expires-time.monotonic()))
-                        return await asyncio.to_thread(self.renderer.render_summary, scope, result)
+                        return await self.renderer.render_summary_async(scope, result, budget_seconds=max(0, expires-time.monotonic()))
                     except RenderingPageUnavailable as error:
                         return error
                     except RenderingUnavailable as error:
@@ -265,11 +199,3 @@ the HTTP request never causes a second thread to render concurrently.
             await asyncio.gather(*tuple(self.tasks), return_exceptions=True)
         if hasattr(self.renderer, 'aclose'):
             await self.renderer.aclose()
-
-
-def render_summary(scope: AccountScope, result: QueryResult) -> bytes:
-    """Canonical sync interface; service callers use a configured RenderQueue."""
-    from game_assistant.config import Settings
-    settings = Settings.load()
-    return SummaryRenderer(font_path=settings.qq_image_font_path,
-                           max_bytes=settings.qq_image_max_bytes).render_summary(scope, result)

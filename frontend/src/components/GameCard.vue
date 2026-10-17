@@ -1,11 +1,12 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { gameStyle } from '../dashboard.js'
-import { vGlide } from '../motion.js'
+import { gameStyle, gameVars } from '../dashboard.js'
+import { vGlide, vParallax } from '../motion.js'
 import { lazyPage } from '../lazy-page.js'
 import AppIcon from './AppIcon.vue'
 import GameIcon from './GameIcon.vue'
-import SourceStatusPanel from './SourceStatusPanel.vue'
+import ArtworkImage from './ArtworkImage.vue'
+import { gameBanner } from '../game-visuals.js'
 import AnnouncementList from './AnnouncementList.vue'
 import NteDataCard from './NteDataCard.vue'
 import NteAssetsPanel from './NteAssetsPanel.vue'
@@ -25,7 +26,6 @@ const props = defineProps({
   cloudRole: String,
   cloudScope: Object,
   isAdmin: Boolean,
-  showSourceStatus: { type: Boolean, default: false },
   esportsBrowse: Object,
   game: { type: Object, required: true },
   externalSnapshots: { type: Object, required: true },
@@ -42,6 +42,15 @@ const nteGuideId=ref(''), nteFocusId=ref('')
 function openNteGuide(id){nteGuideId.value=id;activeSection.value='guides'}
 function openNteRole(id){nteFocusId.value=id;nteGuideId.value='';activeSection.value='characters'}
 const style = computed(() => gameStyle(props.game.game_id))
+const banner = computed(() => gameBanner(props.game.game_id, props.externalSnapshots))
+// The hero names whose data this is: the game role's nickname and level. Endfield's account
+// snapshot is the Hypergryph passport, which stays apart from the Skland role, so it is not shown.
+const identity = computed(() => {
+  if (!['wuthering_waves', 'nte'].includes(props.game.game_id)) return ''
+  const account = props.externalSnapshots.account?.payload
+  if (!account || typeof account !== 'object') return ''
+  return [account.nickname, Number.isFinite(account.level) ? `Lv.${account.level}` : ''].filter(Boolean).join(' · ')
+})
 const groups = computed(() => [
   { id: 'all', label: '全部', caps: props.game.capabilities },
   { id: 'overview', label: '概览', caps: ['account', 'stamina', 'progress', 'record'] },
@@ -90,20 +99,21 @@ function capProps(cap) {
 </script>
 
 <template>
-  <section class="game-card game-theme" :class="`game-${game.game_id}`" :style="{ '--game-accent': style.color }">
+  <section class="game-card game-theme" :class="`game-${game.game_id}`" :style="gameVars(game.game_id)">
     <div v-if="errorNotice" class="error-bar" role="alert">
       {{ errorNotice }}
     </div>
 
-    <header class="card-head">
-      <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><p class="eyebrow">{{ style.english }}</p><h1 class="game-name">{{ game.display_name }}</h1></div></div>
+    <header v-parallax class="card-head game-hero">
+      <ArtworkImage class="game-backdrop" :candidates="banner" decorative loading="eager" />
+      <span class="hero-mark-art plx-layer" aria-hidden="true"><GameIcon class="hero-big-mark" :game-id="game.game_id" /></span>
+      <div class="game-heading"><GameIcon class="detail-monogram" :game-id="game.game_id" :name="game.display_name" /><div><p class="game-en" aria-hidden="true">{{ style.english }}</p><h1 class="game-name">{{ game.display_name }}</h1><p v-if="identity" class="game-identity-line">{{ identity }}</p></div></div>
       <span
         v-if="!game.credentials_configured && game.game_id !== 'endfield'"
         class="badge badge-danger"
       >
-        未配置凭据
+        未登录
       </span>
-      <SourceStatusPanel v-if="showSourceStatus" :game="game" :collection="collectionStatus" />
       <button
         type="button"
         class="ui-button refresh-btn"
@@ -120,10 +130,9 @@ function capProps(cap) {
     <NteModuleCard v-else-if="game.game_id === 'nte' && activeSection === 'guides'" capability="guides"><NteGuides :roles="externalSnapshots.roles?.payload?.entries || []" :can-maintain="!cloudAccount || isAdmin" :character-id="nteGuideId" @role="openNteRole" /></NteModuleCard>
     <div v-else class="cap-list">
       <template v-for="cap in visibleCaps" :key="cap">
-        <NteModuleCard v-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
+        <NteModuleCard v-if="capComponent(cap)" :capability="cap" :snap="externalSnapshots[cap]" :artwork="cap === 'account' ? banner : []" :account-id="externalSnapshots.account?.payload?.role_id || ''" :class="['detail-cap', `detail-cap-${cap}`]">
           <component :is="capComponent(cap)" v-bind="{...capProps(cap),...(cap==='roles' ? {focusCharacterId:nteFocusId,detailMode:!!nteFocusId,onGuide:openNteGuide} : {})}" />
         </NteModuleCard>
-        <div v-else class="cap-card cap-coming">敬请期待</div>
       </template>
       <AnnouncementList v-if="['all', 'news'].includes(activeSection) && game.capabilities.some(cap => ['announcement', 'news'].includes(cap))" class="detail-articles" :game-id="game.game_id" :snap="externalSnapshots.news?.payload ? externalSnapshots.news : externalSnapshots.announcement" />
     </div>
@@ -132,7 +141,6 @@ function capProps(cap) {
 
 <style scoped>
 .detail-articles{grid-column:1/-1}
-.detail-cap-realestate, .detail-cap-vehicles, .detail-cap-teams, .detail-cap-roles, .detail-cap-gacha, .detail-cap-exploration { grid-column: 1 / -1; }
 .game-card {
   min-width: 0;
 }
@@ -142,29 +150,35 @@ function capProps(cap) {
   border: 1px solid var(--danger-border);
   color: var(--danger);
   padding: 12px 16px;
-  font-size: 12px;
-  border-radius: 10px;
+  font-size: 13px;
+  border-radius: var(--radius-well);
   margin-bottom: 20px;
   overflow-wrap: anywhere;
 }
 
-.card-head { display:flex; align-items:center; gap:8px 12px; padding:0 0 20px; margin-bottom:20px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
-.game-heading { display:flex; align-items:center; gap:12px; margin-right:auto; min-width:0; }
-.detail-monogram { display:grid; place-items:center; font-size:22px; width:42px; height:42px; border-radius:10px; box-shadow:var(--card-shadow); }
-.game-name { margin-top:3px; font-size:24px; line-height:30px; font-weight:600; letter-spacing:-.02em; }
+/* Hero: the game's pale tone inside a white frame (game-manage-ui-v1), its mark tile
+   bleeding off the bottom edge and drifting a little against the scroll. */
+.card-head { position:relative; display:flex; align-items:center; gap:10px 12px; min-height:160px; margin-bottom:22px; padding:24px 26px; flex-wrap:wrap; overflow:hidden; isolation:isolate; border:6px solid var(--card-bg); border-radius:26px; color:var(--text); background:var(--game-tone); box-shadow:0 0 0 1px var(--card-border), var(--card-shadow); }
+.hero-mark-art { --plx-range:-10px; position:absolute; right:clamp(150px, 24%, 300px); bottom:-36px; z-index:-1; pointer-events:none; }
+.hero-big-mark { width:132px; height:132px; border-radius:34px; background:var(--card-bg); box-shadow:0 18px 40px -22px rgba(38, 40, 46, .4); transform:rotate(-9deg); color:var(--game-accent); font-size:56px; font-weight:600; }
+.game-en { color:var(--game-accent); font-size:11px; font-weight:600; letter-spacing:1.5px; line-height:16px; }
+.card-head > :not(.hero-mark-art):not(.game-backdrop) { position:relative; }
+.game-backdrop { position:absolute; inset:0 0 0 auto; width:78%; height:100%; object-position:center 38%; z-index:-2; }
+.card-head:has(.game-backdrop)::after { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg,var(--game-tone) 12%,color-mix(in srgb,var(--game-tone) 94%,transparent) 34%,color-mix(in srgb,var(--game-tone) 22%,transparent) 78%); }
+.card-head:has(.game-backdrop) .hero-mark-art { display:none; }
+.game-heading { display:flex; align-items:center; gap:16px; margin-right:auto; min-width:0; }
+.detail-monogram { display:grid; place-items:center; width:56px; height:56px; border:3px solid var(--card-bg); border-radius:16px; background:var(--card-bg); box-shadow:0 0 0 1px var(--card-border); font-size:24px; font-weight:600; }
+.game-name { font-size:30px; line-height:38px; font-weight:600; letter-spacing:-.03em; }
+.game-identity-line { margin-top:2px; color:var(--game-accent); font-size:13px; }
 
 .cap-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 20px;
   align-items: start;
 }
 .detail-navigation { display:flex; justify-content:space-between; gap:10px 16px; align-items:center; margin:0 0 16px; flex-wrap:wrap; }
 @media(max-width:950px) { .cap-list { grid-template-columns:1fr; } }
-@media(max-width:600px) { .card-head { padding-bottom:16px; margin-bottom:16px; gap:12px; }.game-heading { gap:10px; flex-basis:100%; }.game-name { font-size:22px; line-height:28px; }.detail-monogram { width:36px; height:36px; font-size:20px; }.detail-tabs button { padding:4px 9px; } }
-
-.cap-coming {
-  color: var(--text-muted);
-  text-align: center;
-}
+@media(max-width:600px) { .card-head { min-height:150px; margin-bottom:16px; padding:20px 18px; gap:12px; border-radius:24px; }.hero-mark-art { right:-14px; bottom:-40px; transform:scale(.7); transform-origin:100% 100%; }.game-heading { gap:12px; flex-basis:100%; }.game-name { font-size:26px; line-height:32px; }.detail-monogram { width:44px; height:44px; font-size:20px; border-radius:13px; }.detail-tabs button { padding:4px 10px; } }
+@media(max-width:600px) { .game-backdrop { width:100%; object-position:65% center; }.card-head:has(.game-backdrop)::after { background:linear-gradient(90deg,var(--game-tone),color-mix(in srgb,var(--game-tone) 86%,transparent) 46%,color-mix(in srgb,var(--game-tone) 35%,transparent)); } }
 </style>

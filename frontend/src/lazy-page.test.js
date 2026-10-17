@@ -8,8 +8,8 @@ import { lazyPage } from './lazy-page.js'
 const staticComponents = file => [...readFileSync(new URL(file, import.meta.url), 'utf8').matchAll(/^import \w+ from '\.\/([\w/]+\.vue)'/gm)].map(match => match[1])
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
 
-test('the cloud app loads only the login form, the overview and the icons before its first paint', () => {
-  assert.deepEqual(staticComponents('./CloudApp.vue').sort(), ['components/AppIcon.vue', 'components/GameIcon.vue', 'components/OverviewPage.vue', 'components/SiteLogin.vue'])
+test('the cloud app loads only the login form, overview, icons and shared menu before its first paint', () => {
+  assert.deepEqual(staticComponents('./CloudApp.vue').sort(), ['components/AppIcon.vue', 'components/GameIcon.vue', 'components/MenuSelect.vue', 'components/OverviewPage.vue', 'components/SiteLogin.vue'])
 })
 test('the League of Legends dashboard, which the cloud never shows, is not part of the game card chunk', () => {
   assert.ok(!staticComponents('./components/GameCard.vue').includes('components/LolDashboard.vue'))

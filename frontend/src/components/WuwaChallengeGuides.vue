@@ -1,4 +1,5 @@
 <script setup>
+import MenuSelect from './MenuSelect.vue'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { challengeGuides, challengeGuideUpdatedAt, selectChallengeGuides } from '../wuwa-challenge-guides.js'
 import { guideSourceUrl } from '../wuwa-guides.js'
@@ -19,7 +20,7 @@ const guides = computed(() => selectChallengeGuides(props.mode, selectedBoss.val
     <header class="wuwa-heading"><h3>社区攻略</h3><span class="wuwa-meta">核查于 {{ challengeGuideUpdatedAt }}</span></header>
     <p v-if="mode === 'tower'" class="wuwa-meta">仅展示当期图文攻略，按原帖标注的深塔周期筛选。</p>
     <label v-if="mode === 'hologram'" class="boss-filter">筛选首领
-      <select v-model="selectedBoss"><option value="">全部首领与入门资料</option><option v-for="boss in options" :key="boss" :value="boss">{{ boss }}</option></select>
+      <MenuSelect class="boss-filter-menu" label="筛选首领" v-model="selectedBoss" :options="[{value:'',label:'全部首领与入门资料'},...options.map(boss => ({value:boss,label:boss}))]" />
     </label>
     <p v-if="!guides.length" class="wuwa-muted">{{ mode === 'tower' ? '暂无当期图文攻略，待更新。' : '暂无该首领图文攻略，可选择“全部首领与入门资料”。' }}</p>
     <div class="challenge-guide-list">
@@ -38,14 +39,14 @@ const guides = computed(() => selectChallengeGuides(props.mode, selectedBoss.val
 </template>
 <style scoped>
 .challenge-guides > p { margin: 12px 0; line-height: 1.8; }
-.boss-filter { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--text-muted); white-space: nowrap; }
-.boss-filter select { background: var(--bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px; max-width: 100%; min-width: 0; }
-.challenge-guide-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.boss-filter { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text-muted); font-size: 13px; white-space: nowrap; }
+.boss-filter-menu { max-width:100%; min-width:0; }.boss-filter-menu :deep(.menu-select-trigger) { min-height:34px; min-width:0; max-width:100%; font-size:13px; }
+.challenge-guide-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .challenge-guide-card.has-lineups { grid-column: 1 / -1; }
 .challenge-guide-title { display: flex; gap: 12px; align-items: center; }
-.challenge-guide-title h4 { margin: 8px 0; line-height: 1.6; }
+.challenge-guide-title h4 { margin: 8px 0; font-size: 15px; font-weight: 600; line-height: 1.6; }
 .challenge-guide-card > p { line-height: 1.8; font-size: 13px; color: var(--text-muted); margin: 12px 0; }
-.challenge-guide-card details { font-size: 12px; color: var(--text-muted); }
+.challenge-guide-card details { font-size: 13px; color: var(--text-muted); }
 .challenge-guide-card summary { cursor: pointer; }
 .challenge-guide-card footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 16px; }
 .challenge-guide-card a { color: var(--accent); text-decoration: none; font-size: 13px; }

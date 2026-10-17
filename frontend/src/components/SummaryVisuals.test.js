@@ -9,7 +9,11 @@ test('Wuwa stamina and periodic progress are visible without opening a dialog', 
     stamina: { payload: { current: 0, maximum: 240 } },
     progress: { payload: [{ name: '每日活跃', cur: 60, total: 100 }, { name: '未知挑战', cur: null, total: 30 }] },
   } })
-  assert.ok(nodes(root, 'progress').some(n => n.props.value === 0 && n.props.max === 240))
+  // The stamina picture is a ring gauge (role=meter) instead of a native progress bar; it still carries 0 of 240.
+  const meters = []
+  const walk = n => { if (n.props.role === 'meter') meters.push(n); n.children.forEach(walk) }
+  walk(root)
+  assert.ok(meters.some(n => n.props['aria-valuenow'] === 0 && n.props['aria-valuemax'] === 240))
   assert.match(content(root), /每日活跃/)
   assert.match(content(root), /未知 \/ 30/)
   assert.equal(nodes(root, 'dialog').length, 0)
@@ -42,8 +46,7 @@ test('visual meters preserve unknowns and zero, and clamp only the graphic for o
     {label:'未知',current:null,total:100}, {label:'未给上限',current:3,total:0},
     {label:'已清空',current:0,total:240}, {label:'超出',current:120,total:100},
   ]})
-  assert.equal(nodes(root,'progress').length,2)
   assert.match(content(root),/120 \/ 100/)
-  assert.ok(nodes(root,'div').some(n=>n.props.style?.['--fill']==='100%'))
-  assert.ok(nodes(root,'div').some(n=>n.props.style?.['--fill']==='0%'))
+  // A native bar clamps a value above its max, so only the graphic stops at full.
+  assert.deepEqual(nodes(root,'progress').map(n=>[n.props.value,n.props.max]),[[0,240],[120,100]])
 })

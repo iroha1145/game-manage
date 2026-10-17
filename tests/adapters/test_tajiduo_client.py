@@ -204,7 +204,7 @@ async def test_network_error_wrapped():
     with pytest.raises(TajiduoError) as ei:
         await client.get_user_full_info()
     await client.aclose()
-    assert "网络错误" in ei.value.message
+    assert ei.value.message == "网络连接失败，请稍后重试"
     assert ei.value.expired is False
 
 

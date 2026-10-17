@@ -443,7 +443,7 @@ test('gacha loads only local archive; explicit import clears secret and displays
 test('the gacha import says where the records are kept: this machine locally, the personal space in the cloud', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => reply({ ...identity, total: 0, items: [], gold: [], gold_total: 0, pools: [], state: 'need_import', coverage: { complete: false } }))
   t.after(() => configureHttpClient({ mode: 'local' }))
-  for (const [mode, kept, other] of [['local', /记录保存在本机/, /本人空间/], ['cloud', /记录保存在本人空间/, /本机/]]) {
+  for (const [mode, kept, other] of [['local', /记录保存在本机/, /当前账号/], ['cloud', /记录保存在当前账号/, /本机/]]) {
     configureHttpClient({ mode })
     const root = mount(t, await component('WuwaGacha'), { accountKey: 'account:server' })
     await tick()

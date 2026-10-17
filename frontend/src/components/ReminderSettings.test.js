@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick } from 'vue'
 import { Window } from 'happy-dom'
-import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { loadVue, mount, nodes, content, choose } from '../test-utils/vue.js'
 import { configureHttpClient } from '../http-client.js'
 
 const ReminderSettings = await loadVue(new URL('./ReminderSettings.vue', import.meta.url))
@@ -30,7 +30,7 @@ test('per-role reminder form saves actual configuration and reads inbox without 
   const saved=calls.find(([url, opt])=>url==='/api/accounts/a/roles/r/reminders' && opt.method==='PUT')
   assert.equal(JSON.parse(saved[1].body).enabled, true)
   assert.match(content(root), /体力已满|读取时间/)
-  await nodes(root,'select')[0].props.onChange({target:{value:'s'}}); await flush()
+  choose(root,'提醒角色','s'); await flush()
   assert.ok(calls.some(([url])=>url==='/api/accounts/a/roles/s/reminders'))
   assert.ok(calls.every(([url])=> !/refresh|internal|send/.test(url)))
 })
@@ -60,7 +60,7 @@ test('group form offers supported controls while saving preserves hidden subscri
   assert.equal(nodes(root, 'fieldset').some(node => content(node).includes('公共订阅')), false)
   assert.equal(nodes(root, 'input').some(node => node.props.type === 'time'), false)
   assert.doesNotMatch(content(root), /不实现|兼容保留|不生效|群静默/)
-  assert.match(content(root), /允许查询的游戏、图片偏好与查询频率/)
+  assert.match(content(root), /允许查询的游戏.*使用图片回复查询结果.*群查询每分钟上限/)
   nodes(root, 'input').find(node => node.props.type === 'number').props['onUpdate:modelValue'](25)
   await nodes(root, 'form')[0].props.onSubmit({ preventDefault() {} }); await flush()
   const saved = JSON.parse(calls.find(([url, options]) => url === '/api/admin/qq/groups/group-existing/settings' && options.method === 'PUT')[1].body)

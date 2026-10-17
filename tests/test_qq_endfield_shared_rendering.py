@@ -136,7 +136,7 @@ async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfi
     captured=[];original=Page.evaluate
     async def evaluate(page,expression,*args,**kwargs):
         value=await original(page,expression,*args,**kwargs)
-        if expression=='window.__RENDER_STATE__':captured.append(await page.locator('.render-page').inner_text())
+        if expression=='window.__RENDER_STATE__':captured.append('\n'.join(await page.locator('.render-page').all_inner_texts()))
         return value
     monkeypatch.setattr(Page,'evaluate',evaluate)
     svc.asset_cache.prefetch=__import__('unittest.mock',fromlist=['AsyncMock']).AsyncMock()
@@ -148,9 +148,10 @@ async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfi
         raw='终末地 干员 佩丽卡' if role_name else {'training':'终末地 练度','regions':'终末地 地区','ship':'终末地 帝江号','honor':'终末地 光荣之路','combat':'终末地 挑战','gacha':'终末地 寻访战报'}[command]
         reply=await internal.execute(InboundMessage(identity,'synthetic-once',raw,now.isoformat(),(now+timedelta(minutes=5)).isoformat()))
         assert reply.image is not None,reply.text
-        with Image.open(BytesIO(reply.image)) as picture:assert picture.width==1080 and picture.width*picture.height<=16_000_000
+        with Image.open(BytesIO(reply.image)) as picture:assert picture.width==720 and 0<picture.height<=1440
         state=svc.render_queue.renderer.last_state
-        assert state['state']=='ready' and state['displayed_blocks']==state['content_blocks'] and len(state['pages'])==1
+        assert state['state']=='ready' and state['displayed_blocks']==state['content_blocks'] and 1<=len(state['pages'])<=100
+        assert all(row['width']==720 and 0<row['height']<=1440 for row in state['pages'])
         text=captured[-1]
         if command=='training':assert '合成干员34' in text and '35' in text
         elif command=='honor':assert '奖章33' in text and '类别16' in text

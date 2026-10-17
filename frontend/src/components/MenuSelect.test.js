@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { nextTick } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { loadVue, mount, content, nodes, choose } from '../test-utils/vue.js'
 const MenuSelect = await loadVue(new URL('./MenuSelect.vue', import.meta.url))
 const key = name => ({ key: name, preventDefault() {} })
@@ -57,4 +57,39 @@ test('typing a label prefix highlights the first match', async t => {
   assert.match(trigger.props['aria-activedescendant'], /-2$/)
   trigger.props.onKeydown(key('Enter')); await nextTick()
   assert.deepEqual(changes, ['x'])
+})
+
+test('an async disabled state closes the list and refuses a stale option click', async t => {
+  const changes = [], props = reactive({ modelValue:'all', options, label:'筛选', disabled:false, 'onUpdate:modelValue':v => changes.push(v) })
+  const root = mount(t, MenuSelect, props), trigger = nodes(root, 'button')[0]
+  trigger.props.onKeydown(key('Enter')); await nextTick()
+  assert.equal(trigger.props['aria-expanded'], true)
+  props.disabled = true; await nextTick()
+  assert.equal(trigger.props['aria-expanded'], false)
+  choose(root, '筛选', 'x')
+  assert.deepEqual(changes, [])
+})
+
+test('replacing options preserves the highlighted value and empty options close the list', async t => {
+  const props = reactive({ modelValue:'all', options:[...options], label:'筛选' })
+  const root = mount(t, MenuSelect, props), trigger = nodes(root, 'button')[0]
+  trigger.props.onKeydown(key('Enter')); await nextTick()
+  trigger.props.onKeydown(key('End')); await nextTick()
+  props.options = [options[2], options[0]]; await nextTick()
+  assert.match(trigger.props['aria-activedescendant'], /-0$/)
+  props.options = []; await nextTick()
+  assert.equal(trigger.props['aria-expanded'], false)
+})
+
+test('option selection cancels label activation and Escape does not close its containing dialog', async t => {
+  const { root, trigger, changes } = setup(t)
+  let prevented = false, stopped = false
+  nodes(root, 'li')[1].props.onClick({ preventDefault() { prevented = true } })
+  assert.equal(prevented, true)
+  assert.deepEqual(changes, [3])
+  trigger.props.onKeydown(key('Enter')); await nextTick()
+  trigger.props.onKeydown({ key:'Escape', preventDefault() {}, stopPropagation() { stopped = true } })
+  await nextTick()
+  assert.equal(stopped, true)
+  assert.equal(trigger.props['aria-expanded'], false)
 })

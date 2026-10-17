@@ -140,16 +140,18 @@ def test_endfield_total_timeout_returns_last_good_news(cloud, monkeypatch):
     client.portal.call(seed(app))
     login(client)
     original = EndfieldPublicService._request
+    started, finished = [], []
     async def slow(self, url, params=None):
+        started.append(url)
         await asyncio.sleep(1)
+        finished.append(url)
         return await original(self, url, params)
     monkeypatch.setattr(EndfieldPublicService, '_request', slow)
     monkeypatch.setattr(CloudPublicTools, 'TIMEOUT', .01, raising=False)
     upstream.get('https://endfield.hypergryph.com/news').mock(return_value=httpx.Response(503))
-    import time
-    started = time.monotonic()
     response = write(client, '/api/admin/endfield/public/refresh', {})
-    assert time.monotonic() - started < .5
+    # The deadline cancels the slow request; a wall-clock bound measured runner load instead.
+    assert started and not finished
     assert response.status_code == 200
     data = response.json()
     assert data['news']['items'][0]['title'] == '合成公告'

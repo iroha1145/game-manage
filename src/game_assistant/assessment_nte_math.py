@@ -6,14 +6,12 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from .assessment_contracts import (Contract, EquipmentKind, ExactFraction,
-                        Identifier, ScoreContribution, ScoreResult, ScoreSpec,
+                        Identifier, ObservationId, ScoreContribution, ScoreResult, ScoreSpec,
                         WeightProfile, decimal_input)
 class InventoryError(ValueError):
     def __init__(self, code, message, status_code):
         self.code, self.status_code = code, status_code
         super().__init__(message)
-
-MATH_VERSION = 'nte-custom-weighting-v1'
 
 
 def invalid(code):
@@ -87,7 +85,7 @@ class ScoringSpec(ScoreSpec):
 
 class StatInput(Contract):
     canonical_id: str | None = None
-    observation_id: str | None = None
+    observation_id: ObservationId | None = None
     value: str | Decimal | None = None
     unit: str | None = None
     context: dict[str, str | int] = Field(default_factory=dict)

@@ -53,13 +53,20 @@ def test_forty_character_card_contains_all_rows_no_default_pagination():
     assert '文字摘要' in response['text'] and '2026-10-14 08:00' in response['text']
 
 
-def test_legacy_page_requests_return_complete_longcard_with_compatibility_notice():
+def test_image_page_requests_keep_the_complete_projection_and_selected_page():
     query=CachedQuery()
     query.add('nte','tajiduo','n',{'roles':{'entries':[{'name':f'角色{i}','level':None} for i in range(45)]}})
     context={}
     result=service(query).query(IDENTITY,'roles','nte',page=2,image_context=context)
-    assert '长图' in result['text']
+    assert '角色0' in result['text'] and '角色44' in result['text']
+    assert '无需翻页' not in result['text']
+    assert context['render_snapshot']['page']==2
+    assert context['render_snapshot']['next_command']=='异环 角色'
+    assert len(context['render_snapshot']['display_data']['snapshot']['payload']['entries'])==45
     assert 'page' not in context['card'] and len(context['card']['sections'][0]['rows'])==45
+    # Existing plain-text callers retain their compatibility notice.
+    plain=service(query).query(IDENTITY,'roles','nte',page=2)
+    assert '长图' in plain['text']
 
 
 def test_time_projection_only_changes_time_fields_and_keeps_unknown_metrics():

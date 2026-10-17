@@ -72,3 +72,67 @@ test('pool report coverage and unknown rarity are shown instead of inventing fou
  assert.match(content(root),/最多展示 50 条/);assert.match(content(root),/此处未展示全部 6★ 历史/);assert.match(content(root),/导出完整已保存账本/)
  assert.doesNotMatch(content(root),/提弗洛斯/)
 })
+
+const by = (root, type, name) => nodes(root, type).filter(node => String(node.props.class).split(' ').includes(name))
+const history = [
+  { name: '提弗洛斯', pool_name: '冬猎', obtained_at: 1788300000000, pulls: 66, status: 'exact' },
+  { name: '余烬', pool_name: '熔火灼痕', obtained_at: 1786000000000, pulls: 52, status: 'lower_bound' },
+]
+const second = { key: 'E_CharacterGachaPoolType_Standard', label: '基础寻访', kind: 'character', total: 48, six_star: 1, five_star: 7, four_star: 40, unknown_rarity: 0, free: 0,
+  since_last_six: { count: 17, status: 'exact' }, gaps: 0, pending: false, newest_at: 1790000000000, history: [{ name: '别礼', pulls: 31, status: 'lower_bound', obtained_at: 1790000000000 }] }
+const wide = { ...summary.pools[0], total: 148, six_star: 2, five_star: 20, four_star: 126, unknown_rarity: 0, history, newest_at: 1788300000000 }
+
+test('recent 6★ come newest first across pools, the latest card is marked and the latest pool is highlighted', t => {
+  api(t, () => [200, {}])
+  const root = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, total: 196, pools: [wide, second] }, fetched_at: '2026-09-24T12:00:00+08:00' } })
+  const cards = by(root, 'article', 'six-card')
+  assert.deepEqual(cards.map(node => content(nodes(node, 'strong')[0])), ['别礼', '提弗洛斯', '余烬'])
+  assert.deepEqual(cards.map(node => String(node.props.class).includes('latest')), [true, false, false])
+  assert.match(content(cards[0]), /别礼 ≥31 抽/)
+  assert.match(content(cards[0]), /基础寻访/)
+  const latest = by(root, 'article', 'pool-card').filter(node => String(node.props.class).includes('is-latest'))
+  assert.equal(latest.length, 1)
+  assert.match(content(latest[0]), /基础寻访/)
+})
+
+test('pool cards share the 12-column grid so every row is full and a single pool gets no highlight', t => {
+  api(t, () => [200, {}])
+  const many = Array.from({ length: 5 }, (_, index) => ({ ...wide, key: `pool-${index}`, label: `卡池${index}` }))
+  const root = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, pools: many }, fetched_at: '2026-09-24T12:00:00+08:00' } })
+  assert.deepEqual(by(root, 'article', 'pool-card').map(node => node.props.style['--span']), [4, 4, 4, 6, 6])
+  const alone = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, pools: [wide] }, fetched_at: '2026-09-24T12:00:00+08:00' } })
+  assert.equal(by(alone, 'article', 'pool-card').filter(node => String(node.props.class).includes('is-latest')).length, 0)
+  assert.doesNotMatch(content(alone), /高亮为最近寻访的卡池/)
+})
+
+test('the overall ring never invents a split: a pool without a rarity count makes that share unknown', t => {
+  api(t, () => [200, {}])
+  const unsure = { ...second, key: 'u', label: '不明卡池', four_star: null, unknown_rarity: null }
+  const root = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, pools: [wide, unsure] }, fetched_at: '2026-09-24T12:00:00+08:00' } })
+  const ring = nodes(root, 'figure').find(node => node.props['aria-label'] === '全部卡池的稀有度占比')
+  assert.ok(ring)
+  assert.match(content(ring), /6★ 3 抽/); assert.match(content(ring), /5★ 27 抽/)
+  assert.match(content(ring), /4★ 未知/); assert.match(content(ring), /未知 \/ 其他 未知/)
+})
+
+test('a bot image keeps every pool and history chip but has no rail, no highlight tag and no controls', t => {
+  api(t, () => [200, {}])
+  const root = mount(t, Panel, { imageMode: true, accountId: '', snap: { payload: { ...summary, pools: [wide, second] }, fetched_at: '2026-09-24T12:00:00+08:00' } })
+  assert.equal(by(root, 'article', 'six-card').length, 0)
+  assert.equal(by(root, 'article', 'pool-card').length, 2)
+  for (const name of ['提弗洛斯', '余烬', '别礼']) assert.ok(content(root).includes(name), name)
+  assert.equal(by(root, 'span', 'pool-latest').length, 0)
+  assert.doesNotMatch(content(root), /最新/)
+  for (const type of ['button', 'input', 'select', 'details']) assert.equal(nodes(root, type).length, 0, type)
+})
+
+test('QQ six-star pool history retains exact operator artwork and unknown names in compact rows',t=>{
+ api(t,()=>{throw Error('image must not fetch')})
+ const history=[{name:'秋栗',pulls:30,status:'exact'},{name:'未收录干员',pulls:null,status:'unknown'}]
+ const root=mount(t,Panel,{imageMode:true,snap:{payload:{...summary,pools:[{...summary.pools[0],history}]}}})
+ assert.deepEqual(nodes(root,'img').map(n=>n.props.src),['https://web.hycdn.cn/endfield/official-v4/_next/static/media/akekuri.3df4a3dc.png'])
+ assert.match(content(root),/秋栗 30 抽.*未收录干员 未知/)
+ assert.equal(nodes(root,'li').filter(n=>String(n.props.class).includes('six-image')).length,2)
+ const web=mount(t,Panel,{snap:{payload:{...summary,pools:[{...summary.pools[0],history}]}}})
+ assert.equal(nodes(web,'li').filter(n=>String(n.props.class).includes('six-image')).length,0)
+})

@@ -2,27 +2,19 @@
 import { ref, inject, unref } from 'vue'
 import WuwaRoleDialog from './WuwaRoleDialog.vue'
 import WuwaStatus from './WuwaStatus.vue'
-import SummaryMetrics from './SummaryMetrics.vue'
-defineProps({ title: { type: String, required: true }, description: { type: String, default: '' }, metrics: { type: Array, default: () => [] }, snap: { default: null }, buttonLabel: { type: String, default: '' }, inline: Boolean })
+// primary: the card's open button is the one filled action of its page (a launcher).
+// sheetWidth: the reading width of its dialog in px.
+defineProps({ title: { type: String, required: true }, snap: { default: null }, buttonLabel: { type: String, default: '' }, inline: Boolean, primary: Boolean, sheetWidth: { type: Number, default: 0 } })
 const opened = ref(false)
 const imageMode = inject('wuwaImageMode', false)
 </script>
 <template>
-  <section class="wuwa-panel wuwa-module-card">
-    <header class="cap-title wuwa-module-heading"><h2>{{ title }}</h2><button v-if="!inline && !unref(imageMode)" type="button" class="ui-button small-button" @click="opened = true">{{ buttonLabel || `查看${title}` }}</button></header>
-    <p v-if="description" class="wuwa-muted">{{ description }}</p>
-    <SummaryMetrics v-if="metrics.length" :metrics="metrics" />
-    <div v-if="inline || unref(imageMode)" class="inline-content"><slot /></div>
+  <!-- A card on the board. With a dialog the whole card opens it: the button is stretched over the card. -->
+  <section class="wuwa-panel wuwa-module-card" :class="{ 'is-openable': !inline && !unref(imageMode) }">
+    <header class="cap-title wuwa-module-heading"><h2>{{ title }}</h2><button v-if="!inline && !unref(imageMode)" type="button" class="ui-button small-button wuwa-open" :class="{ primary }" @click="opened = true">{{ buttonLabel || `查看${title}` }}</button></header>
     <slot name="preview" />
+    <div v-if="inline || unref(imageMode)" class="inline-content"><slot /></div>
     <WuwaStatus v-if="snap" :snap="snap" />
-    <WuwaRoleDialog v-if="!inline && !unref(imageMode) && opened" :title="title" @close="opened = false"><slot /></WuwaRoleDialog>
+    <WuwaRoleDialog v-if="!inline && !unref(imageMode) && opened" :title="title" :width="sheetWidth" @close="opened = false"><slot /></WuwaRoleDialog>
   </section>
 </template>
-<style scoped>
-.wuwa-module-card { min-width: 0; }
-.wuwa-module-card > .wuwa-muted { margin-top: 12px; }
-.wuwa-module-card .cap-title { margin-bottom: 0; }
-.wuwa-module-card > .wuwa-status { margin-top: 12px; }
-.inline-content :deep(.cap-card){padding:0;border:0;background:none;box-shadow:none;margin-top:16px}
-.inline-content :deep(.cap-title),.inline-content :deep(.fetched-at){display:none}
-</style>

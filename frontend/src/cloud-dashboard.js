@@ -6,7 +6,7 @@ import { collectionState } from './snapshot-state.js'
 const REFRESH_READ_INTERVAL = 2000, REFRESH_READ_LIMIT = 10, REFRESH_TRACK_TIMEOUT = 30000
 export function createCloudDashboard(overrides = {}) {
   const api = { ...identity, ...accounts, obtainCsrf, ...overrides }
-  const state = reactive({ user: null, accounts: [], selected: null, role: '', snapshots: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, ready: false, refreshing: {}, refreshPending: {}, revision: 0 })
+  const state = reactive({ user: null, accounts: [], selected: null, role: '', snapshots: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, ready: false, logoutFailed: false, refreshing: {}, refreshPending: {}, revision: 0 })
   let epoch = 0, disposed = false
   let overviewGeneration = 0
   const refreshVersions = new Map(), readVersions = new Map(), refreshJobs = new Map()
@@ -15,7 +15,7 @@ export function createCloudDashboard(overrides = {}) {
     if (!job || refreshJobs.get(cap) !== job) return
     clearTimeout(job.timer); clearTimeout(job.deadline); refreshJobs.delete(cap); state.refreshPending[cap] = false
   }
-  function stopTracking() { for (const [cap, job] of refreshJobs) { state.refreshing[cap] = '刷新状态待确认，请读取快照'; stopRefresh(cap, job) } }
+  function stopTracking() { for (const [cap, job] of refreshJobs) { state.refreshing[cap] = '刷新结果未确认，请稍后重试。'; stopRefresh(cap, job) } }
   function clear() { stopTracking(); epoch++; overviewGeneration++; state.revision++; setAccountScope(null); Object.assign(state, { user: null, accounts: [], selected: null, role: '', snapshots: {}, overview: {}, overviewLoading: false, sessions: [], error: '', loading: false, refreshing: {}, refreshPending: {} }) }
   const stop = subscribeSessionInvalidation(clear)
   async function initialize() {
@@ -88,7 +88,7 @@ export function createCloudDashboard(overrides = {}) {
         if (!mutationPending && state.refreshing[cap] !== '正在排队') {
           const refreshState = data.poll_status?.refresh_state
           if (refreshState === 'queued' && refreshJobs.has(cap)) state.refreshing[cap] = '刷新已排队，正在读取状态…'
-          else if (refreshState === 'running' && refreshJobs.has(cap)) state.refreshing[cap] = '正在刷新，保留已有快照…'
+          else if (refreshState === 'running' && refreshJobs.has(cap)) state.refreshing[cap] = '刷新中…'
           else if (refreshState === 'idle' && state.refreshing[cap]) {
             state.refreshing[cap] = collectionState(data) === 'failed' ? `刷新失败，${data.payload == null ? '尚无成功数据' : '保留上次成功数据'}` : data.state === 'never' ? '刷新已结束，尚未采集到数据' : ''
             stopRefresh(cap)
@@ -99,14 +99,14 @@ export function createCloudDashboard(overrides = {}) {
     }
     catch (error) { if (valid() && error.name !== 'AbortError') {
       state.snapshots[cap] = { ...(state.snapshots[cap] || { payload: null }), state: 'error', error: error.message }
-      if (refreshJobs.has(cap) && !mutationPending) { state.refreshing[cap] = '刷新状态读取失败，保留已有数据；请稍后读取快照'; stopRefresh(cap) }
+      if (refreshJobs.has(cap) && !mutationPending) { state.refreshing[cap] = '刷新失败，显示上次的数据。'; stopRefresh(cap) }
     } }
   }
   function trackRefresh(cap, job) {
     const valid = () => current(job.epoch) && refreshJobs.get(cap) === job
     function timeout() {
       if (!valid()) return
-      state.refreshing[cap] = '刷新仍未确认完成，请稍后读取快照'
+      state.refreshing[cap] = '刷新仍未完成，请稍后重试。'
       // Ignore a hanging/late read after the bounded tracking window.
       readVersions.set(cap, (readVersions.get(cap) || 0) + 1); stopRefresh(cap, job)
     }
@@ -144,9 +144,12 @@ export function createCloudDashboard(overrides = {}) {
   }
   async function logout() {
     // Begin the server mutation before clearing in-memory data; its response is
-    // deliberately irrelevant to private state. Failure remains visible to user.
+    // deliberately irrelevant to private state. A failure keeps a retry on offer
+    // (logoutFailed, which clear() leaves alone): the site session may still be valid,
+    // so the login form would claim a sign-out that has not happened.
+    state.logoutFailed = false
     const pending = api.logoutSite(); clear()
-    try { await pending } catch (error) { if (error.name !== 'AbortError' && error.status !== 401) state.error = '网站退出请求未完成，请重试退出' }
+    try { await pending } catch (error) { if (error.name !== 'AbortError' && error.status !== 401) state.logoutFailed = true }
   }
   return { state, initialize, loadAccounts, selectAccount, loadSnapshot, loadOverview, refresh, loadSessions, logout, clear,
     dispose() { disposed = true; clear(); stop() } }

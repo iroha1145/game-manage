@@ -24,7 +24,7 @@ test('accepted refresh reads queued, running and idle snapshots promptly without
   assert.equal(reads, 1); assert.match(dashboard.state.refreshing.account, /排队/)
   await dashboard.refresh('account'); assert.equal(requests, 1)
   t.mock.timers.tick(2000); await flush()
-  assert.match(dashboard.state.refreshing.account, /正在刷新/)
+  assert.match(dashboard.state.refreshing.account, /刷新中/)
   t.mock.timers.tick(2000); await flush()
   assert.equal(dashboard.state.refreshing.account, '')
   assert.equal(dashboard.state.snapshots.account.payload.nickname, 'new')
@@ -39,7 +39,7 @@ for (const readFailure of [false, true]) test(`${readFailure ? 'snapshot read' :
     } })
     await dashboard.refresh('account'); t.mock.timers.tick(0); await flush()
     assert.equal(dashboard.state.snapshots.account.payload.nickname, 'old')
-    assert.match(dashboard.state.refreshing.account, /失败.*保留/)
+    assert.match(dashboard.state.refreshing.account, /失败.*上次/)
     t.mock.timers.tick(60000); await flush(); assert.equal(reads, 1)
     dashboard.dispose()
 })
@@ -49,7 +49,7 @@ test('bounded tracking stops even if a read hangs; late read cannot replace a ne
   const dashboard = setup(t, { refreshAccount: async () => ({ state: 'queued' }), getAccountSnapshot: () => { reads++; return new Promise(resolve => { finish = resolve }) } })
   await dashboard.refresh('account'); t.mock.timers.tick(0); await flush()
   t.mock.timers.tick(30000); await flush()
-  assert.match(dashboard.state.refreshing.account, /仍未确认.*读取/)
+  assert.match(dashboard.state.refreshing.account, /仍未完成.*重试/)
   assert.equal(dashboard.state.snapshots.account.payload.nickname, 'old')
   finish(snapshot('idle', 'ok', 'late')); await flush()
   assert.equal(dashboard.state.snapshots.account.payload.nickname, 'old')
@@ -86,7 +86,7 @@ test('queued tracking has a read limit and a later manual read can settle the re
   const dashboard = setup(t, { refreshAccount: async () => ({ state: 'queued' }), getAccountSnapshot: async () => { reads++; return snapshot(done ? 'idle' : 'queued', 'ok', done ? 'new' : 'old') } })
   await dashboard.refresh('account'); t.mock.timers.tick(0); await flush()
   for (let i = 0; i < 9; i++) { t.mock.timers.tick(2000); await flush() }
-  assert.equal(reads, 10); assert.match(dashboard.state.refreshing.account, /仍未确认/)
+  assert.equal(reads, 10); assert.match(dashboard.state.refreshing.account, /仍未完成/)
   assert.equal(dashboard.state.refreshPending.account, false)
   t.mock.timers.tick(60000); await flush(); assert.equal(reads, 10)
   done = true; await dashboard.loadSnapshot('account')
@@ -121,3 +121,21 @@ test('the error of a failed session check does not outlive the next successful o
   online = true; await dashboard.initialize()
   assert.equal(dashboard.state.error, '', 'the banner of a past failure is still shown')
 })
+
+const unreachable = () => new TypeError('无法连接服务，请稍后重试')
+const answered = status => Object.assign(new Error(`HTTP ${status}`), { status })
+for (const [name, failure, expected] of [['the service cannot be reached', unreachable(), true], ['the service answers with an error', answered(503), true], ['the site session is already gone (401)', answered(401), false]])
+  test(`logout when ${name}: the private state is cleared at once and ${expected ? 'a retry stays on offer' : 'nothing is left to retry'}`, async t => {
+    let outcome = failure
+    const dashboard = createCloudDashboard({ logoutSite: async () => { if (outcome) throw outcome; return {} } })
+    t.after(dashboard.dispose)
+    dashboard.state.user = { user_id: 'A' }; dashboard.selectAccount(account); dashboard.state.snapshots.account = { payload: { nickname: 'old' } }
+    await dashboard.logout()
+    assert.equal(dashboard.state.user, null); assert.deepEqual(dashboard.state.snapshots, {})
+    assert.equal(dashboard.state.logoutFailed, expected)
+    if (!expected) return
+    dashboard.clear(); assert.equal(dashboard.state.logoutFailed, true, 'a session reset must not turn a failed logout into a signed-out page')
+    outcome = null
+    const retry = dashboard.logout(); assert.equal(dashboard.state.logoutFailed, false, 'the retry is under way'); await retry
+    assert.equal(dashboard.state.logoutFailed, false); assert.equal(dashboard.state.error, '')
+  })

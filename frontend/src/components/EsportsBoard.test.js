@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { reactive, nextTick } from 'vue'
-import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
+import { loadVue, mount, content, nodes, choose } from '../test-utils/vue.js'
 import { createEsportsBrowseState } from '../esports.js'
 const Panel = await loadVue(new URL('./LolEsportsPanel.vue', import.meta.url))
 const flush = async () => { await new Promise(setImmediate); await nextTick() }
@@ -33,8 +33,8 @@ test('cached-only results remain useful while missing future coverage and unknow
 test('changing a match filter resets pagination and clears match detail', async t => {
   const browse = reactive({ ...createEsportsBrowseState(), view: 'results', page: 2 })
   const root = mount(t, Panel, { snap: snapshot(), browseState: browse, 'onBrowse-change': patch => Object.assign(browse, patch) })
-  const teamSelect = nodes(root, 'select').find(n => n.props['aria-label'] === '筛选战队')
-  assert.ok(teamSelect); teamSelect.props.onChange({ target: { value: 'a' } }); await flush()
+  const teamMenu = nodes(root, 'button').find(n => n.props.role === 'combobox' && n.props['aria-label'] === '筛选战队')
+  assert.ok(teamMenu); choose(root, '筛选战队', 'a'); await flush()
   assert.equal(browse.filterTeamId, 'a'); assert.equal(browse.page, 1)
 })
 test('mobile filter disclosure has an explicit operable expanded state', async t => {
@@ -43,4 +43,15 @@ test('mobile filter disclosure has an explicit operable expanded state', async t
   assert.ok(toggle); assert.equal(toggle.props['aria-expanded'], false)
   toggle.props.onClick(); await flush()
   assert.equal(toggle.props['aria-expanded'], true)
+})
+
+test('a match opened on its own shows a pip for each game a side needs to win the series and fills the ones won', async t => {
+  const payload = { tournaments: [{ id: 't', name: 'Worlds' }], teams: [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }],
+    matches: [{ id: 'bo5', tournament_id: 't', team_a_id: 'a', team_b_id: 'b', team_a_name: 'Alpha', team_b_name: 'Beta', status: 'completed', best_of: 5, score_a: 3, score_b: 1, winner_team_id: 'a' }] }
+  const root = mount(t, (await loadVue(new URL('./EsportsMatchDetail.vue', import.meta.url))), { payload, match: payload.matches[0] })
+  const pips = nodes(root, 'span').filter(n => String(n.props.class ?? '') === 'es-pips')
+  assert.equal(pips.length, 2)
+  const filled = pips.map(group => nodes(group, 'i').map(n => String(n.props.class ?? '').includes('won')))
+  assert.deepEqual(filled, [[true, true, true], [true, false, false]])
+  assert.match(content(root), /3 : 1/)
 })

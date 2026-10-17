@@ -54,7 +54,7 @@ onBeforeUnmount(cancel)
 <template>
   <section class="guide-updates" aria-label="攻略更新检查" v-if="name">
     <header>
-      <div><h4>社区攻略更新</h4><p>查找 {{ name }} 的新攻略并提炼培养建议。</p></div>
+      <div><h4>社区攻略更新</h4></div>
       <button v-if="canMaintain" type="button" class="ui-button" :disabled="loading" @click="request(true)">{{ loading ? '正在检查与提炼…' : '检查更新' }}</button>
     </header>
     <p class="wuwa-meta" v-if="result?.checked_at">上次成功检查：{{ date(result.checked_at) }}（北京时间） · {{ uncollected }} 篇未收录来源</p>
@@ -78,16 +78,16 @@ onBeforeUnmount(cancel)
 </template>
 
 <style scoped>
-.guide-updates { margin: 18px 0; padding: 16px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--bg); }
+.guide-updates { margin: 16px 0; padding: 16px 18px; border-radius: var(--radius-tile); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .guide-updates header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.guide-updates h4 { margin: 0; color: var(--text); }
-.guide-updates header p { margin: 6px 0; color: var(--text-muted); font-size: 12px; }
+.guide-updates h4 { margin: 0; color: var(--text); font-size: 15px; font-weight: 600; }
+.guide-updates header p { margin: 6px 0; color: var(--text-muted); font-size: 13px; }
 .guide-updates button { flex-shrink: 0; }
-.guide-updates button:disabled { opacity: .6; cursor: wait; }
+.guide-updates button:disabled { cursor: wait; }
 .guide-updates summary { cursor: pointer; font-size: 13px; padding: 10px 0; }
 .guide-candidate { padding: 12px 0; border-top: 1px solid var(--border); }
 .guide-candidate a { color: var(--accent); font-size: 14px; overflow-wrap: anywhere; }
-.candidate-state { display: inline-block; margin-left: 8px; font-size: 11px; color: var(--text-muted); }
+.candidate-state { display: inline-block; margin-left: 8px; font-size: 12px; color: var(--text-muted); }
 .guide-candidate p, .scope-note { line-height: 1.7; }
 .guide-check-error { color: var(--stale-text); font-size: 13px; }
 @media (max-width: 480px) { .guide-updates header { align-items: flex-start; flex-wrap: wrap; } }

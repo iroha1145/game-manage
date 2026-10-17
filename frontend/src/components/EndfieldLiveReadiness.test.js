@@ -1,13 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
-import { loadVue,mount,nodes,content } from '../test-utils/vue.js'
+import { loadVue,mount,nodes,content,choose } from '../test-utils/vue.js'
 import { configureHttpClient,setAccountScope } from '../http-client.js'
 import { attendanceCount,attendanceEnvelope } from '../endfield-attendance.js'
 const Dashboard=await loadVue(new URL('./EndfieldDashboard.vue',import.meta.url))
 const Attendance=await loadVue(new URL('./EndfieldAttendance.vue',import.meta.url))
 const News=await loadVue(new URL('./EndfieldNewsSummary.vue',import.meta.url))
-const CloudDetails=await loadVue(new URL('./CloudAccountDetails.vue',import.meta.url))
 const flush=async()=>{await new Promise(setImmediate);await nextTick()}
 const button=(root,label)=>nodes(root,'button').find(node=>content(node)===label)
 const response=value=>new Response(JSON.stringify(value))
@@ -29,6 +28,8 @@ test('attendance renders source days, literal unknowns and sign receipt when cal
  const unknown=mount(t,Attendance,{value:{supported:true,status:'unknown',calendar:[{day:1,done:null},{day:2,done:'false'}]}})
  assert.match(content(unknown),/本期已签天数未知/);assert.doesNotMatch(content(unknown),/已知已签 0|本期已签 0|日期未提供/)
  assert.match(content(unknown),/第 1 日 状态未知/)
+ const known=mount(t,Attendance,{value:{supported:true,status:'signed',calendar:[{day:1,done:true,name:'合成奖励',count:0},{day:2,done:false}]}})
+ assert.match(content(known),/第 1 日 已签到 合成奖励 × 0/);assert.match(content(known),/第 2 日 未签到/);assert.doesNotMatch(content(known),/日期未提供|签到日序未知/)
  const receipt=mount(t,Attendance,{value:{status:'signed',stale:true,error:'签到成功后回读失败',awards:[{name:'奖励零',count:0}],signed_at:'2025-12-31T01:02:00Z',records:[{name:'来源记录',signed_at:'2025-12-30T00:00:00Z'}]}})
  assert.match(content(receipt),/上次状态：已签/);assert.match(content(receipt),/已返回签到奖励 奖励零 × 0/)
  assert.match(content(receipt),/签到于 2025-12-31 09:02/);assert.match(content(receipt),/状态观测于 未知/)
@@ -86,7 +87,7 @@ test('role change rejects late attendance success and failure without importing 
    return response(profile)
   })
   const root=mount(t,Dashboard,{initialSection:'overview'});await flush();await flush()
-  await nodes(root,'select')[0].props.onChange({target:{value:'b:1'}});await flush();await flush();finish();await flush()
+  await choose(root,'森空岛角色','b:1');await flush();await flush();finish();await flush()
   assert.equal(requests,2);assert.match(content(root),/新角色奖励/)
   assert.doesNotMatch(content(root),/旧角色奖励|旧角色失败|已有签到资料待更新|2026-10-14 08:01/)
   t.mock.restoreAll()
@@ -106,25 +107,6 @@ test('cloud overview uses scoped GET refresh, unwraps attendance and never offer
  assert.deepEqual(calls,[['/api/accounts/s/roles/a/endfield/skland/attendance','GET'],['/api/accounts/s/roles/a/endfield/skland/attendance','GET']])
 })
 
-test('cloud independent details retain attendance and card after transport failures and clear on owner change',async t=>{
- configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
- let fail=false;const calls=[]
- t.mock.method(globalThis,'fetch',async(url,options)=>{calls.push([url,options.method]);if(fail)throw new Error('云端失败');return response(url.endsWith('/attendance')?{payload:attendance,fetched_at:'2026-10-15T02:00:00Z'}:profile)})
- const props=reactive({account:{account_id:'s',provider:'skland'},role:'a'})
- const root=mount(t,CloudDetails,props)
- await button(root,'读取详情').props.onClick();await flush();fail=true
- await button(root,'读取详情').props.onClick();await flush()
- assert.match(content(root),/合成档案/);assert.match(content(root),/正在显示已有资料，等待更新/);assert.match(content(root),/同步于 2026-10-15 09:00/)
- nodes(root,'select')[0].props['onUpdate:modelValue']('attendance');await flush()
- await button(root,'刷新签到状态').props.onClick();await flush()
- assert.match(content(root),/尚无可显示的签到资料/);assert.doesNotMatch(content(root),/合成档案/)
- fail=false;await button(root,'刷新签到状态').props.onClick();await flush();fail=true
- await button(root,'刷新签到状态').props.onClick();await flush()
- assert.match(content(root),/上次状态：已签/);assert.match(content(root),/状态观测于 2026-10-14 08:01.*抓取于 2026-10-15 10:00/)
- assert.match(content(root),/第 1 日 已签到/);assert.doesNotMatch(content(root),/日期未提供/)
- props.role='b';await flush();assert.doesNotMatch(content(root),/合成奖励|2026-10-14 08:01|上次状态：已签/)
- assert.ok(calls.every(([,method])=>method==='GET'));assert.equal(button(root,'手动签到'),undefined)
-})
 
 const article=(index,extra={})=>({id:`a${index}`,title:`公告 ${index}`,source:'official',source_name:'官网',published_at:`2026-10-${String(index).padStart(2,'0')}`,url:`https://example.com/${index}`,...extra})
 test('news summary uses ordinary wording, folds attribution and never reflects raw update errors',t=>{
@@ -168,4 +150,38 @@ test('formal overview shows existing public snapshots without collection and all
  button(root,'查看全部公告 →').props.onClick();await flush()
  assert.match(content(root),/公告与资讯/);assert.match(content(root),/公告 1/);assert.match(content(root),/公告 2/)
  assert.equal(calls.filter(url=>url==='/api/endfield/public').length,1)
+})
+
+const hasClass = (node, name) => String(node.props.class).split(' ').includes(name)
+test('attendance draws signed days as a grid and rings only complete observations; today is the first open day while unsigned', t => {
+ const days=(...done)=>done.map((state,index)=>({day:index+1,done:state}))
+ const unsigned=mount(t,Attendance,{value:{supported:true,status:'unsigned',calendar:days(true,true,false,false)}})
+ const cells=nodes(unsigned,'li').filter(node=>hasClass(node,'att-day'))
+ assert.deepEqual(cells.map(node=>[content(node),['done','open','unknown','today'].filter(name=>hasClass(node,name)).join('+')]),[['1','done'],['2','done'],['3','open+today'],['4','open']])
+ const ring=nodes(unsigned,'div').find(node=>node.props.role==='meter')
+ assert.deepEqual([ring.props['aria-label'],ring.props['aria-valuenow'],ring.props['aria-valuemax']],['本期已签到天数',2,4])
+ assert.match(content(unsigned),/2 \/ 4/);assert.match(content(unsigned),/今日待签/)
+ assert.equal(nodes(unsigned,'ol').find(node=>hasClass(node,'att-days')).props['aria-hidden'],'true')
+ const signed=mount(t,Attendance,{value:{supported:true,status:'signed',calendar:days(true,true,false)}})
+ assert.deepEqual(nodes(signed,'li').filter(node=>hasClass(node,'att-day')).map(node=>hasClass(node,'today')),[false,true,false])
+ // An unobserved day means the total is unknown: no ring, no invented "x / y", and no day is called today after a failed read.
+ const partial=mount(t,Attendance,{value:{supported:true,status:'unsigned',stale:true,calendar:days(true,null,false)}})
+ assert.equal(nodes(partial,'div').filter(node=>node.props.role==='meter').length,0)
+ assert.match(content(partial),/已知已签 1 天 · 本期总数未知/)
+ assert.ok(nodes(partial,'li').filter(node=>hasClass(node,'att-day')).every(node=>!hasClass(node,'today')))
+ assert.ok(hasClass(nodes(partial,'li').filter(node=>hasClass(node,'att-day'))[1],'unknown'))
+})
+
+test('news cards fall back to the date tile when an article image fails and show only the Beijing day', async t => {
+ const root=mount(t,News,{snapshots:[{state:'ok',fetched_at:'2026-10-15T00:00:00Z',payload:[article(1,{published_at:'2026-10-09T16:30:00Z',images:['https://example.com/a.png']}),article(2,{published_at:'2026-10-03'})]}]})
+ const thumbs=nodes(root,'span').filter(node=>hasClass(node,'news-thumb'))
+ assert.deepEqual(thumbs.map(node=>hasClass(node,'has-image')),[true,false])
+ const image=nodes(thumbs[0],'img')[0]
+ assert.equal(image.props.src,'https://example.com/a.png');assert.equal(image.props.alt,'')
+ image.props.onError();await nextTick()
+ assert.equal(nodes(root,'img').length,0)
+ assert.equal(hasClass(nodes(root,'span').filter(node=>hasClass(node,'news-thumb'))[0],'has-image'),false)
+ const dates=nodes(root,'span').filter(node=>hasClass(node,'news-date'));
+ assert.deepEqual(dates.map(content),['10 10月','03 10月'])
+ for(const date of dates)assert.equal(date.props['aria-hidden'],'true')
 })

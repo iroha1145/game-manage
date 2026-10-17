@@ -35,3 +35,42 @@ test('image reports expose each category observation and retained state without 
  const disclosure=nodes(web,'details').find(node=>String(node.props.class).includes('challenge-status'))
  assert.ok(disclosure);assert.ok(!disclosure.props.open);assert.match(content(disclosure),/本次接口返回.*没有来源上限/)
 })
+const has=(node,name)=>String(node.props.class).split(' ').includes(name)
+const chart=(root,label)=>nodes(root,'ol').find(node=>node.props['aria-label']===label)
+test('stars per season are charted from three seasons on, stars per week from two weeks on, and never as an invented maximum',t=>{
+ const week=(name,stars,groups=[])=>({name,stars,groups})
+ const season=(name,stars,weeks=[])=>({name,stars,weeks})
+ const few=mount(t,Component,{kind:'war',value:{kind:'war',fetched_at,records:[season('甲',10,[week('一',3),week('二',4)]),season('乙',12)]}})
+ assert.equal(chart(few,'各期赛季星数'),undefined)
+ assert.deepEqual(nodes(chart(few,'每周星数'),'li').map(content),['3 星 一','4 星 二'])
+ const many=mount(t,Component,{kind:'war',value:{kind:'war',fetched_at,records:[season('甲',10),season('乙',12),season('丙',0),season('丁',null)]}})
+ assert.deepEqual(nodes(chart(many,'各期赛季星数'),'li').map(content),['10 星 甲','12 星 乙','0 星 丙','未知 丁'])
+ assert.equal(chart(many,'每周星数'),undefined)
+ const one=mount(t,Component,{kind:'war',value:{kind:'war',fetched_at,records:[season('甲',10,[week('一',3),week('二',null)])]}})
+ assert.equal(chart(one,'每周星数'),undefined)
+})
+test('crisis rounds are charted by result only when at least three rounds report a number, and the best round stays the headline',t=>{
+ const round=(name,score)=>({name,score,isPass:true})
+ const root=mount(t,Component,{kind:'crisis',value:{kind:'crisis',fetched_at,records:[round('第三轮',900),round('第二轮',700),round('第一轮',400)],summary:{highest:900,challenge_count:3}}})
+ assert.deepEqual(nodes(chart(root,'各轮挑战结果'),'li').map(content),['900 第三轮','700 第二轮','400 第一轮'])
+ assert.match(content(root),/历史最高值 900.*挑战次数 3/)
+ const graded=mount(t,Component,{kind:'crisis',value:{kind:'crisis',fetched_at,records:[round('甲','A'),round('乙','B'),round('丙','C')],summary:{}}})
+ assert.equal(chart(graded,'各轮挑战结果'),undefined)
+})
+test('image reports draw the same charts without any control and keep the stage pips readable for assistive tech',t=>{
+ const groups=[{name:'组甲',star:2,normalDungeon:{name:'普',isPass:true},hardDungeon:{name:'难',isPass:false},cruelDungeon:{name:'险'}}]
+ const value={kind:'war',fetched_at,records:[{name:'赛季',stars:6,weeks:[{name:'一',stars:2,groups},{name:'二',stars:4,groups}]}]}
+ const root=mount(t,Component,{kind:'war',imageMode:true,value})
+ assert.ok(chart(root,'每周星数'));assert.equal(nodes(root,'button').length,0)
+ const pips=nodes(root,'div').filter(node=>has(node,'stage-pips'))
+ assert.equal(pips.length,2)
+ assert.equal(pips[0].props['aria-label'],'已通关 1，未通关 1，状态未知 1')
+ assert.deepEqual(nodes(pips[0],'i').map(node=>['passed','incomplete'].find(name=>has(node,name))??'unknown'),['passed','incomplete','unknown'])
+})
+test('the top card keeps the reload button first and the tabs as one pressed pill track',t=>{
+ const root=mount(t,Component,{kind:'monument',value:{kind:'monument',fetched_at,records:[]}})
+ assert.equal(content(nodes(root,'button')[0]),'重新读取丰碑')
+ const nav=nodes(root,'nav')[0]
+ assert.equal(nav.props.class,'challenge-tabs segmented')
+ assert.deepEqual(nodes(nav,'button').map(node=>[content(node),node.props['aria-pressed']]),[['战争',false],['丰碑',true],['危机',false]])
+})

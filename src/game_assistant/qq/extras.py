@@ -140,7 +140,7 @@ def extra_section(game,capability,payload):
     elif capability=='vehicles':
         _vehicles(data,fields,out)
     elif capability=='teams':
-        fields=[_field('来源','官方缓存资料；未生成推荐')]
+        fields=[_field('来源','官方推荐配队')]
         for entry in _rows(data.get('entries')):
             _append(out,entry.get('name'),[_field('说明',entry.get('description'))],subtitle='官方缓存')
         if not out:

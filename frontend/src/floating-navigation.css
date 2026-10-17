@@ -1,0 +1,108 @@
+/* A compact floating menu on desktop; the very same surface grows out of the
+   phone tab bar. The gesture controller supplies position/progress per frame. */
+.floating-navigation {
+  --drawer-progress: 0;
+  position: fixed;
+  inset: 0 auto auto 0;
+  z-index: 40;
+  width: 216px;
+  max-height: calc(100dvh - 32px);
+  padding-top: 24px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-shell);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--sidebar-shadow);
+  transform: translate3d(16px, 16px, 0);
+  isolation: isolate;
+}
+.floating-navigation > .workspace-sidebar { max-height: calc(100dvh - 58px); }
+.floating-navigation::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 100%, var(--overlay-3), transparent 70%);
+}
+.navigation-grip {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  color: var(--text-faint);
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.navigation-grip span { width: 30px; height: 4px; border-radius: 999px; background: currentColor; opacity: .35; }
+.navigation-grip:focus-visible { outline-offset: -4px; border-radius: 20px; }
+.workbench[data-nav-dragging="true"] .navigation-grip { cursor: grabbing; }
+.workbench[data-nav-dragging="true"] .floating-navigation { box-shadow: var(--popover-shadow); }
+.workbench[data-nav-dragging="true"] { user-select: none; }
+@media (hover: hover) and (pointer: fine) {
+  .navigation-grip:hover span { opacity: .65; }
+}
+@media (min-width:961px) and (max-width:1250px) {
+  .floating-navigation { width: 196px; }
+}
+@media (max-width:960px) {
+  .floating-navigation {
+    --drawer-extra-height: calc(var(--nav-open-height, 560px) - 84px);
+    inset: auto auto max(12px, env(safe-area-inset-bottom)) 50%;
+    width: min(calc(100vw - 24px + 4px * var(--drawer-progress)), calc(396px + 124px * var(--drawer-progress)));
+    /* Content reveal stays within its stops; rubber-band motion is independent. */
+    height: calc(84px + var(--drawer-extra-height) * var(--drawer-progress) + var(--drawer-stretch, 0px));
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-bottom)) - 8px);
+    padding: 0;
+    border-radius: calc(32px - 4px * var(--drawer-progress));
+    transform: translate(-50%, var(--drawer-shift, 0px));
+    box-shadow: var(--float-shadow);
+  }
+  .menu-open .floating-navigation { box-shadow: var(--popover-shadow); }
+  .floating-navigation::before { opacity: calc(.3 + .7 * var(--drawer-progress)); }
+  .floating-navigation > .workspace-sidebar {
+    position: absolute;
+    inset: auto 0 84px;
+    width: 100%;
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-bottom)) - 96px);
+    padding: 32px 18px 16px;
+    opacity: clamp(0, calc(var(--drawer-progress) * 1.6 - .2), 1);
+    transform: translateY(calc(12px * (1 - var(--drawer-progress))));
+    filter: blur(calc(2px * (1 - var(--drawer-progress))));
+    pointer-events: none;
+  }
+  .menu-open .floating-navigation > .workspace-sidebar { pointer-events: auto; }
+  .floating-navigation .brand { padding-right: 44px; }
+  .floating-navigation .mobile-sidebar-close { top: 27px; right: 16px; width: 44px; height: 44px; }
+  .floating-navigation .primary-nav { margin-top: 22px; }
+  .floating-navigation .sidebar-label { margin-top: 20px; }
+  .floating-navigation .primary-nav :is(a,button), .floating-navigation .game-nav :is(a,button) { min-height: 44px; }
+  .floating-navigation .mobile-tabbar { background: var(--glass-strong); }
+  .floating-navigation .mobile-tabbar::before {
+    content: '';
+    position: absolute;
+    inset: -1px 18px auto;
+    height: 1px;
+    background: var(--border);
+    opacity: var(--drawer-progress);
+  }
+  .nav-menu-toggle { touch-action: none; }
+  .nav-menu-toggle > svg { transform: rotate(180deg); transition: transform var(--duration-fast) var(--ease-smooth-out); }
+  .menu-open .nav-menu-toggle > svg { transform: rotate(0deg); }
+  .workspace-main { padding-bottom: calc(116px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .floating-navigation, .floating-navigation *, .nav-menu-toggle > svg { transition: none !important; }
+  .floating-navigation > .workspace-sidebar { filter: none; }
+}

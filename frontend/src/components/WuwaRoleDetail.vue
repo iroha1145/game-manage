@@ -4,7 +4,6 @@ import { safeUrl } from '../calendar.js'
 import { fieldLabels, list, starCount, value } from '../wuwa-display.js'
 import WuwaFields from './WuwaFields.vue'
 import WuwaIcon from './WuwaIcon.vue'
-import InfoHint from './InfoHint.vue'
 import RoleAssessment from './RoleAssessment.vue'
 const props = defineProps({ data: { type: Object, default: () => ({}) }, imageMode:{type:Boolean,default:false} })
 provide('wuwaImageMode', computed(() => props.imageMode))
@@ -45,7 +44,7 @@ const isAttributeList = (v) =>
 </script>
 <template>
   <div class="wuwa-role-detail">
-    <RoleAssessment game="wuthering_waves" :character-id="String(data.role?.role_id || '')" :role-data="data" :image-mode="imageMode" :initial-assessment="data.assessment" />
+    <RoleAssessment game="wuthering_waves" :character-id="String(data.role?.role_id || '')" :image-mode="imageMode" :initial-assessment="data.assessment" />
     <section class="wuwa-detail-section">
       <h3 class="wuwa-subhead role-profile-heading"><WuwaIcon :src="data.role?.role_icon_url" :name="data.role?.role_name || '角色'" size="large" /><span>{{ data.role?.role_name }} · 角色基本信息</span></h3>
       <div class="wuwa-basics">
@@ -62,18 +61,6 @@ const isAttributeList = (v) =>
             <span class="wuwa-field-label" role="heading" aria-level="4">角色外观</span
             ><WuwaFields :data="data.role_skin" />
           </div>
-          <details v-if="!imageMode" data-render-collapsed class="wuwa-supplement"><summary>分支编号</summary><dl class="wuwa-kv">
-            <div>
-              <dt>当前分支（来源编号）</dt>
-              <dd>
-                {{ value(data.active_branch_id) }}
-                <InfoHint
-                  text="分支编号仅为来源标识，不代表已解锁数量或练度。"
-                  align="end"
-                />
-              </dd>
-            </div>
-          </dl></details>
         </div>
       </div>
     </section>
@@ -357,7 +344,6 @@ const isAttributeList = (v) =>
 
     <details class="wuwa-supplement" :open="imageMode">
       <summary>声骸汇总属性</summary>
-      <p class="wuwa-field-label">声骸属性汇总</p>
       <dl
         v-if="isAttributeList(data.equip_phantom_attribute_list)"
         class="wuwa-kv"
@@ -371,7 +357,7 @@ const isAttributeList = (v) =>
         </div>
       </dl>
       <WuwaFields v-else :data="data.equip_phantom_attribute_list" />
-      <p class="wuwa-field-label">声骸附加属性汇总（非单个声骸副词条）</p>
+      <p class="wuwa-field-label">声骸附加属性汇总</p>
       <dl
         v-if="isAttributeList(data.equip_phantom_add_prop_list)"
         class="wuwa-kv"

@@ -185,18 +185,19 @@ def mock_official_http(monkeypatch, handler):
         **kwargs, transport=httpx.MockTransport(handler)))
 
 
+@pytest.mark.parametrize('code_field', ['code', 'err_code'])
 @pytest.mark.parametrize(('api_code', 'expected'), [
     (40054010, '40054010'), (0, '0'), (True, 'unavailable'),
     ('40054010', 'unavailable'), (1.5, 'unavailable'),
     (-1, 'unavailable'), (2**31, 'unavailable'), (None, 'unavailable'),
 ])
-async def test_real_sdk_upload_response_logs_only_http_status_and_numeric_code(monkeypatch, caplog, api_code, expected):
+async def test_real_sdk_upload_response_logs_only_http_status_and_numeric_code(monkeypatch, caplog, code_field, api_code, expected):
     from game_assistant.qq.client import OfficialQqClient
 
     requests = []
     def handle(request):
         requests.append(request)
-        return httpx.Response(400, json={'code': api_code, 'message': PRIVATE, 'file_info': PRIVATE},
+        return httpx.Response(400, json={code_field: api_code, 'message': PRIVATE, 'file_info': PRIVATE},
                               headers={'x-tps-trace-id': PRIVATE})
 
     mock_official_http(monkeypatch, handle)
@@ -211,6 +212,21 @@ async def test_real_sdk_upload_response_logs_only_http_status_and_numeric_code(m
         await client.aclose()
     assert_safe_log(caplog, 'game_assistant.qq.client',
                     'QQ image upload response: http_status=400 api_code=' + expected)
+
+
+async def test_current_error_code_takes_precedence_over_legacy_code(monkeypatch, caplog):
+    from game_assistant.qq.client import OfficialQqClient
+    mock_official_http(monkeypatch, lambda request: httpx.Response(400, json={
+        'err_code':40034005,'code':40054010,'message':PRIVATE,'trace_id':PRIVATE}))
+    caplog.set_level(logging.INFO)
+    client=OfficialQqClient(PRIVATE,PRIVATE,None,None)
+    client.api._access_token,client.api._token_expires_at=PRIVATE,9e12
+    try:
+        with pytest.raises(RuntimeError):
+            await client.api.request('POST','/v2/groups/target/files',{'file_data':PRIVATE})
+    finally:await client.aclose()
+    assert_safe_log(caplog,'game_assistant.qq.client',
+                    'QQ image upload response: http_status=400 api_code=40034005')
 
 
 async def test_upload_response_hook_preserves_sdk_body_and_ignores_other_routes(monkeypatch, caplog):

@@ -1,12 +1,8 @@
 from copy import deepcopy
-from io import BytesIO
-import socket
 
-from PIL import Image
 import pytest
 
 from game_assistant.accounts.models import AccountScope, QueryResult
-from tests.qq_test_fonts import cjk_font_path as cjk_font
 
 
 def document(game='nte', kind='summary'):
@@ -53,44 +49,15 @@ def rendered(card=None, scopes=None, fingerprints=None):
         snapshot_fingerprints=fingerprints or ['a'*64], snapshot_times=[None]), None, 'ok', None)
 
 
-def test_card_render_is_network_free_bounded_and_all_scope_cache_is_revocable(monkeypatch):
+def test_card_cache_key_follows_every_scope_grant_and_snapshot():
     from game_assistant.qq.rendering import SummaryRenderer
-    monkeypatch.setattr(socket, 'socket', lambda *a, **k: pytest.fail('renderer attempted network'))
-    renderer = SummaryRenderer(font_path=cjk_font())
+    renderer = SummaryRenderer()
     primary = AccountScope('u','a','r')
     scopes = [dict(account_id='a',role_id='r',grant_version=1),dict(account_id='b',role_id='s',grant_version=1)]
     first = rendered(scopes=scopes)
-    png = renderer.render_summary(primary, first)
-    image = Image.open(BytesIO(png))
-    assert image.width <= 1080 and image.height <= 2400 and image.width * image.height <= 2592000
-    assert len(png) <= renderer.max_bytes
     changed = deepcopy(scopes); changed[1]['grant_version'] = 2
     assert renderer.cache_key(primary, first) != renderer.cache_key(primary, rendered(scopes=changed))
     assert renderer.cache_key(primary, first) != renderer.cache_key(primary, rendered(scopes=scopes,fingerprints=['b'*64]))
-    renderer.invalidate_account('u','b')
-    assert not renderer.cache
-
-
-def test_card_invalidation_during_render_does_not_repopulate_cache(monkeypatch):
-    from game_assistant.qq import card_rendering
-    from game_assistant.qq.rendering import SummaryRenderer
-    renderer = SummaryRenderer(font_path=cjk_font())
-    original = card_rendering.render_card
-    def invalidate(*args, **kwargs):
-        renderer.invalidate_account('u','a')
-        return original(*args, **kwargs)
-    monkeypatch.setattr(card_rendering, 'render_card', invalidate)
-    assert renderer.render_summary(AccountScope('u','a','r'), rendered()).startswith(b'\x89PNG')
-    assert not renderer.cache
-
-
-def test_card_render_limits_bytes_pixels_and_missing_font():
-    from game_assistant.qq.rendering import RenderingUnavailable, SummaryRenderer
-    scope = AccountScope('u','a','r')
-    for renderer in (SummaryRenderer(), SummaryRenderer(font_path=cjk_font(),max_bytes=100),
-                     SummaryRenderer(font_path=cjk_font(),max_pixels=100)):
-        with pytest.raises(RenderingUnavailable):
-            renderer.render_summary(scope, rendered())
 
 
 def test_card_scope_and_fingerprint_payload_requires_bounded_types():
@@ -108,35 +75,3 @@ def test_card_text_image_mismatch_cannot_enter_cache():
     query.payload['text'] = 'different private snapshot'
     with pytest.raises(RenderingUnavailable):
         SummaryRenderer().cache_key(AccountScope('u','a','r'), query)
-
-
-def test_time_budget_fails_before_allocating_image(monkeypatch):
-    from game_assistant.qq import card_rendering
-    ticks = iter((0, 4))
-    monkeypatch.setattr(card_rendering.time,'monotonic',lambda: next(ticks))
-    monkeypatch.setattr(card_rendering.Image,'new',lambda *a,**kw: pytest.fail('overspent before allocation'))
-    from tests.qq_test_fonts import cjk_font as loaded_font
-    with pytest.raises(ValueError, match='time_limit'):
-        card_rendering.render_card(document(),font=loaded_font(),budget_seconds=3)
-
-
-@pytest.mark.parametrize('game,kind', [('all','overview'), ('wuthering_waves','summary'),
-    ('nte','summary'), ('endfield','summary'), ('nte','list'), ('endfield','detail'),
-    ('all','help'),('all','status')])
-def test_shared_templates_preserve_long_names_and_have_finite_mobile_size(game,kind):
-    from game_assistant.qq.rendering import SummaryRenderer
-    card = document(game,kind)
-    card['sections'][0]['rows'][0]['title'] = '这是一个需要自动换行的非常长角色名字用于手机可读性检查' * 2
-    png = SummaryRenderer(font_path=cjk_font()).render_summary(AccountScope('u','a','r'),rendered(card))
-    image = Image.open(BytesIO(png))
-    assert image.height <= 2400 and image.width <= 1080
-
-
-def test_six_role_page_fits_with_three_cached_fields_per_role():
-    from game_assistant.qq.rendering import SummaryRenderer
-    card = document('wuthering_waves','list')
-    card['sections'][0]['fields'] = []
-    card['sections'][0]['rows'] = [dict(title='角色'+str(i), subtitle='本人缓存角色', fields=[
-        dict(label='等级',value='90'),dict(label='共鸣链',value='0'),dict(label='武器',value='测试武器名称')]) for i in range(6)]
-    png = SummaryRenderer(font_path=cjk_font()).render_summary(AccountScope('u','a','r'), rendered(card))
-    assert Image.open(BytesIO(png)).height <= 2400

@@ -201,8 +201,11 @@ class ArchiveMixin:
             raw_rules=document.get('rules', [])
             if not isinstance(raw_rules,list) or len(raw_rules)>1000:
                 raise ValueError('归档规则格式错误')
-            rules = [self._rule(r) for r in raw_rules]
-            return draws, aggregate_clean, clean, rules
+            rules = {}
+            for rule in map(self._rule, raw_rules):
+                if rules.setdefault(rule['pool'], rule) != rule:
+                    raise ValueError('同一卡池的归档规则冲突，整批未写入')
+            return draws, aggregate_clean, clean, list(rules.values())
         now = datetime.now(timezone.utc).isoformat()
         coverage = [dict(pool=p, draw_ids=[k for pool,k,_ in draws if pool == p],
                         basis='user_confirmed' if latest or continuous else 'unconfirmed',
@@ -220,10 +223,12 @@ class ArchiveMixin:
             if old and json.loads(old[0]) != row:
                 raise ValueError('已有流水冲突，整批未写入')
             duplicates += bool(old)
+        # Source imports keep diagnostics in discovery order; own archives carry them sorted.
+        unordered = lambda r: dict(r, diagnostics=sorted(r.get('diagnostics', [])))
         for row in summaries:
             old = self.conn.execute('SELECT payload FROM wuwa_gacha_aggregates WHERE account=? AND server=? AND key=?',
                                     (account,server,row['summary_id'])).fetchone()
-            if old and json.loads(old[0]) != row:
+            if old and unordered(json.loads(old[0])) != unordered(row):
                 raise ValueError('已有汇总冲突，整批未写入')
             duplicates += bool(old)
         for rule in rules:
@@ -232,6 +237,12 @@ class ArchiveMixin:
             if old and json.loads(old[0]) != rule:
                 raise ValueError('归档规则与当前配置冲突')
         return duplicates
+
+    def _expire_previews(self):
+        # Tickets hold decoded records, so every store entry drops the expired ones under its lock.
+        now=time.monotonic()
+        self._previews={k:v for k,v in self._previews.items() if v['expires'] > now}
+        return now
 
     def preview(self, document, account, server, *, session='', source='json_import',
                 latest_confirmed=False, continuity_confirmed=False, warnings=None, failed_pools=None):
@@ -248,8 +259,7 @@ class ArchiveMixin:
                 segment['warnings'] = sorted(set(segment['warnings']+['SOURCE_PARTIAL']))
         with self.lock:
             duplicates=self._check_conflicts(account,server,draws,summaries,rules)
-            now=time.monotonic()
-            self._previews={k:v for k,v in self._previews.items() if v['expires'] > now}
+            now=self._expire_previews()
             if len(self._previews)>=16:
                 self._previews.pop(next(iter(self._previews)))
             token=secrets.token_urlsafe(32)
@@ -263,8 +273,9 @@ class ArchiveMixin:
 
     def commit_preview(self, preview_id, account, server, *, session=''):
         with self.lock:
+            self._expire_previews()
             ticket=self._previews.get(preview_id)
-            if not ticket or ticket['expires']<=time.monotonic() or (ticket['account'],ticket['server'],ticket['session'])!=(account,server,session):
+            if not ticket or (ticket['account'],ticket['server'],ticket['session'])!=(account,server,session):
                 raise ValueError('预览已过期或账号会话已变化，请重新预览')
             draws,summaries=ticket['draws'],ticket['summaries']
             with self.conn:
@@ -308,6 +319,7 @@ class ArchiveMixin:
     def set_rule(self, account, server, raw):
         rule=self._rule(raw)
         with self.lock,self.conn:
+            self._expire_previews()
             self.conn.execute('INSERT OR REPLACE INTO wuwa_gacha_rules VALUES(?,?,?,?)',
                               (account,server,rule['pool'],encoded(rule)))
         return rule
@@ -381,11 +393,17 @@ class ArchiveMixin:
         if type(offset) is not int or type(limit) is not int or offset<0 or not 1<=limit<=MAX_RECORDS:
             raise ValueError('导出分页无效')
         with self.lock:
+            self._expire_previews()
             data=self._archive_data(account,server)
             stored=self.conn.execute('SELECT pool,draw_id,payload FROM wuwa_gacha WHERE account=? AND server=? ORDER BY time DESC,draw_id DESC',
                                       (account,server)).fetchall()
-        paged=offset>0 or len(stored)>limit
-        rows=stored[offset:offset+limit]
+        # Re-import numbers identical anonymous rows within one file, so a page must hold
+        # each run of them whole; such rows share time and key prefix, so they are adjacent here.
+        start,end=offset,offset+limit
+        while 0<start<len(stored) and stored[start-1][2]==stored[start][2]: start-=1
+        while 0<end<len(stored) and stored[end-1][2]==stored[end][2]: end+=1
+        paged=start>0 or end<len(stored)
+        rows=stored[start:end]
         keys={(p,k) for p,k,_ in rows}
         coverage=[]
         for batch in data['batches']:
@@ -400,15 +418,15 @@ class ArchiveMixin:
             legacy=[k for pool,k,_ in rows if pool==p and (p,k) not in covered]
             if legacy:coverage.append(dict(pool=p,draw_ids=legacy,basis='unconfirmed',latest_confirmed=False,
                 continuity_confirmed=False,warnings=['LEGACY_COVERAGE_UNKNOWN'],source='legacy',imported_at='',as_of=None))
-        aggregate_page=data['aggregates'][offset:offset+limit]
+        aggregate_page=data['aggregates'][start:end]
         page_size=max(len(rows),len(aggregate_page))
         total=max(len(stored),len(data['aggregates']))
         result=dict(format=OWN_FORMAT,format_version=1,info=dict(uid=account,server_id=server),
                     list=[json.loads(raw) for _,_,raw in rows],coverage=coverage,rules=data['rules'],
                     aggregate_items=aggregate_page,warnings=[],
                     timestamp_basis='source_display_time; timezone_not_inferred',
-                    export_page=dict(offset=offset,limit=page_size,total=total,record_total=len(stored),
-                        aggregate_total=len(data['aggregates']),next_offset=offset+page_size if offset+page_size<total else None))
+                    export_page=dict(offset=start,limit=page_size,total=total,record_total=len(stored),
+                        aggregate_total=len(data['aggregates']),next_offset=start+page_size if start+page_size<total else None))
         if len(encoded(result).encode())>2*1024*1024:
             if limit>1:
                 return self.export(account,server,offset=offset,limit=max(1,limit//2))

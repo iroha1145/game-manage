@@ -19,8 +19,18 @@ const paths = {
   plus: 'M12 5v14 M5 12h14',
   chevron: 'm6 9 6 6 6-6',
   check: 'm5 12.5 4.5 4.5L19 7.5',
+  search: 'M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0 M20 20l-4-4',
 }
-const path = computed(() => paths[props.name] || paths.grid)
+const iconName = computed(() => paths[props.name] ? props.name : 'grid')
+const parts = computed(() => {
+  if (iconName.value === 'grid') return ['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M3 14h7v7H3z', 'M14 14h7v7h-7z']
+  if (iconName.value === 'menu') return ['M4 6h16', 'M4 12h16', 'M4 18h16']
+  return [paths[iconName.value]]
+})
 </script>
-<template><svg :width="size" :height="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="path" /></svg></template>
-<style scoped>svg { flex-shrink: 0; display: block; }</style>
+<template><svg :data-app-icon="iconName" :width="size" :height="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g data-icon-part="body"><path v-for="(path, index) in parts" :key="index" :d="path" :data-icon-part="iconName === 'grid' ? 'tile' : iconName === 'menu' ? 'line' : iconName === 'check' ? 'stroke' : 'path'" :pathLength="iconName === 'check' ? 1 : undefined" /><g v-if="iconName === 'calendar'" data-icon-part="cells"><path d="M7 15h.01 M12 15h.01 M17 15h.01 M7 18h.01 M12 18h.01" /></g></g></svg></template>
+<style scoped>
+svg { flex-shrink: 0; display: block; }
+[data-icon-part="body"], [data-icon-part="tile"] { transform-box: view-box; transform-origin: 50% 50%; }
+[data-icon-part="cells"] { opacity: 0; stroke-width: 2; }
+</style>

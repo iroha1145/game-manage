@@ -128,3 +128,42 @@ export function operatorArtwork(operator, { portrait = false } = {}) {
   const matches = Object.values(iconCatalog.roles).filter(item => item.name === operator?.name)
   return matches.length === 1 ? operatorImage(matches[0].icon) : null
 }
+
+// ── Distributions for the charts. Keys are the numeric values the source reported, as strings. ──
+const countOf = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+function countParts(counts, label, direction) {
+  return Object.entries(counts && typeof counts === 'object' && !Array.isArray(counts) ? counts : {})
+    .map(([key, value]) => ({ key, rank: Number(key), label: label(key), value: countOf(value) }))
+    .filter(part => Number.isFinite(part.rank) && part.value != null)
+    .sort((a, b) => direction * (a.rank - b.rank))
+    .map(({ rank, ...part }) => part)
+}
+/** Operator rarity tiers present in `rarity_counts`, highest first. */
+export const rarityParts = counts => countParts(counts, key => `${key}★`, -1)
+/** Elite phases present in `phase_counts`, lowest first. */
+export const phaseParts = counts => countParts(counts, key => `精英阶段 ${key}`, 1)
+
+/** Medal categories by count, the long tail folded into one part so a donut stays readable. */
+export function medalCategoryParts(items, limit = 5) {
+  const counts = new Map()
+  for (const item of rows(items)) {
+    const key = categoryName(item.category)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  const parts = [...counts].map(([key, value]) => ({ key, label: key ?? '未提供分类', value }))
+    .sort((a, b) => b.value - a.value || (a.key == null) - (b.key == null) || String(a.key).localeCompare(String(b.key), 'zh-CN'))
+  if (parts.length <= limit) return parts
+  const rest = parts.slice(limit - 1)
+  return [...parts.slice(0, limit - 1), { key: '__rest', label: '其他分类', value: rest.reduce((sum, part) => sum + part.value, 0) }]
+}
+
+/** The medals with a usable acquisition time, newest first. */
+export function recentMedals(items, limit = 8) {
+  return selectMedals(items, { sort: 'recent' }).filter(item => parseBeijingTime(item.obtained_at) != null).slice(0, limit)
+}
+
+/** Plated medals among the listed ones; `known` counts those whose plating was reported at all. */
+export function platedSummary(items) {
+  const list = rows(items)
+  return { plated: list.filter(item => item.is_plated === true).length, known: list.filter(item => typeof item.is_plated === 'boolean').length, listed: list.length }
+}

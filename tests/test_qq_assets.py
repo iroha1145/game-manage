@@ -215,7 +215,8 @@ async def test_tls_connection_uses_pinned_ip_and_no_secrets(monkeypatch):
     b'HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: 99999999\r\n\r\n',
     b'HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\n\r\n',
 ])
-async def test_redirect_and_oversized_http_rejected(monkeypatch, headers):
+@pytest.mark.parametrize('artwork',[False,True])
+async def test_redirect_and_oversized_http_rejected(monkeypatch, headers, artwork):
     assets = module()
     loop = asyncio.get_running_loop()
     async def dns(*args, **kwargs):
@@ -231,7 +232,7 @@ async def test_redirect_and_oversized_http_rejected(monkeypatch, headers):
     async def connect(*args, **kwargs): return reader, Writer()
     monkeypatch.setattr(assets.asyncio, 'open_connection', connect)
     with pytest.raises(ValueError):
-        await assets._download('https://webstatic.tajiduo.com/a.png', timeout_seconds=.5)
+        await assets._download('https://webstatic.tajiduo.com/a.png', timeout_seconds=.5, artwork=artwork)
 
 
 async def test_chunked_size_and_unbounded_body_are_capped():
@@ -290,6 +291,64 @@ async def test_cache_total_bytes_and_registry_are_bounded(monkeypatch):
     for i in range(2100):
         cache.register_url(f'https://webstatic.tajiduo.com/{i}.png')
     assert len(cache._sources) == 2048
+
+
+def test_full_registry_evicts_the_least_recently_registered_ref():
+    cache = module().PublicAssetCache()
+    refs = [cache.register_url(f'https://webstatic.tajiduo.com/old-{i}.png') for i in range(2048)]
+    cache._expire()
+    assert all(refs) and not cache._cache and not cache._inflight
+    assert cache.register_url('https://webstatic.tajiduo.com/old-0.png') == refs[0]
+    added = cache.register_url('https://webstatic.tajiduo.com/new.png')
+    assert added in cache._sources and len(cache._sources) == 2048
+    assert refs[0] in cache._sources and refs[1] not in cache._sources
+
+
+async def test_registry_never_evicts_a_ref_being_downloaded(monkeypatch):
+    assets = module()
+    release = asyncio.Event()
+    async def fetch(url, **kwargs):
+        await release.wait()
+        return png()
+    monkeypatch.setattr(assets, '_download', fetch)
+    cache = assets.PublicAssetCache()
+    ref = cache.register_url('https://webstatic.tajiduo.com/slow.png')
+    task = asyncio.create_task(cache.prefetch([ref], budget_seconds=3))
+    await asyncio.sleep(0)
+    assert ref in cache._inflight
+    fresh = [cache.register_url(f'https://webstatic.tajiduo.com/new-{i}.png') for i in range(2048)]
+    assert all(fresh) and ref in cache._sources and len(cache._sources) == 2048
+    release.set()
+    await task
+    assert cache.get_png(ref) is not None
+
+
+def test_evicted_portrait_ref_leaves_the_portrait_set():
+    cache = module().PublicAssetCache()
+    portrait = cache.ref_for('endfield', 'portrait', '佩丽卡')
+    assert portrait in cache._portrait_refs
+    for i in range(2048):
+        cache.register_url(f'https://webstatic.tajiduo.com/new-{i}.png')
+    assert portrait not in cache._sources and portrait not in cache._portrait_refs
+    assert cache.ref_for('endfield', 'portrait', '佩丽卡') == portrait and portrait in cache._portrait_refs
+
+
+async def test_evicted_ref_still_serves_its_cached_png_by_url(monkeypatch):
+    assets = module()
+    calls = []
+    async def fetch(url, **kwargs):
+        calls.append(url)
+        return png()
+    monkeypatch.setattr(assets, '_download', fetch)
+    cache = assets.PublicAssetCache()
+    url = 'https://webstatic.tajiduo.com/cached.png'
+    ref = cache.register_url(url)
+    await cache.prefetch([ref], budget_seconds=1)
+    for i in range(2048):
+        cache.register_url(f'https://webstatic.tajiduo.com/new-{i}.png')
+    assert ref not in cache._sources
+    # The browser route registers the page's URL again and reads the cache by ref.
+    assert cache.get_png(cache.register_url(url)) is not None and len(calls) == 1
 
 
 async def test_subsequent_prefetch_skips_cached_first_batch_and_completes_later_icons(monkeypatch):

@@ -3,12 +3,24 @@ import { computed, ref, watch } from 'vue'
 import { isCloudMode } from '../http-client.js'
 const cloudMode = isCloudMode()
 import { getLedgerSummary, getLedgerRecords, previewLedger, importLedger, getLedgerRules, saveLedgerRule, exportLedger, pityLabel, ledgerDate, poolLabel, requirementLabel, resultLabel } from '../nte-gacha-api.js'
+import { gauge } from '../nte-charts.js'
 import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
+import RingGauge from './RingGauge.vue'
+import NteIcon from './NteIcon.vue'
+import iconCatalog from '../nte-icon-catalog.js'
+import { safeNteIcon } from '../nte-icons.js'
 
 const props = defineProps({ accountId: { type: String, default: '' }, snapshot:{type:Object,default:null}, imageMode:{type:Boolean,default:false} })
 const summary = ref(null), records = ref([]), recordTotal = ref(0), rules = ref([])
+// An exact name or ID must identify one catalog entry; never guess from a pool.
+function rewardIcon(row) {
+  const matches = ['roles', 'weapons'].flatMap(bucket => Object.entries(iconCatalog[bucket] || {})
+    .filter(([name, item]) => row.reward_name === name || (row.reward_id != null && String(row.reward_id) === String(item.id)))
+    .map(([, item]) => safeNteIcon(item.icon))).filter(Boolean)
+  return new Set(matches).size === 1 ? matches[0] : ''
+}
 const pool = ref(''), offset = ref(0), busy = ref(false), error = ref(''), message = ref('')
 const documentData = ref(null), fileName = ref(''), preview = ref(null)
 const latest = ref(false), continuous = ref(false), identity = ref(false)
@@ -114,14 +126,19 @@ function selectRule(value) {
   ruleNote.value = existing?.source_note || ''; ruleConfirmed.value = false
 }
 function nextExport() { exportStart.value = exportNext.value + 1; download() }
+// How far the current pity is towards the hard pity the reader set; unknown without a rule and a complete record.
+function pityGauge(item) {
+  const count = item.pity?.count, left = item.pity?.hard_pity_remaining
+  return Number.isInteger(count) && Number.isInteger(left) && left >= 0 && count + left > 0 ? gauge(count, count + left) : null
+}
 </script>
 
 <template>
   <section class="cap-card ledger" :aria-label="cloudMode ? '本人逐抽账本' : '本地逐抽账本'">
     <header class="cap-title ledger-head">
       <h2>逐抽账本</h2>
-      <InfoHint text="逐条保存真实记录。导入覆盖范围与社区统计分别计算。" />
-      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已保存记录 · 截至导入文件时间<InfoHint text="只包含已导入文件里的记录，不代表已经覆盖账号全部历史。" /></span>
+      <InfoHint text="导入的逐条抽卡记录与社区统计分别计算。" />
+      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已保存记录</span>
       <span v-if="!imageMode" class="head-actions">
         <label v-if="accountId" class="check"><input type="checkbox" v-model="segmented" :disabled="busy" />分段导出大账本</label>
         <button v-if="accountId" type="button" class="ui-button small-button" :disabled="busy" @click="load">刷新账本</button>
@@ -152,14 +169,15 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
             <p v-if="preview.identity_confirmation_required" class="warn">文件未标明角色，请勾选“确认属于当前角色”后重新预览。</p>
             <ul v-if="preview.warnings?.length"><li v-for="(note, index) in preview.warnings" :key="index">{{ requirementLabel(note) }}</li></ul>
             <ul v-if="preview.missing_requirements?.length"><li v-for="(note, index) in preview.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul>
-            <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">{{ cloudMode ? '确认导入到本人空间' : '确认导入到本机' }}</button>
+            <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">{{ cloudMode ? '确认导入到当前账号' : '确认导入到本机' }}</button>
           </div>
           <details class="source-help"><summary>导入文件说明</summary><p>使用逐抽历史导出文件，或本账本导出的备份。社区出 S 汇总无法导入。</p><p><a href="https://github.com/Golumpa/nte-exporter" target="_blank" rel="noopener noreferrer">nte-exporter 文件格式说明 ↗</a></p></details>
         </div>
       </details>
       <div v-if="summary?.pools?.length" class="pool-grid">
         <article v-for="item in summary.pools" :key="item.pool_id" class="pool-card">
-          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">按用户规则<InfoHint align="end" text="按用户设置的规则计算，不表示已核实官方规则或必出 UP。" /></span><button type="button" v-if="!imageMode && ruleable(item.pool_id)" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
+          <header class="pool-card-head"><h3>{{ poolLabel(item.pool_id) }}</h3><span v-if="item.pity?.rule_basis === 'user_configured'" class="chip">按用户规则</span><button type="button" v-if="!imageMode && ruleable(item.pool_id)" class="ui-button ghost small-button" @click="selectRule(item.pool_id)">设置此池规则</button></header>
+          <span v-if="!imageMode && pityGauge(item)" class="pity-ring" aria-hidden="true"><RingGauge :value="pityGauge(item).current" :max="pityGauge(item).total" label="垫抽进度" :size="84" :stroke="9" color="var(--game-vivid)"><b class="ring-pct">{{ Math.round(pityGauge(item).pct) }}%</b></RingGauge></span>
           <dl class="kv-grid pity-kv"><div><dt>当前垫抽</dt><dd>{{ pityLabel(item.pity) }}</dd></div><div><dt>距所设 S 保底</dt><dd>{{ item.pity?.hard_pity_remaining == null ? '未知' : `${item.pity.hard_pity_remaining} 抽` }}</dd></div></dl>
           <p class="muted">已导入 {{ item.total_pulls }} 次计数抽取<template v-if="item.pity?.as_of"><span class="sep" aria-hidden="true" />记录范围：{{ ledgerDate(item.pity.latest_record_at || item.pity.as_of) }}</template></p>
           <details v-if="!imageMode && (item.pity?.basis || item.pity?.missing_requirements?.length)" data-render-collapsed><summary>计算详情</summary><p v-if="item.pity?.basis" class="muted">{{ requirementLabel(item.pity.basis) }}</p><ul v-if="item.pity?.missing_requirements?.length" class="requirements"><li v-for="(note, index) in item.pity.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul></details>
@@ -181,80 +199,89 @@ function nextExport() { exportStart.value = exportNext.value + 1; download() }
         <span class="count">{{ recordTotal }} 条</span>
       </div>
       <p v-if="imageMode && !records.length && summary?.total_records > 0" class="empty">逐条记录未加载；已导入 {{ summary.total_records }} 条，可在网页查看。</p>
-      <p v-else-if="!records.length" class="empty">暂无逐抽记录<InfoHint align="end" text="导入后即可查看；这里不会用社区出 S 明细补造历史。" /></p>
-      <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间（源文件）</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td>{{ row.reward_name || row.reward_id }}</td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
+      <p v-else-if="!records.length" class="empty">暂无逐抽记录</p>
+      <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td><span v-if="imageMode" class="ledger-reward-image"><NteIcon v-if="rewardIcon(row)" :src="rewardIcon(row)" :name="row.reward_name || row.reward_id" size="large" /><span>{{ row.reward_name || row.reward_id }}</span></span><template v-else>{{ row.reward_name || row.reward_id }}</template></td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
       <nav v-if="!imageMode && recordTotal > 100" class="pagination" aria-label="抽卡记录分页"><button type="button" class="ui-button small-button" :disabled="offset === 0 || busy" @click="offset = Math.max(0, offset - 100)">上一页</button><span>{{ Math.floor(offset / 100) + 1 }} / {{ Math.ceil(recordTotal / 100) }}</span><button type="button" class="ui-button small-button" :disabled="offset + 100 >= recordTotal || busy" @click="offset += 100">下一页</button></nav>
     </template>
   </section>
 </template>
 
 <style scoped>
-.ledger { display:grid; gap:10px; min-width:0; }
+.ledger-reward-image { display:flex; align-items:center; gap:10px; min-width:0; }
+.ledger-reward-image > span { overflow-wrap:anywhere; }
+.ledger { display:grid; gap:12px; min-width:0; }
 .ledger > * { min-width:0; }
-.ledger h2 { font-size:14px; line-height:20px; font-weight:600; }
-.ledger h3 { font-size:13px; font-weight:600; }
+.ledger h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.01em; }
+.ledger h3 { font-size:14px; font-weight:600; }
 .ledger-head { position:relative; margin-bottom:0; }
 .saved-count { display:inline-flex; align-items:center; gap:4px; margin-left:4px; color:var(--text-muted); font-size:12px; font-weight:400; }
-.saved-count b { color:var(--text); font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+.saved-count b { color:var(--text); font-size:20px; line-height:24px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
 .head-actions { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; margin-left:auto; }
 .export-warning { flex-basis:100%; margin:0; color:var(--stale-text); font-size:12px; }
-.check { display:inline-flex; align-items:center; gap:6px; color:var(--text-body); font-size:12px; font-weight:400; cursor:pointer; }
+.check { display:inline-flex; align-items:center; gap:6px; color:var(--text-body); font-size:13px; font-weight:400; cursor:pointer; }
 .ledger input[type=checkbox] { margin:0; accent-color:var(--accent); }
-.ledger input:not([type=checkbox]):not([type=file]) { min-height:30px; max-width:100%; padding:4px 8px; border:1px solid var(--border); border-radius:7px; background:var(--card-bg); color:var(--text); font-size:12px; }
-.export-controls { position:relative; margin:0; font-size:12px; color:var(--text-body); }
+.ledger input:not([type=checkbox]):not([type=file]) { min-height:34px; max-width:100%; padding:4px 12px; border:1px solid var(--border); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text); font-size:13px; }
+.export-controls { position:relative; margin:0; font-size:13px; color:var(--text-body); }
 .export-controls input[type=number] { width:88px; margin:0 4px; }
-.notice { padding:7px 10px; border:1px solid var(--border); border-radius:7px; background:var(--panel-bg); color:var(--text-body); font-size:12px; line-height:1.6; }
-.notice.error { border-color:var(--danger-border); background:var(--danger-bg); color:var(--danger); }
+.notice { padding:10px 14px; border-radius:var(--radius-well); background:var(--surface-soft); color:var(--text-body); font-size:13px; line-height:1.6; }
+.notice.error { background:var(--danger-bg); color:var(--danger); }
 .muted { color:var(--text-muted); font-size:12px; line-height:1.6; }
 
-/* Import and rule panels: collapsed one-line disclosures until needed. */
-.panel { border:1px solid var(--border); border-radius:9px; }
-.panel > summary { display:flex; align-items:center; gap:8px; min-height:36px; padding:6px 10px 6px 12px; border-radius:8px; color:var(--text); font-size:13px; font-weight:600; list-style:none; cursor:pointer; }
+/* Import and rule panels: collapsed one-line disclosures until needed, soft tiles with a hairline. */
+.panel { border-radius:var(--radius-tile); background:var(--surface-soft); box-shadow:inset 0 0 0 1px var(--overlay-2); }
+.panel > summary { display:flex; align-items:center; gap:8px; min-height:44px; padding:8px 14px 8px 16px; border-radius:var(--radius-tile); color:var(--text); font-size:14px; font-weight:600; list-style:none; cursor:pointer; }
 .panel > summary::-webkit-details-marker { display:none; }
 .panel > summary > svg { margin-left:auto; color:var(--text-faint); }
-.panel > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-@media (hover:hover) and (pointer:fine) { .panel > summary:hover { background:var(--overlay-2); } }
-.panel-body { display:grid; gap:10px; padding:10px 12px 12px; border-top:1px solid var(--border); font-size:12px; }
+.panel > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--radius-tile); }
+@media (hover:hover) and (pointer:fine) { .panel > summary:hover { background:var(--hover-bg); } }
+.panel-body { display:grid; gap:12px; padding:4px 16px 16px; font-size:13px; }
 .file-row, .panel-actions { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
-.file-picker { display:inline-flex; flex-wrap:wrap; align-items:center; gap:8px; color:var(--text-body); font-size:12px; }
-.file-picker input { max-width:100%; color:var(--text-muted); font-size:12px; }
-.file-picker input::file-selector-button { margin-right:8px; padding:3px 10px; border:1px solid var(--border-strong); border-radius:6px; background:var(--card-bg); color:var(--text-body); font:inherit; cursor:pointer; }
-.file-name { color:var(--text-muted); font-family:var(--font-mono); font-size:11px; }
+.file-picker { display:inline-flex; flex-wrap:wrap; align-items:center; gap:8px; color:var(--text-body); font-size:13px; }
+.file-picker input { max-width:100%; color:var(--text-muted); font-size:13px; }
+.file-picker input::file-selector-button { margin-right:8px; padding:4px 14px; border:1px solid var(--border-strong); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text-body); font:inherit; cursor:pointer; }
+.file-name { color:var(--text-muted); font-size:12px; }
 .coverage { display:grid; gap:4px; }
-.coverage label { display:flex; align-items:flex-start; gap:8px; color:var(--text-body); line-height:18px; }
-.coverage input { margin-top:2px !important; }
-.preview { display:grid; gap:6px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel-bg); line-height:1.6; }
+.coverage label { display:flex; align-items:flex-start; gap:8px; color:var(--text-body); line-height:20px; }
+.coverage input { margin-top:3px !important; }
+.preview { display:grid; gap:6px; padding:10px 14px; border-radius:var(--radius-well); background:var(--card-bg); box-shadow:inset 0 0 0 1px var(--overlay-2); line-height:1.6; }
 .preview-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.preview-head strong { font-weight:600; }
 .preview .warn { color:var(--warning-text); }
 .preview ul { margin:0; padding-left:18px; list-style:disc; color:var(--text-muted); }
 .preview > button { justify-self:start; }
-.source-help { color:var(--text-muted); font-size:12px; line-height:1.7; }
+.source-help { color:var(--text-muted); font-size:13px; line-height:1.7; }
 .source-help > summary { width:fit-content; color:var(--accent); cursor:pointer; }
 .source-help p { margin-top:4px; }
 .source-help a { color:var(--accent); }
 
-/* Pool cards: header with the rule action, then pity numbers first. */
-.pool-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap:8px; }
-.pool-card { display:grid; gap:6px; min-width:0; padding:10px 12px; border:1px solid var(--border); border-radius:9px; font-size:12px; overflow-wrap:anywhere; }
+/* Pool cards: the ring towards the hard pity beside the pity numbers. */
+.pool-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap:12px; }
+.pool-card { display:grid; gap:8px; min-width:0; padding:16px 18px; border-radius:var(--radius-tile); background:var(--surface-soft); box-shadow:inset 0 0 0 1px var(--overlay-2); font-size:13px; overflow-wrap:anywhere; }
+.pool-card:has(.pity-ring) { grid-template-columns:auto minmax(0, 1fr); column-gap:16px; }
+.pool-card:has(.pity-ring) > :not(.pity-ring):not(.pity-kv) { grid-column:1 / -1; }
+.pity-ring { grid-row:2 / span 1; align-self:center; }
+.ring-pct { color:var(--text); font-size:15px; font-weight:600; letter-spacing:-.01em; }
 .pool-card-head { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
 .pool-card-head > button { margin-left:auto; }
 .pity-kv { --kv-min:100px; }
+.pity-kv dd { font-size:20px; line-height:26px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+.pool-card .kv-grid.tiles > div, .pity-kv > div { padding:0; background:none; }
 .sep::before { content:'·'; margin:0 6px; color:var(--text-faint); }
 .requirements { margin:0; padding-left:16px; list-style:disc; color:var(--text-muted); font-size:12px; line-height:1.6; }
 
-.rule-form { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px 12px; }
-.rule-form label,.rule-form .field { display:grid; gap:4px; color:var(--text-muted); font-size:11px; }
-.rule-reward { color:var(--text); font-size:13px; line-height:30px; }
+.rule-form { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px 14px; }
+.rule-form label,.rule-form .field { display:grid; gap:4px; color:var(--text-muted); font-size:12px; }
+.rule-reward { color:var(--text); font-size:13px; line-height:34px; }
 .rule-form .menu-select { display:flex; width:100%; }
 .rule-form .wide { grid-column:1 / -1; }
-.rule-form .check { display:flex; align-items:center; color:var(--text-body); font-size:12px; }
+.rule-form .check { display:flex; align-items:center; color:var(--text-body); font-size:13px; }
 
-.records-toolbar { margin:4px 0 0; }
+.records-toolbar { margin:6px 0 0; }
 .records-toolbar h3 { margin-right:4px; }
 .records-table { overflow-x:auto; }
 .records-table td, .records-table th { white-space:nowrap; font-variant-numeric:tabular-nums; }
-.empty { position:relative; display:flex; align-items:center; justify-content:center; gap:4px; padding:12px 0; color:var(--text-muted); font-size:12px; }
-.pagination { display:flex; align-items:center; justify-content:center; gap:10px; color:var(--text-muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.empty { position:relative; display:flex; align-items:center; justify-content:center; gap:4px; padding:14px 0; color:var(--text-muted); font-size:13px; }
+.pagination { display:flex; align-items:center; justify-content:center; gap:10px; color:var(--text-muted); font-size:13px; font-variant-numeric:tabular-nums; }
 @media (max-width:650px) {
   .rule-form { grid-template-columns:1fr; }
   .head-actions { margin-left:0; flex-basis:100%; }

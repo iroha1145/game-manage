@@ -52,6 +52,9 @@ def decimal_output(value):
 
 ResultDecimal = Annotated[Decimal, BeforeValidator(decimal_output), PlainSerializer(lambda v: format(v, 'f'), return_type=str, when_used='json')]
 Identifier = Annotated[str, Field(min_length=1, max_length=256)]
+# One bound for an input observation ID and its echo in collapsed_observation_ids.
+# A blank input ID means none was given, so only the length is shared.
+ObservationId = Annotated[str, Field(max_length=256)]
 # Generated score names add at most "main:" to an accepted canonical ID.
 # This is an output-only allowance; catalog and other identifiers stay bounded.
 ContributionIdentifier = Annotated[str, Field(min_length=1, max_length=261)]
@@ -84,7 +87,7 @@ class ScoreResult(Contract):
     weight_version: Identifier
     rounding_adjustment: ResultDecimal | None = None
     rounding_adjustment_fraction: ExactFraction | None = None
-    collapsed_observation_ids: list[Identifier] = Field(default_factory=list)
+    collapsed_observation_ids: list[ObservationId] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def score_status(self):

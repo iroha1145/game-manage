@@ -7,6 +7,7 @@ from importlib.metadata import version, PackageNotFoundError
 from ipaddress import ip_address
 import logging
 import re
+import time
 from io import BytesIO
 import warnings
 from urllib.parse import urlsplit
@@ -20,10 +21,13 @@ from .transport import instant, utcnow
 
 API_BASE='https://api.bot.qq.com'
 SDK_VERSION='1.2.2'
+GROUP_AND_C2C_INTENT=1 << 25
+# Shared by uploads and replies, below the documented 50/100 requests per second.
+OUTBOUND_INTERVAL_SECONDS=0.05
 MAX_REPLY_PIXELS = 16_000_000
 logger=logging.getLogger(__name__)
 BINDING_ERRORS = {
-    'qq_link_code_invalid':'绑定码无效，请在看板重新生成，再发送「绑定 新绑定码」。',
+    'qq_link_code_invalid':'绑定码无效，请在网站重新生成后再发送。',
     'qq_link_code_expired':'绑定码已过期，请在看板重新生成，再发送「绑定 新绑定码」。',
     'qq_link_code_revoked':'绑定码已更换，请使用看板最新生成的绑定指令。',
     'qq_link_code_used':'绑定码已使用，请在看板查看已关联身份；如需新关联，请重新生成绑定码。',
@@ -82,7 +86,7 @@ async def _log_upload_response(response):
     await response.aread()
     try:data=response.json()
     except (ValueError,UnicodeError):data=None
-    code=data.get('code') if isinstance(data,dict) else None
+    code=data.get('err_code',data.get('code')) if isinstance(data,dict) else None
     safe_code=code if type(code) is int and 0<=code<=2**31-1 else 'unavailable'
     logger.log(logging.WARNING if status>=400 else logging.INFO,
         'QQ image upload response: http_status=%d api_code=%s',status,safe_code)
@@ -94,11 +98,15 @@ def load_sdk():
         for dependency in ('aiohttp','httpx','cryptography'):import_module(dependency)
         sdk=import_module('qqbot_agent_sdk')
         api=import_module('qqbot_agent_sdk.api_client')
+        websocket=import_module('qqbot_agent_sdk.websocket')
     except (ImportError,PackageNotFoundError,ValueError):
         raise QqClientError('qq_sdk_unavailable_install_qq_extra') from None
-    # The empirically verified current official endpoints override obsolete SDK defaults.
+    # Current official endpoints override the pinned SDK's obsolete defaults.
     api.API_BASE=API_BASE
     api.TOKEN_URL=API_BASE+'/app/getAppAccessToken'
+    # SDK 1.2.2 imports this constant into websocket.py and has no intent option.
+    # The dedicated bot process needs no guild, direct-guild or interaction events.
+    websocket.DEFAULT_INTENTS=GROUP_AND_C2C_INTENT
     for name in ('qqbot_agent_sdk','httpx','httpcore'):
         log=logging.getLogger(name)
         log.handlers=[logging.NullHandler()]
@@ -202,14 +210,29 @@ class OfficialQqClient:
         self.heartbeat=asyncio.Event()
         self.now=utcnow
         self.max_image_bytes=524288
+        self._outbound_lock=asyncio.Lock()
+        self._next_request_at=0.0
+
+    async def _wait_for_send_slot(self,message,*,reserve=0):
+        """Pace this bot process without spending an expired passive reply."""
+        async with self._outbound_lock:
+            remaining=(instant(message.reply_deadline)-self.now()).total_seconds()
+            delay=max(0,self._next_request_at-time.monotonic())
+            if remaining<=delay+reserve:raise TimeoutError()
+            if delay:await asyncio.sleep(delay)
+            remaining=(instant(message.reply_deadline)-self.now()).total_seconds()
+            if remaining<=reserve:raise TimeoutError()
+            self._next_request_at=time.monotonic()+OUTBOUND_INTERVAL_SECONDS
+            return remaining
 
     async def send_text(self,message,text,sequence):
         if sequence!=1:raise QqClientError('qq_reply_sequence_invalid')
         target=message.identity.group_openid if message.identity.scene=='group' else message.identity.sender_openid
         kind='groups' if message.identity.scene=='group' else 'users'
         try:
-            data=await self.api.request('POST',f'/v2/{kind}/{target}/messages',
-                {'content':text,'msg_type':0,'msg_id':message.message_id,'msg_seq':sequence})
+            remaining=await self._wait_for_send_slot(message)
+            data=await asyncio.wait_for(self.api.request('POST',f'/v2/{kind}/{target}/messages',
+                {'content':text,'msg_type':0,'msg_id':message.message_id,'msg_seq':sequence}),timeout=min(20,remaining))
             if not isinstance(data,dict) or not isinstance(data.get('id'),str) or not data['id']:
                 raise ValueError()
             return data['id']
@@ -222,12 +245,14 @@ class OfficialQqClient:
             raise ImagePreparationFailed('qq_image_invalid')
         target=message.identity.group_openid if message.identity.scene=='group' else message.identity.sender_openid
         kind='groups' if message.identity.scene=='group' else 'users'
-        remaining=(instant(message.reply_deadline)-self.now()).total_seconds()
-        if remaining<=5:raise ImagePreparationFailed('qq_image_deadline')
+        try:remaining=await self._wait_for_send_slot(message,reserve=5)
+        except TimeoutError:raise ImagePreparationFailed('qq_image_deadline') from None
+        # Validation above limits the payload to these two actual byte formats.
+        file_name='reply.png' if image.startswith(b'\x89PNG\r\n\x1a\n') else 'reply.jpg'
         try:
             # srv_send_msg=False ensures even an ambiguous upload cannot deliver a reply.
             uploaded=await asyncio.wait_for(self.api.request('POST',f'/v2/{kind}/{target}/files',
-                {'file_type':1,'file_data':base64.b64encode(image).decode('ascii'),'srv_send_msg':False}),timeout=min(20,remaining-5))
+                {'file_type':1,'file_name':file_name,'file_data':base64.b64encode(image).decode('ascii'),'srv_send_msg':False}),timeout=min(20,remaining-5))
             file_info=uploaded.get('file_info') if isinstance(uploaded,dict) else None
             if not isinstance(file_info,str) or not file_info or len(file_info)>16384:raise ValueError()
         except asyncio.TimeoutError:
@@ -236,8 +261,8 @@ class OfficialQqClient:
             if isinstance(error,httpx.TimeoutException) or isinstance(error.__cause__,(TimeoutError,httpx.TimeoutException)):
                 raise ImagePreparationFailed('qq_image_upload_timeout') from None
             raise ImagePreparationFailed('qq_image_upload_failed') from None
-        remaining=(instant(message.reply_deadline)-self.now()).total_seconds()
-        if remaining<=0:raise ImagePreparationFailed('qq_image_deadline')
+        try:remaining=await self._wait_for_send_slot(message)
+        except TimeoutError:raise ImagePreparationFailed('qq_image_deadline') from None
         # file_info is deliberately never cached: each reply uploads anew, so platform
         # TTL and account revocation cannot reuse previously uploaded private media.
         try:

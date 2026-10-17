@@ -1,20 +1,16 @@
 """Challenge cards reuse only default, same-grant website observations."""
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from io import BytesIO
 from types import SimpleNamespace
 
-from PIL import Image
 import pytest
 
 from game_assistant.accounts.models import AccountScope
 from game_assistant.adapters.endfield.skland_client import SklandError
 from game_assistant.endfield_challenges import build_challenge_report
-from game_assistant.qq.card_rendering import render_card
 from game_assistant.qq.commands import parse_command
 from game_assistant.qq.presentation import long_document
 from tests.test_qq_endfield_cached_details import fixture, forbidden
-from tests.test_qq_endfield_reports import cjk_font
 from tests.test_qq_unified_queries import IDENTITY, service, no_external_network
 
 
@@ -200,12 +196,9 @@ async def test_grant_change_during_image_render_suppresses_challenge_reply(tmp_p
     assert 'image' not in reply and '变更' in reply['text'] and '合成赛季' not in reply['text']
 
 
-def test_challenge_command_and_real_image_path_are_bounded(tmp_path):
+def test_challenge_command_and_long_card_are_bounded(tmp_path):
     assert parse_command('终末地 挑战').command=='combat'
     query,scope,grant,bundle,scoped=setup(tmp_path)
     context={};service(query).query(IDENTITY,'combat','endfield',image_context=context)
-    png=render_card(context['card'],font=cjk_font(),budget_seconds=5)
-    image=Image.open(BytesIO(png))
-    assert image.width==1080 and image.height<18000 and len(png)<8*1024*1024
     huge=deepcopy(context['card']);huge['sections']*=100
     assert any('省略' in notice for notice in long_document(huge)['notices'])

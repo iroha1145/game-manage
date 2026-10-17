@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from game_assistant.qq.commands import parse_command, render_result, safe_text
+from game_assistant.qq.commands import parse_command, safe_text
 from game_assistant.qq.models import QqIdentity
 from game_assistant.qq.query_routes import QqQueryService
 from game_assistant.accounts.models import QueryResult
@@ -43,11 +43,12 @@ def test_game_first_command_aliases_remain_self_only(raw,command,game):
 
 @pytest.mark.parametrize('raw',['ww 角色 今汐','/鸣潮 角色 长离','wuthering_waves roles Shorekeeper'])
 def test_named_role_filter_targets_own_cached_exact_name(raw):
-    from game_assistant.qq.commands import HELP
+    from game_assistant.qq.cards import card_to_text
+    from game_assistant.qq.presentation import help_document
     parsed = parse_command(raw)
     assert parsed.command == 'roles' and parsed.game == 'wuthering_waves'
     assert parsed.role_name == raw.split()[-1]
-    assert '本人缓存' in HELP and '精确名称' in HELP
+    assert '鸣潮 角色 精确名称' in card_to_text(help_document('wuthering_waves'))
 
 
 def test_named_role_filter_is_bounded_printable_and_roles_only():
@@ -64,10 +65,16 @@ def test_url_removed_when_not_approved():
     assert 'https://example.com' in safe_text('https://example.com',urls_approved=True)
 
 
-def test_render_masks_uid_preserves_null_and_failed_cache():
-    text=render_result('账号',QueryResult({'nickname':'User 123456789','level':None,'extra':{'uid':'123456789','token':'private-secret'}},'2026-10-12T00:00:00Z','error',False),'account')
+def test_reply_masks_uid_preserves_null_and_failed_cache():
+    import json
+    from tests.test_qq_unified_queries import CachedQuery, service
+    query=CachedQuery();query.add('nte','tajiduo','n',{})
+    query.data[('n','account')]=QueryResult({'nickname':'User 123456789','level':None,'extra':{'uid':'123456789','token':'private-secret'}},'2026-10-12T00:00:00Z','error',False)
+    context={};text=service(query).query(IDENTITY,'summary','nte',image_context=context)['text']
     assert '123456789' not in text and 'private-secret' not in text
-    assert '未知' in text and '旧' in text and '完整' in text
+    assert '等级：未知' in text and '显示旧快照' in text and '完整性：不完整' in text
+    projected=json.dumps(context['render_snapshot'],ensure_ascii=False)
+    assert '123456789' not in projected and 'private-secret' not in projected
 
 
 def unbound_service():
@@ -136,12 +143,15 @@ def test_endfield_providers_choose_default_separately():
     assert reads==['h1','s'] and '鹰角寻访' in text and '森空岛' in text
 
 
-def test_skland_real_card_shape_has_name_level_stamina_without_uid():
-    result=QueryResult({'base':{'name':'Operator','level':24,'role_id':'sensitive-role'},
-                        'stamina':{'current':None,'maximum':200}},None,'ok',None)
-    text=render_result('森空岛档案',result,'account')
-    assert 'Operator' in text and '24' in text and '未知/200' in text
-    assert 'sensitive-role' not in text
+def test_skland_reply_has_name_level_stamina_without_role_id():
+    import json
+    from tests.test_qq_unified_queries import CachedQuery, service
+    query=CachedQuery()
+    query.add('endfield','skland','sk',{'account':{'base':{'name':'Operator','level':24,'role_id':'sensitive-role'},
+                                                    'stamina':{'current':None,'maximum':200}}})
+    context={};text=service(query).query(IDENTITY,'summary','endfield',image_context=context)['text']
+    assert 'Operator' in text and '账号等级：24' in text and '未知/200' in text
+    assert 'sensitive-role' not in text and 'sensitive-role' not in json.dumps(context['render_snapshot'],ensure_ascii=False)
 
 
 async def test_internal_binding_redeems_once_with_trusted_message_id():
@@ -210,3 +220,126 @@ def test_domains_written_right_after_chinese_text_are_masked():
     assert safe_text('详见 www.kurogames.com。') == '详见 [链接未启用]'
     # An email address still keeps its domain; only standalone domains are links.
     assert safe_text('邮箱 a@kurogames.com') == '邮箱 a@kurogames.com'
+
+
+@pytest.mark.parametrize('alias,command',[
+    ('日历','calendar'),('calendar','calendar'),('活动','events'),('events','events'),
+    ('近期活动','recent_events'),('recent_events','recent_events'),
+])
+@pytest.mark.parametrize('page',[1,2,100])
+def test_public_cross_game_page_commands(alias,command,page):
+    parsed=parse_command(f'/{alias} {page}')
+    assert (parsed.command,parsed.game,parsed.page)==(command,None,page)
+    assert parsed.role_name is None and parsed.code is None
+
+
+@pytest.mark.parametrize('raw',[
+    '日历 0','活动 101','近期活动 -1','日历 +2','日历 2.0','日历 ２',
+    '日历 2 other-user','活动 other-user 2','近期活动 2 3',
+    '绑定 CODE 2','看板 2','体力 2','刷新 2',
+    '终末地 刷新 2',
+])
+def test_page_syntax_keeps_invalid_and_unpaged_commands_rejected(raw):
+    parsed=parse_command(raw)
+    assert parsed.command=='help' and parsed.page==1 and parsed.code is None
+
+
+@pytest.mark.parametrize('alias,command',[
+    ('总览','overview'),('我的总览','overview'),('overview','overview'),
+    ('状态','status'),('我的账号','status'),('status','status'),
+])
+def test_overview_and_status_existing_continuations_keep_their_meaning(alias,command):
+    assert parse_command(f'{alias} 2').command==command
+    assert parse_command(f'{alias} 2').page==2
+    assert parse_command(f'{alias} 101').command=='help'
+
+
+def test_snapshot_next_commands_parse_back_into_their_public_or_scoped_query():
+    from datetime import datetime
+    from game_assistant.qq.render_snapshot import (
+        calendar_snapshot, filtered_events_snapshot, game_snapshot, role_snapshot, gacha_snapshot,
+    )
+    now=datetime.fromisoformat('2026-10-17T12:00:00+08:00')
+    empty=QueryResult([],now.isoformat(),'ok',True)
+    rows={game:empty for game in ('wuthering_waves','nte','endfield')}
+    snapshots=[(calendar_snapshot(rows,now),'calendar',None,None)]
+    for command in ('events','recent_events'):
+        snapshots.append((filtered_events_snapshot(rows,command,now),command,None,None))
+    for game,label in (('wuthering_waves','鸣潮'),('nte','异环'),('endfield','终末地')):
+        snapshots.append((calendar_snapshot({game:empty},now),'calendar',game,None))
+        snapshots.append((game_snapshot([],now,command=label+' 总览'),'summary',game,None))
+    nte=QueryResult({'schema_version':1,'entries':[{'id':'9001','name':'合成角色','level':0}]},now.isoformat(),'ok',True)
+    wuwa=QueryResult({'role':{'role_name':'合成角色','level':0}},now.isoformat(),'ok',True)
+    snapshots.extend([
+        (role_snapshot('nte',nte,now),'roles','nte',None),
+        (role_snapshot('nte',nte,now,resolved_id='9001'),'roles','nte','9001'),
+        (role_snapshot('wuthering_waves',wuwa,now,detail=wuwa,resolved_id='1501'),'roles','wuthering_waves','1501'),
+        (gacha_snapshot('wuthering_waves',empty,now),'gacha','wuthering_waves',None),
+        (gacha_snapshot('nte',empty,now),'gacha','nte',None),
+        (game_snapshot([],now,command='终末地 寻访战报'),'gacha','endfield',None),
+    ])
+    for snapshot,command,game,role in snapshots:
+        continuation=snapshot['next_command']+' 2'
+        parsed=parse_command(continuation)
+        assert (parsed.command,parsed.game,parsed.page,parsed.role_name)==(command,game,2,role),continuation
+
+
+@pytest.mark.parametrize('raw,command,game',[
+    ('帮助 2','help',None),('help 100','help',None),('鸣潮 帮助 2','help','wuthering_waves'),
+    ('异环 体力 2','stamina','nte'),('鸣潮 数据坞 2','calabash','wuthering_waves'),
+    ('终末地 理智 2','stamina','endfield'),
+])
+def test_read_only_queries_can_continue_without_enabling_action_pagination(raw,command,game):
+    from game_assistant.qq.query_routes import QueryBody
+    parsed=parse_command(raw)
+    assert (parsed.command,parsed.game)==(command,game) and parsed.page>=2
+    body=QueryBody(identity=asdict(IDENTITY),command=parsed.command,game=parsed.game,page=parsed.page)
+    assert body.page==parsed.page
+    assert parse_command(raw.rsplit(' ',1)[0]+' 101').command=='help'
+
+
+@pytest.mark.parametrize('command',['refresh','dashboard'])
+def test_action_query_bodies_still_reject_pagination(command):
+    from game_assistant.qq.query_routes import QueryBody
+    with pytest.raises(ValueError,match='page_not_supported'):
+        QueryBody(identity=asdict(IDENTITY),command=command,game='nte',page=2)
+
+
+@pytest.mark.parametrize('command,game,role',[
+    ('help',None,None),('help','nte',None),('status',None,None),('overview',None,None),
+    ('summary','nte',None),('stamina','nte',None),('calabash','wuthering_waves',None),
+    ('exploration','nte',None),('combat','nte',None),('progress','nte',None),
+    ('activities','nte',None),('resources','nte',None),('realestate','nte',None),
+    ('vehicles','nte',None),('teams','nte',None),('record','nte',None),
+    ('news','nte',None),('gacha','nte',None),
+    ('roles','wuthering_waves',None),
+    ('roles','endfield','陈千语'),('training','endfield',None),
+    ('calendar','nte',None),('events','nte',None),('recent_events','nte',None),
+    ('events',None,None),('recent_events',None,None),('calendar',None,None),
+])
+def test_query_snapshot_continuation_preserves_the_query(command,game,role):
+    from tests.test_qq_unified_queries import CachedQuery,service
+    query=CachedQuery()
+    query.add('nte','tajiduo','n',{'account':{'nickname':'测试'},'stamina':{'current':0}})
+    query.add('wuthering_waves','kuro','w',{'roles':[{'role_id':'1','name':'今汐','level':0}]})
+    query.add('endfield','skland','e',{'account':{'operators':[{'id':'1','name':'陈千语','level':0}]}})
+    api=service(query)
+    api.public=SimpleNamespace(read=lambda *args:QueryResult([],None,'ok',True))
+    context={}
+    api.query(IDENTITY,command,game,role_name=role,image_context=context)
+    snapshot=context['render_snapshot']
+    parsed=parse_command(snapshot['next_command']+' 2')
+    assert (parsed.command,parsed.game,parsed.role_name,parsed.page)==(command,game,role,2),snapshot['next_command']
+
+
+async def test_multipage_action_reply_falls_back_without_exposing_action_continuation():
+    from game_assistant.qq.rendering import RenderedImage
+    from tests.test_qq_unified_queries import CachedQuery,service
+    query=CachedQuery();query.add('nte','tajiduo','n',{'stamina':{'current':0}})
+    class Queue:
+        renderer=SimpleNamespace(invalidate_account=lambda *args:None)
+        async def render(self,scope,result,**kwargs):return RenderedImage(b'png',page=1,total_pages=2)
+    api=service(query);api.render_queue=Queue()
+    reply=await api.query_reply(IDENTITY,'refresh','nte',image_requested=True,budget_seconds=5)
+    assert 'image' not in reply and '图片暂不可用' in reply['text'] and '下一页' not in reply['text']
+    assert len(query.refreshes)==1 and query.refreshes[0][1]=='stamina'

@@ -121,7 +121,7 @@ test('closing calendar details restores the event trigger and clears its selecte
   assert.equal(eventButton.props['aria-pressed'], false)
   assert.equal(nodes(root, 'section').some(n => n.props['aria-labelledby'] === 'calendar-detail-title'), false)
 })
-test('calendar puts different activity types in one game group and includes type and status on each bar', async (t) => {
+test('screen calendar separates source activity categories and includes type and status on each bar', async (t) => {
   const now = Date.now()
   const iso = delta => new Date(now + delta * 86400000).toISOString()
   const root = mount(t, CalendarPage, { games, snapshots: { nte: { events: { payload: [
@@ -130,11 +130,14 @@ test('calendar puts different activity types in one game group and includes type
   ] } } } })
   nodes(root, 'button').find(n => n.text === '近 30 天').props.onClick()
   await nextTick()
-  assert.equal(nodes(root, 'div').filter(n => n.props.class === 'timeline-group').length, 1)
+  const groups = nodes(root, 'div').filter(n => n.props.class === 'timeline-group')
+  assert.equal(groups.length, 2)
+  assert.match(content(groups[0]), /异环.*寻访与角色/)
+  assert.match(content(groups[1]), /异环.*活动与玩法/)
   const bars = nodes(root, 'button').filter(n => n.props.class?.includes('timeline-event'))
   assert.equal(bars.length, 2)
-  assert.match(content(bars[0]), /签到活动 签到 进行中/)
-  assert.match(content(bars[1]), /限时卡池 卡池 已结束/)
+  assert.match(content(bars.find(bar=>bar.props['aria-label']==='查看活动详情：签到活动')), /签到活动 签到 进行中/)
+  assert.match(content(bars.find(bar=>bar.props['aria-label']==='查看活动详情：限时卡池')), /限时卡池 卡池 已结束/)
 })
 test('timeline renders exact range proportions, a separate single-date marker and clipped detail', async (t) => {
   // The deadline-only marker sits mid-month and must not have passed yet, so the clock is pinned before it.

@@ -122,3 +122,11 @@ test('rule editor uses the reset reward the backend requires and skips the myste
   assert.equal(sent.at(-1).pool_id, 'Arc_MiracleBox'); assert.equal(sent.at(-1).reset_reward_type, 'arc')
   assert.match(content(root), /S 弧盘/)
 })
+
+test('QQ ledger maps only exact reward names or IDs to artwork and preserves unknown rewards',t=>{
+ const records=[{uid:'a',reward_name:'早雾'},{uid:'b',reward_id:'fork_yuren'},{uid:'c',reward_name:'勿 忘伞'},{uid:'d',reward_name:'未收录物品'}]
+ const root=mount(t,Panel,{imageMode:true,snapshot:{total_records:4,pools:[],records}})
+ assert.deepEqual(nodes(root,'img').map(n=>n.props.src),['https://webstatic.tajiduo.com/bbs/pic/player_003_256.png','https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/fork_yuren.png'])
+ for(const text of ['早雾','fork_yuren','勿 忘伞','未收录物品'])assert.ok(content(root).includes(text))
+ assert.equal(nodes(root,'td').length,24)
+})

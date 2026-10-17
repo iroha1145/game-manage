@@ -57,10 +57,10 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
 </script>
 
 <template>
-  <section class="cap-card nte-roles-panel" :class="{ 'role-detail-view': detailMode }">
+  <section class="cap-card nte-roles-panel" :class="{ 'role-detail-view': detailMode, 'is-image': imageMode }">
     <div class="cap-title">
       角色练度
-      <InfoHint v-if="roles.length" text="收藏保存在当前浏览器，按网站用户、授权账号及游戏角色分别保存。" />
+      <InfoHint v-if="roles.length" text="收藏保存在当前浏览器，按账号与角色分别保存。" />
       <span v-if="snap?.stale" class="badge badge-stale">数据可能过期</span>
       <span v-if="roles.length" class="chip-list summary">
         <span class="chip">角色总数 <b>{{ roles.length }}</b></span>
@@ -83,14 +83,13 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
         <label class="favorite-filter"><input type="checkbox" aria-label="仅收藏" :checked="favoritesOnly" @change="favoritesOnly = $event.target.checked" /><span>仅收藏</span></label>
         <span class="count">显示 {{ visible.length }} / {{ roles.length }}</span>
       </div>
-      <p v-if="!canPersist && !imageMode" class="notice">当前账号身份未提供，暂不可收藏。</p>
+      <p v-if="!canPersist && !imageMode" class="notice">登录账号后可收藏角色。</p>
       <p v-if="storageError" class="notice" role="status">{{ storageError }}</p>
       <div v-if="!imageMode" class="compare-tray" role="group" aria-label="角色对比选择">
         <div class="compare-heading">
           <strong>角色对比</strong>
           <span class="compare-count">已选 {{ selected.length }} / 4</span>
           <InfoHint v-if="selected.length < 2" text="至少选择 2 名角色，最多 4 名。切换筛选后保留对比选择。" />
-          <InfoHint v-else text="对比角色属性与技能等级。" />
           <span v-if="compared.length" class="compare-chips">
             <button v-for="role in compared" :key="keyOf(role)" type="button" class="compare-chip" :aria-label="`移除对比${role.name || '角色'}`" @click="toggleCompare(role)">{{ display(role.name) }}<AppIcon name="close" :size="11" /></button>
           </span>
@@ -109,17 +108,20 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
       <ul v-else class="role-grid">
         <li v-for="(role, index) in visible" :key="keyOf(role)" class="role-card t-item" :data-render-block="imageMode && !detailMode ? '' : undefined" :class="{ compared: isCompared(role) }" :style="{ '--i': Math.min(index, 11) }">
           <div class="role-top" :data-render-block="imageMode && detailMode ? '' : undefined">
-            <img v-if="safeUrl(role.icon_url) && !failedImages.has(safeUrl(role.icon_url))" :key="safeUrl(role.icon_url)" :src="safeUrl(role.icon_url)" :alt="role.name || '角色'" :loading="imageMode ? 'eager' : 'lazy'" class="avatar" @error="imageFailed" />
-            <NteIcon v-else :src="nteRoleIcon(role.id)" :name="role.name || '角色'" />
+            <div class="role-art">
+              <img v-if="safeUrl(role.icon_url) && !failedImages.has(safeUrl(role.icon_url))" :key="safeUrl(role.icon_url)" :src="safeUrl(role.icon_url)" :alt="role.name || '角色'" :loading="imageMode ? 'eager' : 'lazy'" class="avatar" @error="imageFailed" />
+              <NteIcon v-else :src="nteRoleIcon(role.id) || nteRoleIcon(role.name)" :name="role.name || '角色'" size="xl" />
+              <div v-if="!imageMode" class="role-actions">
+                <button type="button" class="icon-button favorite" :aria-label="`${isFavorite(role) ? '取消收藏' : '收藏'}${role.name || '角色'}`" :aria-pressed="isFavorite(role)" :disabled="!canPersist || !roleId(role)" :title="favoriteTitle(role)" @click="toggleFavorite(role)"><AppIcon name="star" :size="15" /></button>
+                <button type="button" class="icon-button" :aria-label="`对比${role.name || '角色'}`" :aria-pressed="isCompared(role)" :disabled="selected.length >= 4 && !isCompared(role)" :title="isCompared(role) ? '移出对比' : '加入对比'" @click="toggleCompare(role)"><AppIcon :name="isCompared(role) ? 'close' : 'plus'" :size="15" /></button>
+              </div>
+            </div>
             <div class="role-heading">
               <strong :title="role.name">{{ display(role.name) }}</strong>
-              <span class="role-sub"><span class="rank" :class="`rank-${role.quality}`">{{ display(role.quality) }}</span><span>{{ display(role.element) }}</span><span class="level">Lv{{ display(role.level) }}</span></span>
+              <span class="role-sub"><span class="rank" :class="`rank-${role.quality}`">{{ display(role.quality) }}</span><span>{{ display(role.element) }}</span></span>
             </div>
-            <div v-if="!imageMode" class="role-actions">
-              <button v-if="!imageMode" type="button" class="ui-button small-button" :aria-label="`查看${role.name || '角色'}攻略`" :disabled="!roleId(role)" @click="emit('guide',roleId(role))">攻略</button>
-              <button type="button" class="icon-button favorite" :aria-label="`${isFavorite(role) ? '取消收藏' : '收藏'}${role.name || '角色'}`" :aria-pressed="isFavorite(role)" :disabled="!canPersist || !roleId(role)" :title="favoriteTitle(role)" @click="toggleFavorite(role)"><AppIcon name="star" :size="15" /></button>
-              <button type="button" class="icon-button" :aria-label="`对比${role.name || '角色'}`" :aria-pressed="isCompared(role)" :disabled="selected.length >= 4 && !isCompared(role)" :title="isCompared(role) ? '移出对比' : '加入对比'" @click="toggleCompare(role)"><AppIcon :name="isCompared(role) ? 'close' : 'plus'" :size="15" /></button>
-            </div>
+            <span class="level">Lv{{ display(role.level) }}</span>
+            <button v-if="!imageMode" type="button" class="ui-button small-button guide-link" :aria-label="`查看${role.name || '角色'}攻略`" :disabled="!roleId(role)" @click="emit('guide',roleId(role))">攻略</button>
           </div>
           <p v-if="imageMode && !detailMode" class="chip-list"><span class="chip">觉醒 <b>{{ display(role.awaken_level) }}</b></span><span class="chip">混频 <b>{{ display(role.mix_level) }}</b></span><span class="chip">羁遇累计经验 <b>{{ display(role.affinity_exp) }}</b></span></p>
           <details v-if="!imageMode || detailMode" class="role-more" :open="imageMode || detailMode || (focusCharacterId===roleId(role) && !!focusCharacterId)">
@@ -131,7 +133,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
               <AppIcon name="chevron" :size="14" class="t-disclosure" />
             </summary>
             <div class="detail-body">
-              <div :data-render-block="imageMode ? '' : undefined"><RoleAssessment game="nte" :character-id="roleId(role)" :scope-key="accountId" :role-data="role" :image-mode="imageMode" :initial-assessment="role.assessment" /></div>
+              <div :data-render-block="imageMode ? '' : undefined"><RoleAssessment game="nte" :character-id="roleId(role)" :scope-key="accountId" :image-mode="imageMode" :initial-assessment="role.assessment" /></div>
               <section class="detail-group" :data-render-block="imageMode ? '' : undefined">
                 <h4>弧盘</h4>
                 <p v-if="role.weapon" class="weapon"><NteIcon :src="nteNamedIcon('weapons', role.weapon.name)" :name="role.weapon.name || '弧盘'" size="small" /><strong>{{ display(role.weapon.name) }}</strong><span class="chip">{{ display(role.weapon.quality) }}</span><span class="chip">Lv{{ display(role.weapon.level) }}</span><span class="chip">混频 <b>{{ display(role.weapon.mix_level) }}</b></span></p>
@@ -155,76 +157,110 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
 .skill-name { display:flex;align-items:center;gap:6px;min-width:0; }
 .skill-name > span:last-child { overflow:hidden;text-overflow:ellipsis; }
 .nte-roles-panel { min-width: 0; overflow-wrap: anywhere; }
-.role-detail-view .role-grid { grid-template-columns: 1fr; }
-.cap-title { position: relative; }
+.cap-title { position: relative; font-size: 16px; line-height: 24px; }
 .summary { gap: 4px; }
 .muted { color: var(--text-muted); font-size: 12px; line-height: 1.6; }
 input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .toolbar input[type=search] { min-width: 150px; }
-.favorite-filter { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 7px; color: var(--text-body); font-size: 12px; cursor: pointer; }
+.favorite-filter { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 13px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--card-bg); color: var(--text-body); font-size: 13px; cursor: pointer; }
 .favorite-filter:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); color: var(--accent-strong); }
 .favorite-filter:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-.notice { margin: 0 0 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel-bg); color: var(--text-muted); font-size: 12px; }
+@media (hover: hover) and (pointer: fine) { .favorite-filter:not(:has(input:checked)):hover { background: var(--button-hover-bg); color: var(--text); } }
+.notice { margin: 0 0 8px; padding: 8px 14px; border-radius: var(--radius-well); background: var(--surface-soft); color: var(--text-muted); font-size: 13px; }
 
 /* Comparison: a one-line strip until two roles are picked, then the table. */
-.compare-tray { margin: 0 0 12px; padding: 6px 10px; border-radius: 8px; background: var(--overlay-2); }
+.compare-tray { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-tile); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .compare-heading { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 28px; font-size: 12px; }
-.compare-heading > strong { color: var(--text); font-size: 13px; font-weight: 600; }
+.compare-heading > strong { color: var(--text); font-size: 14px; font-weight: 600; }
 .compare-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .compare-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.compare-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 0 6px 0 8px; border: 0; border-radius: 5px; background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 500; }
-.compare-chip:not(:disabled):active { transform: scale(var(--scale-medium)); }
-.clear-compare { margin-left: auto; min-height: 24px; padding: 2px 8px; }
-.comparison-scroll { overflow-x: auto; margin: 6px -10px -6px; padding: 0 10px 6px; }
-.comparison-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+.compare-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 6px 0 10px; border: 0; border-radius: var(--radius-chip); background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 500; }
+.compare-chip:not(:disabled):active { transform: translateY(1px); }
+.clear-compare { margin-left: auto; min-height: 24px; padding: 2px 10px; }
+.comparison-scroll { overflow-x: auto; margin: 6px -14px -6px; padding: 0 14px 6px; }
+.comparison-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-control); }
 .comparison-scroll table { min-width: 460px; table-layout: fixed; font-variant-numeric: tabular-nums; }
 .comparison-scroll :is(th, td) { padding-top: 4px; padding-bottom: 4px; line-height: 18px; }
 .comparison-scroll thead th:first-child { width: 112px; }
 .comparison-scroll tbody tr:last-child th { border-bottom: 0; }
-.comparison-scroll tbody th { color: var(--text-muted); font-size: 12px; font-weight: 400; }
-.comparison-scroll .group-row th { padding-top: 10px; color: var(--text); font-size: 11px; font-weight: 600; letter-spacing: .03em; }
+.comparison-scroll tbody th { color: var(--text-muted); font-size: 13px; font-weight: 400; }
+.comparison-scroll .group-row th { padding-top: 10px; color: var(--text); font-size: 12px; font-weight: 500; }
 
-/* Role cards: portrait, name and rank on one line; actions top-right; the
-   level chips double as the disclosure for the full sheet. */
-.role-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; align-items: start; }
-.role-card { min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
-.role-card.compared { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.role-top { display: flex; align-items: center; gap: 8px; }
-.avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 8px; object-fit: cover; background: var(--surface-soft); }
-.role-heading { display: grid; gap: 1px; min-width: 0; flex: 1; }
-.role-heading > strong { overflow: hidden; color: var(--text); font-size: 13px; line-height: 18px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.role-sub { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px; line-height: 16px; white-space: nowrap; }
-.rank { padding: 0 4px; border-radius: 3px; background: var(--overlay-3); color: var(--text-body); font-size: 10px; font-weight: 700; line-height: 14px; }
-/* Letters mix toward the text colour: lighter at night, darker by day, so the
-   10px glyph keeps its contrast on the tint in both themes. */
-.rank-S { background: color-mix(in srgb, var(--chart-4) 18%, transparent); color: color-mix(in srgb, var(--chart-4) 60%, var(--text)); }
-.rank-A { background: color-mix(in srgb, var(--chart-5) 16%, transparent); color: color-mix(in srgb, var(--chart-5) 75%, var(--text)); }
-.level { color: var(--text-body); font-variant-numeric: tabular-nums; }
-.role-actions { display: flex; gap: 4px; margin-left: auto; align-self: flex-start; }
-/* Quiet until used: 24 bordered buttons would outweigh the data. */
-.role-actions .icon-button { width: 28px; height: 28px; border-color: transparent; border-radius: 6px; background: transparent; box-shadow: none; color: var(--text-faint); }
-@media (hover: hover) and (pointer: fine) { .role-actions .icon-button:not(:disabled):not([aria-pressed=true]):hover { background: var(--hover-bg); color: var(--text); } }
+/* Role cards (mockup .role-card): a white card with 6px of frame, a tone panel with the
+   portrait at its bottom right and the level as a white tag on it, then the name and one
+   muted line. Favourite and compare sit on the panel; 攻略 and the details are below. */
+.role-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; align-items: start; }
+.role-detail-view .role-grid { grid-template-columns: 1fr; }
+.role-card { min-width: 0; padding: 6px; border: 1px solid var(--card-border); border-radius: 22px; background: var(--card-bg); box-shadow: var(--card-shadow); }
+.role-card.compared { border-color: var(--game-vivid); box-shadow: 0 0 0 1px var(--game-vivid); }
+.role-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "art art" "heading action"; align-items: center; }
+.role-art { grid-area: art; position: relative; height: 176px; overflow: hidden; border-radius: 16px; background: var(--game-tone); isolation: isolate; }
+.avatar { position: absolute; right: 0; bottom: 0; width: 100%; height: 100%; object-fit: contain; object-position: right bottom; }
+.role-art > .nte-icon[data-size] { --size: 100%; position: absolute; right: 0; bottom: 0; place-items: end end; padding: 0 22px 10px 0; border-radius: 0; background: none; }
+.role-art :deep(.icon-fallback) { font-size: 72px; }
+/* In a bot image a picture that could not be fetched is swapped for its name. */
+.role-art :deep(.render-missing-image) { display: block; padding: 8px 10px; color: var(--game-accent); line-height: 1.4; }
+.level { grid-area: art; position: relative; z-index: 1; align-self: end; justify-self: start; margin: 0 0 11px 11px; padding: 3px 8px; border-radius: var(--radius-chip); background: var(--card-bg); color: var(--game-accent); font-size: 12px; font-weight: 500; line-height: 18px; font-variant-numeric: tabular-nums; }
+.role-heading { grid-area: heading; display: grid; gap: 3px; min-width: 0; padding: 13px 10px 10px; }
+.role-heading > strong { overflow: hidden; color: var(--text); font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
+.role-sub { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; line-height: 18px; white-space: nowrap; }
+/* Quality is a tag, not a colour of its own: S takes the tone, the rest stay neutral. */
+.rank { padding: 0 8px; border-radius: var(--radius-chip); background: var(--control-track); color: var(--text-body); font-size: 12px; font-weight: 600; line-height: 18px; }
+.rank-S { background: var(--game-tone); color: var(--game-accent); }
+.guide-link { grid-area: action; margin-right: 6px; }
+.role-actions { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; gap: 6px; }
+.role-actions .icon-button { width: 34px; height: 34px; border-color: var(--card-border); background: var(--card-bg); color: var(--text-muted); }
+@media (pointer: coarse) { .role-actions .icon-button { width: 44px; height: 44px; } }
+@media (hover: hover) and (pointer: fine) { .role-actions .icon-button:not(:disabled):not([aria-pressed=true]):hover { background: var(--button-hover-bg); color: var(--text); } }
 .role-actions .icon-button:disabled { opacity: .4; cursor: not-allowed; }
-.role-actions .icon-button[aria-pressed=true] { border-color: transparent; background: var(--accent-soft); color: var(--accent-strong); }
-.role-actions .favorite[aria-pressed=true] { background: color-mix(in srgb, var(--chart-4) 16%, transparent); color: var(--chart-4); }
+.role-actions .icon-button[aria-pressed=true] { border-color: transparent; background: var(--accent-fill); color: var(--accent-ink); }
+.role-actions .favorite[aria-pressed=true] { background: color-mix(in srgb, var(--chart-4) 22%, var(--card-bg)); color: color-mix(in srgb, var(--chart-4) 62%, var(--text)); }
 .role-actions .favorite[aria-pressed=true] svg { fill: currentColor; }
-.role-actions .icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.role-more { margin-top: 6px; }
-.role-more > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 -4px; padding: 2px 4px; border-radius: 6px; list-style: none; cursor: pointer; }
+.role-actions .icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-control); }
+.role-card > .chip-list { margin-top: 10px; }
+.role-more { margin: 2px 4px 4px; border-top: 1px solid var(--border); }
+.role-more > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 -6px; padding: 10px 6px; border-radius: var(--radius-control); list-style: none; cursor: pointer; }
 .role-more > summary::-webkit-details-marker { display: none; }
 .role-more > summary > svg { margin-left: auto; color: var(--text-faint); }
-.role-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.role-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: var(--radius-control); }
 @media (hover: hover) and (pointer: fine) { .role-more > summary:hover { background: var(--hover-bg); } .role-more > summary:hover > svg { color: var(--text-body); } }
-.detail-body { display: grid; gap: 8px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border); }
-.detail-group h4 { margin: 0 0 3px; color: var(--text-faint); font-size: 11px; font-weight: 500; letter-spacing: .03em; }
-.weapon { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
-.weapon > strong { margin-right: 2px; color: var(--text); font-weight: 600; }
-.detail-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; margin: 0; }
-.detail-rows > div { display: flex; justify-content: space-between; gap: 6px; min-width: 0; padding: 1px 0; font-size: 12px; line-height: 18px; }
+.detail-body { display: grid; gap: 10px; margin-top: 4px; padding-bottom: 6px; }
+.detail-group { padding: 12px 14px; border-radius: var(--radius-well); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
+.detail-group h4 { margin: 0 0 4px; color: var(--text-muted); font-size: 12px; font-weight: 500; }
+.weapon { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; }
+.weapon > strong { margin-right: 2px; color: var(--text); font-weight: 500; }
+.detail-rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 12px; margin: 0; }
+.role-detail-view .detail-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.detail-rows > div { display: flex; justify-content: space-between; gap: 6px; min-width: 0; padding: 2px 0; font-size: 13px; line-height: 20px; }
 .detail-rows dt { overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
 .detail-rows dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* One role on its own (the guide's 查看本人面板) lies sideways: the panel on the left, the name beside it. */
+.role-detail-view .role-top { grid-template-columns: 200px minmax(0, 1fr) auto; grid-template-areas: "art heading action"; column-gap: 16px; }
+.role-detail-view .role-art { height: 150px; }
+.role-detail-view .role-heading { padding: 0; }
+.role-detail-view .role-heading > strong { font-size: 20px; line-height: 28px; letter-spacing: -.02em; }
+.role-detail-view .guide-link { margin-right: 10px; }
+
+/* Bot images keep the height they had: the card lies sideways with the panel on the left. */
+.is-image .role-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+.is-image.role-detail-view .role-grid { grid-template-columns: 1fr; }
+.is-image .role-art { height: 108px; }
+.is-image .role-art :deep(.icon-fallback) { font-size: 44px; }
+.is-image .role-art > .nte-icon[data-size] { padding: 0 12px 8px 0; }
+.is-image:not(.role-detail-view) .role-card { display: grid; grid-template-columns: 108px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 12px; }
+.is-image:not(.role-detail-view) .role-top { display: contents; }
+.is-image:not(.role-detail-view) .role-art, .is-image:not(.role-detail-view) .level { grid-area: 1 / 1 / 3 / 2; }
+.is-image:not(.role-detail-view) .role-heading { grid-area: 1 / 2; padding: 6px 0 0; }
+.is-image:not(.role-detail-view) .role-card > .chip-list { grid-area: 2 / 2; align-self: start; margin: 4px 0 0; }
+.is-image.role-detail-view .role-top { grid-template-columns: 92px minmax(0, 1fr); grid-template-areas: "art heading"; }
+.is-image.role-detail-view .role-art { height: 92px; }
 @media (max-width: 560px) {
   .toolbar .menu-select { flex: 1 1 calc(25% - 8px); min-width: 0; }
   .toolbar .count { margin-left: auto; }
+  .role-detail-view .role-top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "art art" "heading action"; column-gap: 0; }
+  .role-detail-view .role-art { height: 176px; }
+  .role-detail-view .role-heading { padding: 13px 10px 10px; }
+  .is-image.role-detail-view .role-top { grid-template-columns: 92px minmax(0, 1fr); grid-template-areas: "art heading"; }
 }
 </style>

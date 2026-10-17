@@ -151,6 +151,7 @@ async def test_sdk_sender_uses_official_passive_message_sequence_and_sanitizes_e
             return {'id':'platform-message'}
     from types import SimpleNamespace
     client=OfficialQqClient('app','fake-secret',None,None,sdk=SimpleNamespace(QQApiClient=API))
+    client.now=lambda:NOW
     assert await client.send_text(message(),'回复',1)=='platform-message'
     assert requests==[('POST','/v2/groups/group/messages',{'content':'回复','msg_type':0,'msg_id':'message','msg_seq':1})]
     async def fail(*args):raise RuntimeError('private-token')
@@ -166,3 +167,71 @@ def test_sdk_lock_and_current_endpoint_overrides_offline():
     from qqbot_agent_sdk import api_client
     assert api_client.API_BASE==API_BASE=='https://api.bot.qq.com'
     assert api_client.TOKEN_URL=='https://api.bot.qq.com/app/getAppAccessToken'
+
+
+async def test_real_sdk_identify_subscribes_only_group_and_c2c_events():
+    from types import SimpleNamespace
+    from game_assistant.qq.client import load_sdk
+    sdk=load_sdk()
+    socket=sdk.QQWebSocket(callbacks=SimpleNamespace(get_token=lambda:'fixture-token'))
+    frames=[]
+    async def capture(payload,label):
+        frames.append(payload)
+        return True
+    socket._send_ws_json=capture
+    await socket._send_identify()
+    assert len(frames)==1 and frames[0]['op']==2
+    assert frames[0]['d']['intents']==1 << 25
+    assert frames[0]['d']['token']=='QQBot fixture-token'
+    assert frames[0]['d']['shard']==[0,1]
+
+
+async def test_uploads_and_text_share_one_paced_outbound_budget():
+    import asyncio
+    from io import BytesIO
+    from types import SimpleNamespace
+    import time
+    from PIL import Image
+    from game_assistant.qq.client import OfficialQqClient
+    calls=[]
+    class API:
+        def __init__(self,*args,**kwargs):pass
+        def setup(self,http):pass
+        async def request(self,method,path,body):
+            calls.append((time.monotonic(),path))
+            return {'file_info':'media'} if path.endswith('/files') else {'id':'message'}
+    client=OfficialQqClient('app','fixture',None,None,sdk=SimpleNamespace(QQApiClient=API))
+    client.now=lambda:NOW
+    image=BytesIO()
+    Image.new('RGB',(32,32)).save(image,'PNG')
+    try:
+        await asyncio.gather(client.send_image(message(),image.getvalue(),1),
+                             client.send_text(message(),'文字',1),
+                             client.send_image(message(),image.getvalue(),1))
+        assert len(calls)==5
+        assert sum(path.endswith('/files') for _,path in calls)==2
+        # Actual outbound starts remain well below even the smaller 50/s upload limit.
+        assert all(b[0]-a[0]>=0.04 for a,b in zip(calls,calls[1:]))
+    finally:await client.aclose()
+
+
+async def test_reply_expiring_during_rate_wait_is_not_sent():
+    from types import SimpleNamespace
+    from game_assistant.qq.client import OfficialQqClient,QqClientError
+    calls=[]
+    class API:
+        def __init__(self,*args,**kwargs):pass
+        def setup(self,http):pass
+        async def request(self,method,path,body):
+            calls.append(path)
+            return {'id':'message'}
+    client=OfficialQqClient('app','fixture',None,None,sdk=SimpleNamespace(QQApiClient=API))
+    client.now=lambda:NOW
+    try:
+        await client.send_text(message(),'第一条',1)
+        times=iter([NOW,NOW+timedelta(minutes=6)])
+        client.now=lambda:next(times)
+        with pytest.raises(QqClientError,match='qq_send_outcome_uncertain'):
+            await client.send_text(message(),'已经过期',1)
+        assert calls==['/v2/groups/group/messages']
+    finally:await client.aclose()

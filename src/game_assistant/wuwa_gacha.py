@@ -174,6 +174,7 @@ class GachaStore(ArchiveMixin):
         limit, offset = min(max(int(limit), 1), 500), max(int(offset), 0)
         scope = (account, server)
         with self.lock:
+            self._expire_previews()
             total, earliest, latest = self.conn.execute('SELECT COUNT(*),MIN(time),MAX(time) FROM wuwa_gacha '
                 'WHERE account=? AND server=?', scope).fetchone()
             groups = self.conn.execute('SELECT pool,rarity,COUNT(*) FROM wuwa_gacha WHERE account=? AND server=? '
