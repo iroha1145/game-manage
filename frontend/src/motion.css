@@ -149,16 +149,18 @@
 /* The attribute only exists while a below-the-fold card waits and rises; the
    transition is !important for that window so a card's own hover transition
    cannot cut the rise short, and v-reveal removes it when the rise ends. */
+/* transitions.dev "texts reveal", scaled for cards: a 20px blurred rise in
+   500–600ms on the smooth-out curve; cards arriving together stagger 60ms. */
 [data-reveal] {
   transition:
     opacity var(--duration-very-slow) var(--ease-smooth-out) var(--reveal-delay, 0ms),
-    transform 700ms var(--ease-smooth-out) var(--reveal-delay, 0ms),
+    transform 600ms var(--ease-smooth-out) var(--reveal-delay, 0ms),
     filter var(--duration-very-slow) var(--ease-smooth-out) var(--reveal-delay, 0ms) !important;
 }
 [data-reveal="pending"] {
   opacity: 0;
-  transform: translate3d(0, var(--distance-large), 0) scale(var(--scale-large));
-  filter: blur(var(--blur-large));
+  transform: translate3d(0, 20px, 0) scale(var(--scale-small));
+  filter: blur(var(--blur-medium));
 }
 /* Keyboard focus never lands on something invisible. */
 [data-reveal="pending"]:focus-within { opacity: 1; transform: none; filter: none; }

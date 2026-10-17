@@ -148,7 +148,7 @@ export const vSpotlight = {
    live page is hidden until it is scrolled to; anything already on screen,
    rendered off-screen for a bot image, printed or under reduced motion shows
    at once, and no content waits on an observer that may never fire. */
-const REVEAL_SETTLE = 900
+const REVEAL_SETTLE = 700
 let revealObserver = null
 function showRevealed(entries) {
   let order = 0

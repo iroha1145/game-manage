@@ -317,7 +317,7 @@ test('scroll reveal hides only below-the-fold cards of a live page, then hands t
   assert.equal(below.dataset.reveal, 'shown')
   assert.equal(below.style.getPropertyValue('--reveal-delay'), '0ms')
   assert.equal(observed.size, 0)
-  t.mock.timers.tick(900)
+  t.mock.timers.tick(700)
   assert.equal(below.dataset.reveal, undefined, 'hover and press transitions take over after the rise')
   const late = box(document.createElement('section'), { top: 1300 })
   document.body.append(late)
