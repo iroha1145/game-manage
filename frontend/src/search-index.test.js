@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { GAME_SECTIONS, buildSearchIndex, searchItems, groupResults, sectionsFor } from './search-index.js'
 
-const source = name => readFileSync(new URL(`./components/${name}`, import.meta.url), 'utf8')
+// Windows checkouts turn LF into CRLF; the slicing below looks for ']\n'.
+const source = name => readFileSync(new URL(`./components/${name}`, import.meta.url), 'utf8').replaceAll('\r\n', '\n')
 // [id, label] pairs from a `const tabs = [...]` list or GameCard's NTE groups.
 const pairs = text => [...text.matchAll(/\[\s*'([a-z]+)',\s*'([^']+)'\s*\]/g)].map(([, id, label]) => [id, label])
 const tabsIn = name => { const text = source(name); return pairs(text.slice(text.indexOf('const tabs = ['), text.indexOf(']\n', text.indexOf('const tabs = [')) + 2)) }
