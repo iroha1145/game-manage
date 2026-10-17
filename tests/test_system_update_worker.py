@@ -1,5 +1,5 @@
 """Isolated updater transactions. Never download/build/update a user installation."""
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import json
 import os
 from pathlib import Path
@@ -296,13 +296,17 @@ def test_unknown_release_directory_is_never_deleted_or_adopted(installation):
 def test_offline_sqlite_backup_roundtrip_preserves_runtime_metadata(installation):
     import sqlite3
     f = installation; dbpath = f.root / 'data/example.db'
-    with sqlite3.connect(dbpath) as db:
+    with closing(sqlite3.connect(dbpath)) as db:
         db.execute('CREATE TABLE sample (value TEXT)'); db.execute("INSERT INTO sample VALUES ('before')")
+        db.commit()
     keep = f.root / 'data/runtime/keep'; keep.write_text('runtime survives')
     backup = backup_data(f.platform.scopes(), f.worker.private / 'sqlite-backup')
-    with sqlite3.connect(dbpath) as db: db.execute("UPDATE sample SET value='after'")
+    with closing(sqlite3.connect(dbpath)) as db:
+        db.execute("UPDATE sample SET value='after'")
+        db.commit()
     restore_data(f.platform.scopes(), backup)
-    with sqlite3.connect(dbpath) as db: assert db.execute('SELECT value FROM sample').fetchone()[0] == 'before'
+    with closing(sqlite3.connect(dbpath)) as db:
+        assert db.execute('SELECT value FROM sample').fetchone()[0] == 'before'
     assert keep.read_text() == 'runtime survives'
 
 
@@ -530,3 +534,50 @@ def test_visible_rolled_back_publish_failure_stops_old_service_without_second_re
     assert f.platform.events[-3:] == ['health_old', 'stop', 'unlock']
     assert (f.root / 'data/database.txt').read_text() == 'accepted-after-rolled-back'
     assert not (f.root / 'data/runtime/active-release.json').exists()
+
+
+@pytest.mark.parametrize('integrity_ok', [True, False])
+def test_backup_validation_closes_sqlite_before_temporary_directory_cleanup(installation, monkeypatch, integrity_ok):
+    import sqlite3
+    import game_assistant.system_update_worker as worker
+    f = installation
+    dbpath = f.root / 'data/validation.db'
+    with closing(sqlite3.connect(dbpath)) as db:
+        db.execute('CREATE TABLE sample (value TEXT)')
+        db.execute("INSERT INTO sample VALUES ('committed-before-backup')")
+        db.commit()
+    connect, temporary_directory = sqlite3.connect, worker.tempfile.TemporaryDirectory
+    connections, events = [], []
+    class TrackedConnection(sqlite3.Connection):
+        def execute(self, sql, *args, **kwargs):
+            if not integrity_ok and sql == 'PRAGMA integrity_check':
+                return SimpleNamespace(fetchone=lambda:('injected integrity failure',))
+            return super().execute(sql, *args, **kwargs)
+        def close(self):
+            super().close()
+            events.append('connection_closed')
+    def tracked_connect(*args, **kwargs):
+        connection = connect(*args, factory=TrackedConnection, **kwargs)
+        connections.append(connection)
+        return connection
+    @contextmanager
+    def checked_temporary_directory(*args, **kwargs):
+        with temporary_directory(*args, **kwargs) as path:
+            try:
+                yield path
+            finally:
+                assert connections
+                for connection in connections:
+                    with pytest.raises(sqlite3.ProgrammingError, match='closed'):
+                        connection.execute('SELECT 1')
+                events.append('temporary_directory_cleanup')
+    monkeypatch.setattr(worker.sqlite3, 'connect', tracked_connect)
+    monkeypatch.setattr(worker.tempfile, 'TemporaryDirectory', checked_temporary_directory)
+    destination = f.worker.private / 'close-order-backup'
+    if integrity_ok:
+        backup_data(f.platform.scopes(), destination)
+    else:
+        with pytest.raises(UpdateError, match='backup_database_integrity_failed'):
+            backup_data(f.platform.scopes(), destination)
+    assert events == ['connection_closed', 'temporary_directory_cleanup']
+    assert not list(destination.glob('.verify-*'))

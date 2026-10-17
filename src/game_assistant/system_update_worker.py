@@ -8,7 +8,7 @@ source of truth; the API-writable request/status directory is not trusted for it
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager, nullcontext
+from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass, field
 import hashlib
 import json
@@ -656,7 +656,7 @@ def backup_data(scopes, destination):
                         for suffix in ('-wal', '-shm'):
                             sidecar = Path(str(item) + suffix)
                             if sidecar.is_file(): shutil.copy2(sidecar, Path(str(check) + suffix))
-                        with sqlite3.connect(check.as_uri() + '?mode=ro', uri=True) as db:
+                        with closing(sqlite3.connect(check.as_uri() + '?mode=ro', uri=True)) as db:
                             if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
                                 fail('backup_database_integrity_failed')
             else:
