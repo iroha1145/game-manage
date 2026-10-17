@@ -117,7 +117,7 @@ def metadata(snapshot):
 
 
 def document(kind, game, title, *, sections=None, notices=None, footer='', subtitle=''):
-    return dict(version=3, kind=kind, game=game or 'all', title=text(title, 90), subtitle=text(subtitle, 170),
+    return dict(version=3, kind=kind, game=game or 'all', title=text(title, 90), subtitle=text(subtitle, 170) if subtitle else '',
                 sections=sections or [], notices=notices or [], footer=text(footer,170) if footer else '')
 
 

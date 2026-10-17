@@ -16,6 +16,13 @@ def test_activity_commands_are_distinct(raw,verb,game):
     parsed=parse_command(raw)
     assert (parsed.command,parsed.game)==(verb,game)
 
+def test_cards_without_a_subtitle_add_no_subtitle_line():
+    from game_assistant.qq.cards import card_to_text
+    for card in (view.document('status','all','我的账号',notices=['暂无游戏账号；请在网站完成游戏授权。']),
+                 view.message('nte','授权状态','授权已失效或凭据不可用；请在网站重新授权。')):
+        assert card['subtitle']==''
+        assert card_to_text(card).split('\n')[:2]==[card['title'],card['notices'][0]]
+
 def event(name,start,end,**extra):
     return dict(name=name,start_at=start,end_at=end,source_name='官方公告',source_title='来源说明',**extra)
 
