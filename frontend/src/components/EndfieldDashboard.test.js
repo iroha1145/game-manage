@@ -354,3 +354,41 @@ test('a failed copy and a successful copy replace each other in the blueprint li
     assert.doesNotMatch(content(root), hidden)
   }
 })
+
+test('a profile refresh whose answer cannot be read keeps the profile and says so', async t => {
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.endsWith('/status')) return response({ connected: true, roles: [{ role_id: '7', server_id: '1', nickname: '管理员' }], selected_role_id: '7', selected_server_id: '1' })
+    if (url.endsWith('/card')) return response({ payload: { base: { name: '档案昵称甲', level: 20 }, progress: [] } })
+    if (url.endsWith('/skland/refresh')) return new Response('{"payload":', { status: 200 })
+    return response({ supported: false })
+  })
+  const root = mount(t, Dashboard, { snaps: {} })
+  await flush(); await flush()
+  assert.match(content(root), /档案昵称甲/)
+  nodes(root, 'button').find(n => content(n).includes('刷新档案')).props.onClick()
+  await flush()
+  assert.match(content(root), /档案昵称甲/)
+  assert.match(content(root), /待更新/)
+  assert.match(content(nodes(root, 'p').find(n => n.props.role === 'alert')), /暂时无法读取，请稍后重试。/)
+  assert.doesNotMatch(content(root), /暂无档案数据/)
+})
+
+test('a blueprint save whose answer cannot be read keeps the form and the list and says so', async t => {
+  const previous = { Document: globalThis.Document, ShadowRoot: globalThis.ShadowRoot }   // the v-model directive's update hook looks for both
+  Object.assign(globalThis, { Document: class {}, ShadowRoot: class {} })
+  t.after(() => { for (const [name, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[name]; else globalThis[name] = value } })
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    calls.push(`${options.method || 'GET'} ${url}`)
+    return options.method === 'POST' && url.endsWith('/blueprints') ? new Response('{"payload":', { status: 200 }) : blueprintFetch(url)
+  })
+  const root = mount(t, Dashboard, { snaps: {}, initialSection: 'blueprints' })
+  await flush(); await flush()
+  const [name, code] = nodes(root, 'input')
+  name.props['onUpdate:modelValue']('新蓝图'); code.props['onUpdate:modelValue']('NEW-CODE'); await flush()
+  await nodes(root, 'form')[0].props.onSubmit({ preventDefault() {} }); await flush()
+  assert.deepEqual([name.value, code.value], ['新蓝图', 'NEW-CODE'])
+  assert.match(content(nodes(root, 'p').find(n => n.props.role === 'alert')), /暂时无法读取，请稍后重试。/)
+  assert.match(content(root), /工厂/)
+  assert.equal(calls.filter(call => call === 'GET /api/endfield/blueprints').length, 1, 'the list was read again as if the save had worked')
+})

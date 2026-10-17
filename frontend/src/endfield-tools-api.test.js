@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getMap, getMapMark, getSklandTools, getSklandOperator, chooseSklandRole, saveBlueprint, safeExternalUrl } from './endfield-tools-api.js'
+import { getMap, getMapMark, getSklandTools, getSklandOperator, chooseSklandRole, saveBlueprint, getSklandCard, getBlueprints, deleteBlueprint, disconnectSkland, safeExternalUrl } from './endfield-tools-api.js'
 
 test('map filters are encoded and role selection sends both identifiers', async t => {
   const calls = []
@@ -45,4 +45,37 @@ test('a machine code answered by the cloud service is replaced by fixed Chinese 
   assert.equal(await messageFor(422, { detail: 'invalid_input' }), '输入内容格式不正确，请检查名称、分享码和备注。')
   assert.equal(await messageFor(404, { detail: 'private_item_not_found' }), '请求未完成，请稍后重试。')
   assert.equal(await messageFor(502, { error: 'skland_query_failed' }), '请求未完成，请稍后重试。')
+})
+
+const unreadableMessage = '服务返回的数据无法读取，请稍后重试。'
+const bodies = {
+  'truncated JSON': () => new Response('{"payload":', { status: 200 }),
+  'an HTML page': () => new Response('<html>502 Bad Gateway</html>', { status: 200 }),
+  'an empty 200 body': () => new Response('', { status: 200 }),
+  'a body that fails while it is read': () => new Response(new ReadableStream({ start(controller) { controller.error(new TypeError('terminated')) } }), { status: 200 }),
+}
+for (const [name, respond] of Object.entries(bodies)) test(`a successful status with ${name} is an error, not an empty success`, async t => {
+  t.mock.method(globalThis, 'fetch', async () => respond())
+  for (const call of [() => getSklandCard(), () => getBlueprints(), () => saveBlueprint({ name: '工厂', code: 'ABC', notes: '' }), () => disconnectSkland()])
+    await assert.rejects(call(), { message: unreadableMessage })
+})
+
+test('a successful answer without content still succeeds', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 204 }))
+  assert.deepEqual(await deleteBlueprint('b1'), {})
+  assert.deepEqual(await disconnectSkland(), {})
+})
+
+test('a cancelled body read stays an abort, and an unreadable error body keeps the status message', async t => {
+  let reply
+  t.mock.method(globalThis, 'fetch', async () => reply())
+  const cancelled = () => { throw new DOMException('会话或角色已变化', 'AbortError') }
+  for (const status of [200, 502]) {
+    reply = () => ({ ok: status === 200, status, json: async () => cancelled() })
+    await assert.rejects(getSklandCard(), { name: 'AbortError' })
+  }
+  reply = () => new Response('<html>502</html>', { status: 502 })
+  await assert.rejects(getSklandCard(), { message: '请求未完成，请稍后重试。' })
+  reply = () => new Response('', { status: 422 })
+  await assert.rejects(saveBlueprint({ name: '工厂', code: 'ABC', notes: '' }), { message: '输入内容格式不正确，请检查名称、分享码和备注。' })
 })
