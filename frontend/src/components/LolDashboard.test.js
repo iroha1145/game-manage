@@ -252,3 +252,77 @@ test('the recent-match snapshot gets champion names and record chips from the st
   assert.match(content(root), /诡术妖姬/)
   assert.match(content(root), /最多击杀/)
 })
+
+// A fuller archive: 25 games, newest first, every third one lost, plus augments for the hex view.
+const rich = () => {
+  const matches = Array.from({ length: 25 }, (_, i) => ({
+    match_id: `r${i}`, champion_name: `英雄${i}`, mode: 'CLASSIC', queue_id: 420, start_at: `2026-09-${String(25 - Math.floor(i / 2)).padStart(2, '0')}T12:${String(i).padStart(2, '0')}:00+08:00`,
+    duration_seconds: 1800, win: i % 3 !== 0, remake: false, kills: 6, deaths: i % 5 === 0 ? 0 : 2, assists: 8, damage: 20000, score: 8, kp: 50, damage_share: 20, augments: [], highlights: [],
+  }))
+  return { ...data(), overview: { games: 25, wins: 16, losses: 9, unknown_results: 0, remakes: 0, winrate: 64, average_score: 8, avg_kills: 6, avg_deaths: 1.5, avg_assists: 8, play_minutes: 750, current_streak: { kind: 'loss', count: 1 } },
+    coverage: { archived_games: 25, filtered_games: 25, detail_games: 25, score_games: 25, scope_note: '仅客户端采集窗口' }, matches,
+    hextech: { games: 12, recorded_games: 9, rating_note: '', combinations: [{ names: ['甲', '乙'], games: 3, wins: 2, winrate: 66.7 }],
+      augments: Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: `强化 #${i + 1}`, games: 12 - i, wins: 6 - Math.floor(i / 3), winrate: 50 })) } }
+}
+const byClass = (root, tag, name) => nodes(root, tag).filter(n => String(n.props.class ?? '').split(/\s+/).includes(name))
+const meter = root => nodes(root, 'div').find(n => n.props.role === 'meter')
+
+test('the overview shows the win rate as a ring and keeps the unsplit figure readable, with averages to one decimal', async t => {
+  t.mock.method(globalThis, 'fetch', async () => response(rich()))
+  const root = mount(t, LolDashboard, {})
+  await flush()
+  assert.equal(meter(root).props['aria-valuenow'], 64)
+  assert.match(content(meter(root)), /64%/)
+  // The split bar draws only results that happened; the legend names all four with their counts.
+  assert.equal(nodes(byClass(root, 'div', 'stack-bar')[0], 'i').length, 2)
+  assert.match(content(byClass(root, 'ul', 'legend')[0]), /胜利 16 失败 9 胜负未知 0 重开 0/)
+  assert.match(content(root), /最近连续失利 1 场/)
+  assert.match(content(root), /1\.5/) // average deaths keep their decimal
+  assert.match(content(root), /8\.0/) // and so does the average score
+})
+
+test('the history strip lists the newest twenty results oldest first, each with a letter and the row stays an article', async t => {
+  t.mock.method(globalThis, 'fetch', async () => response(rich()))
+  const root = mount(t, LolDashboard, {})
+  await flush(); button(root, '对局记录').props.onClick(); await flush()
+  const strip = byClass(root, 'li', 'form-col')
+  assert.equal(strip.length, 20)
+  // Newest game (index 0) is a loss and sits last; the oldest of the twenty (index 19) is a win and sits first.
+  assert.deepEqual([content(strip[0]), content(strip.at(-1))], ['胜', '负'])
+  assert.ok(strip.every(item => item.props.title && item.props['aria-label']), 'every bar names its game for pointer and screen reader')
+  assert.equal(nodes(root, 'article').filter(n => String(n.props.class).includes('lol-match')).length, 25, 'the list still has every game')
+  assert.equal(meter(root).props['aria-valuenow'], 65) // 13 wins among the 20 newest games (seven of them are lost)
+})
+
+test('the hex view charts the ten most chosen augments above the complete table and keeps its caveat', async t => {
+  t.mock.method(globalThis, 'fetch', async () => response(rich()))
+  const root = mount(t, LolDashboard, {})
+  await flush(); button(root, '海克斯').props.onClick(); await flush()
+  assert.equal(byClass(root, 'li', 'bar-col').length, 10)
+  assert.equal(nodes(nodes(root, 'table')[0], 'tr').length, 13) // header plus all twelve
+  assert.match(content(root), /样本胜率不代表强化强度/)
+  assert.equal(meter(root).props['aria-valuenow'], 9) // 9 of 12 hex games recorded their augments
+})
+
+test('the news tab has no archive filters and says how much was published', async t => {
+  t.mock.method(globalThis, 'fetch', async () => response(rich()))
+  const root = mount(t, LolDashboard, { snaps: { news: { payload: [{ title: '甲', url: 'https://example.com/a', published_at: '2026-10-12T10:00:00+08:00' }] } } })
+  await flush()
+  assert.equal(nodes(root, 'select').length, 2)
+  button(root, '公告与资讯').props.onClick(); await flush()
+  assert.equal(nodes(root, 'select').length, 0)
+  assert.match(content(root), /发布概况/)
+  assert.equal(byClass(root, 'li', 'bar-col').length, 8)
+})
+
+test('the header names the account and its rank from the snapshot while the archive is empty', async t => {
+  t.mock.method(globalThis, 'fetch', async () => response({ ...data(), account: null, overview: { games: 0 }, matches: [], coverage: { archived_games: 0 } }))
+  const root = mount(t, LolDashboard, { snaps: { account: { payload: { nickname: '快照召唤师', level: 312, extra: { puuid: 'p', ranked_solo: { tier: 'GOLD', division: 'II', league_points: 45, wins: 61, losses: 55 } } } } } })
+  await flush()
+  const header = nodes(root, 'header')[0]
+  assert.match(content(header), /快照召唤师/)
+  assert.match(content(header), /等级 312/)
+  assert.match(content(header), /GOLD II · 45 LP/)
+  assert.match(content(header), /单双排 61 胜 55 负/)
+  assert.match(content(root), /本机尚无归档/)
+})

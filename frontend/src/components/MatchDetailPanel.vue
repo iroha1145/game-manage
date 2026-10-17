@@ -29,55 +29,79 @@ const teamResult = (team) => {
   if (team.win === false) return { text: '失败', cls: 'team-lose' }
   return { text: '-', cls: '' }
 }
+
+// 每行伤害条以这场里伤害最高的人为满格。
+const topDamage = computed(() => Math.max(1, ...teams.value.flatMap((team) => team.participants.map((p) => (Number.isFinite(p.damage) ? p.damage : 0)))))
+const damagePct = (p) => `${Number.isFinite(p.damage) ? Math.round((p.damage / topDamage.value) * 100) : 0}%`
+
+// 两队击杀、伤害、金币的合计对比：一条两段的条，左段是我方。
+const sum = (team, field) => team.participants.reduce((total, p) => total + (Number.isFinite(p[field]) ? p[field] : 0), 0)
+const compare = computed(() => {
+  if (teams.value.length !== 2 || !teams.value.some(isOwnTeam)) return []
+  const [own, other] = teams.value
+  return [['击杀', 'kills'], ['伤害', 'damage'], ['金币', 'gold']].map(([label, field]) => ({ label, a: sum(own, field), b: sum(other, field) }))
+    .filter((row) => row.a + row.b > 0)
+    .map((row) => ({ ...row, share: (row.a / (row.a + row.b)) * 100 }))
+})
 </script>
 
 <template>
   <div class="detail-panel t-panel">
     <p v-if="loading" class="empty">对局详情加载中…</p>
     <div v-else-if="error" class="detail-error" role="alert">{{ error }}</div>
-    <div v-else-if="detail" class="teams">
-      <div
-        v-for="team in teams"
-        :key="team.team_id"
-        class="team-col"
-        :class="{ 'team-own': isOwnTeam(team) }"
-      >
-        <div class="team-head">
-          <span class="team-result" :class="teamResult(team).cls">
-            {{ teamResult(team).text }}
-          </span>
-          <span v-if="isOwnTeam(team)" class="team-own-tag">我方</span>
-        </div>
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>英雄</th>
-                <th>昵称</th>
-                <th class="num">KDA</th>
-                <th class="num">伤害</th>
-                <th class="num">金币</th>
-                <th>装备编号</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(p, i) in team.participants"
-                :key="`${team.team_id}-${i}`"
-                :class="{ 'player-own': p.is_own }"
-              >
-                <td>{{ championName(p) }} <small class="muted">Lv{{ p.level ?? '-' }}</small></td>
-                <td class="muted">{{ p.role_name || '-' }}</td>
-                <td class="num">{{ kda(p) }}</td>
-                <td class="num">{{ fmtNum(p.damage) }}</td>
-                <td class="num">{{ fmtNum(p.gold) }}</td>
-                <td class="items-cell"><span v-for="(item, k) in p.items || []" :key="k" class="item-id">{{ item }}</span><span v-if="!(p.items || []).length" class="muted">-</span></td>
-              </tr>
-            </tbody>
-          </table>
+    <template v-else-if="detail">
+      <div v-if="compare.length" class="compare" aria-label="两队合计对比">
+        <ul class="legend"><li style="--series: var(--game-vivid)">我方</li><li style="--series: var(--text-faint)">对方</li></ul>
+        <div v-for="row in compare" :key="row.label" class="compare-row">
+          <span class="compare-label">{{ row.label }}</span>
+          <span class="compare-bar"><i :style="{ width: `${row.share}%` }"></i></span>
+          <span class="compare-values">{{ fmtNum(row.a) }} : {{ fmtNum(row.b) }}</span>
         </div>
       </div>
-    </div>
+      <div class="teams">
+        <div
+          v-for="team in teams"
+          :key="team.team_id"
+          class="team-col"
+          :class="{ 'team-own': isOwnTeam(team) }"
+        >
+          <div class="team-head">
+            <span class="team-result" :class="teamResult(team).cls">
+              {{ teamResult(team).text }}
+            </span>
+            <span v-if="isOwnTeam(team)" class="team-own-tag">我方</span>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>英雄</th>
+                  <th>昵称</th>
+                  <th class="num">KDA</th>
+                  <th class="num">伤害</th>
+                  <th class="num">金币</th>
+                  <th>装备编号</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(p, i) in team.participants"
+                  :key="`${team.team_id}-${i}`"
+                  :class="{ 'player-own': p.is_own }"
+                >
+                  <td>{{ championName(p) }} <small class="muted">Lv{{ p.level ?? '-' }}</small></td>
+                  <td class="muted">{{ p.role_name || '-' }}</td>
+                  <td class="num">{{ kda(p) }}</td>
+                  <td class="num"><span class="dmg"><span class="meter" aria-hidden="true"><i :style="{ '--pct': damagePct(p) }"></i></span><span>{{ fmtNum(p.damage) }}</span></span></td>
+                  <td class="num">{{ fmtNum(p.gold) }}</td>
+                  <td class="items-cell"><span v-for="(item, k) in p.items || []" :key="k" class="item-id">{{ item }}</span><span v-if="!(p.items || []).length" class="muted">-</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -94,6 +118,54 @@ const teamResult = (team) => {
   font-size: 13px;
 }
 
+/* Team totals: kills, damage and gold as one two-part bar each. */
+.compare {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-well);
+  background: var(--surface-soft);
+}
+
+.compare .legend {
+  margin: 0 0 2px;
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(90px, auto);
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.compare-label {
+  color: var(--text-muted);
+}
+
+.compare-bar {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-faint) 45%, var(--track));
+}
+
+.compare-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--game-vivid), var(--game-vivid-2));
+}
+
+.compare-values {
+  color: var(--text);
+  font-weight: 500;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .teams {
   display: flex;
   gap: 12px;
@@ -102,7 +174,7 @@ const teamResult = (team) => {
 
 /* Each side is a tone step inside the card; the own side is tinted, not outlined. */
 .team-col {
-  flex: 1 1 300px;
+  flex: 1 1 640px;
   border-radius: var(--radius-well);
   background: var(--surface-soft);
   padding: 10px 12px;
@@ -110,7 +182,7 @@ const teamResult = (team) => {
 }
 
 .team-col.team-own {
-  background: color-mix(in srgb, var(--game-lol) 9%, var(--surface-soft));
+  background: color-mix(in srgb, var(--game-vivid) 9%, var(--surface-soft));
   order: -1;
 }
 
@@ -122,16 +194,22 @@ const teamResult = (team) => {
 }
 
 .team-result {
-  font-size: 13px;
-  font-weight: 500;
+  padding: 0 10px;
+  border-radius: var(--radius-chip);
+  background: var(--overlay-3);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 22px;
 }
 
 .team-win {
   color: var(--success);
+  background: var(--success-bg);
 }
 
 .team-lose {
   color: var(--danger);
+  background: var(--danger-bg);
 }
 
 .team-remake {
@@ -142,9 +220,10 @@ const teamResult = (team) => {
   font-size: 12px;
   font-weight: 500;
   color: var(--game-lol);
-  background: color-mix(in srgb, var(--game-lol) 14%, transparent);
+  background: color-mix(in srgb, var(--game-vivid) 16%, transparent);
   border-radius: var(--radius-chip);
-  padding: 0 6px;
+  padding: 0 8px;
+  line-height: 20px;
 }
 
 .table-scroll {
@@ -171,6 +250,18 @@ const teamResult = (team) => {
   color: var(--text-muted);
 }
 
+/* Damage: the number with a thin bar behind it, full length for the match's top damage. */
+.team-col .data-table .dmg {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.team-col .data-table .dmg .meter {
+  flex: 0 0 44px;
+  height: 4px;
+}
+
 /* Up to six item ids per player: small wrapping chips, all of them readable. */
 .team-col .data-table td.items-cell {
   min-width: 150px;
@@ -189,6 +280,6 @@ const teamResult = (team) => {
 }
 
 .player-own td {
-  background: color-mix(in srgb, var(--game-lol) 12%, transparent);
+  background: color-mix(in srgb, var(--game-vivid) 12%, transparent);
 }
 </style>

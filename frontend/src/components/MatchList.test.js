@@ -95,3 +95,26 @@ test('a champion name on the match wins over the career top-five list', t => {
   assert.match(content(root), /安妮/)
   assert.doesNotMatch(content(root), /旧名/)
 })
+
+const byClass = (root, tag, name) => nodes(root, tag).filter(n => String(n.props.class ?? '').split(/\s+/).includes(name))
+
+test('the win rate is a ring and every game has a result letter under its bar, oldest first', t => {
+  const root = mount(t, MatchList, { gameId: 'lol', snap: { payload: [
+    game('newest', false, { start_at: '2026-09-26T12:00:00Z' }),
+    game('remake', true, { remake: true, duration_seconds: 200, start_at: '2026-09-25T12:00:00Z' }),
+    game('unknown', null, { start_at: '2026-09-24T12:00:00Z' }),
+    game('oldest', true, { start_at: '2026-09-23T12:00:00Z' }),
+  ] } })
+  const ring = nodes(root, 'div').find(n => n.props.role === 'meter')
+  assert.equal(ring.props['aria-valuenow'], 50)
+  assert.deepEqual(nodes(byClass(root, 'div', 'form-pills')[0], 'b').map(content), ['胜', '未', '重', '负'])
+})
+
+test('a card names the champion on a letter tile and shows how the game split into kills, deaths and assists', t => {
+  const root = mount(t, MatchList, { gameId: 'lol', snap: { payload: [game('one', true, { champion_name: '安妮' }), game('stub', true, { kills: 0, deaths: 0, assists: 0, remake: true })] } })
+  const [first, second] = nodes(root, 'article')
+  assert.equal(content(byClass(first, 'span', 'champ-tile')[0]), '安')
+  assert.equal(nodes(byClass(first, 'span', 'kda-bar')[0], 'i').length, 3)
+  assert.equal(byClass(second, 'span', 'kda-bar').length, 0, 'a remake has no kill split to draw')
+  assert.match(first.props.class, /is-win/)
+})

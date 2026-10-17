@@ -1,4 +1,4 @@
-import { formatBeijingDateTime, safeUrl } from './calendar.js'
+import { DAY_MS, beijingDayStart, formatBeijingDateTime, parseBeijingTime, safeUrl } from './calendar.js'
 export const ESPORTS_FAMILIES = { lpl: 'LPL', first_stand: '全球先锋赛', msi: 'MSI', worlds: '全球总决赛', ewc: '电竞世界杯', asian_games: '亚运会 LOL' }
 export const ESPORTS_STATUS = { scheduled: '未开始', live: '进行中', completed: '已结束', postponed: '延期', cancelled: '取消', unknown: '状态待确认' }
 export const createEsportsBrowseState = () => ({ section: 'overview', view: 'schedule', family: '', date: '', filterTeamId: '', page: 1, teamId: '', playerId: '', matchId: '', returnTo: [] })
@@ -59,4 +59,47 @@ export function esportsImage(value) {
     const url = new URL(value)
     return url.protocol === 'https:' && ['img.crawler.qq.com', 'game.gtimg.cn', 'img1.gtimg.com', 'img2.gtimg.com', 'img.lol.qq.com', 'ossweb-img.qq.com'].includes(url.hostname) && !url.username && !url.password ? url.href : ''
   } catch { return '' }
+}
+
+/** Short mark for a logo tile: up to `max` capitals of a Latin name, the first two characters of any other. */
+export function esportsMonogram(name, max = 3) {
+  const text = typeof name === 'string' ? name.trim() : ''
+  if (!text) return '?'
+  if (/^[\x20-\x7e]+$/.test(text)) return text.replace(/[^A-Za-z0-9]/g, '').slice(0, max).toUpperCase() || text.slice(0, 1)
+  return [...text].slice(0, 2).join('')
+}
+
+/** "10月17日 周六", with 今天 or 明天 when `now` falls there; anything that is not a date (时间待公布) passes through. */
+export function esportsDayLabel(date, now = Date.now()) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || '')
+  if (!match) return date
+  const weekday = '日一二三四五六'[new Date(`${date}T00:00:00Z`).getUTCDay()]
+  const days = Math.round((parseBeijingTime(date) - beijingDayStart(now)) / DAY_MS)
+  return `${Number(match[2])}月${Number(match[3])}日 周${weekday}${days === 0 ? ' · 今天' : days === 1 ? ' · 明天' : ''}`
+}
+
+/** A team's finished matches as results from its own side, oldest first; only matches with a confirmed winner count. */
+export function esportsTeamForm(payload, teamId, limit = 8) {
+  return (payload?.matches || [])
+    .filter(match => [match.team_a_id, match.team_b_id].includes(teamId))
+    .map(match => ({ match, outcome: esportsOutcome(match, match.team_a_id === teamId ? 'a' : 'b') }))
+    .filter(item => item.outcome)
+    .sort((a, b) => (Date.parse(a.match.start_at) || 0) - (Date.parse(b.match.start_at) || 0))
+    .slice(-limit)
+    .map(({ match, outcome }) => ({ id: match.id, win: outcome === '胜', opponent: match.team_a_id === teamId ? match.team_b_name : match.team_a_name }))
+}
+
+/** Matches per Beijing day for the `before` days up to today and the `after` days beyond it; `today` marks the middle bar. */
+export function esportsDensity(matches, now = Date.now(), before = 7, after = 7) {
+  const today = beijingDayStart(now), counts = new Map()
+  for (const match of matches || []) {
+    const time = parseBeijingTime(match.start_at)
+    if (time == null) continue
+    const day = beijingDayStart(time)
+    counts.set(day, (counts.get(day) || 0) + 1)
+  }
+  return Array.from({ length: before + after + 1 }, (_, index) => {
+    const day = today + (index - before) * DAY_MS, date = formatBeijingDateTime(day).slice(0, 10)
+    return { date, label: date.slice(5).replace('-', '/'), day: Number(date.slice(8)), value: counts.get(day) || 0, today: index === before }
+  })
 }
