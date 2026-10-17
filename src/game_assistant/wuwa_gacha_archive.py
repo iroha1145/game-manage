@@ -201,8 +201,11 @@ class ArchiveMixin:
             raw_rules=document.get('rules', [])
             if not isinstance(raw_rules,list) or len(raw_rules)>1000:
                 raise ValueError('归档规则格式错误')
-            rules = [self._rule(r) for r in raw_rules]
-            return draws, aggregate_clean, clean, rules
+            rules = {}
+            for rule in map(self._rule, raw_rules):
+                if rules.setdefault(rule['pool'], rule) != rule:
+                    raise ValueError('同一卡池的归档规则冲突，整批未写入')
+            return draws, aggregate_clean, clean, list(rules.values())
         now = datetime.now(timezone.utc).isoformat()
         coverage = [dict(pool=p, draw_ids=[k for pool,k,_ in draws if pool == p],
                         basis='user_confirmed' if latest or continuous else 'unconfirmed',

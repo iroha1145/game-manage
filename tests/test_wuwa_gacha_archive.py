@@ -318,3 +318,16 @@ def test_expired_previews_are_dropped_by_every_store_entry(ledger,monkeypatch):
     first=ledger.preview(doc([row(1)]),'100','S',session='v1')['preview_id']
     for _ in range(16):ledger.preview(doc([row(1)]),'100','S',session='v1')
     assert len(ledger._previews)==16 and first not in ledger._previews
+
+
+def test_own_archive_with_two_rules_for_one_pool_is_refused(ledger):
+    # An edited archive giving one pool two rules imported, and INSERT OR IGNORE kept the first.
+    commit(ledger,doc([row(1)]))
+    archive=ledger.export('100','S')
+    rule=dict(pool='1',hard_pity=80,reset_rarity='5',version='user',sharing='independent',basis='user_configured')
+    restored=fresh()
+    with pytest.raises(ValueError,match='同一卡池的归档规则冲突'):
+        restored.preview(dict(archive,rules=[rule,dict(rule,hard_pity=90)]),'100','S')
+    assert restored.read('100','S')['total']==0
+    commit(restored,dict(archive,rules=[rule,dict(rule)]))
+    assert restored.read('100','S')['rules']==[rule]
