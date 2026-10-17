@@ -3,7 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { profileReport, rows, displayValue as display, sourceName as named, selectOperators, selectMedals, rarityParts, phaseParts, medalCategoryParts, recentMedals, platedSummary } from '../endfield-reports.js'
 import { displayBeijing } from '../time.js'
 import { SHIP_CONVERSION_MODEL } from '../endfield-ship.js'
-import { vReveal, vSpotlight } from '../motion.js'
+import { vReveal } from '../motion.js'
 import DonutChart from './DonutChart.vue'
 import HRail from './HRail.vue'
 import RingGauge from './RingGauge.vue'
@@ -104,7 +104,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
   <div class="endfield-reports" :class="{ 'is-image': imageMode }">
     <!-- 概览 -->
     <template v-if="view === 'overview'">
-      <section v-reveal class="ef-card ef-hero"><header><div><h2>今日档案</h2></div><span v-if="stale && !imageMode" class="badge badge-stale">待更新</span><span v-else class="ef-state">森空岛档案</span></header>
+      <section v-reveal class="ef-card ef-hero"><header><div><h2>今日档案</h2></div><span v-if="stale && !imageMode" class="badge badge-stale">待更新</span><span v-else class="chip">森空岛档案</span></header>
         <div class="ef-hero-body">
           <div class="ef-hero-main">
             <div class="ef-identity"><EndfieldArtwork :src="overview.base?.avatar_url" :name="overview.base?.name || '管理员'" /><div><h3>{{ overview.base?.name || '未知昵称' }}</h3><p v-if="!imageMode">UID {{ display(overview.base?.role_id) }}</p></div></div>
@@ -124,9 +124,9 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
         </li></ul>
         <p v-else class="ef-empty">尚未采集进度。</p>
       </section>
-      <component :is="imageMode ? 'div' : 'button'" v-for="item in counts" :key="item.key" v-reveal v-spotlight class="ef-count" :class="{ 't-glare': !imageMode }" :type="imageMode ? undefined : 'button'" @click="imageMode ? undefined : emit('navigate', item.key)">
+      <component :is="imageMode ? 'div' : 'button'" v-for="item in counts" :key="item.key" v-reveal class="ef-count" :type="imageMode ? undefined : 'button'" @click="imageMode ? undefined : emit('navigate', item.key)">
         <span class="k">{{ item.label }}</span><strong>{{ display(item.value) }}</strong>
-        <span v-if="item.parts?.length > 1" class="ef-split" aria-hidden="true"><i v-for="part in item.parts" :key="part.key" :style="{ '--series': part.color, flex: part.value }"></i></span>
+        <span v-if="item.parts?.length > 1" class="ef-split stack-bar" aria-hidden="true"><i v-for="part in item.parts" :key="part.key" :style="{ '--series': part.color, flex: part.value }"></i></span>
         <span v-if="item.parts?.length" class="ef-split-legend">{{ item.parts.map(part => `${part.label} ${part.value}`).join(' · ') }}</span>
         <span v-if="!imageMode" class="go">{{ item.action }} →</span>
       </component>
@@ -187,7 +187,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
             <RingGauge :value="region.money?.current ?? region.money?.count" :max="region.money?.total" label="地区调度券" :size="108" :stroke="11" color="var(--ef-vivid)"><span class="ef-ring-center"><strong>{{ display(region.money?.current ?? region.money?.count) }} <small>/ {{ display(region.money?.total) }}</small></strong></span></RingGauge>
           </div>
           <div class="ef-bases"><div class="ef-bases-head"><span class="k">据点</span><strong>{{ display(settlementCount(region)) }}</strong></div>
-            <HRail v-if="rows(region.settlements).length" label="据点"><article v-for="(settlement,number) in rows(region.settlements)" :key="settlement.id || number" class="ef-settlement"><h3>{{ settlement.name || '据点' }} <small>等级 {{ display(settlement.level) }}</small></h3><p>基地调度券 <strong>{{ pair(settlement.coupon || {current:settlement.money,total:settlement.money_max}) }}</strong></p><span v-if="couponPercent(settlement) != null" class="ef-bar" aria-hidden="true"><i :style="{ width: `${couponPercent(settlement)}%` }"></i></span><p class="ef-note">派驻干员：{{ rows(settlement.officers).map(item => item.name || item.id || '未知').join('、') || (settlement.officers_available === true ? '无派驻' : '未提供') }}</p><div v-if="rows(settlement.officers).length" class="ef-assigned"><EndfieldArtwork v-for="(officer,officerIndex) in rows(settlement.officers)" :key="officer.id || officerIndex" role :operator-id="officer.id" :src="officer.avatar_url" :name="officer.name || officer.id || '干员'" /></div></article></HRail>
+            <HRail v-if="rows(region.settlements).length" label="据点"><article v-for="(settlement,number) in rows(region.settlements)" :key="settlement.id || number" class="ef-settlement"><h3>{{ settlement.name || '据点' }} <small>等级 {{ display(settlement.level) }}</small></h3><p>基地调度券 <strong>{{ pair(settlement.coupon || {current:settlement.money,total:settlement.money_max}) }}</strong></p><span v-if="couponPercent(settlement) != null" class="ef-bar meter" aria-hidden="true"><i :style="{ width: `${couponPercent(settlement)}%` }"></i></span><p class="ef-note">派驻干员：{{ rows(settlement.officers).map(item => item.name || item.id || '未知').join('、') || (settlement.officers_available === true ? '无派驻' : '未提供') }}</p><div v-if="rows(settlement.officers).length" class="ef-assigned"><EndfieldArtwork v-for="(officer,officerIndex) in rows(settlement.officers)" :key="officer.id || officerIndex" role :operator-id="officer.id" :src="officer.avatar_url" :name="officer.name || officer.id || '干员'" /></div></article></HRail>
           </div>
         </div>
         <div class="ef-areas"><article v-for="(area,number) in rows(region.areas || region.levels)" :key="area.id || number" class="ef-subsection"><h3>{{ area.name || '区域' }}</h3><ul class="ef-facts"><li v-for="item in collections(area)" :key="item.key"><span>{{ item.label }}</span><strong>{{ pair(item) }}<small v-if="item.remaining != null"> · 剩余 {{ item.remaining }}</small></strong><progress v-if="Number.isFinite(item.percent)" :value="item.percent" max="100" :aria-label="`${area.name || '区域'}${item.label}`" /></li></ul></article></div>
@@ -196,7 +196,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 
     <!-- 帝江号 -->
     <template v-else-if="view === 'ship'">
-      <section v-reveal class="ef-card ef-ship-intro"><header><div><h2>帝江号</h2></div><span class="ef-state">快照换算</span></header><dl class="ef-ship-counts"><div><dt>房间数</dt><dd>{{ display(report.ship?.summary?.room_count) }}</dd></div><div><dt>有驻守记录的房间</dt><dd>{{ display(report.ship?.summary?.staffed_rooms) }}</dd></div><div><dt>驻守席位记录</dt><dd>{{ display(report.ship?.summary?.operator_slots) }}</dd></div></dl><p v-if="!imageMode" class="ef-note ef-ship-time">游戏观测于 {{ time(report.observed_at) }} · 抓取于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p><details v-if="!imageMode" class="ef-model-note"><summary>查看换算依据</summary><p>心情与信赖采用原站 API v3.5.0 参考模型换算该次快照，不外推当前状态。心情以 100% 为上限，信赖最高 200%。</p><p>模型声明心情原始值为 0–10000；超出范围时保留原值，百分比显示未知。信赖按来源阈值分为友好、亲近、信任。换算结果不是官方实时状态，也未计入时间或房间加成。</p><a :href="SHIP_CONVERSION_MODEL.source_url" target="_blank" rel="noopener noreferrer">公开模型说明 ↗</a></details></section>
+      <section v-reveal class="ef-card ef-ship-intro"><header><div><h2>帝江号</h2></div><span class="chip">快照换算</span></header><dl class="ef-ship-counts"><div><dt>房间数</dt><dd>{{ display(report.ship?.summary?.room_count) }}</dd></div><div><dt>有驻守记录的房间</dt><dd>{{ display(report.ship?.summary?.staffed_rooms) }}</dd></div><div><dt>驻守席位记录</dt><dd>{{ display(report.ship?.summary?.operator_slots) }}</dd></div></dl><p v-if="!imageMode" class="ef-note ef-ship-time">游戏观测于 {{ time(report.observed_at) }} · 抓取于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p><details v-if="!imageMode" class="ef-model-note"><summary>查看换算依据</summary><p>心情与信赖采用原站 API v3.5.0 参考模型换算该次快照，不外推当前状态。心情以 100% 为上限，信赖最高 200%。</p><p>模型声明心情原始值为 0–10000；超出范围时保留原值，百分比显示未知。信赖按来源阈值分为友好、亲近、信任。换算结果不是官方实时状态，也未计入时间或房间加成。</p><a :href="SHIP_CONVERSION_MODEL.source_url" target="_blank" rel="noopener noreferrer">公开模型说明 ↗</a></details></section>
       <p v-if="!rooms.length" class="ef-empty ef-card">尚无帝江号资料。</p>
       <div class="ef-ship-rooms"><section v-for="(room,index) in rooms" :key="room.id || index" v-reveal class="ef-card ef-ship-room"><header><div><h2>{{ room.name || '舱室' }}</h2></div><span class="ef-room-level"><span>等级</span> LV. {{ display(room.level) }}</span></header><p v-if="!rows(room.operators).length" class="ef-empty">{{ room.operators_available === true ? '当前没有驻守干员记录。' : '尚未采集驻守干员资料。' }}</p><EndfieldShipResident v-for="(operator,number) in rows(room.operators)" :key="operator.id || operator.charId || number" :operator="operator" :image-mode="imageMode" /></section></div>
     </template>
@@ -219,18 +219,19 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 </template>
 
 <style scoped>
-.endfield-reports { --ef-vivid:var(--game-vivid,var(--game-endfield-vivid)); --ef-vivid-2:var(--game-vivid-2,var(--game-endfield-2)); --ef-grey:color-mix(in srgb,var(--text-faint) 34%,var(--card-bg)); --ef-grey-2:var(--border-strong); --on-vivid:#16170a; --accent:var(--game-endfield); --accent-soft:color-mix(in srgb,var(--game-endfield) 12%,var(--card-bg));
+/* Flat white cards on a hairline; the game's pale tone is the one colour fill (--ef-tone, ink --ef-ink).
+   Bot images set only --game-accent, so every game colour here has a static fallback. */
+.endfield-reports { --ef-vivid:var(--game-vivid,var(--game-endfield-vivid)); --ef-tone:var(--game-tone,var(--game-endfield-tone)); --ef-ink:var(--game-accent,var(--game-endfield)); --ef-grey:color-mix(in srgb,var(--text-faint) 34%,var(--card-bg)); --ef-grey-2:var(--border-strong); --accent:var(--ef-ink); --accent-soft:var(--ef-tone);
   display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; min-width:0; }
 .endfield-reports > * { grid-column:1 / -1; min-width:0; }
 .ef-contents { grid-column:1 / -1; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; min-width:0; }
 .ef-contents > * { grid-column:1 / -1; min-width:0; }
 .ef-card { position:relative; min-width:0; padding:20px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
 .ef-card > header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
-.ef-card h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.01em; }
-.ef-card .ef-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; margin:0 0 10px; font-size:15px; line-height:22px; font-weight:600; letter-spacing:-.01em; }
+.ef-card h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
+.ef-card .ef-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; margin:0 0 10px; font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
 .ef-sub { color:var(--text-faint); font-size:12px; font-weight:400; letter-spacing:0; }
 .k { display:block; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; }
-.ef-state { padding:0 10px; border-radius:var(--radius-chip); background:var(--overlay-3); color:var(--text-body); font-size:12px; line-height:22px; }
 .ef-note { font-size:13px; color:var(--text-muted); line-height:1.7; }
 .ef-empty { color:var(--text-muted); font-size:13px; padding:14px 0; line-height:1.7; }
 .ef-empty.ef-card { padding:24px; }
@@ -244,48 +245,45 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 .ef-error { color:var(--danger); font-size:13px; padding:12px; border-radius:var(--radius-control); background:var(--danger-bg); margin-bottom:16px; }
 
 /* ── 概览 ── */
-.ef-hero { grid-column:span 7; overflow:hidden; background:radial-gradient(70% 110% at 100% 0%,color-mix(in srgb,var(--ef-vivid) 18%,transparent),transparent 70%),var(--card-bg); }
-.ef-hero::before { content:''; position:absolute; left:22px; top:0; width:64px; height:6px; border-radius:0 0 6px 6px; background:repeating-linear-gradient(135deg,var(--ef-vivid) 0 6px,color-mix(in srgb,var(--ef-vivid) 28%,transparent) 6px 12px); }
+.ef-hero { grid-column:span 7; overflow:hidden; }
 .ef-progress { grid-column:span 5; }
 .ef-hero-body { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:18px 28px; }
 .ef-hero-main { display:grid; gap:16px; min-width:0; }
 .ef-identity { display:flex; gap:16px; align-items:center; min-width:0; }
-.ef-identity > .endfield-artwork { width:72px; height:72px; border-radius:26%; box-shadow:0 10px 24px -14px var(--ef-vivid); }
+.ef-identity > .endfield-artwork { width:72px; height:72px; border-radius:var(--radius-tile); }
 .ef-identity h3 { font-size:20px; line-height:28px; font-weight:600; letter-spacing:-.02em; overflow-wrap:anywhere; }
-.ef-identity p { display:inline-block; margin-top:4px; padding:0 10px; border-radius:var(--radius-chip); background:var(--surface-soft); font-family:var(--font-mono); font-size:12px; line-height:22px; color:var(--text-muted); }
+.ef-identity p { display:inline-block; margin-top:4px; padding:0 10px; border-radius:var(--radius-chip); background:var(--control-track); font-family:var(--font-mono); font-size:12px; line-height:22px; color:var(--text-muted); }
 .ef-levels { display:flex; gap:10px; flex-wrap:wrap; }
-.ef-levels > div { min-width:104px; padding:10px 16px; border-radius:var(--radius-tile); background:var(--surface-soft); }
+.ef-levels > div { min-width:104px; padding:10px 16px; border-radius:var(--radius-well); background:var(--surface-soft); }
 .ef-levels dt { font-size:12px; color:var(--text-muted); line-height:18px; }
-.ef-levels dd { margin:2px 0 0; font-size:30px; line-height:34px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.ef-levels dd { margin:2px 0 0; font-size:30px; line-height:34px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
 .ef-main-mission { display:flex; gap:12px; align-items:baseline; font-size:13px; line-height:1.7; }
 .ef-main-mission > span { color:var(--text-muted); white-space:nowrap; }
 .ef-main-mission > strong { font-weight:500; overflow-wrap:anywhere; }
 .ef-stamina { display:grid; justify-items:center; gap:10px; text-align:center; }
 .ef-ring-center { display:grid; justify-items:center; gap:1px; line-height:1.1; }
-.ef-ring-center strong { font-size:24px; line-height:28px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.ef-ring-center strong { font-size:24px; line-height:28px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
 .ef-ring-center small, .ef-prog-copy small { font-size:13px; font-weight:500; letter-spacing:0; color:var(--text-muted); }
 .ef-prog-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:12px; }
 .ef-prog { display:grid; justify-items:center; align-content:start; gap:10px; padding:16px 10px 14px; border-radius:var(--radius-tile); background:var(--surface-soft); min-width:0; text-align:center; }
-.ef-pct { font-size:15px; font-weight:600; letter-spacing:-.02em; }
+.ef-pct { font-size:15px; font-weight:550; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
 .ef-prog-copy { min-width:0; display:grid; justify-items:center; }
-.ef-prog-copy strong { display:block; font-size:20px; line-height:26px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:proportional-nums; }
+.ef-prog-copy strong { display:block; font-size:20px; line-height:26px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
 .ef-prog-copy p { font-size:12px; color:var(--text-muted); line-height:1.6; }
-.ef-count { grid-column:span 3; position:relative; display:grid; align-content:space-between; gap:6px; min-height:128px; padding:18px 20px; text-align:left; border:1px solid var(--card-border); border-radius:var(--radius-card); background:linear-gradient(160deg,color-mix(in srgb,var(--ef-vivid) 15%,var(--card-bg)),var(--card-bg) 70%); box-shadow:var(--card-shadow); color:var(--text); font:inherit; }
-.ef-count:nth-of-type(2) { background:linear-gradient(160deg,color-mix(in srgb,var(--ef-vivid-2) 12%,var(--card-bg)),var(--card-bg) 70%); }
-.ef-count strong { font-size:44px; line-height:48px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
-.ef-split { display:flex; gap:3px; height:8px; border-radius:999px; overflow:hidden; background:var(--track); }
-.ef-split > i { display:block; min-width:3px; background:var(--series); }
+.ef-count { grid-column:span 3; position:relative; display:grid; align-content:space-between; gap:6px; min-height:128px; padding:18px 20px; text-align:left; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); color:var(--text); font:inherit; }
+.ef-count strong { font-size:44px; line-height:48px; font-weight:550; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
+.ef-split { height:8px; gap:3px; }
 .ef-split-legend { color:var(--text-muted); font-size:12px; line-height:18px; font-variant-numeric:tabular-nums; }
-.ef-count .go { color:var(--text-muted); font-size:12px; font-weight:500; }
-button.ef-count { cursor:pointer; transition:transform var(--duration-fast,250ms) var(--ease-smooth-out,ease),box-shadow var(--duration-fast,250ms) var(--ease-smooth-out,ease); }
-@media (hover:hover) and (pointer:fine) { button.ef-count:hover { transform:translateY(-3px); box-shadow:var(--card-hover-shadow),0 20px 40px -30px var(--ef-vivid); } button.ef-count:hover .go { color:var(--game-endfield); } }
-button.ef-count:active { transform:scale(var(--scale-small,.98)); }
+.ef-count .go { color:var(--ef-ink); font-size:12px; font-weight:500; }
+button.ef-count { cursor:pointer; }
+@media (hover:hover) and (pointer:fine) { button.ef-count:hover { background:var(--panel-bg); border-color:var(--border-strong); } }
+button.ef-count:active { transform:translateY(1px); }
 .ef-todo { grid-column:span 3; }
 .ef-todo > header { margin-bottom:6px; }
-.ef-todo h2 { font-size:15px; }
+.ef-todo h2 { font-size:16px; }
 .ef-todos li { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
 .ef-todos li:last-child { border-bottom:0; }
-.ef-todos strong { color:var(--game-endfield); font-weight:500; }
+.ef-todos strong { color:var(--ef-ink); font-weight:500; }
 
 /* ── 全员练度 ── */
 .ef-stats { grid-column:span 5; }
@@ -294,10 +292,10 @@ button.ef-count:active { transform:scale(var(--scale-small,.98)); }
 .ef-phases { grid-column:span 3; }
 .ef-rarity :deep(.donut-chart) { gap:10px 18px; }
 .ef-donut-center { display:grid; justify-items:center; line-height:1; }
-.ef-donut-center strong { font-size:26px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.ef-donut-center strong { font-size:26px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
 .ef-donut-center small { margin-top:3px; font-size:12px; color:var(--text-muted); }
 .ef-single { display:flex; flex-wrap:wrap; gap:6px; }
-.ef-single li { padding:2px 12px; border-radius:var(--radius-chip); background:var(--surface-soft); font-size:13px; }
+.ef-single li { padding:2px 12px; border-radius:var(--radius-chip); background:var(--control-track); font-size:13px; }
 .ef-phases .stack-bar { height:14px; gap:3px; margin:6px 0 10px; }
 .ef-phases .legend { display:grid; gap:6px; margin:0; font-size:13px; }
 .ef-phases .legend > li { justify-content:space-between; }
@@ -305,37 +303,53 @@ button.ef-count:active { transform:scale(var(--scale-small,.98)); }
 .ef-phases .legend b { margin-left:auto; }
 .ef-featured { overflow:hidden; }
 .ef-featured :deep(.h-rail) { --rail-gap:12px; --rail-pad-block:10px; --rail-pad:2px; }
-.ef-feature { display:grid; grid-template-rows:1fr auto; gap:10px; width:164px; padding:10px 10px 14px; text-align:left; border:0; border-radius:var(--radius-tile); background:linear-gradient(180deg,color-mix(in srgb,var(--ef-vivid) 16%,var(--surface-soft)),var(--surface-soft) 78%); color:var(--text); font:inherit; transition:transform var(--duration-fast,250ms) var(--ease-smooth-out,ease),box-shadow var(--duration-fast,250ms) var(--ease-smooth-out,ease); }
-.ef-feature-art { display:block; height:176px; border-radius:var(--radius-well); overflow:hidden; background:radial-gradient(80% 70% at 50% 100%,color-mix(in srgb,var(--ef-vivid) 28%,transparent),transparent 72%); }
-.ef-feature-art .endfield-artwork { width:100%; height:100%; border-radius:0; }
-.ef-feature-copy { display:grid; gap:2px; padding:0 4px; }
-.ef-feature-copy strong { overflow:hidden; font-size:15px; line-height:22px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
-.ef-feature-copy > span { font-size:13px; font-weight:500; font-variant-numeric:tabular-nums; }
+/* The 6★ rail (web only) is the mockup role card: a white frame, the art on the game tone with the level as a white tag, then the name. */
+.ef-feature { display:grid; grid-template-columns:minmax(0,1fr); gap:0; width:172px; padding:6px; text-align:left; border:1px solid var(--card-border); border-radius:22px; background:var(--card-bg); box-shadow:var(--card-shadow); color:var(--text); font:inherit; }
+.ef-feature-art { grid-area:1 / 1; position:relative; display:block; height:164px; border-radius:17px; overflow:hidden; background:var(--ef-tone); }
+.ef-feature-art .endfield-artwork { position:absolute; right:0; bottom:-10px; width:150px; height:190px; border-radius:0; background:transparent; }
+.ef-feature-copy { display:contents; }
+.ef-feature-copy strong { grid-area:2 / 1; min-width:0; overflow:hidden; padding:12px 8px 8px; font-size:14px; line-height:20px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.ef-feature-copy > span { grid-area:1 / 1; z-index:1; align-self:end; justify-self:start; margin:0 0 11px 11px; padding:3px 8px; border-radius:var(--radius-chip); background:var(--card-bg); color:var(--ef-ink); font-size:12px; line-height:16px; font-weight:500; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .ef-feature-copy small { margin-left:6px; font-size:12px; font-weight:400; color:var(--text-muted); }
-@media (hover:hover) and (pointer:fine) { .ef-feature:hover:not(:disabled) { transform:translateY(-3px); box-shadow:var(--card-hover-shadow),0 18px 36px -26px var(--ef-vivid); } }
-.ef-feature:active:not(:disabled) { transform:scale(var(--scale-small,.98)); }
+@media (hover:hover) and (pointer:fine) { .ef-feature:hover:not(:disabled) { background:var(--panel-bg); border-color:var(--border-strong); } }
+.ef-feature:active:not(:disabled) { transform:translateY(1px); }
 .ef-filters { display:grid; grid-template-columns:minmax(150px,2fr) repeat(3,minmax(100px,1fr)); gap:12px; margin:0 0 16px; }
 .ef-filters label { display:grid; gap:6px; font-size:12px; color:var(--text-muted); }
-.ef-filters input, .ef-filters select { min-width:0; width:100%; min-height:38px; padding:7px 14px; background:var(--surface-soft); color:var(--text); border:1px solid transparent; border-radius:var(--radius-control); font-size:13px; }
-.ef-filters input:focus-visible, .ef-filters select:focus-visible { border-color:var(--game-endfield); outline:0; box-shadow:var(--ring); }
+.ef-filters input, .ef-filters select { min-width:0; width:100%; min-height:38px; padding:7px 14px; background:var(--card-bg); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-control); font-size:13px; }
+.ef-filters select { appearance:none; padding-right:36px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23787d84' stroke-width='1.6'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-position:right 12px center; background-repeat:no-repeat; }
+.ef-filters input:focus-visible, .ef-filters select:focus-visible { border-color:var(--ef-ink); outline:0; box-shadow:var(--ring); }
 .ef-roster { display:grid; grid-template-columns:repeat(auto-fill,minmax(208px,1fr)); gap:12px; }
+/* Compact tile: bot images show the whole roster, so it stays short there. */
 .ef-operator { position:relative; display:grid; gap:10px; align-content:start; min-width:0; padding:14px; border-radius:var(--radius-tile); background:var(--surface-soft); overflow:hidden; }
-.ef-operator.top { background:linear-gradient(165deg,color-mix(in srgb,var(--ef-vivid) 16%,var(--surface-soft)),var(--surface-soft) 62%); }
-.ef-operator.top::before { content:''; position:absolute; inset:0 0 auto; height:3px; background:linear-gradient(90deg,var(--ef-vivid),var(--ef-vivid-2)); }
+.ef-operator.top { background:var(--ef-tone); }
 .ef-operator-top { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:start; gap:12px; }
 .ef-avatar { position:relative; justify-self:start; padding-bottom:9px; }
-.ef-operator-top .endfield-artwork { width:60px; height:60px; border-radius:28%; }
+.ef-operator-top .endfield-artwork { width:60px; height:60px; border-radius:var(--radius-control); }
 .ef-operator-copy { min-width:0; }
 .ef-operator h3 { font-size:15px; line-height:22px; font-weight:600; letter-spacing:-.01em; overflow-wrap:anywhere; }
 .ef-operator .ef-operator-level { margin-top:2px; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
 .ef-operator-level span { margin-left:4px; color:var(--text-muted); font-size:12px; font-weight:400; }
 .ef-tier { position:absolute; left:50%; bottom:0; transform:translateX(-50%); padding:0 9px; border-radius:var(--radius-chip); background:var(--card-bg); color:var(--text-body); font-size:12px; font-weight:500; line-height:20px; white-space:nowrap; box-shadow:inset 0 0 0 1px var(--border-strong),0 0 0 2px var(--surface-soft); }
-.ef-operator.high .ef-tier { background:color-mix(in srgb,var(--ef-vivid) 26%,var(--card-bg)); box-shadow:0 0 0 2px var(--surface-soft); color:var(--text); }
-.ef-operator.top .ef-tier { background:color-mix(in srgb,var(--ef-vivid) 46%,var(--card-bg)); box-shadow:0 0 0 2px var(--surface-soft); color:var(--text); font-weight:600; }
+.ef-operator.high .ef-tier { background:var(--ef-tone); color:var(--ef-ink); box-shadow:0 0 0 2px var(--surface-soft); }
+.ef-operator.top .ef-tier { background:var(--ef-ink); color:var(--accent-ink); box-shadow:0 0 0 2px var(--ef-tone); }
 .ef-phase { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:500; }
 .ef-phase-dot { flex:0 0 auto; width:10px; height:10px; border-radius:3px; background:var(--tone,var(--track)); }
 .ef-profession { margin-top:-4px; }
 .ef-operator .ui-button { justify-self:stretch; margin-top:2px; }
+/* On the website each operator is the mockup role card: a white frame, the art on the game tone with the level as a white tag, then the text. */
+.endfield-reports:not(.is-image) .ef-roster { grid-template-columns:repeat(auto-fill,minmax(196px,1fr)); gap:16px; }
+.endfield-reports:not(.is-image) .ef-operator { grid-template-columns:minmax(0,1fr); gap:0; padding:6px; border:1px solid var(--card-border); border-radius:22px; background:var(--card-bg); box-shadow:var(--card-shadow); }
+.endfield-reports:not(.is-image) .ef-operator-top, .endfield-reports:not(.is-image) .ef-operator-copy { display:contents; }
+.endfield-reports:not(.is-image) .ef-avatar { grid-area:1 / 1; justify-self:stretch; height:136px; padding:0; border-radius:17px; background:var(--ef-tone); overflow:hidden; }
+.endfield-reports:not(.is-image) .ef-operator-top .endfield-artwork { position:absolute; right:0; bottom:0; width:128px; height:128px; border-radius:0; background:transparent; }
+.endfield-reports:not(.is-image) .ef-tier { left:11px; top:11px; bottom:auto; transform:none; padding:3px 7px; line-height:16px; background:var(--card-bg); color:var(--ef-ink); box-shadow:none; }
+.endfield-reports:not(.is-image) .ef-operator.top .ef-tier { background:var(--ef-ink); color:var(--accent-ink); }
+.endfield-reports:not(.is-image) .ef-operator .ef-operator-level { grid-area:1 / 1; z-index:1; align-self:end; justify-self:start; margin:0 0 11px 11px; padding:3px 8px; border-radius:var(--radius-chip); background:var(--card-bg); color:var(--ef-ink); font-size:12px; line-height:16px; font-weight:500; white-space:nowrap; }
+.endfield-reports:not(.is-image) .ef-operator-level span { margin-left:6px; color:var(--text-muted); }
+.endfield-reports:not(.is-image) .ef-operator h3 { grid-area:2 / 1; padding:12px 10px 0; font-size:14px; line-height:20px; }
+.endfield-reports:not(.is-image) .ef-profession { grid-area:3 / 1; margin-top:0; padding:2px 10px 0; font-size:12px; line-height:18px; }
+.endfield-reports:not(.is-image) .ef-phase { grid-area:4 / 1; padding:4px 10px 0; font-size:12px; line-height:18px; }
+.endfield-reports:not(.is-image) .ef-operator .ui-button { grid-area:5 / 1; margin:12px 4px 4px; }
 .ef-detail { scroll-margin-top:80px; }
 .ef-detail:focus { outline:none; }
 .ef-detail > header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
@@ -346,24 +360,23 @@ button.ef-count:active { transform:scale(var(--scale-small,.98)); }
 /* ── 地区建设 ── */
 .ef-region { display:grid; gap:16px; }
 .ef-region > header { margin-bottom:0; }
-.ef-level { padding:0 12px; border-radius:var(--radius-chip); background:color-mix(in srgb,var(--ef-vivid) 18%,var(--surface-soft)); font-size:13px; font-weight:500; line-height:26px; font-variant-numeric:tabular-nums; }
+.ef-level { padding:0 12px; border-radius:var(--radius-chip); background:var(--ef-tone); color:var(--ef-ink); font-size:13px; font-weight:500; line-height:26px; font-variant-numeric:tabular-nums; }
 .ef-region-top { display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; align-items:stretch; }
 .ef-money { display:grid; justify-items:center; align-content:center; gap:10px; padding:16px 22px; border-radius:var(--radius-tile); background:var(--surface-soft); }
 .ef-money .ef-ring-center strong { display:grid; justify-items:center; font-size:21px; line-height:24px; }
 .ef-money .ef-ring-center small { font-size:12px; line-height:16px; }
 .ef-bases { display:grid; gap:10px; align-content:start; min-width:0; padding:16px; border-radius:var(--radius-tile); background:var(--surface-soft); }
 .ef-bases-head { display:flex; align-items:baseline; gap:10px; }
-.ef-bases-head strong { font-size:26px; line-height:30px; font-weight:600; letter-spacing:-.02em; }
+.ef-bases-head strong { font-size:26px; line-height:30px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
 .ef-bases :deep(.h-rail) { --rail-gap:10px; --rail-pad-block:4px; --rail-pad:0px; }
 .ef-settlement { display:grid; gap:6px; align-content:start; width:232px; padding:14px; border-radius:var(--radius-well); background:var(--card-bg); }
 .ef-settlement h3 { font-size:14px; line-height:20px; font-weight:600; }
 .ef-settlement h3 small { margin-left:6px; font-size:12px; font-weight:400; color:var(--text-muted); }
 .ef-settlement p { font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
 .ef-settlement p strong { font-weight:500; font-variant-numeric:tabular-nums; }
-.ef-bar { display:block; height:6px; border-radius:999px; background:var(--track); overflow:hidden; }
-.ef-bar > i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--ef-vivid),var(--ef-vivid-2)); }
+.ef-bar { --series:var(--ef-vivid); }
 .ef-assigned { display:flex; gap:6px; flex-wrap:wrap; }
-.ef-assigned > .endfield-artwork { width:36px; height:36px; border-radius:30%; }
+.ef-assigned > .endfield-artwork { width:36px; height:36px; border-radius:var(--radius-control); }
 .ef-areas { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr)); gap:12px; }
 .ef-subsection { padding:16px; border-radius:var(--radius-tile); background:var(--surface-soft); min-width:0; }
 .ef-subsection h3 { font-size:14px; line-height:20px; font-weight:600; margin-bottom:8px; }
@@ -372,17 +385,16 @@ button.ef-count:active { transform:scale(var(--scale-small,.98)); }
 .ef-facts li > span { color:var(--text-muted); }
 .ef-facts strong { font-weight:500; font-variant-numeric:tabular-nums; }
 .ef-facts small { font-size:12px; color:var(--text-muted); }
-.ef-facts progress { flex-basis:100%; width:100%; height:8px; appearance:none; border:0; border-radius:999px; overflow:hidden; background:var(--track); }
-.ef-facts progress::-webkit-progress-bar { background:var(--track); border-radius:999px; }
-.ef-facts progress::-webkit-progress-value { background:linear-gradient(90deg,var(--ef-vivid),var(--ef-vivid-2)); border-radius:999px; }
-.ef-facts progress::-moz-progress-bar { background:linear-gradient(90deg,var(--ef-vivid),var(--ef-vivid-2)); border-radius:999px; }
+.ef-facts progress { flex-basis:100%; width:100%; height:8px; appearance:none; border:0; border-radius:6px; overflow:hidden; background:var(--track); }
+.ef-facts progress::-webkit-progress-bar { background:var(--track); border-radius:6px; }
+.ef-facts progress::-webkit-progress-value { background:var(--ef-vivid); border-radius:6px; }
+.ef-facts progress::-moz-progress-bar { background:var(--ef-vivid); border-radius:6px; }
 
 /* ── 帝江号 ── */
-.ef-ship-intro { background:radial-gradient(60% 120% at 100% 0%,color-mix(in srgb,var(--ef-vivid-2) 12%,transparent),transparent 70%),var(--card-bg); }
 .ef-ship-counts { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:0 0 12px; }
-.ef-ship-counts > div { padding:12px 16px; border-radius:var(--radius-tile); background:var(--surface-soft); }
+.ef-ship-counts > div { padding:12px 16px; border-radius:var(--radius-well); background:var(--surface-soft); }
 .ef-ship-counts dt { font-size:12px; color:var(--text-muted); line-height:1.7; }
-.ef-ship-counts dd { font-size:30px; line-height:34px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; margin:2px 0 0; }
+.ef-ship-counts dd { font-size:30px; line-height:34px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; margin:2px 0 0; }
 .ef-ship-time { font-size:12px; }
 .ef-model-note { margin-top:8px; font-size:12px; line-height:1.8; color:var(--text-muted); }
 .ef-model-note summary { cursor:pointer; padding:6px 0; }
@@ -390,7 +402,7 @@ button.ef-count:active { transform:scale(var(--scale-small,.98)); }
 .ef-ship-rooms { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:start; }
 .ef-ship-room { display:grid; gap:10px; }
 .ef-ship-room > header { margin-bottom:0; }
-.ef-room-level { padding:0 12px; border-radius:var(--radius-chip); background:color-mix(in srgb,var(--ef-vivid) 18%,var(--surface-soft)); font-size:13px; font-weight:500; line-height:26px; font-variant-numeric:tabular-nums; }
+.ef-room-level { padding:0 12px; border-radius:var(--radius-chip); background:var(--ef-tone); color:var(--ef-ink); font-size:13px; font-weight:500; line-height:26px; font-variant-numeric:tabular-nums; }
 .ef-room-level > span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
 
 /* ── 光荣之路 ── */
@@ -403,32 +415,28 @@ button.ef-count:active { transform:scale(var(--scale-small,.98)); }
 .ef-recent { overflow:hidden; }
 .ef-recent :deep(.h-rail) { --rail-gap:12px; --rail-pad-block:10px; --rail-pad:2px; }
 .ef-recent-medal { display:grid; justify-items:start; gap:4px; width:132px; padding:12px; border-radius:var(--radius-tile); background:var(--surface-soft); }
-.ef-recent-medal .endfield-artwork { width:64px; height:72px; margin-bottom:4px; background:transparent; box-shadow:none; }
+.ef-recent-medal .endfield-artwork { width:64px; height:72px; margin-bottom:4px; background:transparent; }
 .ef-recent-medal strong { max-width:100%; overflow:hidden; font-size:13px; line-height:20px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
 .ef-recent-medal span { font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
-.ef-recent-medal.plated { background:linear-gradient(165deg,color-mix(in srgb,var(--ef-vivid) 20%,var(--surface-soft)),var(--surface-soft) 70%); }
+.ef-recent-medal.plated { background:var(--ef-tone); }
 .ef-medals { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); gap:16px; }
 .ef-medal { display:flex; gap:16px; align-items:center; min-width:0; padding:16px 18px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
-.ef-medal.plated { background:linear-gradient(160deg,color-mix(in srgb,var(--ef-vivid) 16%,var(--card-bg)),var(--card-bg) 64%); box-shadow:var(--card-shadow),0 20px 40px -30px var(--ef-vivid); }
+.ef-medal.plated { background:var(--ef-tone); border-color:transparent; }
 .ef-medal > .endfield-artwork { width:78px; height:88px; border-radius:var(--radius-well); }
+.ef-medal.plated > .endfield-artwork { background:var(--card-bg); }
 .ef-medal > div { min-width:0; }
 .ef-medal h3 { font-size:14px; line-height:1.6; font-weight:600; overflow-wrap:anywhere; }
 .ef-medal p { margin-top:6px; font-size:13px; }
-.ef-medal-category { display:inline-block; padding:0 8px; border-radius:var(--radius-chip); background:var(--surface-soft); color:var(--text-body); font-size:12px; margin-top:6px; line-height:20px; overflow-wrap:anywhere; }
+.ef-medal-category { display:inline-block; padding:0 8px; border-radius:var(--radius-chip); background:var(--control-track); color:var(--text-body); font-size:12px; margin-top:6px; line-height:20px; overflow-wrap:anywhere; }
+.ef-medal.plated .ef-medal-category { background:var(--card-bg); }
 .ef-medal-plated { margin-left:8px; font-weight:500; color:var(--text); }
-.ef-medal.plated .ef-medal-plated { padding:0 8px; border-radius:var(--radius-chip); background:color-mix(in srgb,var(--ef-vivid) 40%,var(--card-bg)); color:var(--text); }
+.ef-medal.plated .ef-medal-plated { padding:0 8px; border-radius:var(--radius-chip); background:var(--card-bg); color:var(--ef-ink); }
 .ef-empty .ui-button { margin-top:14px; }
 
-/* A bot image is one still frame: flat fills, no shadows or washes (they inflate the PNG). */
+/* A bot image is one still frame: flat fills, no shadows (they inflate the PNG). */
 .is-image .ef-card, .is-image .ef-count, .is-image .ef-medal { box-shadow:none; border-color:var(--border); }
-.is-image .ef-hero, .is-image .ef-ship-intro { background:var(--card-bg); }
-.is-image .ef-hero::before { background:var(--ef-vivid); }
-.is-image .ef-identity > .endfield-artwork { box-shadow:none; }
 .is-image .ef-count { min-height:0; gap:14px; }
-.is-image .ef-count, .is-image .ef-count:nth-of-type(2), .is-image .ef-medal.plated, .is-image .ef-operator.top { background:var(--card-bg); }
-.is-image .ef-operator.top { background:var(--surface-soft); }
-.is-image .ef-operator.top::before, .is-image .ef-bar > i { background:var(--ef-vivid); }
-.is-image .ef-facts progress::-webkit-progress-value { background:var(--ef-vivid); }
+.is-image .ef-medal.plated { border-color:transparent; }
 
 @media (max-width:900px) {
   .ef-hero, .ef-progress, .ef-stats, .ef-rarity, .ef-phases, .ef-honor-head, .ef-categories { grid-column:1 / -1; }
@@ -439,15 +447,19 @@ button.ef-count:active { transform:scale(var(--scale-small,.98)); }
   .ef-money { grid-template-columns:auto 1fr; justify-items:start; gap:18px; }
 }
 @media (max-width:600px) {
-  .ef-card { padding:16px; border-radius:20px; }
+  .ef-card { padding:16px; border-radius:22px; }
   .ef-hero-body { grid-template-columns:1fr; justify-items:stretch; }
   .ef-stamina { justify-items:start; grid-template-columns:auto 1fr; align-items:center; text-align:left; gap:16px; }
-  .ef-count { grid-column:1 / -1; min-height:104px; border-radius:20px; }
+  .ef-count { grid-column:1 / -1; min-height:104px; border-radius:22px; }
   .ef-filters, .ef-medal-filters { grid-template-columns:1fr 1fr; }
   .ef-roster { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); }
   .ef-operator { padding:12px; }
   .ef-operator-top { grid-template-columns:1fr; gap:8px; }
-  .ef-medal { gap:12px; padding:14px; border-radius:20px; }
+  .endfield-reports:not(.is-image) .ef-roster { grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:12px; }
+  .endfield-reports:not(.is-image) .ef-operator { padding:6px; }
+  .endfield-reports:not(.is-image) .ef-avatar { height:124px; }
+  .endfield-reports:not(.is-image) .ef-operator-top .endfield-artwork { width:118px; height:118px; }
+  .ef-medal { gap:12px; padding:14px; border-radius:22px; }
   .ef-medal > .endfield-artwork { width:60px; height:70px; }
 }
 </style>

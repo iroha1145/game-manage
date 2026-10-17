@@ -18,7 +18,7 @@ const hasParameters=computed(()=>[active.value,passive.value].some(value=>value 
 header{display:flex;gap:10px;align-items:center;margin-bottom:12px}
 h3{font-size:15px;margin:0;font-weight:600;letter-spacing:-.01em}
 .tactical-heading{display:flex;gap:12px;align-items:center;min-width:0;padding:10px;border-radius:var(--radius-tile);background:var(--surface-soft)}
-.tactical-heading>.endfield-artwork{width:52px;height:52px;border-radius:28%}
+.tactical-heading>.endfield-artwork{width:52px;height:52px;border-radius:var(--radius-control)}
 .tactical-heading>div{min-width:0}
 .tactical-heading strong{font-size:14px;font-weight:600;overflow-wrap:anywhere}
 .tactical-heading p,.tactical-note{font-size:12px;color:var(--text-muted);line-height:1.8;margin:4px 0 0}
@@ -30,5 +30,5 @@ dl>div{display:grid;grid-template-columns:65px minmax(0,1fr);gap:14px;font-size:
 dt{color:var(--text-muted)}
 dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
 :global(.render-image) .ef-tactical{box-shadow:none;border-color:var(--border)}
-@media(max-width:600px){.ef-tactical{padding:16px;border-radius:20px}dl>div{grid-template-columns:1fr;gap:4px}}
+@media(max-width:600px){.ef-tactical{padding:16px;border-radius:22px}dl>div{grid-template-columns:1fr;gap:4px}}
 </style>

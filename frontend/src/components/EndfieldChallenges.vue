@@ -64,12 +64,10 @@ const weekBars = record => {
   </div>
 </template>
 <style scoped>
-.endfield-challenges{--accent:var(--game-endfield);--accent-soft:color-mix(in srgb,var(--game-endfield) 12%,var(--card-bg));--accent-hover:var(--game-endfield);--accent-strong:var(--game-endfield);--ch-vivid:var(--game-vivid,var(--game-endfield-vivid));--ch-vivid-2:var(--game-vivid-2,var(--game-endfield-2));--on-vivid:#16170a;display:grid;gap:16px;min-width:0}
+.endfield-challenges{--ch-vivid:var(--game-vivid,var(--game-endfield-vivid));--ch-tone:var(--game-tone,var(--game-endfield-tone));--ch-ink:var(--game-accent,var(--game-endfield));--accent:var(--ch-ink);--accent-soft:var(--ch-tone);--accent-hover:var(--ch-ink);--accent-strong:var(--ch-ink);display:grid;gap:16px;min-width:0}
 .challenge-report{position:relative;border:1px solid var(--card-border);border-radius:var(--radius-card);background:var(--card-bg);box-shadow:var(--card-shadow);padding:20px;min-width:0}
-.ch-top{background:radial-gradient(60% 120% at 100% 0%,color-mix(in srgb,var(--ch-vivid) 14%,transparent),transparent 70%),var(--card-bg)}
-.ch-top::before{content:'';position:absolute;left:22px;top:0;width:64px;height:6px;border-radius:0 0 6px 6px;background:repeating-linear-gradient(135deg,var(--ch-vivid) 0 6px,color-mix(in srgb,var(--ch-vivid) 28%,transparent) 6px 12px)}
 .report-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
-.report-heading h2,.report-heading h3{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em}
+.report-heading h2,.report-heading h3{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.02em}
 .ch-top-body{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:6px 24px;align-items:start}
 .ch-top-left{display:grid;gap:4px;justify-items:start;min-width:0}
 .ch-top-right{min-width:0}
@@ -92,10 +90,10 @@ p.challenge-empty.challenge-report{padding:24px}
 .challenge-record>summary{display:flex;gap:12px;align-items:center;padding:16px 20px;cursor:pointer;list-style:none}
 .challenge-record>summary::-webkit-details-marker{display:none}
 .challenge-record>summary>div{min-width:0;flex:1}
-.challenge-record h3{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em;overflow-wrap:anywhere}
-.record-result{padding:0 14px;border-radius:var(--radius-chip);background:color-mix(in srgb,var(--ch-vivid) 30%,var(--surface-soft));color:var(--text);font-size:18px;font-weight:600;line-height:34px;letter-spacing:-.01em;overflow-wrap:anywhere;max-width:45%;font-variant-numeric:tabular-nums}
-/* The newest season or round is the one saturated chip. */
-.record-result.latest{background:linear-gradient(135deg,var(--ch-vivid),var(--ch-vivid-2));color:var(--on-vivid)}
+.challenge-record h3{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.02em;overflow-wrap:anywhere}
+.record-result{padding:0 14px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text);font-size:18px;font-weight:550;line-height:34px;letter-spacing:-.02em;overflow-wrap:anywhere;max-width:45%;font-variant-numeric:tabular-nums}
+/* The newest season or round takes the game tone. */
+.record-result.latest{background:var(--ch-tone);color:var(--ch-ink)}
 .record-toggle{font-size:18px;color:var(--text-muted);transform:rotate(-90deg);transition:transform var(--duration-fast,250ms) var(--ease-smooth-out,ease)}
 details[open]>.record-toggle,details[open]>summary>.record-toggle{transform:none}
 .record-body{padding:0 20px 20px}
@@ -109,17 +107,14 @@ details[open]>.record-toggle,details[open]>summary>.record-toggle{transform:none
 .ch-honors{overflow:hidden}
 .ch-honors :deep(.h-rail){--rail-gap:12px;--rail-pad-block:6px;--rail-pad:2px}
 .challenge-honors{display:contents;list-style:none;padding:0;margin:0}
-.challenge-honors li{flex:0 0 auto;scroll-snap-align:start;display:grid;gap:8px;width:200px;padding:14px;border-radius:var(--radius-tile);background:linear-gradient(165deg,color-mix(in srgb,var(--ch-vivid) 14%,var(--surface-soft)),var(--surface-soft) 70%)}
+.challenge-honors li{flex:0 0 auto;scroll-snap-align:start;display:grid;gap:8px;width:200px;padding:14px;border-radius:var(--radius-tile);background:var(--surface-soft)}
 .challenge-honors strong{font-size:14px;font-weight:600;overflow-wrap:anywhere}
 .challenge-honors p{font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.6}
-.challenge-honors li>span{justify-self:start;padding:0 12px;border-radius:var(--radius-chip);background:color-mix(in srgb,var(--ch-vivid) 34%,var(--card-bg));color:var(--text);font-size:14px;font-weight:600;line-height:26px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.challenge-honors li>span{justify-self:start;padding:0 12px;border-radius:var(--radius-chip);background:var(--ch-tone);color:var(--ch-ink);font-size:14px;font-weight:550;line-height:26px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .crisis-result{display:flex;justify-content:space-between;padding-top:4px;font-size:13px;color:var(--text-muted)}
 .crisis-result strong{font-weight:500;color:var(--text)}
-/* A bot image is one still frame: flat fills, no shadows or washes (they inflate the PNG). */
+/* A bot image is one still frame: no shadows (they inflate the PNG). */
 .is-image .challenge-report{box-shadow:none;border-color:var(--border)}
-.is-image .ch-top{background:var(--card-bg)}
-.is-image .ch-top::before,.is-image .record-result.latest{background:var(--ch-vivid)}
-.is-image .challenge-honors li{background:var(--surface-soft)}
 @media(max-width:900px){.ch-top-body{grid-template-columns:1fr}}
-@media(max-width:600px){.challenge-report{padding:16px;border-radius:20px}.challenge-record{padding:0}.challenge-record>summary{padding:14px 16px}.record-body{padding:0 16px 16px}.challenge-honors li{width:176px}}
+@media(max-width:600px){.challenge-report{padding:16px;border-radius:22px}.challenge-record{padding:0}.challenge-record>summary{padding:14px 16px}.record-body{padding:0 16px 16px}.challenge-honors li{width:176px}}
 </style>

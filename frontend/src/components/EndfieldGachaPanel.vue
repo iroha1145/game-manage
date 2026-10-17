@@ -200,76 +200,80 @@ async function download() {
 </template>
 
 <style scoped>
-/* One bento: a hero, the rarity ring, the per-pool bars, a rail of recent 6★, a card per pool, and the ledger. */
-.endfield-gacha { --eg-six:var(--game-vivid,var(--game-endfield-vivid)); --eg-five:var(--chart-2); --eg-four:color-mix(in srgb,var(--text-faint) 34%,var(--card-bg)); --eg-unknown:var(--border-strong); --on-vivid:#16170a;
+/* One bento: a hero on the game tone, the rarity ring, the per-pool bars, a rail of recent 6★, a card per pool, and the ledger.
+   Bot images set only --game-accent, so every game colour has a static fallback. */
+.endfield-gacha { --eg-six:var(--game-vivid,var(--game-endfield-vivid)); --eg-tone:var(--game-tone,var(--game-endfield-tone)); --eg-ink:var(--game-accent,var(--game-endfield)); --eg-five:var(--chart-2); --eg-four:color-mix(in srgb,var(--text-faint) 34%,var(--card-bg)); --eg-unknown:var(--border-strong);
   display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; min-width:0; }
 .endfield-gacha > * { grid-column:1 / -1; min-width:0; }
 .eg-card { position:relative; padding:20px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
-.eg-hero { display:grid; gap:14px; align-content:start; overflow:hidden; background:radial-gradient(70% 90% at 100% 0%,color-mix(in srgb,var(--eg-six) 17%,transparent),transparent 72%),var(--card-bg); }
-/* A short hazard-stripe tab at the top edge: the page's one industrial mark. */
-.eg-hero::before { content:''; position:absolute; left:22px; top:0; width:64px; height:6px; border-radius:0 0 6px 6px; background:repeating-linear-gradient(135deg,var(--eg-six) 0 6px,color-mix(in srgb,var(--eg-six) 28%,transparent) 6px 12px); }
+/* The hero is the page's feature block (mockup .gacha-overview): the game tone, ink labels, the total large. */
+.eg-hero { display:grid; gap:14px; align-content:start; overflow:hidden; border-color:transparent; background:var(--eg-tone); box-shadow:none; }
 .is-split .eg-hero { grid-column:span 7; }
 .is-split .eg-rarity { grid-column:span 5; }
 .eg-totals { grid-column:span 5; }
 .eg-totals.is-wide { grid-column:1 / -1; }
 .eg-recent { grid-column:span 7; overflow:hidden; }
 .eg-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:32px; }
-.gacha-heading h2 { margin:0; font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.01em; }
+.gacha-heading h2 { margin:0; font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
 .eg-head .cap-meta { margin-left:auto; gap:10px; }
 .eg-head .cap-meta .ui-button { margin-left:2px; }
+.eg-hero .cap-meta { color:var(--text-muted); }
 .notice { margin:0; color:var(--text-muted); font-size:13px; line-height:1.6; }
 .notice.warn { color:var(--stale-text); }
 .eg-message { grid-column:1 / -1; }
 .eg-numbers { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:end; gap:12px 28px; }
 .eg-total { display:grid; gap:2px; }
 .k { color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; }
-.eg-big { font-size:56px; line-height:60px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.eg-hero .eg-total .k { color:var(--eg-ink); }
+.eg-big { font-size:56px; line-height:60px; font-weight:500; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
 .eg-big small, .pity strong small, .six-pulls small, .donut-total small { margin-left:4px; color:var(--text-muted); font-size:.5em; font-weight:500; letter-spacing:0; }
+.eg-hero .eg-big small { color:var(--eg-ink); }
 .eg-tiles { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-.eg-tiles li { display:grid; gap:2px; padding:12px 14px; border-radius:var(--radius-tile); background:var(--surface-soft); }
+.eg-tiles li { display:grid; gap:2px; padding:12px 14px; border-radius:var(--radius-well); background:var(--card-bg); }
 .eg-tiles .k { display:inline-flex; align-items:center; gap:6px; }
 .eg-tiles .six .k::before, .eg-tiles .five .k::before { content:''; width:8px; height:8px; border-radius:3px; background:var(--eg-six); }
 .eg-tiles .five .k::before { background:var(--eg-five); }
-.eg-tiles strong { font-size:26px; line-height:32px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:proportional-nums; }
+.eg-tiles strong { font-size:26px; line-height:32px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
 .gacha-coverage { display:flex; gap:6px 20px; flex-wrap:wrap; font-size:13px; color:var(--text-muted); }
 .gacha-coverage b { margin-left:6px; color:var(--text); font-weight:500; }
-.eg-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; margin:0 0 6px; font-size:15px; line-height:22px; font-weight:600; letter-spacing:-.01em; }
+.eg-hero .gacha-coverage, .eg-hero .notice { color:var(--text-body); }
+.eg-hero .notice.warn { color:var(--stale-text); }
+.eg-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; margin:0 0 6px; font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
 .eg-sub { color:var(--text-faint); font-size:12px; font-weight:400; letter-spacing:0; }
 .eg-rarity :deep(.donut-chart) { margin-top:10px; gap:12px 22px; }
 .donut-total { display:grid; justify-items:center; line-height:1; }
-.donut-total strong { font-size:30px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.donut-total strong { font-size:30px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
 .donut-total small { margin:3px 0 0; font-size:12px; }
 
-/* Recent 6★: tone-step cards; the newest is the one saturated surface. */
+/* Recent 6★: tone-step cards; the newest takes the game tone. */
 .eg-recent :deep(.h-rail) { --rail-gap:12px; --rail-pad-block:10px; --rail-pad:2px; margin-top:6px; }
 .six-card { display:grid; align-content:start; gap:4px; width:176px; padding:14px; border-radius:var(--radius-tile); background:var(--surface-soft); color:var(--text); }
 .six-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:6px; }
-.six-top .endfield-artwork { width:52px; height:52px; border-radius:30%; }
-.six-badge { padding:0 9px; border-radius:var(--radius-chip); background:var(--on-vivid); color:#fff; font-size:12px; font-weight:500; line-height:20px; }
+.six-top .endfield-artwork { width:52px; height:52px; border-radius:var(--radius-control); }
+.six-badge { padding:0 9px; border-radius:var(--radius-chip); background:var(--eg-ink); color:var(--accent-ink); font-size:12px; font-weight:500; line-height:20px; }
 .six-name { overflow:hidden; font-size:15px; line-height:22px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
-.six-pulls { font-size:30px; line-height:34px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.six-pulls { font-size:30px; line-height:34px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
 .six-meta { color:var(--text-muted); font-size:12px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.six-card.latest { background:linear-gradient(150deg,var(--eg-six),var(--game-vivid-2,var(--game-endfield-2))); color:var(--on-vivid); box-shadow:0 18px 40px -22px var(--eg-six); }
-.six-card.latest .six-pulls small, .six-card.latest .six-meta { color:color-mix(in srgb,var(--on-vivid) 72%,transparent); }
-.six-card.latest .endfield-artwork { box-shadow:inset 0 0 0 1px rgba(22,23,10,.16); }
+.six-card.latest { background:var(--eg-tone); }
+.six-card.latest .endfield-artwork { background:var(--card-bg); }
 
-/* One card per pool; the pool pulled from last carries a wash of the game colour. */
+/* One card per pool; the pool pulled from last takes a light wash of the game tone. */
 .pool-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; }
 .pool-card { grid-column:span var(--span,4); display:grid; gap:10px; align-content:start; min-width:0; padding:18px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
-.pool-card.is-latest { background:linear-gradient(172deg,color-mix(in srgb,var(--eg-six) 15%,var(--card-bg)),var(--card-bg) 58%); box-shadow:var(--card-shadow),0 22px 44px -30px var(--eg-six); }
+.pool-card.is-latest { background:color-mix(in srgb,var(--eg-tone) 55%,var(--card-bg)); }
 .pool-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
 .pool-head h3 { margin:0; color:var(--text); font-size:15px; line-height:22px; font-weight:600; letter-spacing:-.01em; }
 .pool-head .chip { margin-left:auto; }
-.pool-latest { padding:0 9px; border-radius:var(--radius-chip); background:var(--on-vivid); color:#fff; font-size:12px; font-weight:500; line-height:20px; }
+.pool-latest { padding:0 9px; border-radius:var(--radius-chip); background:var(--eg-ink); color:var(--accent-ink); font-size:12px; font-weight:500; line-height:20px; }
 .chip.warn { background:var(--stale-bg); color:var(--stale-text); box-shadow:none; }
 .pity { display:grid; gap:0; }
 .pity .k { display:inline-flex; align-items:center; }
-.pity strong { color:var(--text); font-size:40px; line-height:46px; font-weight:600; letter-spacing:-.03em; font-variant-numeric:proportional-nums; }
+.pity strong { color:var(--text); font-size:40px; line-height:46px; font-weight:550; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
 .stack-bar { height:12px; gap:3px; }
 .legend { margin:0; gap:4px 12px; }
 .legend .plain::before { display:none; }
 .legend > li:not(.plain)::before { border-radius:4px; }
-.chip.six { background:color-mix(in srgb,var(--eg-six) 18%,var(--card-bg)); box-shadow:none; color:var(--text); }
+.chip.six { background:var(--eg-tone); box-shadow:none; color:var(--text); }
 .chip-list { gap:6px; }
 
 .panel { border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
@@ -284,15 +288,13 @@ async function download() {
 .records .rarity { width:5em; }
 .data-table .name { font-weight:500; }
 .data-table .name .chip { margin-left:6px; }
-.data-table tr.six .name, .data-table tr.six .rarity { color:var(--game-endfield); font-weight:500; }
+.data-table tr.six .name, .data-table tr.six .rarity { color:var(--eg-ink); font-weight:500; }
 .data-table tr.five .rarity { color:var(--text); font-weight:500; }
 .data-table .rarity { white-space:nowrap; }
 
-/* A bot image is one still frame: flat fills, no shadows or washes (they inflate the PNG). */
+/* A bot image is one still frame: flat fills, no shadows (they inflate the PNG). */
 .is-image .eg-card, .is-image .pool-card, .is-image .panel { box-shadow:none; border-color:var(--border); }
-.is-image .eg-hero { background:var(--card-bg); }
-.is-image .eg-hero::before { background:var(--eg-six); }
-.is-image .pool-card.is-latest { background:var(--card-bg); box-shadow:none; }
+.is-image .eg-hero { border-color:transparent; }
 
 @media (max-width:900px) {
   .is-split .eg-hero, .is-split .eg-rarity, .eg-totals, .eg-recent { grid-column:1 / -1; }
@@ -300,8 +302,8 @@ async function download() {
 }
 @media (max-width:600px) {
   .data-table th:last-child, .data-table td:last-child { display:none; }
-  .eg-card { padding:16px; border-radius:20px; }
-  .pool-card { grid-column:1 / -1; padding:16px; border-radius:20px; }
+  .eg-card { padding:16px; border-radius:22px; }
+  .pool-card { grid-column:1 / -1; padding:16px; border-radius:22px; }
   .eg-numbers { grid-template-columns:1fr; }
   .eg-big { font-size:48px; line-height:52px; }
   .eg-head .cap-meta { gap:8px; }

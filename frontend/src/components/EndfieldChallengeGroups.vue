@@ -14,10 +14,10 @@ const summary = group => { const state = stageStates([group]); return `已通关
 .challenge-group>header{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:8px}
 .challenge-group h4{margin:0;font-size:14px;font-weight:600;overflow-wrap:anywhere}
 .group-stars{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--text-muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-.group-stars::before{content:'★';color:var(--game-endfield)}
-/* One pip per stage, in order: cleared stages take the success colour, open ones the game colour. */
+.group-stars::before{content:'★';color:var(--game-accent,var(--game-endfield))}
+/* One pip per stage, in order: cleared stages take the success colour, open ones the game's line colour. */
 .stage-pips{display:flex;gap:4px;margin-bottom:6px}
-.stage-pips>i{flex:1;height:6px;border-radius:999px;background:var(--track)}
+.stage-pips>i{flex:1;height:6px;border-radius:var(--radius-chip);background:var(--track)}
 .stage-pips>i.passed{background:var(--success)}
 .stage-pips>i.incomplete{background:var(--game-vivid,var(--game-endfield-vivid))}
 .challenge-group li{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);font-size:13px}
@@ -26,6 +26,6 @@ const summary = group => { const state = stageStates([group]); return `已通关
 .challenge-group li>strong{font-size:13px;font-weight:500;flex:1;min-width:80px;overflow-wrap:anywhere}
 .stage-state{font-size:12px;color:var(--text-muted)}
 .stage-state.passed{color:var(--success)}
-.stage-state.incomplete{color:var(--game-endfield)}
+.stage-state.incomplete{color:var(--game-accent,var(--game-endfield))}
 .challenge-note{font-size:13px;color:var(--text-muted)}
 </style>

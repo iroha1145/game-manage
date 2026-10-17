@@ -57,29 +57,28 @@ const dayTitle=(row,index)=>`${day(row.day ?? index + 1)} · ${row.done === true
   </section>
 </template>
 <style scoped>
-.ef-attendance{--ea-vivid:var(--game-vivid,var(--game-endfield-vivid));--ea-vivid-2:var(--game-vivid-2,var(--game-endfield-2));--on-vivid:#16170a;min-width:0;display:grid;gap:12px;align-content:start;padding:20px;border:1px solid var(--card-border);border-radius:var(--radius-card);background:var(--card-bg);box-shadow:var(--card-shadow)}
+.ef-attendance{--ea-vivid:var(--game-vivid,var(--game-endfield-vivid));--ea-tone:var(--game-tone,var(--game-endfield-tone));--ea-ink:var(--game-accent,var(--game-endfield));min-width:0;display:grid;gap:12px;align-content:start;padding:20px;border:1px solid var(--card-border);border-radius:var(--radius-card);background:var(--card-bg);box-shadow:var(--card-shadow)}
 header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-h2{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em}
+h2{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.02em}
 h3{font-size:14px;font-weight:500;margin:0 0 8px}
 .note,.error,.award-results p,.record-history p{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
 .note{color:var(--text-muted)}
 .error{color:var(--danger)}
 .attendance-main{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .att-ring-num{display:grid;justify-items:center;line-height:1.05}
-.att-ring-num b{font-size:24px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums}
+.att-ring-num b{font-size:24px;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .att-ring-num small{font-size:12px;color:var(--text-muted);font-weight:500}
 .attendance-summary{display:grid;gap:2px;min-width:0}
 .attendance-summary strong{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em}
 .attendance-summary span{font-size:13px;color:var(--text-muted)}
-.award-line{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:var(--radius-tile);background:var(--surface-soft);color:var(--text)}
-.award-line .endfield-artwork{width:34px;height:34px;border-radius:30%}
-/* One cell per day of the period: signed days take the game colours, today is outlined. */
+.award-line{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:var(--radius-well);background:var(--surface-soft);color:var(--text)}
+.award-line .endfield-artwork{width:34px;height:34px;border-radius:var(--radius-control)}
+/* One cell per day of the period: signed days take the game tone, today is the one solid cell. */
 .att-days{display:grid;grid-template-columns:repeat(auto-fill,minmax(30px,1fr));gap:6px;margin:2px 0;padding:0;list-style:none}
-.att-day{display:grid;place-items:center;aspect-ratio:1;border-radius:30%;background:var(--surface-soft);color:var(--text-muted);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1}
-.att-day.done{background:color-mix(in srgb,var(--ea-vivid) 30%,var(--surface-soft));color:var(--text)}
+.att-day{display:grid;place-items:center;aspect-ratio:1;border-radius:var(--radius-chip);background:var(--surface-soft);color:var(--text-muted);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1}
+.att-day.done{background:var(--ea-tone);color:var(--ea-ink)}
 .att-day.unknown{background:transparent;outline:1px dashed var(--border-strong);outline-offset:-1px}
-/* Today is the one saturated cell: the day the status points at. */
-.att-day.today,.att-day.done.today{background:linear-gradient(145deg,var(--ea-vivid),var(--ea-vivid-2));color:var(--on-vivid);box-shadow:0 0 0 2px var(--card-bg),0 0 0 4px color-mix(in srgb,var(--ea-vivid) 55%,transparent)}
+.att-day.today,.att-day.done.today{background:var(--ea-ink);color:var(--accent-ink)}
 .ef-attendance details.note{margin-top:2px}
 .ef-attendance details summary{cursor:pointer;color:var(--text-muted);font-size:13px;padding:4px 0}
 footer{justify-content:flex-start;margin-top:2px}
@@ -88,5 +87,5 @@ footer{justify-content:flex-start;margin-top:2px}
 .attendance-records li strong{font-weight:500}
 .attendance-records li span{color:var(--text-muted)}
 .record-history{margin-top:14px}
-@media(max-width:600px){.ef-attendance{padding:16px;border-radius:20px}footer .ui-button{flex:1}.attendance-records li{gap:5px 12px}.attendance-records li>span:nth-of-type(2){flex-basis:100%}}
+@media(max-width:600px){.ef-attendance{padding:16px;border-radius:22px}footer .ui-button{flex:1}.attendance-records li{gap:5px 12px}.attendance-records li>span:nth-of-type(2){flex-basis:100%}}
 </style>

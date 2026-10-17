@@ -49,5 +49,5 @@ onBeforeUnmount(() => { generation++ })
   </section>
 </template>
 <style scoped>
-.cloud-details{display:grid;gap:14px}.cloud-detail-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.cloud-detail-controls label{display:grid;gap:6px;font-size:13px;font-weight:500}input,select{max-width:100%;padding:9px 12px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control);font-weight:400}h2,p{margin:0}h2{font-size:16px;font-weight:500;line-height:24px}
+.cloud-details{display:grid;gap:14px}.cloud-detail-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.cloud-detail-controls label{display:grid;gap:6px;color:var(--text-muted);font-size:12px;font-weight:400}input,select{max-width:100%;min-height:38px;padding:7px 13px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-control);font-size:13px;font-weight:400}select{appearance:none;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23787d84' stroke-width='1.6'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-position:right 12px center;background-repeat:no-repeat}h2,p{margin:0}h2{font-size:16px;font-weight:600;line-height:24px;letter-spacing:-.02em}
 </style>

@@ -49,31 +49,32 @@ const hide = url => { broken.value = new Set([...broken.value, url]) }
   </section>
 </template>
 <style scoped>
-.ef-news-summary{--en-vivid:var(--game-vivid,var(--game-endfield-vivid));--en-vivid-2:var(--game-vivid-2,var(--game-endfield-2));min-width:0;display:grid;gap:12px;align-content:start;padding:20px;border:1px solid var(--card-border);border-radius:var(--radius-card);background:var(--card-bg);box-shadow:var(--card-shadow)}
+.ef-news-summary{--en-tone:var(--game-tone,var(--game-endfield-tone));--en-ink:var(--game-accent,var(--game-endfield));min-width:0;display:grid;gap:12px;align-content:start;padding:20px;border:1px solid var(--card-border);border-radius:var(--radius-card);background:var(--card-bg);box-shadow:var(--card-shadow)}
 header,footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-h2{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em}
+h2{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.02em}
 .note,.error{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
 .note{color:var(--text-muted)}
 .error{color:var(--danger)}
-.ef-news-summary :deep(.h-rail){--rail-gap:12px;--rail-pad-block:8px;--rail-pad:2px}
+.ef-news-summary :deep(.h-rail){--rail-gap:16px;--rail-pad-block:8px;--rail-pad:2px}
 .news-rail{display:contents;list-style:none;padding:0;margin:0}
-.news-card{flex:0 0 auto;scroll-snap-align:start;display:grid;grid-template-rows:auto 1fr;width:248px;overflow:hidden;border-radius:var(--radius-tile);background:var(--surface-soft);min-width:0}
-.news-thumb{position:relative;display:block;height:96px;overflow:hidden;background:linear-gradient(135deg,color-mix(in srgb,var(--en-vivid) 24%,var(--card-bg)),color-mix(in srgb,var(--en-vivid-2) 12%,var(--card-bg)));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--en-vivid) 14%,transparent)}
-.news-thumb::before{content:'';position:absolute;inset:0;opacity:.55;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--en-vivid) 14%,transparent) 0 8px,transparent 8px 16px)}
+/* Each item is a tone panel with the date, then its text on the card itself: no box inside the card. */
+.news-card{flex:0 0 auto;scroll-snap-align:start;display:grid;grid-template-rows:auto 1fr;width:248px;min-width:0}
+.news-thumb{position:relative;display:block;height:96px;overflow:hidden;border-radius:var(--radius-well);background:var(--en-tone)}
 .news-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.news-thumb.has-image::before{display:none}
-.news-date{position:absolute;left:12px;bottom:10px;display:inline-flex;align-items:baseline;gap:4px;padding:2px 10px;border-radius:var(--radius-chip);background:var(--glass-strong);-webkit-backdrop-filter:var(--glass-filter);backdrop-filter:var(--glass-filter);color:var(--text);box-shadow:var(--glass-edge)}
-.news-date b{font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:proportional-nums}
+.news-date{position:absolute;left:10px;bottom:10px;display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border-radius:var(--radius-chip);background:var(--card-bg);color:var(--en-ink)}
+.news-date b{font-size:18px;line-height:24px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .news-date small{font-size:12px;color:var(--text-muted)}
-.news-card.latest .news-thumb{background:linear-gradient(135deg,var(--en-vivid),var(--en-vivid-2));box-shadow:none}
-.news-card.latest .news-thumb::before{opacity:.35;background:repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 8px,transparent 8px 16px)}
-.news-copy{display:grid;align-content:start;gap:6px;padding:12px 14px 14px;min-width:0}
+/* With no picture the date is the picture: large, in the tone's ink. */
+.news-thumb:not(.has-image) .news-date{left:14px;top:12px;bottom:auto;padding:0;background:transparent}
+.news-thumb:not(.has-image) .news-date b{font-size:32px;line-height:36px;letter-spacing:-.05em}
+.news-thumb:not(.has-image) .news-date small{color:var(--en-ink)}
+.news-copy{display:grid;align-content:start;gap:6px;padding:10px 2px 2px;min-width:0}
 h3{font-size:14px;font-weight:500;line-height:1.55;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 h3 a{color:var(--text);text-decoration:none}
-h3 a:hover{color:var(--game-endfield)}
+@media(hover:hover) and (pointer:fine){h3 a:hover{color:var(--en-ink)}}
 .article-source{font-size:12px;line-height:1.7;color:var(--text-muted)}
 .article-source summary{cursor:pointer}
 .article-meta{display:flex;gap:2px 10px;flex-wrap:wrap;font-size:12px;line-height:1.7;color:var(--text-muted)}
 footer{padding-top:2px}
-@media(max-width:600px){.ef-news-summary{padding:16px;border-radius:20px}.news-card{width:224px}footer .ui-button{width:100%;justify-content:space-between}}
+@media(max-width:600px){.ef-news-summary{padding:16px;border-radius:22px}.news-card{width:224px}footer .ui-button{width:100%;justify-content:space-between}}
 </style>

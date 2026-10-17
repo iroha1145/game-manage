@@ -15,7 +15,7 @@ defineProps({ operator: {type:Object,required:true}, imageMode:Boolean })
         <div class="resident-meter mood"><RingGauge aria-hidden="true" :value="operator.mood_percent" :max="100" label="心情" :size="54" :stroke="6" color="var(--ef-vivid, var(--game-endfield-vivid))"><AppIcon name="sun" :size="15" /></RingGauge>
           <div class="meter-copy"><span class="meter-label">心情</span><strong>{{ shipPercent(operator.mood_percent) }}</strong></div>
           <progress v-if="operator.mood_percent != null" class="sr-only" :value="operator.mood_percent" max="100" :aria-label="`${operator.name || '驻守干员'}心情`" /><span v-else class="unknown-meter">{{ operator.mood_raw > 10000 ? '超出模型范围' : '观测值未知' }}</span></div>
-        <div class="resident-meter trust"><RingGauge aria-hidden="true" :value="operator.trust_percent" :max="200" label="信赖" :size="54" :stroke="6" color="var(--ef-vivid-2, var(--game-endfield-2))"><AppIcon name="shield" :size="15" /></RingGauge>
+        <div class="resident-meter trust"><RingGauge aria-hidden="true" :value="operator.trust_percent" :max="200" label="信赖" :size="54" :stroke="6" color="var(--ef-vivid, var(--game-endfield-vivid))"><AppIcon name="shield" :size="15" /></RingGauge>
           <div class="meter-copy"><span class="meter-label">信赖 <small>{{ operator.trust_level_name || '阶段未知' }}</small></span><strong>{{ shipPercent(operator.trust_percent) }}</strong></div>
           <progress v-if="operator.trust_percent != null" class="sr-only" :value="operator.trust_percent" max="200" :aria-label="`${operator.name || '驻守干员'}信赖`" /><span v-else class="unknown-meter">观测值未知</span></div>
       </div>
@@ -25,7 +25,7 @@ defineProps({ operator: {type:Object,required:true}, imageMode:Boolean })
 </template>
 <style scoped>
 .ef-resident{display:flex;gap:16px;align-items:flex-start;padding:14px;border-radius:var(--radius-tile);background:var(--surface-soft);min-width:0}
-.ef-resident>.endfield-artwork{width:64px;height:72px;border-radius:24%}
+.ef-resident>.endfield-artwork{width:64px;height:72px;border-radius:var(--radius-control)}
 .resident-copy{flex:1;min-width:0}
 .resident-copy h3{font-size:15px;font-weight:600;line-height:1.5;letter-spacing:-.01em;overflow-wrap:anywhere;margin-bottom:8px}
 .resident-meters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
@@ -34,7 +34,7 @@ defineProps({ operator: {type:Object,required:true}, imageMode:Boolean })
 .meter-copy{display:grid;min-width:0}
 .meter-label{display:inline-flex;gap:4px;align-items:baseline;flex-wrap:wrap;font-size:12px;line-height:1.5;color:var(--text-muted)}
 .meter-label small{font-size:12px;color:var(--text-muted)}
-.resident-meter strong{font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:proportional-nums;color:var(--text);white-space:nowrap}
+.resident-meter strong{font-size:20px;line-height:26px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap}
 /* An unobserved value keeps its place as a dashed note instead of a ring that could read as zero. */
 .unknown-meter{flex-basis:100%;font-size:12px;color:var(--text-muted);border-top:1px dashed var(--border-strong);padding:5px 0 0;line-height:1.6}
 .resident-raw{margin-top:8px;font-size:12px;color:var(--text-muted)}

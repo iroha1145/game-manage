@@ -42,7 +42,7 @@ const tiles = computed(() => TILES[props.section] || TILES.operators)
           <div class="locked-tile"><RingGauge :value="null" :max="null" label="" :size="96" :stroke="11" color="var(--game-vivid, var(--game-endfield-vivid))"><b>—</b></RingGauge></div>
           <div class="locked-areas"><div v-for="n in 3" :key="n" class="locked-tile"><span class="locked-line short"></span><template v-for="m in 4" :key="m"><span class="locked-line"></span><i class="locked-bar thin"></i></template></div></div>
         </div>
-        <div v-else-if="card.kind === 'resident'" class="locked-residents"><div v-for="n in 2" :key="n" class="locked-resident"><i class="locked-avatar"></i><div><span class="locked-line short"></span><div class="locked-pair"><RingGauge :value="null" :max="null" label="" :size="48" :stroke="6" color="var(--game-vivid, var(--game-endfield-vivid))" /><RingGauge :value="null" :max="null" label="" :size="48" :stroke="6" color="var(--game-vivid-2, var(--game-endfield-2))" /></div></div></div></div>
+        <div v-else-if="card.kind === 'resident'" class="locked-residents"><div v-for="n in 2" :key="n" class="locked-resident"><i class="locked-avatar"></i><div><span class="locked-line short"></span><div class="locked-pair"><RingGauge :value="null" :max="null" label="" :size="48" :stroke="6" color="var(--game-vivid, var(--game-endfield-vivid))" /><RingGauge :value="null" :max="null" label="" :size="48" :stroke="6" color="var(--game-vivid, var(--game-endfield-vivid))" /></div></div></div></div>
         <div v-else class="locked-bars"><i v-for="h in [38, 64, 48, 80, 56, 30]" :key="h" :style="{ height: `${h}%` }"></i></div>
       </div>
     </div>
@@ -50,43 +50,43 @@ const tiles = computed(() => TILES[props.section] || TILES.operators)
 </template>
 
 <style scoped>
-/* Outline only: dashed edges, hatched fills, and a dash where a number will be. */
+/* An outline of what will appear: dashed cards, flat grey fills, and a dash where a number will be. */
 .ef-locked { display:grid; gap:14px; min-width:0; }
 .locked-note { display:flex; align-items:center; gap:8px; margin:0; padding:0 4px; color:var(--text-muted); font-size:13px; line-height:1.6; }
-.locked-note svg { flex:0 0 auto; color:var(--game-endfield); }
+.locked-note svg { flex:0 0 auto; color:var(--game-accent,var(--game-endfield)); }
 .locked-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; }
-.locked-card { grid-column:span var(--span,12); min-width:0; padding:20px; border:1.5px dashed var(--border-strong); border-radius:var(--radius-card); background:color-mix(in srgb,var(--card-bg) 55%,transparent); }
-.locked-title { margin:0 0 14px; color:var(--text-faint); font-size:15px; line-height:22px; font-weight:600; letter-spacing:-.01em; }
+.locked-card { grid-column:span var(--span,12); min-width:0; padding:20px; border:1px dashed var(--border-strong); border-radius:var(--radius-card); background:var(--panel-bg); }
+.locked-title { margin:0 0 14px; color:var(--text-muted); font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
 .locked-tiles { display:grid; grid-template-columns:repeat(var(--cols,2),minmax(0,1fr)); gap:10px; max-width:calc(var(--cols,2) * 320px); }
-.locked-tiles li { display:grid; gap:2px; padding:12px 14px; border-radius:var(--radius-tile); background:color-mix(in srgb,var(--surface-soft) 70%,transparent); }
-.locked-tiles span { color:var(--text-faint); font-size:12px; line-height:18px; }
-.locked-tiles b, .locked-ring b { color:var(--text-faint); font-size:26px; line-height:32px; font-weight:600; }
+.locked-tiles li { display:grid; gap:2px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--radius-well); background:var(--card-bg); }
+.locked-tiles span { color:var(--text-muted); font-size:12px; line-height:18px; }
+.locked-tiles b, .locked-ring b { color:var(--text-faint); font-size:26px; line-height:32px; font-weight:550; letter-spacing:-.03em; }
 .locked-ring { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
 .locked-lines { display:grid; gap:10px; flex:1 1 90px; min-width:80px; }
-.locked-lines i, .locked-line { display:block; height:8px; border-radius:999px; background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text-faint) 22%,transparent) 0 6px,transparent 6px 12px); }
+.locked-lines i, .locked-line { display:block; height:8px; border-radius:6px; background:var(--track); }
 .locked-lines i:nth-child(2), .locked-line.short { width:62%; }
 .locked-lines i:nth-child(3) { width:78%; }
 .locked-stack { display:grid; gap:14px; }
-.locked-bar { display:block; height:14px; border-radius:999px; background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--game-vivid,var(--game-endfield-vivid)) 30%,transparent) 0 6px,transparent 6px 12px),var(--track); }
+.locked-bar { display:block; height:14px; border-radius:6px; background:var(--track); }
 .locked-bar.thin { height:8px; }
 .locked-rail { display:flex; gap:12px; overflow:hidden; }
-.locked-portrait { flex:0 0 auto; display:grid; gap:8px; align-content:start; width:150px; padding:10px 10px 14px; border-radius:var(--radius-tile); background:color-mix(in srgb,var(--surface-soft) 70%,transparent); }
-.locked-portrait i { display:block; height:150px; border-radius:var(--radius-well); background:radial-gradient(circle at 50% 38%,color-mix(in srgb,var(--text-faint) 26%,transparent) 0 17%,transparent 18%),radial-gradient(ellipse at 50% 100%,color-mix(in srgb,var(--text-faint) 26%,transparent) 0 40%,transparent 41%),repeating-linear-gradient(135deg,color-mix(in srgb,var(--game-vivid,var(--game-endfield-vivid)) 14%,transparent) 0 8px,transparent 8px 16px); }
-.locked-portrait span { display:block; height:8px; border-radius:999px; background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text-faint) 22%,transparent) 0 6px,transparent 6px 12px); }
+.locked-portrait { flex:0 0 auto; display:grid; gap:8px; align-content:start; width:150px; padding:10px 10px 14px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--card-bg); }
+.locked-portrait i { display:block; height:150px; border-radius:var(--radius-well); background:var(--control-track); }
+.locked-portrait span { display:block; height:8px; border-radius:6px; background:var(--track); }
 .locked-portrait span:last-child { width:60%; }
 .locked-portrait.small { width:104px; }
 .locked-portrait.small i { height:64px; }
 .locked-region { display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; }
-.locked-tile { display:grid; gap:10px; align-content:center; justify-items:center; padding:16px; border-radius:var(--radius-tile); background:color-mix(in srgb,var(--surface-soft) 70%,transparent); }
+.locked-tile { display:grid; gap:10px; align-content:center; justify-items:center; padding:16px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--card-bg); }
 .locked-areas { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
 .locked-areas .locked-tile { justify-items:stretch; }
 .locked-residents { display:grid; gap:10px; }
-.locked-resident { display:flex; gap:14px; align-items:center; padding:12px; border-radius:var(--radius-tile); background:color-mix(in srgb,var(--surface-soft) 70%,transparent); }
-.locked-avatar { flex:0 0 auto; width:56px; height:64px; border-radius:24%; background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--game-vivid,var(--game-endfield-vivid)) 16%,transparent) 0 8px,transparent 8px 16px),var(--track); }
+.locked-resident { display:flex; gap:14px; align-items:center; padding:12px; border:1px solid var(--border); border-radius:var(--radius-tile); background:var(--card-bg); }
+.locked-avatar { flex:0 0 auto; width:56px; height:64px; border-radius:var(--radius-control); background:var(--control-track); }
 .locked-resident > div { display:grid; gap:8px; min-width:0; flex:1; }
 .locked-pair { display:flex; gap:12px; }
 .locked-bars { display:flex; align-items:flex-end; justify-content:space-around; height:96px; border-bottom:1px solid var(--border); }
-.locked-bars i { width:24px; border-radius:4px 4px 0 0; background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--game-vivid,var(--game-endfield-vivid)) 30%,transparent) 0 6px,transparent 6px 12px),var(--track); }
+.locked-bars i { width:24px; border-radius:4px 4px 0 0; background:var(--track); }
 @media (max-width:900px) { .locked-card { grid-column:1 / -1; } }
-@media (max-width:600px) { .locked-card { padding:16px; border-radius:20px; } .locked-region { grid-template-columns:1fr; } .locked-portrait { width:128px; } }
+@media (max-width:600px) { .locked-card { padding:16px; border-radius:22px; } .locked-region { grid-template-columns:1fr; } .locked-portrait { width:128px; } }
 </style>

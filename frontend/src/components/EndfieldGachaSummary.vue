@@ -39,9 +39,10 @@ const segments = computed(()=>{
   </section>
 </template>
 <style scoped>
-.ef-gacha-summary{--es-six:var(--game-vivid,var(--game-endfield-vivid));--es-five:var(--chart-2);--es-rest:color-mix(in srgb,var(--text-faint) 34%,var(--card-bg));min-width:0;display:flex;flex-direction:column;gap:14px;padding:20px;border:1px solid var(--card-border);border-radius:var(--radius-card);background:var(--card-bg);box-shadow:var(--card-shadow)}
+/* The one tinted card of the overview (like the main overview's pulls card): the game tone at half strength. */
+.ef-gacha-summary{--es-six:var(--game-vivid,var(--game-endfield-vivid));--es-tone:var(--game-tone,var(--game-endfield-tone));--es-five:var(--chart-2);--es-rest:color-mix(in srgb,var(--text-faint) 34%,var(--card-bg));min-width:0;display:flex;flex-direction:column;gap:14px;padding:20px;border:1px solid var(--card-border);border-radius:var(--radius-card);background:color-mix(in srgb,var(--es-tone) 55%,var(--card-bg));box-shadow:var(--card-shadow)}
 .ef-gacha-summary header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.ef-gacha-summary h2{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em}
+.ef-gacha-summary h2{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.02em}
 .passport-identity{display:flex;gap:4px 14px;flex-wrap:wrap;align-items:baseline;overflow-wrap:anywhere;margin-top:-6px}
 .passport-identity strong{font-size:14px;font-weight:500;color:var(--text)}
 .passport-identity span,.coverage,p{font-size:13px;line-height:1.7;color:var(--text-muted)}
@@ -50,18 +51,18 @@ const segments = computed(()=>{
 .gs-donut{flex-wrap:nowrap}
 .gs-donut :deep(.donut-legend){display:none}
 .gs-center{display:grid;justify-items:center;gap:1px;line-height:1.1}
-.gs-center strong{font-size:30px;line-height:34px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums}
+.gs-center strong{font-size:30px;line-height:34px;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .gs-center.plain{justify-items:start;padding:8px 0}
-.gs-center.plain strong{font-size:44px;line-height:48px}
+.gs-center.plain strong{font-size:44px;line-height:48px;letter-spacing:-.05em}
 .gs-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
-.gs-tiles li{display:grid;gap:2px;padding:12px 14px;border-radius:var(--radius-tile);background:var(--surface-soft);min-width:0}
+.gs-tiles li{display:grid;gap:2px;padding:12px 14px;border-radius:var(--radius-well);background:var(--card-bg);min-width:0}
 .gs-tiles .k{display:inline-flex;align-items:center;gap:6px}
 .gs-tiles .six .k::before,.gs-tiles .five .k::before{content:'';width:8px;height:8px;border-radius:3px;background:var(--es-six)}
 .gs-tiles .five .k::before{background:var(--es-five)}
-.gs-tiles strong{font-size:26px;line-height:32px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:proportional-nums}
+.gs-tiles strong{font-size:26px;line-height:32px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .coverage{display:flex;gap:4px 20px;flex-wrap:wrap}
 .gs-empty{display:flex;align-items:center;gap:18px;padding:6px 0}
-.gs-ghost{flex:0 0 auto;width:72px;height:72px;border-radius:50%;background:conic-gradient(color-mix(in srgb,var(--es-six) 55%,var(--track)) 0 9%,transparent 9% 100%),radial-gradient(circle,var(--card-bg) 0 56%,transparent 57%),var(--track)}
+.gs-ghost{flex:0 0 auto;width:72px;height:72px;border:10px solid var(--track);border-radius:50%}
 .ef-gacha-summary footer{display:flex;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:2px}
-@media(max-width:600px){.ef-gacha-summary{padding:16px;border-radius:20px}.passport-identity{align-items:start;flex-direction:column;gap:2px}.gs-body{grid-template-columns:1fr;justify-items:center}.gs-tiles{width:100%}.ef-gacha-summary footer .ui-button{flex:1}}
+@media(max-width:600px){.ef-gacha-summary{padding:16px;border-radius:22px}.passport-identity{align-items:start;flex-direction:column;gap:2px}.gs-body{grid-template-columns:1fr;justify-items:center}.gs-tiles{width:100%}.ef-gacha-summary footer .ui-button{flex:1}}
 </style>
