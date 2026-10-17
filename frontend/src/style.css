@@ -28,7 +28,7 @@
   --attention-bg: #3a2f1c; --attention-border: #57462a; --attention-text: #ecd2a6;
   /* Translucent layers that lift a surface: white at night, ink by day. */
   --overlay-1: rgba(255, 255, 255, .02); --overlay-2: rgba(255, 255, 255, .04); --overlay-3: rgba(255, 255, 255, .06);
-  --scrim: rgba(0, 0, 0, .5); --glare: rgba(255, 255, 255, .06); --skeleton-sheen: rgba(255, 255, 255, .07);
+  --scrim: rgba(0, 0, 0, .5); --skeleton-sheen: rgba(255, 255, 255, .07);
   --brand-ink: #e8e7e3; --brand-tile: #2b3346; --brand-tile-2: #5b76c0;
   --game-wuwa: #dcbf8e; --game-wuwa-vivid: #c09452; --game-wuwa-2: #c98500; --game-wuwa-tone: #2f2619;
   --game-nte: #e3b0aa; --game-nte-vivid: #c9817a; --game-nte-2: #d55181; --game-nte-tone: #33232a;
@@ -64,7 +64,7 @@
   --stale-text: #7a5a33; --stale-bg: #f6eddf; --warning-text: #7a5a33;
   --attention-bg: #f6eddf; --attention-border: #ead9bd; --attention-text: #6e5130;
   --overlay-1: rgba(38, 40, 46, .02); --overlay-2: rgba(38, 40, 46, .035); --overlay-3: rgba(38, 40, 46, .05);
-  --scrim: rgba(38, 40, 46, .22); --glare: rgba(255, 255, 255, .55); --skeleton-sheen: rgba(255, 255, 255, .85);
+  --scrim: rgba(38, 40, 46, .22); --skeleton-sheen: rgba(255, 255, 255, .85);
   --brand-ink: #26282e; --brand-tile: #e1e6f1; --brand-tile-2: #9baed9;
   --game-wuwa: #7a5a33; --game-wuwa-vivid: #ae8245; --game-wuwa-2: #dcab4b; --game-wuwa-tone: #efe2ce;
   --game-nte: #87504a; --game-nte-vivid: #b56d66; --game-nte-2: #cf5f88; --game-nte-tone: #edd7d5;
@@ -271,7 +271,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .meter { display:block; height:6px; border-radius:6px; background:var(--track); overflow:hidden; }.meter>i { display:block; height:100%; width:var(--pct, 0%); border-radius:inherit; background:var(--series, var(--game-vivid, var(--accent))); }
 /* Chips: short tokens (teams, areas, tags) instead of dot-joined sentences. */
 .chip-list { display:flex; flex-wrap:wrap; gap:4px; margin:0; padding:0; list-style:none; }
-.chip { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-chip); background:var(--control-track); color:var(--text-body); font-size:12px; font-weight:400; line-height:20px; white-space:nowrap; }.chip b { color:var(--text); font-weight:500; }.chip.game { background:var(--game-tone, color-mix(in srgb, var(--game-color, var(--accent)) 13%, transparent)); color:var(--game-ink, var(--text)); }
+.chip { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-chip); background:var(--control-track); color:var(--text-body); font-size:12px; font-weight:400; line-height:20px; white-space:nowrap; }.chip b { color:var(--text); font-weight:500; }.chip.game { background:var(--game-tone, color-mix(in srgb, var(--game-color, var(--accent)) 13%, transparent)); color:var(--game-accent, var(--text)); }
 /* Stacked bar with legend: parts of a whole (rarity split, sources). */
 .stack-bar { display:flex; gap:2px; height:10px; border-radius:6px; overflow:hidden; background:var(--track); }.stack-bar>i { display:block; min-width:2px; background:var(--series, var(--accent)); }
 .legend { display:flex; flex-wrap:wrap; gap:4px 12px; margin:6px 0 0; padding:0; list-style:none; color:var(--text-muted); font-size:12px; }.legend>li { display:inline-flex; align-items:center; gap:5px; }.legend>li::before { content:''; width:8px; height:8px; border-radius:3px; background:var(--series, var(--accent)); }.legend b { color:var(--text); font-weight:500; }

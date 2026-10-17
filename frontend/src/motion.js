@@ -107,43 +107,6 @@ export const vGlide = {
   unmounted(el) { el.__glide?.destroy(); delete el.__glide },
 }
 
-/** Pointer-following light on overview cards; keyboard focus uses a fixed light. */
-export const vSpotlight = {
-  mounted(el) {
-    if (!domReady(el) || typeof matchMedia !== 'function') return
-    const media = matchMedia(`${FINE_POINTER} and (prefers-reduced-motion: no-preference)`)
-    let frame = 0, x = 0, y = 0
-    const reset = () => {
-      cancelAnimationFrame(frame)
-      frame = 0
-      el.removeAttribute('data-spotlight-active')
-      el.style.removeProperty('--spotlight-x')
-      el.style.removeProperty('--spotlight-y')
-    }
-    const move = event => {
-      if (!media.matches || event.pointerType === 'touch') return
-      x = event.clientX; y = event.clientY
-      if (!frame) frame = requestAnimationFrame(() => {
-        frame = 0
-        const box = el.getBoundingClientRect()
-        el.style.setProperty('--spotlight-x', `${x - box.left}px`)
-        el.style.setProperty('--spotlight-y', `${y - box.top}px`)
-        el.setAttribute('data-spotlight-active', '')
-      })
-    }
-    el.addEventListener('pointermove', move)
-    el.addEventListener('pointerleave', reset)
-    media.addEventListener('change', reset)
-    el.__spotlight = () => {
-      reset()
-      el.removeEventListener('pointermove', move)
-      el.removeEventListener('pointerleave', reset)
-      media.removeEventListener('change', reset)
-    }
-  },
-  unmounted(el) { el.__spotlight?.(); delete el.__spotlight },
-}
-
 /* v-reveal is default-visible. Only an element that starts below the fold of a
    live page is hidden until it is scrolled to; anything already on screen,
    rendered off-screen for a bot image, printed or under reduced motion shows

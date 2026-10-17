@@ -21,7 +21,7 @@ function flushFrames() {
 after(() => window.happyDOM.close())
 
 const { createApp, h, nextTick, ref, withDirectives } = await import('vue')
-const { vGlide, vSpotlight, vReveal, vParallax } = await import('./motion.js')
+const { vGlide, vReveal, vParallax } = await import('./motion.js')
 const { loadVue } = await import('./test-utils/vue.js')
 const WuwaRoleDialog = await loadVue(new URL('./components/WuwaRoleDialog.vue', import.meta.url))
 const style = document.createElement('style')
@@ -155,37 +155,6 @@ test('tab scrolling respects reduced motion and clamps at the end of the strip',
   await nextTick()
   flushFrames()
   assert.deepEqual(scroll.mock.calls[0].arguments[0], { left: 220, behavior: 'auto' })
-})
-
-test('card spotlight coalesces movement, honors reduced motion, and cleans up', t => {
-  const media = new window.EventTarget()
-  media.matches = true
-  t.mock.method(globalThis, 'matchMedia', () => media)
-  const card = document.createElement('button')
-  card.getBoundingClientRect = () => ({ left: 20, top: 40 })
-  vSpotlight.mounted(card)
-  const move = (x, y, pointerType = 'mouse') => card.dispatchEvent(new window.PointerEvent('pointermove', { clientX: x, clientY: y, pointerType }))
-  move(50, 80); move(90, 100)
-  assert.equal(frames.size, 1)
-  flushFrames()
-  assert.equal(card.style.getPropertyValue('--spotlight-x'), '70px')
-  assert.equal(card.style.getPropertyValue('--spotlight-y'), '60px')
-  assert.ok(card.hasAttribute('data-spotlight-active'))
-  move(70, 90)
-  media.matches = false
-  media.dispatchEvent(new window.Event('change'))
-  assert.equal(frames.size, 0)
-  assert.equal(card.hasAttribute('data-spotlight-active'), false)
-  move(100, 100)
-  assert.equal(frames.size, 0)
-  media.matches = true
-  move(100, 100, 'touch')
-  assert.equal(frames.size, 0)
-  move(100, 100)
-  vSpotlight.unmounted(card)
-  assert.equal(frames.size, 0)
-  move(120, 120)
-  assert.equal(frames.size, 0)
 })
 
 test('reduced-motion styles disable transitions and entrances while retaining navigation layers', async () => {

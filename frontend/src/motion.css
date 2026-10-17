@@ -130,25 +130,6 @@
   background: var(--hover-bg);
 }
 
-/* ── Interactive surfaces ─────────────────────────────────────────── */
-/* Soft pointer-following light, kept behind the card's content. */
-.t-glare { position: relative; isolation: isolate; }
-.t-glare::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(320px circle at var(--spotlight-x, 50%) var(--spotlight-y, 0%), color-mix(in srgb, var(--game-accent, var(--accent)) 12%, transparent), transparent 75%);
-  transition: opacity var(--duration-fast) var(--ease-smooth-out);
-}
-@media (hover: hover) and (pointer: fine) {
-  .t-glare[data-spotlight-active]::after { opacity: 1; }
-}
-.t-glare:focus-visible::after { opacity: 1; }
-
 /* ── Scroll reveal (v-reveal) ─────────────────────────────────────── */
 /* The attribute only exists while a below-the-fold card waits and rises; the
    transition is !important for that window so a card's own hover transition
