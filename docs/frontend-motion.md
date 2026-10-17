@@ -78,7 +78,7 @@
 | [feel](https://diip3sh.github.io/feel/) | 测量了样式和源码 | 紧贴的负扩散阴影；按压与悬停只做底色和小幅缩放；弹簧参数作为后续把缓动换成 `linear()` 的依据 |
 | [transitions.dev 社区页](https://transitions.dev/community.html) | 测量了样式和公开数据 | 卡片圆角 24px、内层台阶 14px；“文字逐行出现”的参数（12px 上浮、3px 模糊、500ms、40ms 错开）放大后用于滚动出现 |
 | [shadcn/ui](https://ui.shadcn.com/docs/components) | 测量了组件和图表页 | 图表卡片的结构（标题、说明、图、底部一行趋势）；渐变面积从 80% 到 10%；提示框的数值在前、名称在后 |
-| [affectui](https://www.affectui.com/components) | 见下方说明 | 组件库的毛玻璃、滚动出现和横滑参数用于核对本仓库的实现，没有搬组件 |
+| [affectui](https://www.affectui.com/components) | 测量了样式；约一半组件需付费，只读了公开预览的 CSS | 毛玻璃配方（半透明底、模糊、内侧高光）；弹窗背景加 6px 模糊；滚动出现由 IntersectionObserver 触发且只触发一次；横滑行两端渐隐。倾斜卡片（±10°、松手回弹）看过但没用：卡片已有上浮和指针高光，再加倾斜会过于花哨 |
 
 dataviz 的方法用于图表：先选图形，再定颜色，配色跑校验脚本，标记规格（2px 线、不超过 24px 的柱、2px 缝隙），每个图表都有不靠悬停的读法。
 
