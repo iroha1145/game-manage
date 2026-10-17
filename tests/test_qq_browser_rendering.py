@@ -211,8 +211,9 @@ async def test_real_calendar_byte_limit_keeps_every_row_or_reports_whole_image_f
         image=await renderer.render_summary_async(SCOPE,envelope(calendar(30)),budget_seconds=10)
         assert image.total_pages==1 and len(image)<=512*1024
         assert Image.open(BytesIO(image)).height>1000
+        # Flat timeline bars compress well: 160 rows came to about 480 KiB, so the oversized case uses 240 (about 710 KiB).
         with pytest.raises(RenderingUnavailable,match='^qq_image_size_limit$'):
-            await renderer.render_summary_async(SCOPE,envelope(calendar(160)),budget_seconds=10)
+            await renderer.render_summary_async(SCOPE,envelope(calendar(240)),budget_seconds=10)
         assert renderer.last_state['pages'][0]['height']>6000
         assert not renderer._browser.contexts
     finally:await renderer.aclose()

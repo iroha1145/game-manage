@@ -209,7 +209,8 @@ onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',sync
   </div>
 </template>
 <style scoped>
-.cloud-content{display:grid;align-content:start;gap:20px}.cloud-navigation{overflow:auto}.cloud-navigation nav{display:grid;gap:5px}
+/* One column that may shrink below its content: a rail of fixed-width cards must scroll, not widen the page. */
+.cloud-content{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:20px}.cloud-navigation{overflow:auto}.cloud-navigation nav{display:grid;gap:5px}
 .cloud-navigation nav button{display:flex;align-items:center;gap:11px;min-height:46px;text-align:left;padding:0 14px;border:0;border-radius:13px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:14px;line-height:1.2}
 .cloud-navigation small{font-size:12px;color:var(--text-muted)}.cloud-grants{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}.cloud-grants button{flex-wrap:wrap;gap:2px 8px;padding:8px 14px}
 /* Selected page: the pale accent with accent text, as on the local sidebar. */
