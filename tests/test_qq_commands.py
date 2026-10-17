@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from game_assistant.qq.commands import parse_command, render_result, safe_text
+from game_assistant.qq.commands import parse_command, safe_text
 from game_assistant.qq.models import QqIdentity
 from game_assistant.qq.query_routes import QqQueryService
 from game_assistant.accounts.models import QueryResult
@@ -43,11 +43,12 @@ def test_game_first_command_aliases_remain_self_only(raw,command,game):
 
 @pytest.mark.parametrize('raw',['ww 角色 今汐','/鸣潮 角色 长离','wuthering_waves roles Shorekeeper'])
 def test_named_role_filter_targets_own_cached_exact_name(raw):
-    from game_assistant.qq.commands import HELP
+    from game_assistant.qq.cards import card_to_text
+    from game_assistant.qq.presentation import help_document
     parsed = parse_command(raw)
     assert parsed.command == 'roles' and parsed.game == 'wuthering_waves'
     assert parsed.role_name == raw.split()[-1]
-    assert '本人缓存' in HELP and '精确名称' in HELP
+    assert '鸣潮 角色 精确名称' in card_to_text(help_document('wuthering_waves'))
 
 
 def test_named_role_filter_is_bounded_printable_and_roles_only():
@@ -64,10 +65,16 @@ def test_url_removed_when_not_approved():
     assert 'https://example.com' in safe_text('https://example.com',urls_approved=True)
 
 
-def test_render_masks_uid_preserves_null_and_failed_cache():
-    text=render_result('账号',QueryResult({'nickname':'User 123456789','level':None,'extra':{'uid':'123456789','token':'private-secret'}},'2026-10-12T00:00:00Z','error',False),'account')
+def test_reply_masks_uid_preserves_null_and_failed_cache():
+    import json
+    from tests.test_qq_unified_queries import CachedQuery, service
+    query=CachedQuery();query.add('nte','tajiduo','n',{})
+    query.data[('n','account')]=QueryResult({'nickname':'User 123456789','level':None,'extra':{'uid':'123456789','token':'private-secret'}},'2026-10-12T00:00:00Z','error',False)
+    context={};text=service(query).query(IDENTITY,'summary','nte',image_context=context)['text']
     assert '123456789' not in text and 'private-secret' not in text
-    assert '未知' in text and '旧' in text and '完整' in text
+    assert '等级：未知' in text and '显示旧快照' in text and '完整性：不完整' in text
+    projected=json.dumps(context['render_snapshot'],ensure_ascii=False)
+    assert '123456789' not in projected and 'private-secret' not in projected
 
 
 def unbound_service():
@@ -136,12 +143,15 @@ def test_endfield_providers_choose_default_separately():
     assert reads==['h1','s'] and '鹰角寻访' in text and '森空岛' in text
 
 
-def test_skland_real_card_shape_has_name_level_stamina_without_uid():
-    result=QueryResult({'base':{'name':'Operator','level':24,'role_id':'sensitive-role'},
-                        'stamina':{'current':None,'maximum':200}},None,'ok',None)
-    text=render_result('森空岛档案',result,'account')
-    assert 'Operator' in text and '24' in text and '未知/200' in text
-    assert 'sensitive-role' not in text
+def test_skland_reply_has_name_level_stamina_without_role_id():
+    import json
+    from tests.test_qq_unified_queries import CachedQuery, service
+    query=CachedQuery()
+    query.add('endfield','skland','sk',{'account':{'base':{'name':'Operator','level':24,'role_id':'sensitive-role'},
+                                                    'stamina':{'current':None,'maximum':200}}})
+    context={};text=service(query).query(IDENTITY,'summary','endfield',image_context=context)['text']
+    assert 'Operator' in text and '账号等级：24' in text and '未知/200' in text
+    assert 'sensitive-role' not in text and 'sensitive-role' not in json.dumps(context['render_snapshot'],ensure_ascii=False)
 
 
 async def test_internal_binding_redeems_once_with_trusted_message_id():

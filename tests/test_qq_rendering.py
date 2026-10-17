@@ -6,7 +6,6 @@ from PIL import Image
 import pytest
 
 from game_assistant.accounts.models import AccountScope, QueryResult
-from game_assistant.qq.commands import render_result
 from tests.qq_test_fonts import cjk_font_path as cjk_font
 
 
@@ -30,12 +29,6 @@ def test_cache_includes_account_and_snapshot():
         (scope, result(timestamp='2026-10-12T12:01:00Z')), (scope, result('等级：1')))}
     assert len(keys) == 6
     assert cache.cache_key(scope, QueryResult({'text': '摘要', 'grant_version': 1}, None, 'ok', None)) != cache.cache_key(scope, QueryResult({'text': '摘要', 'grant_version': 2}, None, 'ok', None))
-
-
-def test_missing_fields_render_unknown():
-    original = QueryResult({'nickname': None, 'level': 0}, None, 'ok', None)
-    text = render_result('异环', original, 'account')
-    assert '昵称：未知' in text and '等级：0' in text and '完整性：未知' in text
 
 
 async def test_no_cjk_font_or_arbitrary_payload_returns_safe_failure(tmp_path, monkeypatch):

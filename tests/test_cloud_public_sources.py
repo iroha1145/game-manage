@@ -40,6 +40,12 @@ def save(store, game, cap, rows, time):
     store._conn.commit()
 
 
+def qq_events_text(public):
+    from game_assistant.qq.models import QqIdentity
+    from game_assistant.qq.query_routes import QqQueryService
+    return QqQueryService(None, None, public).query(QqIdentity('app', 'group', 'g', 's'), 'events', 'wuthering_waves')['text']
+
+
 def test_empty_successful_bili_does_not_mask_failed_retained_calendar():
     now = datetime.now(timezone.utc).isoformat()
     q, store = query(status='ok', last_success=now, history_complete=True)
@@ -96,21 +102,20 @@ def test_failed_bili_preserves_native_rows_and_reports_degradation():
 
 
 def test_public_qq_partial_failure_labels_fresh_native_content_as_available():
-    from game_assistant.qq.commands import render_result
+    from types import SimpleNamespace
     from game_assistant.accounts.models import QueryResult
     q, store = query(status='error', message='B站不可达', failures=1)
     now = datetime.now(timezone.utc).isoformat()
     save(store, 'wuthering_waves', 'events', [{'name': '最新社区活动'}], now)
     store.record_poll('wuthering_waves', 'events', FetchResult(ok=True))
-    result = q.read('wuthering_waves', 'events')
-    text = render_result('鸣潮活动', result, 'events')
+    text = qq_events_text(q)
     assert '部分来源不可用，显示可用来源数据' in text and '旧快照' not in text
-    # Private failures and genuinely stale public content keep the old-cache warning.
-    private = QueryResult([{'name': '旧记录'}], now, 'error', None)
-    assert '显示旧快照' in render_result('私人查询', private, 'events')
+    # A failed result without its own stale flag and genuinely stale public content keep the old-cache warning.
+    private = SimpleNamespace(read=lambda game, cap: QueryResult([{'name': '旧记录'}], now, 'error', None))
+    assert '显示旧快照' in qq_events_text(private)
     old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
     save(store, 'wuthering_waves', 'events', [{'name': '旧社区活动'}], old)
-    assert '显示旧快照' in render_result('鸣潮活动', q.read('wuthering_waves', 'events'), 'events')
+    assert '显示旧快照' in qq_events_text(q)
 
 
 def test_qq_image_projection_keeps_the_public_results_own_freshness():
@@ -195,12 +200,11 @@ def test_same_version_community_event_survives_bili_merge_without_version_in_tit
 
 
 def test_public_qq_reply_warns_when_successful_cache_has_expired():
-    from game_assistant.qq.commands import render_result
     q, store = query()
     old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
     save(store, 'wuthering_waves', 'events', [{'name': '旧活动'}], old)
     store.record_poll('wuthering_waves', 'events', FetchResult(ok=True), now=datetime.fromisoformat(old))
-    text = render_result('鸣潮活动', q.read('wuthering_waves', 'events'), 'events')
+    text = qq_events_text(q)
     assert '旧活动' in text and '过期' in text and '完整性：未知' in text
 
 
