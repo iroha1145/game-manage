@@ -1,17 +1,22 @@
-/* 鸣潮: boards of white cards in a bento, tone-step tiles inside them. The
-   density kit (kv-grid, bar-row, meter, chip, stack-bar, data-table, toolbar,
-   InfoHint) lives in style.css and the chart primitives in components/; this
-   file lays them out. The same components render into the bot images (no
-   .wuwa-dashboard around them), so rules hang on .wuwa-panel, .wuwa-board and
-   the component classes, never on the dashboard root alone.
-   Type: 16/600 card title, 13 body, 12 label and meta; big numerals are 600
-   with the unit at about 55%. Colour: neutral cards, a wash of the game colour
-   on the hero card of a page, saturated fills only for the current item. */
+/* 鸣潮: boards of white hairline cards on the paper canvas, flat tiles inside
+   them. The shared kit (ui-button, segmented, chip, badge, kv-grid, bar-row,
+   meter, stack-bar, data-table, toolbar, InfoHint) lives in style.css and the
+   chart primitives in components/; this file lays them out. The same
+   components render into the bot images (no .wuwa-dashboard around them), so
+   rules hang on .wuwa-panel, .wuwa-board and the component classes, never on
+   the dashboard root alone.
+   Type: 16/600 card title, 14 body, 13 dense rows, 12 label and meta; big
+   numerals are 550 with negative tracking and the unit at about 55%.
+   Colour: the sand tone (--game-tone, ink --game-accent) is the only fill. A
+   feature block is the tone with ink labels, --text headings and white tiles;
+   everything else is a white card or a neutral tile. */
 .wuwa-dashboard,
 .wuwa-board,
 .wuwa-panel,
 .wuwa-role-detail {
-  --wuwa-gold: var(--game-wuwa);
+  --wuwa-ink: var(--game-accent, var(--game-wuwa));
+  --wuwa-gold: var(--wuwa-ink);
+  --wuwa-tone: var(--game-tone, var(--game-wuwa-tone));
   --wuwa-vivid: var(--game-vivid, var(--game-wuwa-vivid));
   --wuwa-vivid-2: var(--game-vivid-2, var(--game-wuwa-2));
 }
@@ -19,7 +24,7 @@
   --game-color: var(--game-wuwa);
   min-width: 0;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
 }
 :is(.wuwa-dashboard, .wuwa-board, .wuwa-panel, .wuwa-role-detail) :where(h2, h3, h4, h5, p, dl, dd, figure) {
@@ -27,7 +32,7 @@
 }
 :is(.wuwa-dashboard, .wuwa-board, .wuwa-panel, .wuwa-role-detail) :where(h2, h3, h4, h5) {
   font-size: inherit;
-  font-weight: 500;
+  font-weight: 600;
 }
 .wuwa-dashboard :focus-visible {
   outline: 2px solid var(--accent);
@@ -67,10 +72,10 @@
 }
 .wuwa-board-head > h2 {
   color: var(--text);
-  font-size: 17px;
+  font-size: 18px;
   line-height: 26px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 /* Bento: cards of different sizes. --span is a share of 12 columns; the basis
    is the exact grid width, so rows pack like a grid, and the minimum width
@@ -87,6 +92,7 @@
   flex: 1 1 calc((100% - 11 * var(--gap)) * var(--span, 12) / 12 + (var(--span, 12) - 1) * var(--gap));
   min-width: min(100%, calc(var(--span, 12) * 56px));
 }
+.wuwa-bento > .span-3 { --span: 3; }
 .wuwa-bento > .span-4 { --span: 4; }
 .wuwa-bento > .span-5 { --span: 5; }
 .wuwa-bento > .span-6 { --span: 6; }
@@ -94,7 +100,7 @@
 .wuwa-bento > .span-8 { --span: 8; }
 .wuwa-bento > .span-12 { --span: 12; }
 
-/* The card: white on the grey canvas, a hairline and a soft shadow. */
+/* The card: white on the paper canvas, a hairline and a whisper of shadow. */
 .wuwa-panel {
   min-width: 0;
   padding: 20px;
@@ -103,13 +109,13 @@
   border-radius: var(--radius-card);
   box-shadow: var(--card-shadow);
 }
-/* A panel inside a panel is a tone-step tile, not a second card. */
+/* A panel inside a panel is a flat tile, not a second card. */
 .wuwa-panel .wuwa-panel {
   padding: 16px;
   background: var(--surface-soft);
   border: 0;
   border-radius: var(--radius-tile);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 /* The bot image embeds a whole record page inside the card: no second frame. */
 .wuwa-panel .wuwa-board > .wuwa-panel {
@@ -118,6 +124,7 @@
   background: none;
   border: 0;
   border-radius: 0;
+  box-shadow: none;
 }
 .wuwa-empty {
   padding: 34px 16px;
@@ -125,26 +132,25 @@
   font-size: 14px;
   text-align: center;
 }
-/* The one saturated card of a page: a wash of the game colour. */
-.wuwa-panel.is-hero {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  border-color: transparent;
-  background: linear-gradient(150deg, color-mix(in srgb, var(--wuwa-vivid) 24%, var(--card-bg)), color-mix(in srgb, var(--wuwa-vivid-2) 13%, var(--card-bg)) 74%);
-  box-shadow: var(--card-shadow), inset 0 0 0 1px color-mix(in srgb, var(--wuwa-vivid) 20%, transparent);
+.wuwa-panel.wuwa-empty {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--panel-bg);
+  box-shadow: none;
 }
-.wuwa-panel.is-hero::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  right: -44px;
-  top: -72px;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--wuwa-vivid) 40%, transparent), transparent 70%);
-  pointer-events: none;
+/* The one feature card of a page: the sand tone, flat. Labels on it take the
+   ink, headings stay --text, and tiles on it are white. */
+.wuwa-panel.is-hero {
+  border-color: transparent;
+  background: var(--wuwa-tone);
+  box-shadow: none;
+}
+/* The dialog of a module card sits inside the card in the DOM, so a module
+   card names the labels it owns by child combinator; a plain feature card has
+   no dialog inside and may reach down. */
+.wuwa-panel.is-hero:not(.wuwa-module-card) :where(.wuwa-meta, .wuwa-status, .cap-meta, .wuwa-muted, .wuwa-colhead),
+.wuwa-module-card.is-hero > :where(.wuwa-status, .wuwa-meta, .wuwa-muted) {
+  color: var(--wuwa-ink);
 }
 
 /* A card with a dialog: the whole card opens it, through the stretched button. */
@@ -162,7 +168,7 @@
 }
 .wuwa-panel.is-openable {
   position: relative;
-  transition: transform var(--duration-fast) var(--ease-smooth-out), box-shadow var(--duration-fast) var(--ease-smooth-out);
+  transition: border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out);
 }
 .wuwa-open::after {
   content: '';
@@ -174,8 +180,9 @@
 .wuwa-open:focus-visible {
   outline-color: transparent;
 }
-/* Pressed, a button would scale and so become the containing block of its own
-   overlay; the card carries the press feedback instead. */
+/* Pressed, a transform on the button would make it the containing block of its
+   own overlay and shrink the click target to the button; the card carries the
+   press feedback instead. */
 .wuwa-panel .wuwa-open:not(:disabled):active {
   transform: none;
 }
@@ -183,19 +190,31 @@
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+/* Hover stays quiet: the hairline firms up and the button answers. */
 @media (hover: hover) and (pointer: fine) {
   .wuwa-panel.is-openable:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--card-hover-shadow), 0 20px 44px -28px var(--wuwa-vivid);
+    border-color: var(--border-strong);
   }
-  .wuwa-panel.is-openable:hover .wuwa-open {
+  .wuwa-panel.is-openable:hover .wuwa-open:not(.primary) {
     background: var(--accent-soft);
     border-color: transparent;
     color: var(--accent-strong);
   }
+  .wuwa-panel.is-openable.is-hero:hover {
+    border-color: color-mix(in srgb, var(--wuwa-ink) 30%, transparent);
+  }
+  .wuwa-panel.is-openable.is-hero:hover .wuwa-open:not(.primary) {
+    background: var(--card-bg);
+    border-color: color-mix(in srgb, var(--wuwa-ink) 36%, transparent);
+    color: var(--wuwa-ink);
+  }
+  .wuwa-panel.is-openable:hover .wuwa-open.primary {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
 }
 .wuwa-panel.is-openable:active {
-  transform: scale(var(--scale-small));
+  transform: translateY(1px);
 }
 /* Plain cards (stamina, progress, the exploration summary) show their leaf
    card without a second frame; the card title above says what it is. */
@@ -218,7 +237,7 @@
   font-size: 16px;
   line-height: 24px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 .wuwa-panel .wuwa-panel .cap-title > :where(h2, h3) {
@@ -350,9 +369,12 @@
   background: var(--overlay-3);
 }
 .wuwa-rank {
-  color: var(--wuwa-gold);
-  background: color-mix(in srgb, var(--wuwa-vivid) 16%, transparent);
+  color: var(--wuwa-ink);
+  background: var(--wuwa-tone);
   font-weight: 500;
+}
+.wuwa-panel.is-hero .activity-tags .wuwa-rank {
+  background: var(--card-bg);
 }
 .wuwa-panel .chip small,
 .wuwa-dashboard .chip small {
@@ -408,6 +430,7 @@
   padding: 14px 16px;
   background: var(--surface-soft);
   border-radius: var(--radius-tile);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 .wuwa-tile > b {
   color: var(--text);
@@ -439,7 +462,7 @@
   min-width: 0;
   padding: 12px 14px;
   border-radius: var(--radius-well);
-  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
+  background: var(--card-bg);
 }
 .wuwa-stat dt {
   color: var(--text-muted);
@@ -451,9 +474,9 @@
   color: var(--text);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 .wuwa-stat dd small {
   margin-left: 3px;
@@ -468,9 +491,9 @@
   color: var(--text);
   font-size: 32px;
   line-height: 34px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }
 :where(.wuwa-panel, .wuwa-board) .ring-cap {
   color: var(--text-muted);
@@ -677,22 +700,24 @@
   gap: 4px;
   min-width: 0;
 }
+/* The portrait is a picture on the tone with a white rim, like the avatars in
+   the shell; it drifts a little against the scroll (v-parallax). */
 .account-portrait {
   flex: none;
   width: 112px;
   height: 112px;
   margin-left: auto;
-  border-radius: 26%;
+  border: 3px solid var(--card-bg);
+  border-radius: 26px;
   object-fit: cover;
-  background: var(--overlay-3);
-  box-shadow: 0 22px 40px -20px var(--wuwa-vivid);
+  background: var(--card-bg);
 }
 :where(.wuwa-panel) .account-name {
   color: var(--text);
   font-size: 28px;
   line-height: 34px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   overflow-wrap: anywhere;
 }
 .account-exp {
@@ -700,30 +725,26 @@
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
+.profile-account .account-exp,
+.profile-level .wuwa-exp,
+.account-hero .ring-cap {
+  color: var(--wuwa-ink);
+}
 .profile-account .wuwa-stats {
   margin-top: 4px;
 }
-/* A launcher: the tab itself carries no data until its dialog is opened. */
-.wuwa-launcher {
-  min-height: 168px;
+/* A ring track printed on the tone turns white, like the other tiles on it. */
+.account-hero .ring-track,
+.tower-summary .ring-track,
+.wuwa-panel.is-hero .activity-pairs .ring-track {
+  stroke: var(--card-bg);
 }
-.wuwa-launcher::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  right: 48px;
-  bottom: -64px;
-  width: 190px;
-  height: 190px;
-  border-radius: 50%;
-  border: 18px solid color-mix(in srgb, var(--wuwa-vivid) 26%, transparent);
-  box-shadow: 0 0 0 28px color-mix(in srgb, var(--wuwa-vivid) 12%, transparent);
-  pointer-events: none;
-}
+/* A launcher: the tab itself carries no data until its dialog is opened, so it is
+   a short tone card with its one filled action. */
 .wuwa-launcher .wuwa-module-heading > h2 {
   font-size: 22px;
   line-height: 30px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 .wuwa-launcher-copy {
   max-width: 34em;
@@ -752,6 +773,9 @@
   gap: 8px 16px;
   margin-top: auto;
 }
+.profile-level .kv-grid dt {
+  color: var(--wuwa-ink);
+}
 .wuwa-idgrid dd {
   font-size: 13px;
   line-height: 20px;
@@ -771,9 +795,9 @@
 .wuwa-metrics dd {
   font-size: 26px;
   line-height: 32px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 .profile-collections .bar-list {
   --bar-label: 38%;
@@ -786,6 +810,11 @@
   .profile-collections .wuwa-columns {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+/* In a sheet the viewport says nothing about the room a page has (every sheet is
+   narrower than the breakpoints above), so the columns collapse for the sheet itself. */
+.sheet-dialog .profile-collections .wuwa-columns {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* ── 角色: the summary strip and the roster ───────────────────────────── */
@@ -804,28 +833,27 @@
   margin-top: auto;
 }
 .roster-total .stack-bar {
-  background: color-mix(in srgb, var(--card-bg) 70%, transparent);
+  background: var(--card-bg);
 }
 .roster-total .legend {
   margin: 0;
-  color: var(--text-body);
+  color: var(--wuwa-ink);
 }
 .roster-count b {
   color: var(--text);
   font-size: 56px;
   line-height: 60px;
-  font-weight: 600;
-  letter-spacing: -0.04em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
 }
 .roster-count small {
-  color: var(--text-muted);
+  color: var(--wuwa-ink);
   font-size: 30px;
   font-weight: 500;
 }
-.wuwa-panel.is-hero .chip {
-  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
-  box-shadow: none;
+.wuwa-panel.is-hero:not(.wuwa-module-card) .chip {
+  background: var(--card-bg);
 }
 .roster-summary .wuwa-panel > .cap-title {
   margin-bottom: 12px;
@@ -834,131 +862,145 @@
   color: var(--text);
   font-size: 26px;
   line-height: 30px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }
+/* A role is the mockup's .role-card: a white card with 6px of rim, the picture
+   on the sand tone anchored bottom right and the level as a white tag bottom
+   left, then the name with its rarity and one muted line. Role pictures are
+   square avatars, so they fill the panel's height like the mockup's icon art. */
 .wuwa-role-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 224px), 1fr));
+  gap: 20px;
 }
-/* A role is a small card: a rounded-square portrait tinted by rarity, then
-   name, stars, element and weapon, then level, chain and skills. */
 .wuwa-role {
-  --rarity: var(--text-faint);
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  padding: 14px;
+  padding: 6px;
   border: 1px solid var(--card-border);
-  border-radius: var(--radius-tile);
+  border-radius: 22px;
   background: var(--card-bg);
   box-shadow: var(--card-shadow);
   color: var(--text-body);
   font: inherit;
   text-align: left;
-  transition: transform var(--duration-fast) var(--ease-smooth-out), box-shadow var(--duration-fast) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out);
-}
-.wuwa-role[data-rarity='5'] {
-  --rarity: var(--wuwa-vivid);
-}
-.wuwa-role[data-rarity='4'] {
-  --rarity: var(--chart-7);
+  transition: border-color var(--duration-quick) var(--ease-smooth-out), background-color var(--duration-quick) var(--ease-smooth-out);
 }
 button.wuwa-role[aria-pressed='true'] {
-  background: var(--accent-soft);
-  box-shadow: var(--card-shadow), inset 0 0 0 1.5px var(--accent);
+  border-color: var(--wuwa-ink);
 }
-button.wuwa-role:active {
-  transform: scale(var(--scale-small));
+/* The global focus ring squares a focused button to 6px; the card keeps its own corners. */
+button.wuwa-role:focus-visible {
+  border-radius: 22px;
+  outline-offset: 2px;
+}
+button.wuwa-role:not(:disabled):active {
+  transform: translateY(1px);
 }
 @media (hover: hover) and (pointer: fine) {
-  button.wuwa-role:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--card-hover-shadow), 0 18px 36px -24px var(--rarity);
+  button.wuwa-role:not([aria-pressed='true']):hover {
+    border-color: var(--border-strong);
   }
 }
-.wuwa-role img,
+.wuwa-role-art {
+  position: relative;
+  display: block;
+  height: 196px;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 17px;
+  background: var(--wuwa-tone);
+}
+.wuwa-role-art img,
 .wuwa-avatar-placeholder {
-  width: 72px;
-  height: 72px;
-  border-radius: 26%;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 100%;
+  aspect-ratio: 1;
   object-fit: cover;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--rarity) 32%, var(--surface-soft)), color-mix(in srgb, var(--rarity) 10%, var(--surface-soft)));
-  box-shadow: 0 10px 20px -14px var(--rarity);
 }
 .wuwa-avatar-placeholder {
   display: grid;
   place-items: center;
-  color: color-mix(in srgb, var(--rarity) 55%, var(--text));
-  font-size: 30px;
+  color: color-mix(in srgb, var(--wuwa-ink) 45%, var(--wuwa-tone));
+  font-size: 72px;
   font-weight: 600;
 }
-/* Name, stars and tags flow as one wrapping line, the stats sit under them. */
+.wuwa-role-level {
+  position: absolute;
+  z-index: 2;
+  left: 10px;
+  bottom: 10px;
+  padding: 3px 7px;
+  border-radius: var(--radius-chip);
+  background: var(--card-bg);
+  color: var(--wuwa-ink);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+/* Name left, rarity right, the muted line under both. */
 .wuwa-role-body {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 3px 8px;
   min-width: 0;
+  padding: 13px 10px 10px;
 }
-.wuwa-role-head,
-.wuwa-role-meta {
-  display: contents;
-}
-.wuwa-role-head > strong {
-  order: 1;
-  flex: 1 0 100%;
+.wuwa-role-body > strong {
   min-width: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 22px;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.wuwa-role-head > :last-child {
-  order: 2;
-  flex: none;
-}
 .wuwa-role .stars {
-  color: var(--wuwa-gold);
-  font-size: 12px;
+  color: var(--wuwa-ink);
+  font-size: 11px;
 }
 .wuwa-role .stars.is-four {
   color: var(--chart-7);
 }
-.wuwa-role-tags {
-  order: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.wuwa-role-sub {
+  grid-column: 1 / -1;
   min-width: 0;
-}
-.wuwa-role .chip {
-  padding: 0 8px;
-  background: color-mix(in srgb, var(--rarity) 14%, var(--card-bg));
-  box-shadow: none;
-  color: var(--text);
-  line-height: 20px;
-}
-.wuwa-role-stats {
-  order: 4;
-  flex: 1 0 100%;
-  color: var(--text-body);
+  overflow: hidden;
+  color: var(--text-muted);
   font-size: 12px;
   line-height: 18px;
+  text-overflow: ellipsis;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.wuwa-role-weapon {
-  color: var(--text-muted);
-  font-size: 12px;
-  white-space: nowrap;
+@media (max-width: 1250px) {
+  .wuwa-role-grid {
+    gap: 16px;
+  }
+}
+@media (max-width: 767px) {
+  .wuwa-role-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .wuwa-role-art {
+    height: 178px;
+  }
+  .wuwa-role-body {
+    padding: 11px 8px 9px;
+  }
+  .wuwa-role-sub {
+    white-space: normal;
+  }
 }
 
 /* ── 角色详情: sections as tone-step wells on a 12-column grid ─────────────
@@ -985,6 +1027,11 @@ button.wuwa-role:active {
     grid-column: 1 / -1;
   }
 }
+/* In a sheet the page reads as one column, whatever the viewport says. */
+.sheet-dialog .wuwa-role-detail > .wuwa-detail-section:has(> .wuwa-attrs),
+.sheet-dialog .wuwa-role-detail > .wuwa-detail-section:has(> .wuwa-equip) {
+  grid-column: 1 / -1;
+}
 /* Bot image: the role page has no card around it, unlike the other pages, and
    the grey page leaves nothing for the wells inside to step from. */
 .render-image .wuwa-role-detail {
@@ -1002,6 +1049,7 @@ button.wuwa-role:active {
   padding: 16px 18px 18px;
   border-radius: var(--radius-tile);
   background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 .wuwa-detail-section .wuwa-tile {
   background: var(--card-bg);
@@ -1015,33 +1063,26 @@ button.wuwa-role:active {
   padding: 12px 18px;
   border-radius: var(--radius-tile);
   background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 
-/* Basics: the hero of the page, in the game colour wash. */
+/* Basics: the feature block of the page, the sand tone with white tiles. */
 .wuwa-detail-section:has(> .wuwa-basics) {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  background: linear-gradient(150deg, color-mix(in srgb, var(--wuwa-vivid) 20%, var(--card-bg)), color-mix(in srgb, var(--wuwa-vivid-2) 11%, var(--card-bg)) 76%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wuwa-vivid) 18%, transparent);
-}
-.wuwa-detail-section:has(> .wuwa-basics)::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  right: -50px;
-  top: -80px;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--wuwa-vivid) 38%, transparent), transparent 70%);
-  pointer-events: none;
+  background: var(--wuwa-tone);
+  box-shadow: none;
 }
 .wuwa-detail-section:has(> .wuwa-basics) .wuwa-subhead {
   margin-bottom: 14px;
   font-size: 22px;
   line-height: 30px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+}
+.wuwa-detail-section:has(> .wuwa-basics) :where(.wuwa-field-label, .wuwa-supplement > summary) {
+  color: var(--wuwa-ink);
+}
+/* Art tiles standing on the tone turn white, so a missing picture still reads as a tile. */
+:is(.wuwa-detail-section:has(> .wuwa-basics), .gold-card.is-latest) :is(.wuwa-item-icon, .icon-fallback) {
+  background: var(--card-bg);
 }
 .wuwa-basics {
   display: flex;
@@ -1053,10 +1094,10 @@ button.wuwa-role:active {
   flex: none;
   width: 160px;
   height: 160px;
-  border-radius: 26%;
+  border: 3px solid var(--card-bg);
+  border-radius: 34px;
   object-fit: cover;
-  background: var(--overlay-3);
-  box-shadow: 0 22px 40px -22px var(--wuwa-vivid);
+  background: var(--card-bg);
 }
 .wuwa-basics-body {
   display: grid;
@@ -1075,7 +1116,7 @@ button.wuwa-role:active {
   padding: 8px 12px;
   border: 0;
   border-radius: var(--radius-well);
-  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
+  background: var(--card-bg);
 }
 .wuwa-basics .wuwa-kv dt {
   max-width: 100%;
@@ -1083,7 +1124,7 @@ button.wuwa-role:active {
 .wuwa-basics .wuwa-kv dd {
   font-size: 16px;
   line-height: 24px;
-  font-weight: 600;
+  font-weight: 550;
   text-align: left;
 }
 .wuwa-basics .wuwa-field-group {
@@ -1112,10 +1153,12 @@ button.wuwa-role:active {
   margin-top: 4px;
   font-size: 20px;
   line-height: 26px;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Weapon: art, name and stars, then the figures as pills. */
+/* Weapon: art, name and stars, then the figures as tags. */
 .wuwa-equip {
   display: flex;
   align-items: flex-start;
@@ -1126,7 +1169,7 @@ button.wuwa-role:active {
   flex: none;
   width: 72px;
   height: 72px;
-  border-radius: 26%;
+  border-radius: var(--radius-tile);
   object-fit: contain;
   background: var(--card-bg);
 }
@@ -1164,7 +1207,7 @@ button.wuwa-role:active {
   font-weight: 500;
 }
 
-/* Skills: a tile each, the level as a tinted pill. */
+/* Skills: a tile each, the level as a tone tag. */
 .wuwa-skills {
   --tile-min: 232px;
 }
@@ -1197,7 +1240,7 @@ button.wuwa-role:active {
 .wuwa-skills .wuwa-tile-end.wuwa-gold {
   padding: 0 10px;
   border-radius: var(--radius-chip);
-  background: color-mix(in srgb, var(--wuwa-vivid) 20%, var(--card-bg));
+  background: var(--wuwa-tone);
   font-weight: 600;
   line-height: 22px;
 }
@@ -1208,7 +1251,7 @@ button.wuwa-role:active {
   margin-right: 4px;
 }
 
-/* Chains: a tile per node, the unlocked ones numbered in the game colour. */
+/* Chains: a tile per node, the order as a tone tag, the locked ones in grey. */
 .wuwa-chains {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
@@ -1230,9 +1273,9 @@ button.wuwa-role:active {
   place-items: center;
   min-width: 22px;
   height: 22px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--wuwa-vivid) 26%, var(--card-bg));
-  color: var(--text);
+  border-radius: var(--radius-chip);
+  background: var(--wuwa-tone);
+  color: var(--wuwa-ink);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1248,11 +1291,15 @@ button.wuwa-role:active {
 .wuwa-chain > :not(summary) {
   margin: 4px 0 2px 28px;
 }
-.wuwa-locked {
-  opacity: 0.6;
+.wuwa-locked :where(.wuwa-chain-name, .wuwa-description) {
+  color: var(--text-muted);
 }
 .wuwa-locked .wuwa-chain-order {
   background: var(--track);
+  color: var(--text-muted);
+}
+.wuwa-locked .wuwa-item-icon img {
+  filter: grayscale(1);
 }
 
 /* Echoes: five cards, each with its figures and stat rows. */
@@ -1339,18 +1386,22 @@ button.wuwa-role:active {
 }
 .tower-areas .bar-row > .v {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 550;
 }
 .tower-areas .bar-row > .v small {
   font-size: 12px;
 }
+.tower-areas .bar-row > .k,
+.tower-areas .bar-row > .v small,
+.tower-summary .ring-cap {
+  color: var(--wuwa-ink);
+}
 .combat-tower .meter {
-  background: color-mix(in srgb, var(--card-bg) 70%, transparent);
+  background: var(--card-bg);
 }
 .combat-tower .wuwa-meta .chip {
   margin-left: 8px;
-  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
-  box-shadow: none;
+  background: var(--card-bg);
   color: var(--text);
 }
 .combat-count {
@@ -1363,9 +1414,9 @@ button.wuwa-role:active {
   color: var(--text);
   font-size: 56px;
   line-height: 60px;
-  font-weight: 600;
-  letter-spacing: -0.04em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
 }
 .combat-count small {
   font-size: 14px;
@@ -1413,9 +1464,9 @@ button.wuwa-role:active {
   color: var(--text);
   font-size: 34px;
   line-height: 40px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }
 .slash-score small {
   margin-left: 2px;
@@ -1439,6 +1490,7 @@ button.wuwa-role:active {
   padding: 12px 14px;
   border-radius: var(--radius-well);
   background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 .slash-challenges .k {
   flex: 1 0 100%;
@@ -1449,9 +1501,9 @@ button.wuwa-role:active {
   color: var(--text);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Dialog records: the tower zones, boss tiles and slash challenges. */
@@ -1533,9 +1585,9 @@ button.wuwa-role:active {
   flex: none;
   width: 34px;
   height: 34px;
-  border-radius: 30%;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--wuwa-vivid) 34%, var(--surface-soft)), color-mix(in srgb, var(--wuwa-vivid) 12%, var(--surface-soft)));
-  color: color-mix(in srgb, var(--wuwa-vivid) 55%, var(--text));
+  border-radius: 10px;
+  background: var(--wuwa-tone);
+  color: var(--wuwa-ink);
   font-size: 15px;
   font-weight: 600;
 }
@@ -1572,9 +1624,9 @@ button.wuwa-role:active {
   color: var(--text);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 .wuwa-slash .stack-bar {
   margin: 2px 0 8px;
@@ -1629,8 +1681,7 @@ button.wuwa-role:active {
   gap: 6px;
 }
 .activity-tags .chip {
-  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
-  box-shadow: none;
+  background: var(--card-bg);
   color: var(--text);
 }
 .activity-pairs {
@@ -1662,13 +1713,16 @@ button.wuwa-role:active {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
+.wuwa-panel.is-hero .activity-copy :is(.k, .v) {
+  color: var(--wuwa-ink);
+}
 .activity-copy .v b {
   color: var(--text);
   font-size: 26px;
   line-height: 30px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 .wuwa-tile > .wuwa-fields {
   margin-top: 6px;
@@ -1690,7 +1744,7 @@ button.wuwa-role:active {
   font-size: 22px;
   line-height: 30px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 .wuwa-periods {
   --rail-gap: 20px;
@@ -1699,47 +1753,19 @@ button.wuwa-role:active {
 .wuwa-period-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .wuwa-period-label {
-  margin-right: 4px;
   color: var(--text-muted);
   font-size: 12px;
   white-space: nowrap;
 }
-.wuwa-chip-button {
-  min-height: 30px;
-  padding: 3px 13px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-chip);
-  background: var(--card-bg);
-  color: var(--text-body);
-  font: inherit;
-  font-size: 13px;
-  line-height: 20px;
-  white-space: nowrap;
+/* The period on show is the chosen segment; on the tone the track turns white. */
+.wuwa-report.is-hero .wuwa-period-label {
+  color: var(--wuwa-ink);
 }
-/* The period on show is the one saturated chip. */
-.wuwa-chip-button[aria-pressed='true'] {
-  border-color: transparent;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--wuwa-vivid) 88%, #fff), var(--wuwa-vivid));
-  box-shadow: 0 8px 16px -10px var(--wuwa-vivid);
-  color: color-mix(in srgb, var(--wuwa-vivid) 20%, #000);
-  font-weight: 600;
-}
-.wuwa-chip-button:not(:disabled):active {
-  transform: scale(var(--scale-medium));
-}
-@media (hover: hover) and (pointer: fine) {
-  .wuwa-chip-button:not([aria-pressed='true']):hover {
-    border-color: var(--border-strong);
-    color: var(--text);
-  }
-}
-@media (pointer: coarse) {
-  .wuwa-chip-button {
-    min-height: 40px;
-  }
+.wuwa-report.is-hero .segmented {
+  background: color-mix(in srgb, var(--card-bg) 60%, transparent);
 }
 .wuwa-currency {
   display: grid;
@@ -1765,9 +1791,9 @@ button.wuwa-role:active {
   color: var(--text);
   font-size: 44px;
   line-height: 48px;
-  font-weight: 600;
-  letter-spacing: -0.04em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
 }
 .wuwa-delta {
   padding: 0 10px;
@@ -1794,6 +1820,7 @@ button.wuwa-role:active {
   padding: 10px 16px;
   border-radius: var(--radius-tile);
   background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 .wuwa-import > summary {
   color: var(--text);
@@ -1877,12 +1904,12 @@ button.wuwa-role:active {
   color: var(--text);
   font-size: 56px;
   line-height: 60px;
-  font-weight: 600;
-  letter-spacing: -0.04em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
 }
 .gacha-count small {
-  color: var(--text-muted);
+  color: var(--wuwa-ink);
   font-size: 30px;
   font-weight: 500;
 }
@@ -1911,14 +1938,14 @@ button.wuwa-role:active {
 .wuwa-pool-total b {
   color: var(--text);
   font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 .wuwa-pools .stack-bar {
   margin-top: 4px;
 }
-/* Five-star records: a rail of cards, the newest one saturated. */
+/* Five-star records: a rail of cards, the newest one on the tone. */
 .gold-rail {
   --rail-gap: 12px;
   --rail-pad-block: 10px;
@@ -1934,6 +1961,7 @@ button.wuwa-role:active {
   padding: 16px 12px 14px;
   border-radius: var(--radius-tile);
   background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
   text-align: center;
 }
 .gold-card strong {
@@ -1953,16 +1981,16 @@ button.wuwa-role:active {
   white-space: nowrap;
 }
 .gold-card.is-latest {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--wuwa-vivid) 38%, var(--card-bg)), color-mix(in srgb, var(--wuwa-vivid-2) 20%, var(--card-bg)) 80%);
-  box-shadow: 0 18px 36px -22px var(--wuwa-vivid), inset 0 0 0 1px color-mix(in srgb, var(--wuwa-vivid) 30%, transparent);
+  background: var(--wuwa-tone);
+  box-shadow: none;
 }
 .gold-card.is-latest .wuwa-meta {
-  color: var(--text-body);
+  color: var(--wuwa-ink);
 }
 .gold-latest {
   margin-top: 6px;
-  background: color-mix(in srgb, var(--card-bg) 74%, transparent);
-  color: var(--text);
+  background: var(--card-bg);
+  color: var(--wuwa-ink);
 }
 .wuwa-table-wrap {
   max-width: 100%;
@@ -1982,13 +2010,15 @@ button.wuwa-role:active {
   color: var(--text-muted);
   font-size: 12px;
 }
+/* A five-star row reads in the ink; in the mixed list it also sits on the tone. */
 .data-table .wuwa-gold-row td {
-  color: var(--wuwa-gold);
-  background: color-mix(in srgb, var(--wuwa-vivid) 9%, transparent);
+  color: var(--wuwa-ink);
+}
+.wuwa-records-all .data-table .wuwa-gold-row td {
+  background: var(--wuwa-tone);
 }
 .data-table .wuwa-gold-row td small {
   color: inherit;
-  opacity: 0.8;
 }
 .data-table .wuwa-four-row .wuwa-rarity {
   color: var(--chart-7);
@@ -2033,6 +2063,7 @@ button.wuwa-role:active {
   padding: 14px 16px;
   border-radius: var(--radius-tile);
   background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 .wuwa-history-head {
   display: flex;
@@ -2068,8 +2099,8 @@ button.wuwa-role:active {
 /* Phones: one column, a little less padding and smaller headline numbers. */
 @media (max-width: 700px) {
   .wuwa-panel {
-    padding: 16px;
-    border-radius: 20px;
+    padding: 18px;
+    border-radius: 22px;
   }
   .wuwa-stack,
   .wuwa-board {
@@ -2116,9 +2147,6 @@ button.wuwa-role:active {
     font-size: 28px;
     line-height: 34px;
   }
-  .wuwa-role {
-    padding: 12px;
-  }
   .wuwa-detail-section {
     padding: 14px;
   }
@@ -2127,14 +2155,42 @@ button.wuwa-role:active {
     height: 120px;
   }
 }
-/* A bot image is one still frame: no glows, and the heavy combat cards take a row each. */
-.render-image .wuwa-panel.is-hero::before,
-.render-image .wuwa-detail-section:has(> .wuwa-basics)::before,
-.render-image .wuwa-launcher::after {
-  display: none;
-}
+/* A bot image is one still frame: the heavy combat cards take a row each, and
+   the roster keeps a compact card with the picture on the left so the image
+   stays as short as it was. */
 .render-image .wuwa-combat .wuwa-bento > * {
   --span: 12;
+}
+.render-image .wuwa-role-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr));
+  gap: 14px;
+}
+.render-image .wuwa-role {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+.render-image .wuwa-role-art {
+  flex: none;
+  width: 84px;
+  height: 84px;
+}
+.render-image .wuwa-avatar-placeholder {
+  font-size: 36px;
+}
+.render-image .wuwa-role-level {
+  left: 6px;
+  bottom: 6px;
+  padding: 1px 5px;
+  font-size: 11px;
+  line-height: 16px;
+}
+.render-image .wuwa-role-body {
+  flex: 1;
+  padding: 4px 8px 4px 0;
+}
+.render-image .wuwa-role-sub {
+  white-space: normal;
 }
 
 /* ── Dialog modules and public guides ─────────────────────────────────── */
@@ -2171,6 +2227,7 @@ button.wuwa-role:active {
   padding: 16px 18px;
   background: var(--surface-soft);
   border-radius: var(--radius-tile);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 .wuwa-tabs {
   display: flex;
@@ -2181,8 +2238,8 @@ button.wuwa-role:active {
   display: inline-block;
   padding: 0 9px;
   border-radius: var(--radius-chip);
-  background: color-mix(in srgb, var(--accent) 12%, var(--card-bg));
-  color: var(--accent-strong);
+  background: var(--wuwa-tone);
+  color: var(--wuwa-ink);
   font-size: 12px;
   font-weight: 500;
   line-height: 20px;

@@ -62,6 +62,7 @@ const tiles = computed(() => {
         :class="[tile.pairs.length > 1 ? 'span-8' : 'span-4', { 'is-hero': tile.ends }]"
         :title="tile.title"
         button-label="查看详情"
+        :sheet-width="560"
       >
         <template #preview>
           <div v-if="tile.rank != null || tile.ends" class="activity-tags">

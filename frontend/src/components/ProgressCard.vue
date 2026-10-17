@@ -84,6 +84,7 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
   padding: 12px 14px;
   border-radius: var(--radius-tile);
   background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 
 .ring-pct {
@@ -112,9 +113,9 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
   color: var(--text);
   font-size: 20px;
   line-height: 26px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-copy small {

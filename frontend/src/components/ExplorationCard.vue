@@ -151,9 +151,9 @@ const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
   color: var(--text);
   font-size: 28px;
   line-height: 32px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .detection-unit {

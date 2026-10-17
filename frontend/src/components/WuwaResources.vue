@@ -4,7 +4,7 @@ import { useWuwaRequest } from '../wuwa-api.js'
 import { friendlyDataError } from '../cloud-display.js'
 import { list, value, sourceDateTime } from '../wuwa-display.js'
 import { sourceShares } from '../wuwa-charts.js'
-import { vReveal } from '../motion.js'
+import { vGlide, vReveal } from '../motion.js'
 import DonutChart from './DonutChart.vue'
 import HRail from './HRail.vue'
 import WuwaStatus from './WuwaStatus.vue'
@@ -153,21 +153,22 @@ const totals = computed(() => {
           :aria-label="`${name}报告`"
         >
           <span class="wuwa-period-label" aria-hidden="true">{{ name }}报告</span
-          ><button
-            v-for="p in periods.filter((p) => p.kind === kind)"
-            :key="p.period"
-            type="button"
-            class="wuwa-chip-button"
-            :aria-pressed="
-              current?.kind === kind &&
-              String(current?.period) === String(p.period)
-            "
-            @click="select(p)"
-          >
-            {{ p.title || `${name} ${p.period}` }}</button
           ><span v-if="!periods.some((p) => p.kind === kind)" class="wuwa-meta"
             >无可用周期</span
-          >
+          ><div v-else v-glide class="segmented">
+            <button
+              v-for="p in periods.filter((p) => p.kind === kind)"
+              :key="p.period"
+              type="button"
+              :aria-pressed="
+                current?.kind === kind &&
+                String(current?.period) === String(p.period)
+              "
+              @click="select(p)"
+            >
+              {{ p.title || `${name} ${p.period}` }}
+            </button>
+          </div>
         </div>
       </HRail>
       <p v-if="pending" role="status" class="wuwa-meta">正在读取所选周期…</p>

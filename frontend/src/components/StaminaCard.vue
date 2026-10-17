@@ -67,9 +67,9 @@ const isFull = computed(() => Number.isFinite(payload.value?.current) && Number.
   color: var(--text);
   font-size: 40px;
   line-height: 42px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .ring-cap {

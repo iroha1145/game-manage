@@ -78,12 +78,12 @@ onBeforeUnmount(cancel)
 </template>
 
 <style scoped>
-.guide-updates { margin: 16px 0; padding: 16px 18px; border-radius: var(--radius-tile); background: var(--surface-soft); }
+.guide-updates { margin: 16px 0; padding: 16px 18px; border-radius: var(--radius-tile); background: var(--surface-soft); box-shadow: inset 0 0 0 1px var(--overlay-2); }
 .guide-updates header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .guide-updates h4 { margin: 0; color: var(--text); font-size: 15px; font-weight: 600; }
 .guide-updates header p { margin: 6px 0; color: var(--text-muted); font-size: 13px; }
 .guide-updates button { flex-shrink: 0; }
-.guide-updates button:disabled { opacity: .6; cursor: wait; }
+.guide-updates button:disabled { cursor: wait; }
 .guide-updates summary { cursor: pointer; font-size: 13px; padding: 10px 0; }
 .guide-candidate { padding: 12px 0; border-top: 1px solid var(--border); }
 .guide-candidate a { color: var(--accent); font-size: 14px; overflow-wrap: anywhere; }

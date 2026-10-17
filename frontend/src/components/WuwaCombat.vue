@@ -90,7 +90,7 @@ function open(mode) { selected.value=mode; view.value='records' }
         <WuwaCombatRecord v-if="imageMode" :mode="mode" :snap="snap" :role-names="roleNames" />
       </section>
     </div>
-    <WuwaRoleDialog v-if="selected" :title="`${titles[selected]} · 详情`" @close="selected = ''">
+    <WuwaRoleDialog v-if="selected" :title="`${titles[selected]} · 详情`" :width="760" @close="selected = ''">
       <div v-glide class="segmented wuwa-dialog-tabs" role="group" aria-label="挑战详情视图">
         <button :aria-pressed="view === 'records'" @click="view = 'records'">战绩详情</button>
         <button :aria-pressed="view === 'guides'" @click="view = 'guides'">社区攻略</button>

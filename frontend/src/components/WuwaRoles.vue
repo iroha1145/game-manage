@@ -102,7 +102,7 @@ function close() {
     </header>
     <div v-if="browseGuides" class="wuwa-panel"><WuwaGuideBrowser :roles="roles" @role="open" /></div>
     <div v-if="!imageMode && roles.length" v-reveal class="wuwa-bento roster-summary">
-      <section class="wuwa-panel span-4 is-hero roster-total">
+      <section class="wuwa-panel span-3 is-hero roster-total">
         <header class="cap-title"><h3>已记录角色</h3></header>
         <p class="roster-count"><b>{{ summary.total }}</b><small>位</small></p>
         <div class="stack-bar" aria-hidden="true">
@@ -118,13 +118,13 @@ function close() {
           <li class="chip">满链 <b>{{ summary.fullChain }}</b></li>
         </ul>
       </section>
-      <section class="wuwa-panel span-4">
+      <section class="wuwa-panel span-6">
         <header class="cap-title"><h3>属性分布</h3></header>
         <DonutChart :segments="attributes" label="角色属性分布" unit=" 位" :size="116" :stroke="14">
           <b class="donut-total">{{ summary.total }}</b><small class="ring-cap">位</small>
         </DonutChart>
       </section>
-      <section class="wuwa-panel span-4">
+      <section class="wuwa-panel span-3">
         <header class="cap-title"><h3>等级分布</h3></header>
         <BarChart :items="bands" label="角色等级分布" unit=" 位" :height="112" />
       </section>
@@ -174,41 +174,36 @@ function close() {
         :key="r.role_id"
         :type="imageMode ? undefined : 'button'"
         class="wuwa-role t-item"
-        :data-rarity="starCount(r.star_level) || undefined"
         :data-render-block="imageMode ? '' : undefined"
         :style="{ '--i': Math.min(index, 11) }"
         :aria-pressed="selected?.role_id === r.role_id"
         @click="open(r)"
       >
-        <img
-          v-if="safeUrl(r.icon_url)"
-          :src="safeUrl(r.icon_url)"
-          :alt="r.name"
-          loading="lazy"
-        /><span v-else class="wuwa-avatar-placeholder" aria-hidden="true">{{
-          (r.name || '?').slice(0, 1)
-        }}</span
+        <!-- Mockup .role-card: the picture on the tone with the level as a white tag, then name, rarity and one muted line. -->
+        <span class="wuwa-role-art"
+          ><img
+            v-if="safeUrl(r.icon_url)"
+            :src="safeUrl(r.icon_url)"
+            :alt="r.name"
+            loading="lazy"
+          /><span v-else class="wuwa-avatar-placeholder" aria-hidden="true">{{
+            (r.name || '?').slice(0, 1)
+          }}</span
+          ><span class="wuwa-role-level">Lv.{{ value(r.level) }}</span></span
         ><span class="wuwa-role-body"
-          ><span class="wuwa-role-head"
-            ><strong>{{ r.name || r.role_id }}</strong
-            ><span
-              v-if="starCount(r.star_level)"
-              class="stars"
-              :class="{ 'is-four': starCount(r.star_level) === 4 }"
-              role="img"
-              :aria-label="`${r.star_level} 星`"
-              >{{ '★'.repeat(starCount(r.star_level)) }}</span
-            ><span v-else class="wuwa-meta">{{ value(r.star_level) }} 星</span></span
-          ><span class="wuwa-role-meta"
-            ><span class="wuwa-role-stats"
-              >Lv.{{ value(r.level) }} · {{ value(r.chain) }} 链 · 技能
-              {{ value(r.extra?.total_skill_level) }}</span
-            ><span class="wuwa-role-tags"
-              ><span v-if="r.attribute" class="chip">{{ r.attribute }}</span
-              ><span class="wuwa-role-weapon" title="角色武器类型">{{
-                value(r.weapon)
-              }}</span></span
-            ></span
+          ><strong>{{ r.name || r.role_id }}</strong
+          ><span
+            v-if="starCount(r.star_level)"
+            class="stars"
+            :class="{ 'is-four': starCount(r.star_level) === 4 }"
+            role="img"
+            :aria-label="`${r.star_level} 星`"
+            >{{ '★'.repeat(starCount(r.star_level)) }}</span
+          ><span v-else class="wuwa-meta">{{ value(r.star_level) }} 星</span
+          ><span class="wuwa-role-sub" title="属性 · 武器类型 · 共鸣链 · 技能总等级"
+            ><template v-if="r.attribute">{{ r.attribute }} · </template
+            >{{ value(r.weapon) }} · {{ value(r.chain) }} 链 · 技能
+            {{ value(r.extra?.total_skill_level) }}</span
           ></span
         >
       </component>
@@ -217,6 +212,7 @@ function close() {
     <WuwaRoleDialog
       v-if="selected"
       :title="`${selected.name} · 角色详情`"
+      :width="760"
       @close="close"
     >
       <div v-glide class="segmented wuwa-dialog-tabs" role="group" aria-label="角色详情视图">

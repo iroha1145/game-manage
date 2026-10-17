@@ -130,7 +130,7 @@ watch(portrait, () => { portraitFailed.value = false })
         请先登录鸣潮账号以查看私人档案。
       </p>
       <div v-else-if="section === 'profile'" class="wuwa-bento">
-        <WuwaModuleCard v-reveal v-parallax class="span-7 profile-account is-hero" title="账号档案" :snap="current.account">
+        <WuwaModuleCard v-reveal v-parallax class="span-7 profile-account is-hero" title="账号档案" :snap="current.account" :sheet-width="640">
           <template #preview>
             <div class="account-hero">
               <RingGauge :value="exp?.cur" :max="exp?.max" :label="`${levelName}经验`" :size="116" :stroke="10" color="var(--game-vivid, var(--accent))">
@@ -161,7 +161,7 @@ watch(portrait, () => { portraitFailed.value = false })
         <WuwaModuleCard v-reveal class="span-4" title="数据坞" inline :snap="current.calabash">
           <CalabashCard :snap="current.calabash" />
         </WuwaModuleCard>
-        <WuwaModuleCard v-reveal class="span-12" title="探索收集" :snap="current.exploration">
+        <WuwaModuleCard v-reveal class="span-12" title="探索收集" :snap="current.exploration" :sheet-width="640">
           <template #preview><ExplorationCard compact :snap="current.exploration" /></template>
           <ExplorationCard :snap="current.exploration" />
         </WuwaModuleCard>
@@ -182,11 +182,11 @@ watch(portrait, () => { portraitFailed.value = false })
       />
       <WuwaResources v-else-if="section === 'resources'" :snap="current.resources" :account-key="accountKey" />
       <template v-else-if="accountKey">
-        <WuwaModuleCard v-if="section === 'gacha'" v-reveal class="wuwa-launcher is-hero" title="抽卡历史">
+        <WuwaModuleCard v-if="section === 'gacha'" v-reveal class="wuwa-launcher is-hero" title="抽卡历史" primary :sheet-width="960">
           <template #preview><p class="wuwa-launcher-copy">导入官方记录后，按卡池查看抽数分布、五星记录和当前垫抽。</p></template>
           <WuwaGacha :account-key="accountKey" />
         </WuwaModuleCard>
-        <WuwaModuleCard v-if="section === 'history'" v-reveal class="wuwa-launcher is-hero" title="成长记录">
+        <WuwaModuleCard v-if="section === 'history'" v-reveal class="wuwa-launcher is-hero" title="成长记录" primary :sheet-width="820">
           <template #preview><p class="wuwa-launcher-copy">每次刷新数据后留存角色与玩法记录，在这里查看跨期变化。</p></template>
           <WuwaHistory :account-key="accountKey" :role-names="roleNames" />
         </WuwaModuleCard>

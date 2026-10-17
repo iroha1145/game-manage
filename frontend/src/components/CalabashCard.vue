@@ -65,16 +65,21 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
 }
 
 .calabash-grid > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
   min-width: 0;
   padding: 12px 14px;
   border-radius: var(--radius-tile);
   background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--overlay-2);
 }
 
-/* The calabash level leads: one wide tile in the game colour wash. */
+/* The calabash level leads: one wide tile on the game tone, its label in the ink. */
 .calabash-grid > .is-main {
   grid-column: 1 / -1;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--game-vivid, var(--accent)) 22%, var(--card-bg)), color-mix(in srgb, var(--game-vivid-2, var(--game-vivid, var(--accent))) 12%, var(--card-bg)));
+  background: var(--game-tone, var(--surface-soft));
+  box-shadow: none;
 }
 
 .calabash-grid dt {
@@ -83,15 +88,19 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
   line-height: 18px;
 }
 
+.calabash-grid > .is-main dt {
+  color: var(--game-accent, var(--text-muted));
+}
+
 .calabash-grid dd {
   margin: 2px 0 0;
   overflow: hidden;
   color: var(--text);
   font-size: 20px;
   line-height: 26px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: proportional-nums;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -99,7 +108,7 @@ const fetchedAt = computed(() => toLocal(props.snap?.fetched_at))
 .calabash-grid > .is-main dd {
   font-size: 34px;
   line-height: 40px;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
 }
 
 .fetched-at {
