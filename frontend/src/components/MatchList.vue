@@ -368,7 +368,7 @@ async function toggleDetail(row) {
             <li v-for="m in modes" :key="m.mode" class="mode">
               <div class="bar-row" style="--bar-label: 38%">
                 <span class="k">{{ m.mode }} <small>{{ m.games }} 场</small></span>
-                <span class="meter" style="--series: var(--game-vivid)"><i :style="{ '--pct': `${m.rate ?? 0}%` }"></i></span>
+                <span class="meter"><i :style="{ '--pct': `${m.rate ?? 0}%` }"></i></span>
                 <span class="v">{{ m.rate == null ? '-' : `${m.rate}%` }}</span>
               </div>
               <p v-if="m.detail" class="mode-detail">{{ m.detail }}</p>
@@ -394,14 +394,14 @@ async function toggleDetail(row) {
             </div>
             <span v-if="it.split" class="kda-bar" aria-hidden="true"><i class="k" :style="{ flex: it.split.k }"></i><i class="d" :style="{ flex: it.split.d }"></i><i class="a" :style="{ flex: it.split.a }"></i></span>
             <div v-if="it.damageText" class="mi-damage">
-              <span class="meter" style="--series: var(--game-vivid-2)"><i :style="{ '--pct': `${it.damageShare ?? 0}%` }"></i></span>
+              <span class="meter"><i :style="{ '--pct': `${it.damageShare ?? 0}%` }"></i></span>
               <span>伤害 {{ it.damageText }}</span>
             </div>
             <div class="mi-foot">
               <span class="mi-meta">{{ [it.champion ? it.mode : '', it.durationText].filter(Boolean).join(' · ') }}</span>
               <span v-if="it.gapBefore" class="chip gap-chip" :title="`与上一场相隔 ${it.gapBefore} 天`">隔 {{ it.gapBefore }} 天</span>
               <span v-for="label in it.records" :key="label" class="chip record">{{ label }}</span>
-              <button type="button" class="ui-button ghost small-button" :aria-expanded="expandedId === it.match_id" :aria-controls="expandedId === it.match_id ? detailId : undefined" @click="toggleDetail(it)">
+              <button type="button" class="ui-button small-button" :aria-expanded="expandedId === it.match_id" :aria-controls="expandedId === it.match_id ? detailId : undefined" @click="toggleDetail(it)">
                 {{ expandedId === it.match_id ? '收起' : '详情' }}
               </button>
             </div>
@@ -417,41 +417,43 @@ async function toggleDetail(row) {
 
 <style scoped>
 .mp-head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:0 0 14px}
-.mp-title{font-size:17px;line-height:26px;font-weight:600;letter-spacing:-.01em;margin:0}
-.chart-title{margin:0;color:var(--text);font-size:15px;font-weight:600;line-height:22px;white-space:nowrap}
+.mp-title{font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.02em;margin:0}
+.chart-title{margin:0;color:var(--text);font-size:16px;font-weight:600;line-height:24px;letter-spacing:-.02em;white-space:nowrap}
 
-/* Overview bento: one tall card on the left (win rate and the averages), the form chart and the mode split stacked on the right. */
+/* Overview bento: one tall tone card on the left (win rate and the averages), the form chart and the mode split stacked on the right. */
 .mp-bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:20px;margin-bottom:20px}
 .mp-bento>*{min-width:0;margin:0}
-.mp-rate{grid-column:1/span 4;grid-row:1/span 2;background:radial-gradient(120% 60% at 50% -8%,color-mix(in srgb,var(--game-vivid) 18%,var(--card-bg)),var(--card-bg) 72%);box-shadow:var(--card-shadow),0 22px 48px -32px var(--game-vivid)}
+.mp-rate{grid-column:1/span 4;grid-row:1/span 2;border-color:transparent;background:var(--game-tone)}
 .mp-trend{grid-column:5/span 8}.mp-modes{grid-column:5/span 8}
 .mp-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0;height:100%;align-content:space-between}
 .mp-list>div{min-width:0}
 .rate-main{grid-column:1/-1;display:grid;justify-items:center;gap:12px;text-align:center;padding:6px 0 8px}
-.ring-big b{display:inline;font-size:40px;line-height:1;font-weight:600;letter-spacing:-.035em;font-variant-numeric:proportional-nums}
-.ring-big small{margin-left:2px;font-size:17px;font-weight:500;color:var(--text-muted)}
-.mp-list dt{color:var(--text-muted);font-size:12px;line-height:18px}
-.rate-main dt{display:none}.rate-main dd{margin:0;color:var(--text-body);font-size:13px;font-weight:500}
-.tile{padding:12px 14px;border-radius:var(--radius-well);background:var(--surface-soft)}
+.mp-rate :deep(.ring-track){stroke:color-mix(in srgb,var(--card-bg) 72%,transparent)}
+.ring-big b{display:inline;font-size:40px;line-height:1;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.ring-big small{margin-left:2px;font-size:17px;font-weight:500;color:var(--game-accent)}
+.mp-list dt{color:var(--game-accent);font-size:12px;line-height:18px}
+.rate-main dt{display:none}.rate-main dd{margin:0;color:var(--text);font-size:13px;font-weight:500}
+.tile{padding:12px 14px;border-radius:var(--radius-well);background:var(--card-bg)}
 .tile.wide{grid-column:1/-1}
-.tile dd{margin:2px 0 0;color:var(--text);font-size:24px;line-height:30px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:proportional-nums;white-space:nowrap}
+.tile dt{color:var(--text-muted)}
+.tile dd{margin:2px 0 0;color:var(--text);font-size:24px;line-height:30px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tile dd small{margin-left:4px;color:inherit;font-size:13px;font-weight:500;letter-spacing:0}
 .tile dd.up{color:var(--success)}.tile dd.down{color:var(--danger)}
 .tile p{margin-top:1px;color:var(--text-muted);font-size:12px;line-height:18px}
 
-.trend{margin:0}
+.trend{margin:0;--line:var(--chart-1)}
 .trend figcaption{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px;margin-bottom:12px}
 .trend .legend{margin:0}
-.legend .line-key::before{width:12px;height:2px;border-radius:1px;background:var(--game-vivid-2)}
+.legend .line-key::before{width:12px;height:2px;border-radius:1px;background:var(--line)}
 .plot{position:relative;height:136px;padding-top:14px;border-bottom:1px solid var(--border)}
 .axis-max{position:absolute;top:0;left:0;color:var(--text-faint);font-size:12px;line-height:14px}
 .bars{position:absolute;inset:14px 30px 0 0;display:flex;align-items:flex-end;gap:3px}
-.bar{position:relative;flex:1;min-width:0;height:var(--h);border-radius:5px 5px 0 0;background:var(--track);transition:opacity var(--duration-quick) var(--ease-smooth-out)}
-.bar.win{background:color-mix(in srgb,var(--success) 84%,var(--card-bg))}
-.bar.loss{background:color-mix(in srgb,var(--danger) 80%,var(--card-bg))}
-/* Not a win or a loss: grey. Remakes and missing stats get a short hatched stub so they read as "no result", not a KDA of zero. */
+.bar{position:relative;flex:1;min-width:0;height:var(--h);border-radius:4px 4px 0 0;background:var(--track);transition:opacity var(--duration-quick) var(--ease-smooth-out)}
+.bar.win{background:color-mix(in srgb,var(--success) 78%,var(--card-bg))}
+.bar.loss{background:color-mix(in srgb,var(--danger) 72%,var(--card-bg))}
+/* Not a win or a loss: grey. Remakes and missing stats get a short dashed stub so they read as "no result", not a KDA of zero. */
 .bar.unknown{background:color-mix(in srgb,var(--text-faint) 50%,var(--track))}
-.bar.stub{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text-faint) 70%,transparent) 0 2px,transparent 2px 5px)}
+.bar.stub{border:1.5px dashed var(--text-faint);border-bottom:0;background:transparent}
 .bar::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);z-index:3;display:none;padding:4px 10px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);box-shadow:var(--popover-shadow);color:var(--text-body);font-size:12px;line-height:16px;white-space:nowrap;transform:translateX(-50%);pointer-events:none}
 /* Tips near the edges open inward so they never leave the card. */
 .bar:nth-child(-n+3)::after{left:0;transform:none}
@@ -461,14 +463,14 @@ async function toggleDetail(row) {
   .bars:hover .bar:not(:hover){opacity:.5}
 }
 .line{position:absolute;inset:14px 30px 0 0;width:calc(100% - 30px);height:calc(100% - 14px);overflow:visible;pointer-events:none}
-.line polyline{fill:none;stroke:var(--game-vivid-2);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.line polyline{fill:none;stroke:var(--line);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
 .line .half{stroke:var(--border-strong);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
 /* KDA above the axis cap: the bar stops at the top with a small marker. */
 .bar.clipped::before{content:'';position:absolute;left:50%;top:-5px;width:6px;height:6px;border-radius:1px;background:inherit;transform:translateX(-50%) rotate(45deg)}
 .half-label{position:absolute;right:0;top:calc(14px + (100% - 14px) * .5);width:30px;color:var(--text-faint);font-size:12px;line-height:14px;text-align:right;transform:translateY(-50%)}
 .line-end{position:absolute;right:0;width:34px;color:var(--text);font-size:12px;font-weight:600;line-height:14px;text-align:right;transform:translateY(-50%)}
 .form-pills{display:flex;gap:3px;margin:8px 30px 0 0}
-.form-pills b{display:grid;place-items:center;flex:1 1 0;min-width:0;height:22px;border-radius:8px;background:var(--surface-soft);color:var(--text-muted);font-size:12px;font-weight:600;line-height:1}
+.form-pills b{display:grid;place-items:center;flex:1 1 0;min-width:0;height:22px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text-muted);font-size:12px;font-weight:600;line-height:1}
 .form-pills b.win{background:var(--success-bg);color:var(--success)}.form-pills b.loss{background:var(--danger-bg);color:var(--danger)}
 .axis{position:relative;display:flex;justify-content:space-between;margin-right:30px;padding-top:6px;color:var(--text-faint);font-size:12px}
 /* A break of several days between two games: dashed divider plus a label. */
@@ -476,43 +478,39 @@ async function toggleDetail(row) {
 .gap-label{position:absolute;top:6px;padding:0 4px;background:var(--card-bg);white-space:nowrap;transform:translateX(-50%)}
 
 .modes{display:flex;flex-direction:column;gap:10px}
-.modes .stack-bar{height:10px}
 .modes .legend{margin:0}
 .modes .bar-list{gap:8px}
 .mode-detail{margin:-2px 0 0;color:var(--text-faint);font-size:12px;line-height:18px}
 .modes .k small{margin-left:4px;color:var(--text-faint);font-size:12px}
 .modes-note{margin-top:auto;color:var(--text-faint);font-size:12px}
 
-/* Match cards: white, a result edge on the left, a letter tile for the champion. The opened match's details span the full width after the last card of its row. */
+/* Match cards: white with a hairline; the result is a tag with a word, the champion a tone tile with its first letter. The opened match's details span the full width after the last card of its row. */
 .match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:16px}
-.match-item{position:relative;display:grid;gap:10px;min-width:0;padding:16px 16px 12px 20px;border:1px solid var(--card-border);border-radius:var(--radius-tile);background:var(--card-bg);box-shadow:var(--card-shadow);--edge:var(--border-strong);transition:transform var(--duration-fast) var(--ease-smooth-out),box-shadow var(--duration-fast) var(--ease-smooth-out)}
-.match-item::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:0 4px 4px 0;background:var(--edge)}
-.match-item.is-win{--edge:var(--success)}.match-item.is-loss{--edge:var(--danger)}
-.match-item.is-remake,.match-item.is-unknown{--edge:color-mix(in srgb,var(--text-faint) 55%,transparent)}
-.match-item.open{box-shadow:var(--card-hover-shadow),0 18px 40px -26px var(--game-vivid)}
-@media(hover:hover) and (pointer:fine){.match-item:not(.open):hover{transform:translateY(-3px);box-shadow:var(--card-hover-shadow)}}
+.match-item{display:grid;gap:10px;min-width:0;padding:16px;border:1px solid var(--card-border);border-radius:var(--radius-tile);background:var(--card-bg);box-shadow:var(--card-shadow)}
+.match-item.open{border-color:var(--border-strong)}
 .is-remake .mi-name strong,.is-remake .mi-kda b,.is-remake .mi-kda b.deaths{color:var(--text-muted)}
 .mi-head{display:flex;align-items:center;gap:10px;min-width:0}
-.champ-tile{display:grid;place-items:center;flex-shrink:0;width:40px;height:40px;border-radius:30%;background:color-mix(in srgb,var(--game-vivid) 16%,var(--surface-soft));color:var(--game-lol);font-size:17px;font-weight:600}
+.champ-tile{display:grid;place-items:center;flex-shrink:0;width:40px;height:40px;border-radius:30%;background:var(--game-tone);color:var(--game-accent);font-size:17px;font-weight:600}
 .mi-name{display:grid;min-width:0;margin-right:auto}
-.mi-name strong{overflow:hidden;color:var(--text);font-size:14px;font-weight:500;line-height:20px;text-overflow:ellipsis;white-space:nowrap}
+.mi-name strong{overflow:hidden;color:var(--text);font-size:14px;font-weight:600;line-height:20px;text-overflow:ellipsis;white-space:nowrap}
 .mi-name time{color:var(--text-faint);font-size:12px;line-height:16px}
 .mi-kda{display:flex;align-items:baseline;gap:3px;color:var(--text)}
-.mi-kda b{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em}
+.mi-kda b{font-size:22px;line-height:28px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .mi-kda i{color:var(--text-faint);font-style:normal;font-size:14px}
-.mi-kda .ratio{margin-left:auto;padding:0 8px;border-radius:var(--radius-chip);background:var(--surface-soft);color:var(--text-body);font-size:12px;font-weight:500;line-height:20px;white-space:nowrap}
-.kda-bar{display:flex;gap:2px;height:6px;border-radius:999px;overflow:hidden;background:var(--track)}
-.kda-bar i{display:block;min-width:2px}.kda-bar .k{background:var(--game-vivid)}.kda-bar .d{background:color-mix(in srgb,var(--text-faint) 55%,var(--track))}.kda-bar .a{background:var(--game-vivid-2)}
+.mi-kda .ratio{margin-left:auto;padding:0 8px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text-body);font-size:12px;font-weight:500;line-height:20px;white-space:nowrap}
+.kda-bar{display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;background:var(--track)}
+.kda-bar i{display:block;min-width:2px}.kda-bar .k{background:var(--game-vivid)}.kda-bar .d{background:color-mix(in srgb,var(--text-faint) 55%,var(--track))}.kda-bar .a{background:color-mix(in srgb,var(--game-vivid) 55%,var(--card-bg))}
 .mi-damage{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;color:var(--text-muted);font-size:12px}
 .mi-damage .meter{height:4px}
-.mi-foot{display:flex;align-items:center;gap:6px;min-width:0;padding-top:4px;border-top:1px solid var(--border)}
+.mi-foot{display:flex;align-items:center;gap:6px;min-width:0;padding-top:10px;border-top:1px solid var(--border)}
 .mi-meta{min-width:0;margin-right:auto;overflow:hidden;color:var(--text-muted);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
-.chip.record{background:color-mix(in srgb,var(--game-vivid) 14%,var(--surface-soft));box-shadow:none;color:var(--text)}
+.chip.record{background:var(--game-tone);color:var(--game-accent)}
 .mi-foot .ui-button{flex-shrink:0}
-.match-detail{grid-column:1/-1;min-width:0;padding:6px 16px 14px;border-radius:var(--radius-tile);background:var(--card-bg);box-shadow:var(--card-shadow)}
+.mi-foot .ui-button[aria-expanded="true"]{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.match-detail{grid-column:1/-1;min-width:0;padding:6px 16px 14px;border:1px solid var(--card-border);border-radius:var(--radius-tile);background:var(--card-bg);box-shadow:var(--card-shadow)}
 
 .badge-win{color:var(--success);background:var(--success-bg)}
-.badge-muted{color:var(--text-muted);background:var(--overlay-3)}
+.badge-muted{color:var(--text-muted);background:var(--control-track)}
 
 @media(max-width:900px){
   .mp-rate,.mp-trend,.mp-modes{grid-column:1/-1;grid-row:auto}
@@ -520,7 +518,7 @@ async function toggleDetail(row) {
 }
 @media(max-width:600px){
   .mp-bento{gap:14px;margin-bottom:14px}.match-grid{gap:12px}
-  .form-pills b{font-size:0;height:8px;border-radius:999px}
+  .form-pills{gap:2px}.form-pills b{height:20px;border-radius:4px;font-size:11px}
   .mp-list{grid-template-columns:repeat(2,minmax(0,1fr))}.tile.wide{grid-column:1/-1}
 }
 </style>

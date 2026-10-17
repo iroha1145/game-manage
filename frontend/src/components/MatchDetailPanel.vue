@@ -113,19 +113,21 @@ const compare = computed(() => {
 .detail-error {
   background: var(--danger-bg);
   color: var(--danger);
-  padding: 8px 10px;
+  border: 1px solid var(--danger-border);
+  padding: 8px 12px;
   border-radius: var(--radius-control);
   font-size: 13px;
 }
 
-/* Team totals: kills, damage and gold as one two-part bar each. */
+/* Team totals: kills, damage and gold as one two-part bar each; our side keeps the game line, theirs steps back. */
 .compare {
   display: grid;
   gap: 8px;
   margin-bottom: 14px;
   padding: 12px 14px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-well);
-  background: var(--surface-soft);
+  background: var(--panel-bg);
 }
 
 .compare .legend {
@@ -148,15 +150,15 @@ const compare = computed(() => {
   display: block;
   height: 8px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: 4px;
   background: color-mix(in srgb, var(--text-faint) 45%, var(--track));
 }
 
 .compare-bar i {
   display: block;
   height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--game-vivid), var(--game-vivid-2));
+  border-radius: 4px;
+  background: var(--game-vivid);
 }
 
 .compare-values {
@@ -164,6 +166,7 @@ const compare = computed(() => {
   font-weight: 500;
   text-align: right;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .teams {
@@ -172,17 +175,17 @@ const compare = computed(() => {
   flex-wrap: wrap;
 }
 
-/* Each side is a tone step inside the card; the own side is tinted, not outlined. */
+/* Each side is a hairline block with its own table; our side comes first and says so. */
 .team-col {
   flex: 1 1 640px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-well);
-  background: var(--surface-soft);
+  background: var(--card-bg);
   padding: 10px 12px;
   min-width: 260px;
 }
 
 .team-col.team-own {
-  background: color-mix(in srgb, var(--game-vivid) 9%, var(--surface-soft));
   order: -1;
 }
 
@@ -194,9 +197,10 @@ const compare = computed(() => {
 }
 
 .team-result {
-  padding: 0 10px;
+  padding: 0 8px;
   border-radius: var(--radius-chip);
-  background: var(--overlay-3);
+  background: var(--control-track);
+  color: var(--text-body);
   font-size: 12px;
   font-weight: 600;
   line-height: 22px;
@@ -219,15 +223,34 @@ const compare = computed(() => {
 .team-own-tag {
   font-size: 12px;
   font-weight: 500;
-  color: var(--game-lol);
-  background: color-mix(in srgb, var(--game-vivid) 16%, transparent);
+  color: var(--game-accent);
+  background: var(--game-tone);
   border-radius: var(--radius-chip);
   padding: 0 8px;
-  line-height: 20px;
+  line-height: 22px;
 }
 
 .table-scroll {
   overflow-x: auto;
+}
+
+/* A table wider than its block fades out at the right edge until it has been scrolled to the end, so cut-off columns read as "more this way". */
+@property --table-fade {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes table-edge {
+  from { --table-fade: 28px; }
+  to { --table-fade: 0px; }
+}
+@supports (animation-timeline: scroll(self inline)) {
+  .table-scroll {
+    animation: table-edge linear both;
+    animation-timeline: scroll(self inline);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--table-fade)), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--table-fade)), transparent);
+  }
 }
 
 /* Nicknames and champion names are unbroken CJK strings with no natural line-
@@ -246,11 +269,15 @@ const compare = computed(() => {
   font-size: 12px;
 }
 
+.team-col .data-table td.num {
+  font-variant-numeric: tabular-nums;
+}
+
 .muted {
   color: var(--text-muted);
 }
 
-/* Damage: the number with a thin bar behind it, full length for the match's top damage. */
+/* Damage: the number with a thin bar beside it, full length for the match's top damage. */
 .team-col .data-table .dmg {
   display: inline-flex;
   align-items: center;
@@ -271,15 +298,15 @@ const compare = computed(() => {
 .item-id {
   display: inline-block;
   margin: 1px 3px 1px 0;
-  padding: 0 5px;
+  padding: 0 6px;
   border-radius: var(--radius-chip);
-  background: var(--overlay-3);
+  background: var(--control-track);
   color: var(--text-muted);
   font-size: 12px;
   line-height: 18px;
 }
 
 .player-own td {
-  background: color-mix(in srgb, var(--game-vivid) 12%, transparent);
+  background: color-mix(in srgb, var(--game-tone) 70%, transparent);
 }
 </style>

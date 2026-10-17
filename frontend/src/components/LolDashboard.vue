@@ -165,7 +165,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
           <h2>{{ analysis?.account?.nickname || snaps.account?.payload?.nickname || '我的英雄联盟' }}</h2>
           <ul v-if="analysis?.account || rank || level != null" class="chip-list lol-chips">
             <li v-if="level != null" class="chip">等级 {{ val(level) }}</li>
-            <li v-if="rank" class="chip rank-chip"><b>{{ rank.tier }}</b>{{ rank.division ? ` ${rank.division}` : '' }} · {{ val(rank.points) }} LP</li>
+            <li v-if="rank" class="chip game rank-chip"><b>{{ rank.tier }}</b>{{ rank.division ? ` ${rank.division}` : '' }} · {{ val(rank.points) }} LP</li>
             <li v-if="rank && rank.wins != null && rank.losses != null" class="chip">单双排 {{ rank.wins }} 胜 {{ rank.losses }} 负</li>
           </ul>
         </div>
@@ -186,10 +186,10 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
     <div :key="section" class="lol-view t-panel">
       <LolEsportsPanel v-if="section === 'esports'" :snap="snaps.esports" :browse-state="esportsBrowse" @snapshot="emit('esports-snapshot', $event)" @browse-change="emit('esports-browse', $event)" />
       <template v-else-if="section === 'news'">
-        <section v-reveal class="cap-card b-card news-top">
-          <div class="news-count"><div class="b-head"><h3>发布概况</h3></div><p class="big">{{ articles.length }}<small>条</small></p><p class="b-note">{{ newest ? `最近一条发布于 ${fmt(newest.published_at).slice(0, 10)}` : '暂无发布时间' }}</p></div>
-          <div class="news-rhythm"><div class="b-head"><h3>近 8 周发布数量</h3><span class="b-meta">按周一起算 · 北京时间</span></div><BarChart :items="weekly" label="近 8 周每周发布的公告与资讯数量" unit=" 条" :height="76" /></div>
-        </section>
+        <div class="bento">
+          <section v-reveal class="cap-card b-card tone news-count"><div class="b-head"><h3>发布概况</h3></div><p class="big">{{ articles.length }}<small>条</small></p><p class="b-note">{{ newest ? `最近一条发布于 ${fmt(newest.published_at).slice(0, 10)}` : '暂无发布时间' }}</p></section>
+          <section v-reveal class="cap-card b-card news-rhythm"><div class="b-head"><h3>近 8 周发布数量</h3><span class="b-meta">按周一起算 · 北京时间</span></div><BarChart :items="weekly" label="近 8 周每周发布的公告与资讯数量" unit=" 条" :height="76" /></section>
+        </div>
         <AnnouncementList game-id="league_of_legends" :snap="snaps.news" :extra-snaps="[{ ...snaps.announcement, capability: 'announcement' }]" />
       </template>
       <template v-else-if="!loading && !hasArchive">
@@ -213,7 +213,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
       <template v-else-if="analysis && hasArchive">
         <template v-if="section === 'overview'">
           <div class="bento">
-            <section v-reveal class="cap-card b-card ov-win">
+            <section v-reveal class="cap-card b-card tone ov-win">
               <div class="b-head"><h3>个人胜率</h3><span class="b-meta">{{ filterLabel }}</span></div>
               <div class="win-body">
                 <RingGauge :value="winrate" :max="100" label="个人胜率" :size="172" :stroke="15" color="var(--game-vivid)">
@@ -228,14 +228,14 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
                 <ul class="legend"><li v-for="part in parts" :key="part.key" :class="part.key">{{ part.label }} <b>{{ part.value }}</b></li></ul>
               </div>
             </section>
-            <section v-reveal class="cap-card b-card tint t-games">
+            <section v-reveal class="cap-card b-card t-games">
               <div class="b-head"><h3>对局场次</h3></div>
               <p class="big">{{ val(overview.games) }}<small>场</small></p>
               <div class="mini-bars" role="img" aria-label="近 14 天每天的对局数"><i v-for="cell in heatRecent" :key="cell.date" :style="{ height: `${cell.height}%` }" :class="{ idle: !cell.games }" :title="`${cell.date}：${cell.games} 场`"></i></div>
               <p class="b-note">活跃 {{ heat.activeDays }} 天<template v-if="playHours != null"> · 已记录 {{ playHours }} 小时</template></p>
             </section>
             <section v-reveal class="cap-card b-card t-kda">
-              <div class="b-head"><h3>场均 K / D / A</h3><span v-if="kdaAverage != null" class="pill">KDA {{ dec1(kdaAverage) }}</span></div>
+              <div class="b-head"><h3>场均 K / D / A</h3><span v-if="kdaAverage != null" class="chip game">KDA {{ dec1(kdaAverage) }}</span></div>
               <div class="kda-trio"><div><b>{{ dec1(overview.avg_kills) }}</b><span>击杀</span></div><div><b>{{ dec1(overview.avg_deaths) }}</b><span>死亡</span></div><div><b>{{ dec1(overview.avg_assists) }}</b><span>助攻</span></div></div>
               <div v-if="kdaShare" class="kda-bar" role="img" aria-label="击杀、死亡、助攻的占比"><i class="k" :style="{ flex: kdaShare.k }"></i><i class="d" :style="{ flex: kdaShare.d }"></i><i class="a" :style="{ flex: kdaShare.a }"></i></div>
               <p class="b-note">已记录时长 {{ val(overview.play_minutes) }} 分钟</p>
@@ -243,10 +243,10 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
             <section v-reveal class="cap-card b-card t-part">
               <div class="b-head"><h3>团战参与</h3></div>
               <div class="meter-row"><span>参团率</span><b>{{ percent(participation.kp) }}</b><span class="meter"><i :style="{ '--pct': `${participation.kp ?? 0}%` }"></i></span></div>
-              <div class="meter-row two"><span>伤害占比</span><b>{{ percent(participation.share) }}</b><span class="meter"><i :style="{ '--pct': `${participation.share ?? 0}%` }"></i></span></div>
+              <div class="meter-row"><span>伤害占比</span><b>{{ percent(participation.share) }}</b><span class="meter"><i :style="{ '--pct': `${participation.share ?? 0}%` }"></i></span></div>
               <p class="b-note">均值取自有完整队伍数据的对局</p>
             </section>
-            <section v-reveal class="cap-card b-card tint two t-score">
+            <section v-reveal class="cap-card b-card t-score">
               <div class="b-head"><h3>平均参考评分</h3></div>
               <p class="big">{{ dec1(overview.average_score) }}<small>分</small></p>
               <div class="scale" role="img" :aria-label="`参考评分 3 至 16，平均 ${val(overview.average_score)}`"><span class="meter"><i :style="{ '--pct': `${scorePosition ?? 0}%` }"></i></span><em>3</em><em>16</em></div>
@@ -254,8 +254,8 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
             </section>
           </div>
           <div class="bento trend-row">
-            <LolTrend v-reveal class="span-6" :rows="analysis.trend" metric="winrate" label="胜率趋势" unit="%" color="var(--game-vivid)" />
-            <LolTrend v-reveal class="span-6" :rows="analysis.trend" metric="average_score" label="参考评分趋势" :min="3" :max="16" color="var(--game-vivid-2)" />
+            <LolTrend v-reveal class="span-6" :rows="analysis.trend" metric="winrate" label="胜率趋势" unit="%" />
+            <LolTrend v-reveal class="span-6" :rows="analysis.trend" metric="average_score" label="参考评分趋势" :min="3" :max="16" />
           </div>
           <div class="bento">
             <section v-reveal class="cap-card b-card span-7 heat-card">
@@ -292,12 +292,12 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
                 </li>
               </ol>
               <p v-else class="method-note">当前筛选没有可统计的英雄。</p>
-              <details v-if="champions.length > 7" class="more"><summary>查看全部 {{ champions.length }} 个英雄</summary><div class="lol-table-wrap"><table><thead><tr><th>英雄</th><th>场次</th><th>胜率</th><th>参考评分</th></tr></thead><tbody><tr v-for="champion in champions" :key="champion.champion_id"><td>{{ champion.name || `英雄 #${champion.champion_id}` }}</td><td>{{ val(champion.games) }}</td><td>{{ percent(champion.winrate) }}</td><td>{{ dec1(champion.average_score) }}</td></tr></tbody></table></div></details>
+              <details v-if="champions.length > 7" class="more"><summary>查看全部 {{ champions.length }} 个英雄</summary><div class="lol-table-wrap"><table class="data-table"><thead><tr><th>英雄</th><th>场次</th><th>胜率</th><th>参考评分</th></tr></thead><tbody><tr v-for="champion in champions" :key="champion.champion_id"><td>{{ champion.name || `英雄 #${champion.champion_id}` }}</td><td>{{ val(champion.games) }}</td><td>{{ percent(champion.winrate) }}</td><td>{{ dec1(champion.average_score) }}</td></tr></tbody></table></div></details>
             </section>
           </div>
           <section v-if="analysis.highlights?.length" v-reveal class="highlights">
-            <div class="section-heading"><h3>个人高光</h3><span class="b-meta">{{ analysis.highlights.length }} 项</span></div>
             <HRail label="个人高光">
+              <template #head><h3>个人高光</h3><span class="count-badge">{{ analysis.highlights.length }} 项</span></template>
               <article v-for="(item, index) in analysis.highlights" :key="index" class="hl-card" :class="{ rare: item.label === '五杀' || item.label === '四杀' }">
                 <span class="hl-label">{{ item.label }}</span>
                 <strong class="hl-value">{{ highlightValue(item) }}</strong>
@@ -320,7 +320,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
               </ol>
               <ul class="legend"><li class="win">胜利</li><li class="loss">失败</li><li class="unknown">重开 / 胜负未知</li></ul>
             </section>
-            <section v-reveal class="cap-card b-card tint form-side">
+            <section v-reveal class="cap-card b-card tone form-side">
               <div class="b-head"><h3>近 {{ recent.length }} 场</h3></div>
               <div class="form-ring">
                 <RingGauge :value="recentRecord.rate" :max="100" label="近期胜率" :size="124" :stroke="12" color="var(--game-vivid)"><span class="ring-big small" aria-hidden="true"><template v-if="recentRecord.rate != null"><b>{{ recentRecord.rate }}</b><small>%</small></template><b v-else>—</b></span></RingGauge>
@@ -331,24 +331,27 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
           </div>
           <p class="method-note">参考评分范围 3–16 分</p>
           <p v-if="!matches.length" class="lol-empty-line">当前时间和模式下没有已归档对局，可调整筛选。</p>
+          <div v-if="matches.length" class="cap-card match-list">
+          <div class="b-head"><h3>对局记录</h3><span class="b-meta">{{ matches.length }} 场</span></div>
           <article v-for="row in matches" :key="row.match_id" class="lol-match" :class="resultClass(row)">
             <div class="match-main">
               <div class="match-result"><b>{{ result(row.win, row.remake) }}</b><small>{{ row.mode || queues.find(([id]) => id === String(row.queue_id))?.[1] || '未知模式' }}</small></div>
               <div class="match-champion"><span class="champ-tile" aria-hidden="true">{{ letterOf(row.champion_name) }}</span><span class="champ-copy"><strong>{{ row.champion_name || `英雄 #${row.champion_id ?? '?'}` }}</strong><small>{{ fmt(row.start_at) }} · {{ row.duration_seconds == null ? '时长未知' : `${val(row.duration_seconds / 60)} 分钟` }}</small></span></div>
               <div class="match-kda"><strong>{{ kda(row) }}</strong><small>K / D / A<template v-if="ratioOf(row) != null && !row.remake"> · KDA {{ dec1(ratioOf(row)) }}</template></small><span v-if="splitOf(row)" class="kda-bar thin" aria-hidden="true"><i class="k" :style="{ flex: splitOf(row).k }"></i><i class="d" :style="{ flex: splitOf(row).d }"></i><i class="a" :style="{ flex: splitOf(row).a }"></i></span></div>
               <div class="match-score"><strong :class="{ unknown: !Number.isFinite(row.score) }">{{ dec1(row.score) }}</strong><small>参考评分</small></div>
-              <button type="button" class="ui-button ghost small-button" :aria-expanded="expanded === row.match_id" @click="toggleDetail(row)">{{ expanded === row.match_id ? '收起详情' : '查看详情' }}</button>
+              <button type="button" class="ui-button small-button" :aria-expanded="expanded === row.match_id" @click="toggleDetail(row)">{{ expanded === row.match_id ? '收起详情' : '查看详情' }}</button>
             </div>
             <div class="match-tags"><span>伤害 {{ val(row.damage) }}</span><span>参团 {{ percent(row.kp) }}</span><span>伤害占比 {{ percent(row.damage_share) }}</span><span v-for="augment in row.augments" :key="augment.id" class="augment">{{ augment.name || `强化 #${augment.id}` }}</span><span v-for="label in row.highlights" :key="label" class="rare-tag">{{ label }}</span></div>
-            <section v-if="expanded === row.match_id" class="match-detail"><p v-if="detailLoading" role="status">对局详情加载中…</p><p v-else-if="detailError" class="lol-error" role="alert">{{ detailError }}</p><template v-else-if="detail"><div v-for="team in detail.teams || []" :key="team.team_id" class="team-block"><h4 :class="resultClass({ win: team.win, remake: row.remake || detail.remake })">{{ result(team.win, row.remake || detail.remake) }} · 队伍 {{ team.team_id }}<span v-if="team.participants?.some(p => p.is_own)"> · 我方</span></h4><div class="lol-table-wrap"><table><thead><tr><th>英雄</th><th>K / D / A</th><th>伤害</th><th>金币</th></tr></thead><tbody><tr v-for="(player, i) in team.participants || []" :key="i" :class="{ own: player.is_own }"><td>{{ player.champion_name || `英雄 #${player.champion_id ?? '?'}` }}<span v-if="player.is_own"> · 我</span></td><td>{{ kda(player) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': damageShare(player) }"></i></span>{{ val(player.damage) }}</span></td><td>{{ val(player.gold) }}</td></tr></tbody></table></div></div></template><p v-else>本机未取得详情，可启动客户端后重新采集。</p></section>
+            <section v-if="expanded === row.match_id" class="match-detail"><p v-if="detailLoading" role="status">对局详情加载中…</p><p v-else-if="detailError" class="lol-error" role="alert">{{ detailError }}</p><template v-else-if="detail"><div v-for="team in detail.teams || []" :key="team.team_id" class="team-block"><h4 :class="resultClass({ win: team.win, remake: row.remake || detail.remake })">{{ result(team.win, row.remake || detail.remake) }} · 队伍 {{ team.team_id }}<span v-if="team.participants?.some(p => p.is_own)"> · 我方</span></h4><div class="lol-table-wrap"><table class="data-table"><thead><tr><th>英雄</th><th>K / D / A</th><th>伤害</th><th>金币</th></tr></thead><tbody><tr v-for="(player, i) in team.participants || []" :key="i" :class="{ own: player.is_own }"><td>{{ player.champion_name || `英雄 #${player.champion_id ?? '?'}` }}<span v-if="player.is_own"> · 我</span></td><td>{{ kda(player) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': damageShare(player) }"></i></span>{{ val(player.damage) }}</span></td><td>{{ val(player.gold) }}</td></tr></tbody></table></div></div></template><p v-else>本机未取得详情，可启动客户端后重新采集。</p></section>
           </article>
+          </div>
         </template>
         <template v-else-if="section === 'hex'">
           <div class="bento">
-            <section v-reveal class="cap-card b-card tint hex-intro">
+            <section v-reveal class="cap-card b-card tone hex-intro">
               <div class="b-head"><h3>我的海克斯样本</h3></div>
               <div class="hex-cover">
-                <RingGauge v-if="hexCoverage != null" :value="hexCoverage" :max="hex.games" label="已记录强化的海克斯对局占比" :size="112" :stroke="11" color="var(--game-vivid-2)"><span class="ring-big small" aria-hidden="true">{{ Math.round(hexCoverage / hex.games * 100) }}<small>%</small></span></RingGauge>
+                <RingGauge v-if="hexCoverage != null" :value="hexCoverage" :max="hex.games" label="已记录强化的海克斯对局占比" :size="112" :stroke="11" color="var(--game-vivid)"><span class="ring-big small" aria-hidden="true">{{ Math.round(hexCoverage / hex.games * 100) }}<small>%</small></span></RingGauge>
                 <p class="hex-count">当前筛选内海克斯对局 {{ val(hex.games) }} 场 · 已记录强化 {{ val(hex.recorded_games) }} 场</p>
               </div>
               <p class="method-note">样本胜率不代表强化强度；重开与未知胜负不计入胜率。</p>
@@ -360,8 +363,8 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
               <p v-else class="method-note">暂无强化选择记录。</p>
             </section>
           </div>
-          <section v-reveal class="cap-card b-card"><div class="b-head"><h3>强化选择记录</h3><span v-if="hex.augments?.length" class="b-meta">{{ hex.augments.length }} 项</span></div><div v-if="hex.augments?.length" class="lol-table-wrap tall"><table><thead><tr><th>强化</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="augment in hex.augments" :key="augment.id"><td>{{ augment.name || `强化 #${augment.id}` }}</td><td>{{ val(augment.games) }}</td><td>{{ val(augment.wins) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': `${augment.winrate ?? 0}%` }"></i></span>{{ percent(augment.winrate) }}</span></td></tr></tbody></table></div><p v-else class="method-note">暂无强化选择记录。</p></section>
-          <section v-reveal class="cap-card b-card"><div class="b-head"><h3>强化组合</h3><span v-if="hex.combinations?.length" class="b-meta">{{ hex.combinations.length }} 项 · 两两共现</span></div><div v-if="hex.combinations?.length" class="lol-table-wrap tall"><table><thead><tr><th>组合</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="(combo, i) in hex.combinations" :key="i"><td>{{ combo.names?.join(' + ') || combo.ids?.join(' + ') || '未知组合' }}</td><td>{{ val(combo.games) }}</td><td>{{ val(combo.wins) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': `${combo.winrate ?? 0}%` }"></i></span>{{ percent(combo.winrate) }}</span></td></tr></tbody></table></div><p v-else class="method-note">暂无可统计的强化组合。</p></section>
+          <section v-reveal class="cap-card b-card"><div class="b-head"><h3>强化选择记录</h3><span v-if="hex.augments?.length" class="b-meta">{{ hex.augments.length }} 项</span></div><div v-if="hex.augments?.length" class="lol-table-wrap tall"><table class="data-table"><thead><tr><th>强化</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="augment in hex.augments" :key="augment.id"><td>{{ augment.name || `强化 #${augment.id}` }}</td><td>{{ val(augment.games) }}</td><td>{{ val(augment.wins) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': `${augment.winrate ?? 0}%` }"></i></span>{{ percent(augment.winrate) }}</span></td></tr></tbody></table></div><p v-else class="method-note">暂无强化选择记录。</p></section>
+          <section v-reveal class="cap-card b-card"><div class="b-head"><h3>强化组合</h3><span v-if="hex.combinations?.length" class="b-meta">{{ hex.combinations.length }} 项 · 两两共现</span></div><div v-if="hex.combinations?.length" class="lol-table-wrap tall"><table class="data-table"><thead><tr><th>组合</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="(combo, i) in hex.combinations" :key="i"><td>{{ combo.names?.join(' + ') || combo.ids?.join(' + ') || '未知组合' }}</td><td>{{ val(combo.games) }}</td><td>{{ val(combo.wins) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': `${combo.winrate ?? 0}%` }"></i></span>{{ percent(combo.winrate) }}</span></td></tr></tbody></table></div><p v-else class="method-note">暂无可统计的强化组合。</p></section>
         </template>
       </template>
       <details v-if="section === 'overview' && snaps.account?.payload" class="cap-card quiet"><summary>账号与排位{{ snaps.account.stale ? ' · 待更新' : '' }}</summary><AccountCard :snap="snaps.account" /></details>
@@ -376,73 +379,76 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
 .lol-dashboard :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .lol-dashboard button:disabled{opacity:.55;cursor:wait}
 
-/* Identity: a letter tile, the name and a few chips; the sync button is the page's one filled action. */
+/* Identity: a tone tile with the first letter, the name and a few tags; the sync button is the page's one filled action. */
 .lol-header{display:flex;justify-content:space-between;align-items:center;gap:16px 20px;flex-wrap:wrap;margin-bottom:18px}
 .lol-id{display:flex;align-items:center;gap:14px;min-width:0}
-.lol-avatar{display:grid;place-items:center;flex-shrink:0;width:52px;height:52px;border-radius:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--game-vivid) 30%,var(--card-bg)),color-mix(in srgb,var(--game-vivid-2) 22%,var(--card-bg)));box-shadow:var(--card-shadow),inset 0 0 0 1px color-mix(in srgb,var(--game-vivid) 26%,transparent);color:var(--text);font-size:22px;font-weight:600}
+.lol-avatar{display:grid;place-items:center;flex-shrink:0;width:52px;height:52px;border-radius:16px;background:var(--game-tone);box-shadow:inset 0 0 0 1px var(--card-border);color:var(--game-accent);font-size:22px;font-weight:600}
 .lol-id-copy{min-width:0}
 .lol-id-copy h2{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 4px;overflow-wrap:anywhere}
 .lol-chips .chip{background:var(--card-bg);box-shadow:inset 0 0 0 1px var(--border)}
-.lol-chips .rank-chip{background:color-mix(in srgb,var(--game-vivid) 12%,var(--card-bg));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--game-vivid) 26%,transparent)}
+.lol-chips .rank-chip{background:var(--game-tone);box-shadow:none;color:var(--game-accent)}
 .collect-button{flex-shrink:0}
 .lol-notice,.lol-error{padding:10px 16px;border-radius:var(--radius-well);font-size:13px;line-height:1.7;margin:0 0 12px}
-.lol-notice{color:var(--text-body);background:color-mix(in srgb,var(--game-vivid) 9%,var(--card-bg));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--game-vivid) 18%,transparent)}
-.lol-error{color:var(--danger);background:var(--danger-bg);overflow-wrap:anywhere}
+.lol-notice{color:var(--game-accent);background:var(--game-tone)}
+.lol-error{color:var(--danger);background:var(--danger-bg);border:1px solid var(--danger-border);overflow-wrap:anywhere}
 
-/* Tabs are the shared segmented pill; filters are two pill selects and a quiet button. */
+/* Tabs are the shared segmented control; the filters are two native selects and a small button. */
 .lol-toolbar{display:flex;justify-content:space-between;flex-wrap:wrap;align-items:center;gap:12px 16px;margin:0 0 16px}
 .lol-tabs{max-width:100%}
 .lol-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .lol-filters label{position:relative;display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:12px;white-space:nowrap}
-.lol-filters label::after{content:'';position:absolute;right:15px;top:50%;width:6px;height:6px;margin-top:-5px;border-right:1.5px solid var(--text-muted);border-bottom:1.5px solid var(--text-muted);transform:rotate(45deg);pointer-events:none}
-.lol-filters select{appearance:none;-webkit-appearance:none;min-height:36px;max-width:170px;padding:6px 34px 6px 14px;border:1px solid var(--border);border-radius:999px;background:var(--card-bg);box-shadow:var(--btn-shadow);color:var(--text);font-size:13px;font-weight:500;cursor:pointer}
-@media(hover:hover) and (pointer:fine){.lol-filters select:hover{border-color:var(--border-strong)}}
-.coverage-line{margin:0 0 16px}
-.coverage-line .chip{background:transparent;box-shadow:none;color:var(--text-muted);padding:0 12px 0 0;border-radius:0}
-.coverage-line .chip+.chip{padding-left:12px;border-left:1px solid var(--border)}
+.lol-filters label::after{content:'';position:absolute;right:13px;top:50%;width:6px;height:6px;margin-top:-5px;border-right:1.5px solid var(--text-muted);border-bottom:1.5px solid var(--text-muted);transform:rotate(45deg);pointer-events:none}
+.lol-filters select{appearance:none;-webkit-appearance:none;min-height:34px;max-width:170px;padding:6px 32px 6px 12px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card-bg);box-shadow:var(--btn-shadow);color:var(--text);font-size:13px;font-weight:500;cursor:pointer}
+@media(hover:hover) and (pointer:fine){.lol-filters select:hover{border-color:var(--border-strong);background:var(--button-hover-bg)}}
+@media(pointer:coarse){.lol-filters select{min-height:44px}}
+.coverage-line{gap:2px 20px;margin:0 0 16px}
+.coverage-line .chip{padding:0;border-radius:0;background:transparent;color:var(--text-muted)}
 
 /* The view is the size container the bento folds against, so the page's own sidebar does not matter. */
 .lol-view{min-width:0;container:lol-view/inline-size}
 
-/* Bento: twelve columns, cards of different widths; narrow containers fold them. */
+/* Bento: twelve columns, white cards of different widths; narrow containers fold them. The one tone card per
+   tab holds the number the tab is about, with its labels in the game's ink. */
 .bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:20px;margin-bottom:20px}
 .bento>*{min-width:0}
 .span-5{grid-column:span 5}.span-6{grid-column:span 6}.span-7{grid-column:span 7}
 .b-card{display:flex;flex-direction:column;gap:12px;position:relative}
-.b-card.tint{background:linear-gradient(165deg,color-mix(in srgb,var(--game-vivid) 12%,var(--card-bg)),var(--card-bg) 72%)}
-.b-card.tint.two{background:linear-gradient(165deg,color-mix(in srgb,var(--game-vivid-2) 12%,var(--card-bg)),var(--card-bg) 72%)}
+.b-card.tone{background:var(--game-tone);border-color:transparent}
 .b-head{display:flex;align-items:baseline;justify-content:space-between;gap:4px 12px;flex-wrap:wrap}
-.b-head h3{font-size:15px;line-height:22px;font-weight:600;letter-spacing:-.005em;margin:0}
+.b-head h3{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.02em;margin:0;color:var(--text)}
 .b-meta{color:var(--text-faint);font-size:12px}
 .b-note{color:var(--text-muted);font-size:12px;line-height:1.7;margin:0}
-.big{font-size:36px;line-height:42px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums;margin:0}
+.tone .b-meta,.tone .b-note,.tone .method-note,.tone .legend{color:var(--game-accent)}
+.tone :deep(.ring-track){stroke:color-mix(in srgb,var(--card-bg) 72%,transparent)}
+.big{font-size:36px;line-height:42px;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums;margin:0}
 .big small{margin-left:5px;font-size:15px;font-weight:500;letter-spacing:0;color:var(--text-muted)}
-.pill{display:inline-flex;align-items:center;padding:1px 10px;border-radius:999px;background:var(--surface-soft);color:var(--text-body);font-size:12px;font-weight:500;line-height:20px}
-.section-heading h3{font-size:17px;line-height:26px;font-weight:600;letter-spacing:-.01em;margin:0}
+.tone .big small{color:var(--game-accent)}
 
-/* Win-rate hero: the page's one glowing card. */
-.ov-win{grid-column:1/span 4;grid-row:1/span 2;gap:16px;background:radial-gradient(120% 70% at 50% -10%,color-mix(in srgb,var(--game-vivid) 20%,var(--card-bg)),var(--card-bg) 70%);box-shadow:var(--card-shadow),0 22px 48px -30px var(--game-vivid)}
+/* Win rate: a ring with the split of results under it. Win and loss use the status tokens and always carry a word. */
+.ov-win{grid-column:1/span 4;grid-row:1/span 2;gap:16px}
 .win-body{display:grid;justify-items:center;gap:14px;margin:6px 0 4px;text-align:center}
-.ring-big b{display:inline;font-size:42px;line-height:1;font-weight:600;letter-spacing:-.035em;font-variant-numeric:proportional-nums}
+.ring-big b{display:inline;font-size:42px;line-height:1;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .ring-big small{margin-left:2px;font-size:18px;font-weight:500;color:var(--text-muted)}
-.ring-big.small b,.ring-big.small{font-size:30px}.ring-big.small{font-weight:600;letter-spacing:-.03em}.ring-big.small small{font-size:14px}
-.streak{display:inline-flex;align-items:center;gap:6px;margin:0;padding:2px 12px;border-radius:999px;background:var(--surface-soft);color:var(--text-body);font-size:12px;font-weight:500;line-height:22px}
+.tone .ring-big small{color:var(--game-accent)}
+.ring-big.small b,.ring-big.small{font-size:30px}.ring-big.small{font-weight:550;letter-spacing:-.04em}.ring-big.small small{font-size:14px}
+.streak{display:inline-flex;align-items:center;gap:6px;margin:0;padding:1px 8px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text-body);font-size:12px;font-weight:500;line-height:20px}
 .streak.win{background:var(--success-bg);color:var(--success)}.streak.loss{background:var(--danger-bg);color:var(--danger)}
 .split{margin-top:auto}
-.stack-bar{height:10px}
 .stack-bar>i{--series:var(--text-faint)}.stack-bar>i.win{--series:var(--success)}.stack-bar>i.loss{--series:var(--danger)}.stack-bar>i.remake{--series:var(--border-strong)}
+.tone .stack-bar{background:color-mix(in srgb,var(--card-bg) 70%,transparent)}
 .legend{margin-top:10px}.legend>li{--series:var(--text-faint)}.legend>li.win{--series:var(--success)}.legend>li.loss{--series:var(--danger)}.legend>li.remake{--series:var(--border-strong)}
 .t-games{grid-column:5/span 4}.t-kda{grid-column:9/span 4}.t-part{grid-column:5/span 4}.t-score{grid-column:9/span 4}
 .mini-bars{display:flex;align-items:flex-end;gap:3px;height:34px}
-.mini-bars i{flex:1;min-width:0;border-radius:3px 3px 1px 1px;background:linear-gradient(180deg,var(--game-vivid),var(--game-vivid-2))}.mini-bars i.idle{height:3px;background:var(--track)}
+.mini-bars i{flex:1;min-width:0;border-radius:4px 4px 0 0;background:var(--game-vivid)}.mini-bars i.idle{height:3px;border-radius:0;background:var(--track)}
 .kda-trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.kda-trio div{display:grid;gap:2px}.kda-trio b{font-size:30px;line-height:34px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums}.kda-trio span{color:var(--text-muted);font-size:12px}
-.kda-bar{display:flex;gap:2px;height:8px;border-radius:999px;overflow:hidden;background:var(--track)}
-.kda-bar i{display:block;min-width:2px}.kda-bar .k{background:var(--game-vivid)}.kda-bar .d{background:color-mix(in srgb,var(--text-faint) 55%,var(--track))}.kda-bar .a{background:var(--game-vivid-2)}
+.kda-trio div{display:grid;gap:2px}.kda-trio b{font-size:30px;line-height:34px;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.kda-trio span{color:var(--text-muted);font-size:12px}
+.kda-trio span::before{content:'';display:inline-block;width:8px;height:8px;margin-right:5px;border-radius:3px;background:var(--series)}
+.kda-trio div:nth-child(1){--series:var(--game-vivid)}.kda-trio div:nth-child(2){--series:color-mix(in srgb,var(--text-faint) 55%,var(--track))}.kda-trio div:nth-child(3){--series:color-mix(in srgb,var(--game-vivid) 55%,var(--card-bg))}
+.kda-bar{display:flex;gap:2px;height:8px;border-radius:4px;overflow:hidden;background:var(--track)}
+.kda-bar i{display:block;min-width:2px}.kda-bar .k{background:var(--game-vivid)}.kda-bar .d{background:color-mix(in srgb,var(--text-faint) 55%,var(--track))}.kda-bar .a{background:color-mix(in srgb,var(--game-vivid) 55%,var(--card-bg))}
 .kda-bar.thin{height:5px;margin-top:6px}
 .meter-row{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:6px 10px;font-size:13px;color:var(--text-muted)}
-.meter-row b{color:var(--text);font-size:22px;line-height:26px;font-weight:600;letter-spacing:-.02em}.meter-row .meter{grid-column:1/-1}
-.meter-row.two .meter{--series:var(--game-vivid-2)}
+.meter-row b{color:var(--text);font-size:22px;line-height:26px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.meter-row .meter{grid-column:1/-1}
 .scale{position:relative;display:grid;grid-template-columns:1fr auto;gap:4px 8px}.scale .meter{grid-column:1/-1}.scale em{font-style:normal;color:var(--text-faint);font-size:11px;line-height:14px}.scale em:last-child{justify-self:end;grid-column:2;grid-row:2}.scale em:first-of-type{grid-column:1;grid-row:2}
 
 .trend-row .lol-trend{height:100%}
@@ -457,114 +463,116 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
 .heat-months span{white-space:nowrap}
 .heat-weekdays{display:grid;grid-template-rows:repeat(7,var(--cell));row-gap:var(--gap);color:var(--text-faint);font-size:11px;line-height:var(--cell)}
 .heat-grid{display:grid;grid-template-rows:repeat(7,var(--cell));grid-auto-flow:column;grid-auto-columns:var(--cell);gap:var(--gap)}
-.heat-cell{border-radius:6px;background:var(--track)}
+.heat-cell{border-radius:4px;background:var(--track)}
 .heat-cell[data-level="1"],.heat-legend i[data-level="1"]{background:color-mix(in srgb,var(--game-vivid) 28%,var(--track))}
 .heat-cell[data-level="2"],.heat-legend i[data-level="2"]{background:color-mix(in srgb,var(--game-vivid) 52%,var(--track))}
 .heat-cell[data-level="3"],.heat-legend i[data-level="3"]{background:color-mix(in srgb,var(--game-vivid) 76%,var(--track))}
 .heat-cell[data-level="4"],.heat-legend i[data-level="4"]{background:var(--game-vivid)}
 .heat-stats{display:grid;gap:14px;flex:0 0 auto;min-width:130px;margin:0 0 0 auto}
-.heat-stats div{display:grid;gap:2px}.heat-stats dt{color:var(--text-muted);font-size:12px}.heat-stats dd{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:proportional-nums}.heat-stats small{margin-left:4px;font-size:12px;font-weight:400;letter-spacing:0;color:var(--text-muted)}
+.heat-stats div{display:grid;gap:2px}.heat-stats dt{color:var(--text-muted);font-size:12px}.heat-stats dd{margin:0;font-size:22px;line-height:28px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.heat-stats small{margin-left:4px;font-size:12px;font-weight:400;letter-spacing:0;color:var(--text-muted)}
 .heat-labels{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--text-faint)}
 .heat-legend{display:inline-flex;align-items:center;gap:4px}.heat-legend i{display:block;width:12px;height:12px;border-radius:4px;background:var(--track)}
 .hours{margin-top:auto;padding-top:14px;border-top:1px solid var(--border)}
 .hours-title{margin:0 0 8px;font-size:13px;font-weight:500;color:var(--text)}.hours-title small{margin-left:8px;color:var(--text-faint);font-size:12px;font-weight:400}
 .hour-bars{display:flex;align-items:flex-end;gap:3px;height:44px}
-.hour-bars i{flex:1;min-width:0;border-radius:3px 3px 1px 1px;background:color-mix(in srgb,var(--game-vivid) 45%,var(--track))}.hour-bars i.peak{background:var(--game-vivid)}.hour-bars i.idle{height:3px;background:var(--track)}
+.hour-bars i{flex:1;min-width:0;border-radius:4px 4px 0 0;background:color-mix(in srgb,var(--game-vivid) 45%,var(--track))}.hour-bars i.peak{background:var(--game-vivid)}.hour-bars i.idle{height:3px;border-radius:0;background:var(--track)}
 .hour-axis{display:flex;justify-content:space-between;margin-top:4px;color:var(--text-faint);font-size:11px}
 
-/* Champion pool: ranked rows, a letter tile each, win rate as a meter. */
+/* Champion pool: ranked rows, a tone tile with the first letter each, win rate as a meter. */
 .champ-list{display:grid;gap:4px;margin:0;padding:0;list-style:none}
 .champ-list li{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(96px,38%);align-items:center;gap:12px;padding:6px 0}
-.champ-tile{display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;border-radius:30%;background:color-mix(in srgb,var(--game-vivid) 16%,var(--surface-soft));color:var(--game-lol);font-size:15px;font-weight:600}
+.champ-tile{display:grid;place-items:center;flex-shrink:0;width:36px;height:36px;border-radius:30%;background:var(--game-tone);color:var(--game-accent);font-size:15px;font-weight:600}
 .champ-copy{display:grid;min-width:0}.champ-copy strong{font-size:14px;line-height:20px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.champ-copy small{color:var(--text-muted);font-size:12px;line-height:18px;white-space:nowrap}
-.champ-rate{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}.champ-rate b{min-width:44px;text-align:right;font-size:13px;font-weight:500}
-.more{margin-top:4px}.more summary,.quiet summary{cursor:pointer;color:var(--text-muted);font-size:12px}
-.quiet{padding:16px 20px;margin:0 0 16px}.quiet p{margin:10px 0 0;font-size:12px;line-height:1.8;color:var(--text-muted)}
+.champ-rate{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}.champ-rate b{min-width:44px;text-align:right;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+.more{margin-top:4px}.more summary,.quiet summary{cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:500}
+@media(hover:hover) and (pointer:fine){.more summary:hover,.quiet summary:hover{color:var(--text)}}
+.quiet{padding:16px 20px;margin:0 0 16px;border-radius:var(--radius-tile)}.quiet p{margin:10px 0 0;font-size:12px;line-height:1.8;color:var(--text-muted)}
 .quiet>:deep(.cap-card){margin-top:12px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
 
-/* Highlights: a rail of small tiles; penta and quadra kills take a stronger wash and a glow. */
-.highlights{margin:0 0 20px}.highlights .section-heading{margin-bottom:12px}
-.highlights .h-rail{--rail-pad:4px;--rail-pad-block:10px;--rail-gap:14px}
-.hl-card{display:grid;align-content:start;gap:4px;width:204px;min-height:132px;padding:16px 18px;border-radius:var(--radius-tile);background:linear-gradient(170deg,color-mix(in srgb,var(--game-vivid) 11%,var(--card-bg)),var(--card-bg) 70%);box-shadow:var(--card-shadow),inset 0 0 0 1px color-mix(in srgb,var(--game-vivid) 14%,transparent)}
-.hl-label{justify-self:start;padding:1px 10px;border-radius:999px;background:var(--surface-soft);color:var(--text-body);font-size:12px;font-weight:500;line-height:20px}
-.hl-value{margin-top:6px;font-size:30px;line-height:34px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:proportional-nums}
-.hl-who{font-size:13px;font-weight:500}.hl-card small{color:var(--text-faint);font-size:12px}
-.hl-card.rare{background:linear-gradient(150deg,color-mix(in srgb,var(--game-vivid) 34%,var(--card-bg)),color-mix(in srgb,var(--game-vivid-2) 26%,var(--card-bg)));box-shadow:var(--card-shadow),0 18px 40px -26px var(--game-vivid),inset 0 0 0 1px color-mix(in srgb,var(--game-vivid) 30%,transparent)}
-.hl-card.rare .hl-label{background:var(--card-bg);color:var(--text)}.hl-card.rare small{color:var(--text-muted)}
-@media(hover:hover) and (pointer:fine){.hl-card{transition:transform var(--duration-fast) var(--ease-smooth-out),box-shadow var(--duration-fast) var(--ease-smooth-out)}.hl-card:hover{transform:translateY(-3px);box-shadow:var(--card-hover-shadow)}}
+/* Highlights: a rail of small white tiles; four and five kills take the tone. */
+.highlights{margin:0 0 20px}
+.highlights .h-rail{--rail-pad:2px;--rail-pad-block:4px;--rail-gap:14px}
+.highlights h3{margin:0;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.02em}
+.hl-card{display:grid;align-content:start;gap:4px;width:204px;min-height:132px;padding:16px 18px;border:1px solid var(--card-border);border-radius:var(--radius-tile);background:var(--card-bg);box-shadow:var(--card-shadow)}
+.hl-label{justify-self:start;padding:1px 8px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text-body);font-size:12px;font-weight:500;line-height:20px}
+.hl-value{margin-top:6px;font-size:30px;line-height:34px;font-weight:550;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.hl-who{font-size:13px;font-weight:500}.hl-card small{color:var(--text-muted);font-size:12px}
+.hl-card.rare{border-color:transparent;background:var(--game-tone)}
+.hl-card.rare .hl-label{background:var(--card-bg);color:var(--game-accent)}.hl-card.rare small{color:var(--game-accent)}
 
 /* Empty state: copy on the left, a faded sketch of what the archive will fill in on the right. */
 .lol-empty{display:flex;align-items:center;justify-content:space-between;gap:28px 40px;flex-wrap:wrap;padding:32px 36px;overflow:hidden;margin-bottom:20px}
 .lol-empty-copy{flex:1 1 320px;max-width:560px}
 .lol-empty h3{font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.02em;margin:0}
 .lol-empty p{margin:12px 0 0;color:var(--text-muted);font-size:13px;line-height:1.9}
-.lol-ghost{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;gap:14px 20px;align-items:center;flex:0 1 330px;min-width:240px;opacity:.9}
+.lol-ghost{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;gap:14px 20px;align-items:center;flex:0 1 330px;min-width:240px}
 .ghost-ring{width:84px;height:84px;border-radius:50%;border:12px solid var(--track);border-top-color:var(--game-vivid);transform:rotate(-30deg)}
-.ghost-bars{display:flex;align-items:flex-end;gap:6px;height:84px}.ghost-bars i{flex:1;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,color-mix(in srgb,var(--game-vivid) 50%,var(--track)),var(--track))}
+.ghost-bars{display:flex;align-items:flex-end;gap:6px;height:84px}.ghost-bars i{flex:1;border-radius:4px 4px 0 0;background:color-mix(in srgb,var(--game-vivid) 35%,var(--track))}
 .ghost-cells{grid-column:1/-1;display:grid;grid-template-columns:repeat(21,1fr);gap:5px}.ghost-cells i{aspect-ratio:1;border-radius:4px;background:var(--game-vivid)}
 .legacy-note{margin:4px 4px 14px;color:var(--text-muted);font-size:13px;line-height:1.8}
 .lol-empty-line{padding:28px 0;text-align:center;color:var(--text-muted);font-size:13px}
 .method-note{font-size:12px;line-height:1.8;color:var(--text-muted)}
 p.method-note{margin:0 4px 12px}.b-card .method-note{margin:0}.lol-footnote{margin:20px 4px 4px;font-size:12px;line-height:1.8;color:var(--text-muted)}
 
-/* History: a form chart (bar height is KDA, the pill underneath says the result) and cards with a result edge. */
+/* History: a form chart (bar height is KDA, the tag underneath says the result), then one card of rows. */
 .form-card{grid-column:span 8}.form-side{grid-column:span 4}
 .form-bars{display:flex;align-items:flex-end;gap:5px;margin:6px 0 0;padding:0;list-style:none}
 .form-col{display:grid;gap:6px;flex:1 1 0;min-width:0;justify-items:center}
 .form-slot{display:flex;align-items:flex-end;justify-content:center;width:100%;height:118px;border-bottom:1px solid var(--border)}
-.form-bar{position:relative;width:min(22px,76%);border-radius:5px 5px 0 0;background:var(--text-faint)}
-.form-col.win .form-bar{background:color-mix(in srgb,var(--success) 84%,var(--card-bg))}.form-col.loss .form-bar{background:color-mix(in srgb,var(--danger) 80%,var(--card-bg))}
+.form-bar{position:relative;width:min(22px,76%);border-radius:4px 4px 0 0;background:var(--text-faint)}
+.form-col.win .form-bar{background:color-mix(in srgb,var(--success) 78%,var(--card-bg))}.form-col.loss .form-bar{background:color-mix(in srgb,var(--danger) 72%,var(--card-bg))}
 .form-col.remake .form-bar,.form-col.unknown .form-bar{background:color-mix(in srgb,var(--text-faint) 50%,var(--track))}
-.form-bar.stub{height:14px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--text-faint) 70%,transparent) 0 2px,transparent 2px 5px)!important}
+.form-bar.stub{height:14px;border:1.5px dashed var(--text-faint);background:transparent!important}
 .form-bar.clipped::before{content:'';position:absolute;left:50%;top:-5px;width:6px;height:6px;border-radius:1px;background:inherit;transform:translateX(-50%) rotate(45deg)}
-.form-pill{display:grid;place-items:center;width:100%;max-width:26px;height:22px;border-radius:8px;font-size:12px;font-weight:600;line-height:1;background:var(--surface-soft);color:var(--text-muted)}
+.form-pill{display:grid;place-items:center;width:100%;max-width:26px;height:22px;border-radius:var(--radius-chip);font-size:12px;font-weight:600;line-height:1;background:var(--control-track);color:var(--text-muted)}
 .form-col.win .form-pill{background:var(--success-bg);color:var(--success)}.form-col.loss .form-pill{background:var(--danger-bg);color:var(--danger)}
-.form-card .legend{margin-top:2px}.form-card .legend>li{--series:var(--text-faint)}.form-card .legend>li.win{--series:var(--success)}.form-card .legend>li.loss{--series:var(--danger)}
+.form-card .legend{margin-top:2px}
 .form-ring{display:grid;justify-items:center;gap:10px;margin:4px 0;text-align:center}
-.lol-match{position:relative;margin:0 0 12px;padding:16px 20px 16px 26px;border:1px solid var(--card-border);border-radius:var(--radius-tile);background:var(--card-bg);box-shadow:var(--card-shadow);--edge:var(--border-strong)}
-.lol-match::before{content:'';position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:0 4px 4px 0;background:var(--edge)}
-.lol-match.win{--edge:var(--success)}.lol-match.loss{--edge:var(--danger)}
-.lol-match.remake,.lol-match.unknown{--edge:color-mix(in srgb,var(--text-faint) 55%,transparent)}
+.match-list{padding:22px 22px 6px}
+.lol-match{padding:16px 0;border-top:1px solid var(--border)}
+.match-list .b-head{margin-bottom:12px}
+.match-list .b-head+.lol-match{border-top:0;padding-top:4px}
 .match-main{display:grid;grid-template-columns:104px minmax(210px,1.5fr) minmax(170px,1.2fr) 76px auto;gap:12px 20px;align-items:center}
 .match-main strong{font-size:14px;font-weight:500}
 .match-main small{display:block;font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.6}
-.match-result b{display:block;font-size:14px;line-height:20px;font-weight:600}
-.win .match-result b{color:var(--success)}.loss .match-result b{color:var(--danger)}.remake .match-result b,.unknown .match-result b{color:var(--text-muted)}
+.match-result{display:grid;justify-items:start}
+.match-result b{display:inline-block;padding:1px 8px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text-muted);font-size:12px;line-height:20px;font-weight:500}
+.win .match-result b{background:var(--success-bg);color:var(--success)}.loss .match-result b{background:var(--danger-bg);color:var(--danger)}
 .match-champion{display:flex;align-items:center;gap:12px;min-width:0}
 .match-champion .champ-tile{width:44px;height:44px;font-size:18px}
-.match-kda strong{font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.02em}
-.match-score strong{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em;color:var(--game-lol)}.match-score strong.unknown{color:var(--text-faint)}
+.match-kda strong{font-size:20px;line-height:26px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.match-score strong{font-size:22px;line-height:28px;font-weight:550;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.match-score strong.unknown{color:var(--text-faint)}
 .match-main>button{justify-self:end}
+.match-main>button[aria-expanded="true"]{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
 .match-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
-.match-tags span{font-size:12px;line-height:20px;color:var(--text-muted);background:var(--surface-soft);padding:1px 10px;border-radius:999px}
-.match-tags .augment{color:var(--text-body);background:color-mix(in srgb,var(--game-vivid) 12%,var(--surface-soft))}
-.match-tags .rare-tag{color:var(--text);background:linear-gradient(120deg,color-mix(in srgb,var(--game-vivid) 40%,var(--surface-soft)),color-mix(in srgb,var(--game-vivid-2) 30%,var(--surface-soft)));font-weight:500}
-.match-detail{margin-top:14px;padding:6px 16px 8px;background:var(--surface-soft);border-radius:var(--radius-well);font-size:13px}
+.match-tags span{font-size:12px;line-height:20px;color:var(--text-muted);background:var(--control-track);padding:1px 8px;border-radius:var(--radius-chip)}
+.match-tags .augment{color:var(--text-body)}
+.match-tags .rare-tag{color:var(--game-accent);background:var(--game-tone);font-weight:500}
+.match-detail{margin-top:14px;padding:4px 16px 8px;border:1px solid var(--border);border-radius:var(--radius-well);background:var(--card-bg);font-size:13px}
 .match-detail>p{margin:10px 0}
 .team-block+.team-block{margin-top:6px}
 .match-detail h4{font-size:13px;font-weight:600;color:var(--text-muted);margin:12px 0 2px}
 .match-detail h4.win{color:var(--success)}.match-detail h4.loss{color:var(--danger)}
-.own td{background:color-mix(in srgb,var(--game-vivid) 12%,transparent)}
+.own td{background:color-mix(in srgb,var(--game-tone) 70%,transparent)}
 
 /* Hex. */
 .hex-intro{grid-column:span 5}.hex-chart{grid-column:span 7}
 .hex-cover{display:flex;align-items:center;gap:18px;margin:4px 0 2px}
 .hex-count{margin:0;font-size:14px;line-height:1.7;font-weight:500;color:var(--text)}
+
+/* Tables are the shared .data-table; the first column names the row and the rest are numbers. */
 .lol-table-wrap{overflow:auto;margin-top:8px}
 .lol-table-wrap.tall{max-height:520px}
-table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
-th,td{text-align:left;border-bottom:1px solid var(--border);padding:11px 10px;white-space:nowrap}
-th{position:sticky;top:0;z-index:1;background:var(--card-bg);color:var(--text-muted);font-weight:500;font-size:12px}
-.match-detail th{background:var(--surface-soft)}
+.lol-table-wrap.tall th{position:sticky;top:0;z-index:1}
+.lol-table-wrap :is(th,td):not(:first-child){text-align:right}
+.lol-table-wrap td{white-space:nowrap;font-variant-numeric:tabular-nums}
+.lol-table-wrap td:first-child{white-space:normal;min-width:90px}
 .match-detail table{table-layout:fixed;min-width:560px}.match-detail th:nth-child(1){width:30%}.match-detail th:nth-child(2){width:22%}.match-detail th:nth-child(3){width:32%}
-td:first-child{white-space:normal;min-width:90px}
 .cell-meter{display:inline-flex;align-items:center;gap:12px}.cell-meter .meter{flex:0 0 72px;height:6px}
-tbody tr:last-child td{border-bottom:0}
 
-/* News: one card for the count and the weekly rhythm, then the shared list. */
-.news-top{display:grid;grid-template-columns:minmax(150px,220px) minmax(0,1fr);gap:20px 36px;margin-bottom:20px;background:linear-gradient(165deg,color-mix(in srgb,var(--game-vivid) 9%,var(--card-bg)),var(--card-bg) 60%)}
-.news-count{display:grid;align-content:start;gap:10px}
-.news-rhythm{display:grid;gap:10px;min-width:0}
+/* News: one tone card for the count, one for the weekly rhythm, then the shared list. */
+.news-count{grid-column:span 4;align-content:start}
+.news-rhythm{grid-column:span 8}
 
 @container lol-view (max-width:980px){
   .ov-win{grid-column:1/-1;grid-row:auto}
@@ -574,11 +582,19 @@ tbody tr:last-child td{border-bottom:0}
   .match-main{grid-template-columns:104px minmax(190px,1.4fr) minmax(150px,1fr) auto}
   .match-score{display:none}
 }
+@container lol-view (min-width:560px) and (max-width:980px){
+  .ov-win{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px 36px}
+  .ov-win .b-head{grid-column:1/-1}
+  .ov-win .split{margin-top:0}
+  .form-side .form-ring{grid-template-columns:auto 1fr;grid-template-rows:1fr auto auto 1fr;justify-items:start;column-gap:28px;row-gap:8px;text-align:left}
+  .form-side .form-ring>:first-child{grid-row:1/span 4}
+  .form-side .form-ring>.b-note{grid-column:2;grid-row:2}
+  .form-side .form-ring>.streak{grid-column:2;grid-row:3}
+}
 @container lol-view (max-width:700px){
-  .t-games,.t-part,.t-kda,.t-score,.span-6{grid-column:1/-1}
+  .t-games,.t-part,.t-kda,.t-score,.span-6,.news-count,.news-rhythm{grid-column:1/-1}
   .heat-body{flex-direction:column;align-items:stretch;gap:16px}.heat-stats{grid-template-columns:repeat(3,minmax(0,1fr));width:100%;margin:0}
-  .heat{--cell:clamp(11px,calc((100cqw - 56px - (var(--weeks) - 1) * 5px) / var(--weeks)),22px)}
-  .news-top{grid-template-columns:1fr}
+  .heat{--cell:clamp(11px,calc((100cqw - 72px - (var(--weeks) - 1) * 5px) / var(--weeks)),22px)}
   .match-main{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 14px}
   .match-champion{grid-column:1/-1}
   .match-main>button{grid-column:1/-1;justify-self:stretch}
@@ -590,9 +606,15 @@ tbody tr:last-child td{border-bottom:0}
   .lol-toolbar{gap:10px}.lol-filters{width:100%}.lol-filters label{flex:1}.lol-filters select{min-width:0;width:100%;max-width:none}.reload-button{width:100%}
   .bento{gap:14px;margin-bottom:14px}
   .lol-empty{padding:24px 20px}
-  .form-bars{gap:2px}.form-pill{max-width:none;border-radius:6px}
-  .lol-match{padding:14px 14px 14px 20px}
+  .form-bars{gap:2px}.form-pill{max-width:none}
+  .match-list{padding:18px 16px 2px}.lol-match{padding:14px 0}
   .kda-trio b{font-size:26px}
-  th,td{padding:10px 7px}
+  .data-table th,.data-table td{padding:10px 7px}
+  /* The opened match has four columns; on a phone they all fit once the damage bar sits under its number. */
+  .match-detail{padding:2px 12px 6px}
+  .match-detail table{table-layout:auto;min-width:0}
+  .match-detail th:nth-child(-n+3){width:auto}
+  .match-detail .cell-meter{flex-direction:column-reverse;align-items:flex-end;gap:4px}
+  .match-detail .cell-meter .meter{flex:none;width:44px}
 }
 </style>

@@ -18,7 +18,7 @@ watch(() => props.match?.id, async () => { await nextTick(); detail.value?.scrol
 </script>
 <template>
   <article class="es-detail" ref="detail" tabindex="-1" :id="'es-' + (match?.id || 'missing')">
-    <button class="es-back ui-button ghost small-button" @click="emit('back')">← 返回</button>
+    <button class="es-back ui-button small-button" @click="emit('back')">← 返回</button>
     <template v-if="match">
       <div class="es-detail-heading"><div><span class="es-eyebrow">比赛摘要</span><h3>{{ tournament?.name || '赛事资料暂缺' }}</h3><p class="es-note">{{ esportsTime(match.start_at) }} · 北京时间 · {{ match.stage || '阶段待公布' }}<span v-if="match.round_name"> · {{ match.round_name }}</span> · {{ match.best_of ? 'BO' + match.best_of : '赛制待公布' }}</p></div><span class="es-badge" :class="`is-${match.status}`">{{ ESPORTS_STATUS[match.status] || ESPORTS_STATUS.unknown }}</span></div>
       <div class="es-detail-versus">

@@ -16,7 +16,7 @@ const mark = team => esportsMonogram(team?.short_name || team?.name)
 </script>
 <template>
   <section aria-label="职业战队">
-    <template v-if="filters.teamId"><button class="es-back ui-button ghost small-button" @click="emit('back')">← 返回</button>
+    <template v-if="filters.teamId"><button class="es-back ui-button small-button" @click="emit('back')">← 返回</button>
       <template v-if="selected"><div class="es-profile cap-card"><span class="es-logo xxl" :data-letter="mark(selected)"><img v-if="esportsImage(selected.logo_url)" :src="esportsImage(selected.logo_url)" alt="" referrerpolicy="no-referrer" @error="$event.target.hidden = true"></span><div class="es-profile-copy"><h3 tabindex="-1">{{ selected.name }}</h3><p>{{ selected.kind === 'national' ? '国家／地区代表队' : selected.kind === 'club' ? '职业俱乐部' : '队伍类型未提供' }}</p>
           <div v-if="form.length" class="es-form-row"><span class="es-eyebrow">近期战绩</span><ul class="es-form" :aria-label="`近 ${form.length} 场已确认胜负的比赛，较早的在左`"><li v-for="result in form" :key="result.id" :class="result.win ? 'win' : 'loss'" :title="`对阵 ${result.opponent || '待定'}`">{{ result.win ? '胜' : '负' }}</li></ul></div></div></div>
         <p v-if="selected.description" class="es-note es-about">{{ selected.description }}</p>
