@@ -22,7 +22,7 @@ import EndfieldGachaPanel from './EndfieldGachaPanel.vue'
 import EndfieldReports from './EndfieldReports.vue'
 import EndfieldChallenges from './EndfieldChallenges.vue'
 import AnnouncementList from './AnnouncementList.vue'
-import CalendarTimelineContent from './CalendarTimelineContent.vue'
+import RenderCalendar from './RenderCalendar.vue'
 const props=defineProps({panel:{type:Object,required:true},asOf:{type:Number,required:true}})
 provide('wuwaImageMode',true)
 const names={nte:'异环',wuthering_waves:'鸣潮',endfield:'终末地'}
@@ -55,10 +55,10 @@ const range=computed(()=>versionCalendarRange(events.value,props.asOf))
 const error=computed(()=>snap.value?.state==='auth_expired'?friendlyDataError('',snap.value.state):'')
 </script>
 <template>
- <section class="render-snapshot-panel game-theme" :style="gameVars(panel.game)" data-render-block>
+ <section class="render-snapshot-panel game-theme" :style="gameVars(panel.game)">
   <h2 class="snapshot-game-name">{{ gameTitle || '游戏数据' }}</h2>
   <p v-if="error" class="error-bar" role="status">{{ error }}</p>
-  <CalendarTimelineContent v-if="['events','recent_events'].includes(cap)" :events="events" :range="range" :as-of="asOf" range-mode="version" mode="image" />
+  <RenderCalendar v-if="['events','recent_events'].includes(cap)" :events="events" :range="range" :as-of="asOf" />
   <template v-else-if="panel.game==='endfield' && panel.provider==='skland' && cap==='combat'">
    <EndfieldChallenges v-for="report in challengeReports" :key="report.kind" :kind="report.kind" :value="{report}" image-mode />
    <p v-if="!challengeReports.length" class="cap-card empty">尚无挑战记录，请在看板读取后查看。</p>

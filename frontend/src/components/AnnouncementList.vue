@@ -34,6 +34,7 @@ watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all'
     <p v-if="!rows.length && !failed" class="empty" role="status">{{ emptyText }}</p>
     <ul v-if="rows.length" class="item-list">
       <li v-for="it in filtered" :key="it.key" class="item" :data-render-block="imageMode ? '' : undefined">
+        <div v-if="imageMode && articleArtwork(it).length" class="article-cover qq-article-cover"><ArtworkImage :candidates="articleArtwork(it)" decorative /></div>
         <button v-if="!imageMode && articleArtwork(it).length" type="button" class="article-cover" :aria-label="`查看公告：${it.title}`" @click="selectedKey = it.key"><ArtworkImage :candidates="articleArtwork(it)" decorative /></button>
         <p class="item-title"><span v-if="imageMode" class="item-link">{{ it.title }}</span><button v-else type="button" class="item-link" @click="selectedKey = it.key">{{ it.title }}</button></p>
         <p class="item-meta"><span class="chip article-category">{{ it.categoryLabel }}</span><span v-if="it.source_name && !imageMode" class="item-source">{{ it.source_name }}</span><span v-if="it.source_stale && !imageMode" class="badge badge-stale">来源采集异常，保留旧记录</span><span v-if="date(it.published_at)" class="item-date">{{ date(it.published_at) }}</span></p>
@@ -46,6 +47,8 @@ watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all'
   </section>
 </template>
 <style scoped>
+.article-image .qq-article-cover { float:none; width:100%; height:140px; margin:0 0 12px; cursor:default; }
+.article-image .qq-article-cover :deep(img) { width:100%; height:140px; object-fit:cover; }
 .article-cover { display:block; float:right; width:clamp(140px,28%,240px); margin:0 0 12px 20px; padding:0; border:0; border-radius:var(--radius-well); overflow:hidden; background:var(--game-tone,var(--surface-soft)); cursor:pointer; }
 .article-cover img { width:100%; aspect-ratio:16/9; }
 .article-cover:not(:has(img)) { display:none; }

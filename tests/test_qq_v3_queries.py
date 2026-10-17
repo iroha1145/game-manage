@@ -64,9 +64,12 @@ def test_aggregate_only_authorized_games_deduplicates_and_distinguishes_missing_
         calls.append((game,cap));return QueryResult([] if game=='nte' else None,NOW.isoformat(),'ok' if game=='nte' else 'never',None)
     api=QqQueryService(SimpleNamespace(resolve_qq_identity=lambda i:Principal('u',False)),query,SimpleNamespace(read=read),clock=lambda:NOW)
     context={};reply=api.query(IDENTITY,'events',image_context=context)
-    assert calls==[('nte','events'),('endfield','events')] and query.reads==[]
+    assert calls==[('nte','events'),('nte','news'),('endfield','events'),('endfield','news')] and query.reads==[]
     assert '列表为空' in reply['text'] and '暂无成功快照' in reply['text']
     assert len(context['grants'])==2
+    calls.clear()
+    api.query(IDENTITY,'events')
+    assert calls==[('nte','events'),('endfield','events')]
 
 def test_single_public_game_needs_no_binding_and_unbound_guide_has_no_roundtrip():
     def unbound(identity):

@@ -33,7 +33,10 @@ async def test_help_then_own_overview_in_new_group_distinguishes_binding_from_he
     rendered_text=[];image_text={}
     async def evaluate(page,expression,*args,**kwargs):
         value=await original_evaluate(page,expression,*args,**kwargs)
-        if expression=='window.__RENDER_STATE__':rendered_text.append(await page.locator('.render-page').inner_text())
+        if expression=='window.__RENDER_STATE__':
+            assert all(p['width']==720 and 0<p['height']<=1440 for p in value['pages'])
+            assert value['content_blocks']==value['displayed_blocks']
+            rendered_text.append('\n'.join(await page.locator('.render-page').all_inner_texts()))
         return value
     monkeypatch.setattr(Page,'evaluate',evaluate)
     original_render=service.render_queue.renderer.render_summary_async

@@ -71,6 +71,7 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
         qq_app_id='app', qq_service_token='fixture-service', qq_images_enabled=True,
         qq_image_font_path=font,qq_image_max_bytes=1048576,qq_browser_render_executable_path=executable), start_scheduler=False)
     service = app.state.qq_query
+    service.clock = lambda: datetime.fromisoformat(NOW)
     service.query_service = query
     query.accounts._listeners.append(service.invalidate)
     identity = QqIdentity('app', 'group', 'fixture-group', 'fixture-sender')
@@ -127,7 +128,7 @@ async def test_endfield_commands_render_upload_and_passively_send_once(
                 assert valid_reply_image(image, max_bytes=1048576)
                 with Image.open(BytesIO(image)) as picture:
                     picture.load()
-                    assert picture.width == 1080 and picture.width * picture.height <= 16_000_000
+                    assert picture.width == 720 and 0 < picture.height <= 1440
                 media = 'fixture-media-' + str(len(uploads))
                 uploads.append((image, media))
                 return {'file_info': media}

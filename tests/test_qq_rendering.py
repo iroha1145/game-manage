@@ -265,7 +265,8 @@ async def test_central_png_envelope_contains_only_safe_summary(tmp_path, monkeyp
     text_only = await service.query_reply(identity, 'summary', 'nte')
     assert set(text_only) == {'text'} and not envelopes
     response = await service.query_reply(identity, 'summary', 'nte', image_requested=True, budget_seconds=3)
-    assert set(response) == {'text', 'image'}
+    assert set(response) == {'text', 'image', 'page', 'total_pages'}
+    assert response['page'] == 1 and response['total_pages'] == 1
     assert 'private-token' not in response['text'] and '123456789' not in response['text']
     projected = json.dumps(envelopes[0]['render_snapshot'], ensure_ascii=False)
     assert '玩家' in projected and 'private-token' not in projected and '123456789' not in projected

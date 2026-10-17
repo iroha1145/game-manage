@@ -32,10 +32,14 @@ ALLOWED_HOSTS = frozenset(('web-static.kurobbs.com', 'prod-alicdn-community.kuro
 ASSET_REF_RE = re.compile(r'qqasset_[0-9a-f]{64}\Z')
 MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024
 MAX_SOURCE_PIXELS = 4_000_000
+MAX_ARTWORK_DOWNLOAD_BYTES = 6 * 1024 * 1024
+MAX_ARTWORK_SOURCE_PIXELS = 12_000_000
 MAX_ICON_EDGE = 192
 MAX_SANITIZED_BYTES = 192 * 192 * 4 + 2048
 MAX_PORTRAIT_EDGE = 512
 MAX_PORTRAIT_BYTES = 512 * 512 * 4 + 4096
+MAX_ARTWORK_EDGE = 720
+MAX_ARTWORK_BYTES = 720 * 720 * 4 + 4096
 
 
 def safe_public_url(value):
@@ -59,20 +63,21 @@ def safe_public_url(value):
         return None
 
 
-def sanitize_image(raw, *, portrait=False):
+def sanitize_image(raw, *, portrait=False, artwork=False):
     """Return a small static RGBA PNG, stripping metadata and original encoding."""
-    if not isinstance(raw, bytes) or not 1 <= len(raw) <= MAX_DOWNLOAD_BYTES:
+    if portrait and artwork:raise ValueError('qq_asset_conflicting_modes')
+    if not isinstance(raw, bytes) or not 1 <= len(raw) <= (MAX_ARTWORK_DOWNLOAD_BYTES if artwork else MAX_DOWNLOAD_BYTES):
         raise ValueError('qq_asset_size_limit')
     try:
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)
             with Image.open(BytesIO(raw), formats=('JPEG', 'PNG', 'WEBP')) as source:
                 if (source.width <= 0 or source.height <= 0
-                        or source.width * source.height > MAX_SOURCE_PIXELS
+                        or source.width * source.height > (MAX_ARTWORK_SOURCE_PIXELS if artwork else MAX_SOURCE_PIXELS)
                         or getattr(source, 'n_frames', 1) != 1):
                     raise ValueError('qq_asset_pixels_or_animation')
                 source.load()
-                edge = MAX_PORTRAIT_EDGE if portrait else MAX_ICON_EDGE
+                edge = MAX_ARTWORK_EDGE if artwork else MAX_PORTRAIT_EDGE if portrait else MAX_ICON_EDGE
                 source.thumbnail((edge, edge), Image.Resampling.LANCZOS)
                 # Fresh image drops EXIF, text chunks, ICC profiles and other metadata.
                 result = Image.new('RGBA', source.size)
@@ -80,7 +85,7 @@ def sanitize_image(raw, *, portrait=False):
                 output = BytesIO()
                 result.save(output, 'PNG')
                 png = output.getvalue()
-                if len(png) > (MAX_PORTRAIT_BYTES if portrait else MAX_SANITIZED_BYTES):
+                if len(png) > (MAX_ARTWORK_BYTES if artwork else MAX_PORTRAIT_BYTES if portrait else MAX_SANITIZED_BYTES):
                     raise ValueError('qq_asset_sanitized_size_limit')
                 return png
     except (OSError, UnidentifiedImageError, Image.DecompressionBombWarning,
@@ -88,7 +93,8 @@ def sanitize_image(raw, *, portrait=False):
         raise ValueError('qq_asset_invalid_image') from error
 
 
-async def _read_body(reader, headers):
+async def _read_body(reader, headers, *, artwork=False):
+    max_bytes = MAX_ARTWORK_DOWNLOAD_BYTES if artwork else MAX_DOWNLOAD_BYTES
     encoding = headers.get('content-encoding', 'identity').lower()
     if encoding not in ('', 'identity'):
         raise ValueError('qq_asset_content_encoding')
@@ -107,7 +113,7 @@ async def _read_body(reader, headers):
             if not re.fullmatch(b'[0-9a-fA-F]{1,8}', size_text):
                 raise ValueError('qq_asset_chunk_header')
             size = int(size_text, 16)
-            if len(body) + size > MAX_DOWNLOAD_BYTES:
+            if len(body) + size > max_bytes:
                 raise ValueError('qq_asset_size_limit')
             if not size:
                 if await reader.readexactly(2) != b'\r\n':
@@ -118,20 +124,20 @@ async def _read_body(reader, headers):
                 raise ValueError('qq_asset_chunk_end')
         raise ValueError('qq_asset_too_many_chunks')
     if length is not None:
-        if not re.fullmatch(r'[0-9]{1,9}', length) or not 0 < int(length) <= MAX_DOWNLOAD_BYTES:
+        if not re.fullmatch(r'[0-9]{1,9}', length) or not 0 < int(length) <= max_bytes:
             raise ValueError('qq_asset_size_limit')
         return await reader.readexactly(int(length))
     body = bytearray()
     while True:
-        chunk = await reader.read(min(65536, MAX_DOWNLOAD_BYTES + 1 - len(body)))
+        chunk = await reader.read(min(65536, max_bytes + 1 - len(body)))
         if not chunk:
             return bytes(body)
         body.extend(chunk)
-        if len(body) > MAX_DOWNLOAD_BYTES:
+        if len(body) > max_bytes:
             raise ValueError('qq_asset_size_limit')
 
 
-async def _download(value, *, timeout_seconds=3, dns_resolver='system'):
+async def _download(value, *, timeout_seconds=3, dns_resolver='system', artwork=False):
     url = safe_public_url(value)
     if not url:
         raise ValueError('qq_asset_invalid_url')
@@ -191,7 +197,7 @@ async def _download(value, *, timeout_seconds=3, dns_resolver='system'):
             if headers.get('content-type', '').split(';')[0].strip().lower() not in (
                     'image/png', 'image/jpeg', 'image/webp'):
                 raise ValueError('qq_asset_content_type')
-            return await _read_body(reader, headers)
+            return await _read_body(reader, headers, artwork=artwork)
         finally:
             if writer is not None:
                 writer.close()
@@ -199,7 +205,7 @@ async def _download(value, *, timeout_seconds=3, dns_resolver='system'):
 
 class PublicAssetCache:
     def __init__(self, *, cache_entries=128, cache_bytes=16*1024*1024, cache_ttl=3600,
-                 concurrency=6, request_timeout=3, dns_resolver='system'):
+                 concurrency=6, request_timeout=3, artwork_request_timeout=5, dns_resolver='system'):
         if dns_resolver not in ('system', 'cloudflare'):
             raise ValueError('qq_asset_dns_resolver_invalid')
         self.dns_resolver = dns_resolver
@@ -207,6 +213,7 @@ class PublicAssetCache:
         self.cache_bytes = max(1, min(cache_bytes, 32*1024*1024))
         self.cache_ttl = max(.001, min(cache_ttl, 86400))
         self.request_timeout = max(.001, min(request_timeout, 5))
+        self.artwork_request_timeout = max(.001, min(artwork_request_timeout, 5))
         self._cache = OrderedDict()
         self._sources = OrderedDict()
         self._failures = OrderedDict()
@@ -217,12 +224,13 @@ class PublicAssetCache:
         self._catalog = CATALOG
         self._portrait_sources = frozenset(CATALOG['games'].get('endfield', {}).get('portrait', {}).values())
         self._portrait_refs = set()
+        self._artwork_refs = set()
 
-    def register_url(self, url, *, portrait=False):
+    def register_url(self, url, *, portrait=False, artwork=False):
         safe = safe_public_url(url)
-        if not safe or (portrait and safe not in self._portrait_sources):
+        if not safe or portrait and artwork or (portrait and safe not in self._portrait_sources):
             return None
-        ref = 'qqasset_' + hashlib.sha256((('portrait-v1:' if portrait else '') + safe).encode('ascii')).hexdigest()
+        ref = 'qqasset_' + hashlib.sha256((('artwork-v1:' if artwork else 'portrait-v1:' if portrait else '') + safe).encode('ascii')).hexdigest()
         with self._lock:
             if ref in self._sources:
                 self._sources.move_to_end(ref)
@@ -233,9 +241,12 @@ class PublicAssetCache:
                     return None
                 del self._sources[victim]
                 self._portrait_refs.discard(victim)
+                self._artwork_refs.discard(victim)
             self._sources[ref] = safe
             if portrait:
                 self._portrait_refs.add(ref)
+            if artwork:
+                self._artwork_refs.add(ref)
         return ref
 
     def ref_for(self, game, kind, id_or_name):
@@ -288,6 +299,19 @@ class PublicAssetCache:
             self._cache.move_to_end(ref)
             return item[1]
 
+    def get_url_png(self, url, *, artwork=False, portrait=False):
+        """Read an already sanitized mode-specific image; never start a fetch."""
+        safe=safe_public_url(url)
+        if not safe or artwork and portrait:return None
+        prefix='artwork-v1:' if artwork else 'portrait-v1:' if portrait else ''
+        return self.get_png('qqasset_'+hashlib.sha256((prefix+safe).encode('ascii')).hexdigest())
+
+    def url_fingerprint(self, url, *, artwork=False, portrait=False):
+        safe=safe_public_url(url)
+        if not safe or artwork and portrait:return 'missing'
+        prefix='artwork-v1:' if artwork else 'portrait-v1:' if portrait else ''
+        return self.fingerprint('qqasset_'+hashlib.sha256((prefix+safe).encode('ascii')).hexdigest())
+
     def get_image(self, ref):
         png = self.get_png(ref)
         if png is None:
@@ -308,9 +332,11 @@ class PublicAssetCache:
                 if remaining <= 0:
                     return
                 options = {'dns_resolver': self.dns_resolver} if self.dns_resolver != 'system' else {}
-                raw = await _download(self._sources[ref], timeout_seconds=min(remaining, self.request_timeout), **options)
+                if ref in self._artwork_refs:options['artwork']=True
+                request_timeout=self.artwork_request_timeout if ref in self._artwork_refs else self.request_timeout
+                raw = await _download(self._sources[ref], timeout_seconds=min(remaining, request_timeout), **options)
                 if time.monotonic() < deadline:
-                    self._store(ref, sanitize_image(raw, portrait=ref in self._portrait_refs))
+                    self._store(ref, sanitize_image(raw, portrait=ref in self._portrait_refs, artwork=ref in self._artwork_refs))
         except (ValueError, OSError, TimeoutError, UnicodeError, asyncio.IncompleteReadError,
                 asyncio.LimitOverrunError):
             with self._lock:

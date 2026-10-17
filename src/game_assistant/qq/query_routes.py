@@ -111,14 +111,16 @@ class QqQueryService:
 
     def _reply(self, card, page, context):
         presentation_card=card
-        card=view.long_document(card,page,asset_cache=self.asset_cache)
+        card=view.long_document(card,1 if context is not None else page,asset_cache=self.asset_cache)
         if context is not None:
             context['card']=card
             if context.get('render_snapshot') is None:
                 if context.get('panels'):
                     context['render_snapshot']=shared_view.game_snapshot(context['panels'],self.clock(),page,title=presentation_card['title'],
-                        command=presentation_card.get('next_command') or '总览',notices=context.get('panel_notices',[])+context.get('shared_notices',presentation_card.get('notices',[])))
-                else:context['render_snapshot']=shared_view.notice_snapshot(presentation_card,self.clock(),page)
+                        command=context['next_command'],notices=context.get('panel_notices',[])+context.get('shared_notices',presentation_card.get('notices',[])))
+                else:context['render_snapshot']=shared_view.notice_snapshot(presentation_card,self.clock(),page,command=context['next_command'])
+            if context['render_snapshot']['kind'] not in ('wuwa_role','nte_role'):
+                context['render_snapshot']['next_command']=context['next_command']
         return {'text':card_to_text(card)}
 
     def _panel(self,context,row,cap,snapshot,*,summary=False,resolved=None):
@@ -238,8 +240,14 @@ class QqQueryService:
             try:
                 snapshot=self.public.read(current,'events') if self.public is not None else QueryResult(None,None,'never',None)
             except (AccountNotFoundError,HTTPException,ValueError,RuntimeError,OSError):snapshot=QueryResult(None,None,'error',None)
-            snapshots[current]=snapshot
             self._capture_snapshot(context,None,current+':events',snapshot)
+            if context is not None:
+                try:
+                    news=self.public.read(current,'news') if self.public is not None else QueryResult(None,None,'never',None)
+                except (AccountNotFoundError,HTTPException,ValueError,RuntimeError,OSError):news=QueryResult(None,None,'error',None)
+                self._capture_snapshot(context,None,current+':news',news)
+                snapshot=shared_view.events_with_artwork(snapshot,news)
+            snapshots[current]=snapshot
         if context is not None:
             context['render_snapshot']=shared_view.calendar_snapshot(snapshots,self.clock(),page) if command=='calendar' else shared_view.filtered_events_snapshot(snapshots,command,self.clock(),page)
         return event_document(command,snapshots,now=self.clock(),asset_cache=self.asset_cache)
@@ -323,7 +331,16 @@ class QqQueryService:
     def query(self,identity,command,game=None,*,image_context=None,role_name=None,page=1):
         context=image_context
         read_cache={}
-        if context is not None:context.update(grants=[],grant_ids={},snapshots=[],fingerprints=[],user_id=None,panels=[],panel_notices=[],shared_required=True)
+        if context is not None:
+            labels={'help':'帮助','status':'状态','overview':'总览','summary':'查询','roles':'角色','stamina':'体力',
+                    'exploration':'探索','combat':'挑战','progress':'进度','gacha':'抽卡','calendar':'日历','events':'活动',
+                    'recent_events':'近期活动','news':'公告','refresh':'刷新','calabash':'数据坞','activities':'活动进度',
+                    'resources':'资源','realestate':'房产','vehicles':'车辆','teams':'队伍','record':'档案',
+                    'training':'练度','regions':'地区','ship':'帝江号','honor':'光荣之路'}
+            continuation=(GAME_NAMES[game]+' ' if game is not None and command not in ('overview','status') else '')+labels.get(command,command)
+            if role_name is not None:continuation+=' '+role_name
+            context.update(grants=[],grant_ids={},snapshots=[],fingerprints=[],user_id=None,panels=[],panel_notices=[],shared_required=True,
+                           next_command=continuation)
         reply=lambda card:self._reply(card,page,context)
         if command=='help':
             card=view.help_document(game)
@@ -538,7 +555,7 @@ class QqQueryService:
         if self.asset_cache is not None:
             remaining=max(0,deadline-time.monotonic())
             try:
-                refs=[self.asset_cache.register_url(url) for url in shared_view.asset_urls(context['render_snapshot'])] if context.get('render_snapshot') is not None else list(view.asset_refs(context['card']))
+                refs=[self.asset_cache.register_url(url,artwork=mode=='artwork',portrait=mode=='portrait') for url,mode in shared_view.asset_requests(context['render_snapshot'])] if context.get('render_snapshot') is not None else list(view.asset_refs(context['card']))
                 refs=list(dict.fromkeys(ref for ref in refs if ref))
                 await self.asset_cache.prefetch(refs,budget_seconds=min(5,remaining*0.5))
             except Exception:
@@ -564,12 +581,23 @@ class QqQueryService:
             return {'text':f'请求第 {png.page} 页超出范围；当前共 {png.total_pages} 页。请查询 1–{png.total_pages} 页。'}
         if isinstance(png,RenderingUnavailable):
             if str(png) in ('qq_image_pixel_limit','qq_image_size_limit'):
-                content='完整日历长图' if command=='calendar' else '完整图片'
+                content='完整日历图片' if command=='calendar' else '完整图片'
                 return {'text':content+'超出 QQ 图片尺寸或大小限制，未截断；请到看板查看。'}
             return self._text_fallback(context['card'])
         if png is None:return self._text_fallback(context['card'])
+        if getattr(png,'total_pages',1)>1 and command not in PAGED_COMMANDS:
+            # Action replies cannot expose a continuation that repeats the action.
+            return self._text_fallback(context['card'])
         # The bot sends only the image; the full card text is what it falls back to if delivery fails.
         response['image']=base64.b64encode(png).decode('ascii')
+        response['page']=getattr(png,'page',page)
+        response['total_pages']=getattr(png,'total_pages',1)
+        if response['total_pages']>1:
+            continuation=f"第 {response['page']} / {response['total_pages']} 页"
+            if response['page']<response['total_pages']:
+                next_command=context['render_snapshot']['next_command']
+                continuation+=f"；下一页：{next_command} {response['page']+1}"
+            response['text']+='\n'+continuation
         return response
 
     def _text_fallback(self,card):

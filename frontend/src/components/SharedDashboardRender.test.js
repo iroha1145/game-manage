@@ -97,3 +97,16 @@ test('new image capability mounts and toggles stay offline; article excerpts and
  assert.doesNotMatch(content(root),/合成摘要末尾/)
  assert.doesNotMatch(content(root),/UID|server_id|role_id|来源补充字段/)
 })
+
+test('QQ announcements keep real covers and text while webpage covers remain interactive',async t=>{
+ const Announcement=await loadVue(new URL('./AnnouncementList.vue',import.meta.url))
+ const cover='https://webstatic.tajiduo.com/bbs/pic/notice-fixture.png'
+ const value=snap([{title:'有封面的公告',summary:'完整摘要内容',banner:cover},{title:'没有封面的公告',summary:'保留文字'}])
+ const image=mount(t,Announcement,{snap:value,imageMode:true})
+ assert.deepEqual(nodes(image,'img').map(n=>n.props.src),[cover])
+ assert.equal(nodes(image,'button').length,0)
+ assert.match(content(image),/摘要，全文请到原文或看板查看。.*有封面的公告.*完整摘要内容.*没有封面的公告.*保留文字/)
+ const web=mount(t,Announcement,{snap:value})
+ assert.equal(nodes(web,'button').filter(n=>n.props.class==='article-cover').length,1)
+ assert.deepEqual(nodes(web,'img').map(n=>n.props.src),[cover])
+})

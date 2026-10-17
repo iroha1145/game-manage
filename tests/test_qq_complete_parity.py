@@ -241,7 +241,7 @@ async def test_real_basic_command_through_projection_queue_and_browser(case,tmp_
         text=''
         async def _bounded_close(self,operation):
             if self._browser and self._browser.contexts and self.last_state and self.last_state.get('state')=='ready':
-                self.text=await self._browser.contexts[0].pages[0].locator('.render-page').inner_text()
+                self.text='\n'.join(await self._browser.contexts[0].pages[0].locator('.render-page').all_inner_texts())
             return await super()._bounded_close(operation)
     renderer=Inspectable(executable_path=executable,font_path=font)
     queue=RenderQueue(renderer)
@@ -265,10 +265,12 @@ async def test_real_basic_command_through_projection_queue_and_browser(case,tmp_
         assert 'image' in reply,reply
         raw=base64.b64decode(reply['image'])
         image=Image.open(BytesIO(raw))
-        assert image.width==1080 and len(raw)<=1048576 and image.width*image.height<=16_000_000
+        assert image.width==720 and 0<image.height<=1440 and len(raw)<=1048576
         assert renderer.last_state['state']=='ready'
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
-        assert len(renderer.last_state['pages'])==1 and not renderer._browser.contexts
+        assert 1<=len(renderer.last_state['pages'])<=100 and not renderer._browser.contexts
+        assert reply['page']==1 and reply['total_pages']==len(renderer.last_state['pages'])
+        assert all(row['width']==720 and 0<row['height']<=1440 for row in renderer.last_state['pages'])
         assert all(text in renderer.text for text in expected),renderer.text
         assert not any(text in renderer.text for text in ('PRIVATE','未选干员','role_id','server_id','来源补充字段'))
         assert all(cap!='role_detail' for _,cap in query.reads)

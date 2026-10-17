@@ -1,6 +1,6 @@
 <script setup>
 import { computed, provide } from 'vue'
-import VersionCalendarContent from './VersionCalendarContent.vue'
+import RenderCalendar from './RenderCalendar.vue'
 import WuwaRoleDetail from './WuwaRoleDetail.vue'
 import NteRolesPanel from './NteRolesPanel.vue'
 import WuwaGacha from './WuwaGacha.vue'
@@ -12,7 +12,7 @@ import { gameVars } from '../dashboard.js'
 import RenderGameSnapshot from './RenderGameSnapshot.vue'
 import RenderNotice from './RenderNotice.vue'
 const props = defineProps({ snapshot: {type:Object,required:true} })
-// The whole page is an image: components that ask for image mode (GameIcon in the calendar) get it for every kind.
+// Reuse the authorized display data, with a separate reading layout for chat.
 provide('wuwaImageMode', true)
 const data = computed(() => props.snapshot.display_data)
 const gameTheme = computed(() => gameVars(props.snapshot.game))
@@ -20,7 +20,7 @@ const calendars = computed(() => props.snapshot.kind === 'calendar' ? collectVer
 </script>
 <template>
   <div id="render-content" class="render-image game-theme" :style="gameTheme">
-    <VersionCalendarContent v-if="snapshot.kind === 'calendar'" :calendars="calendars" :as-of="Date.parse(snapshot.as_of)" mode="image" />
+    <RenderCalendar v-if="snapshot.kind === 'calendar'" :calendars="calendars" :as-of="Date.parse(snapshot.as_of)" />
     <template v-else-if="snapshot.kind === 'wuwa_role'"><p class="render-observation">更新于 {{ displayBeijing(data.fetched_at) }}</p><WuwaRoleDetail :data="data.detail" image-mode /></template>
     <NteRolesPanel v-else-if="snapshot.kind === 'nte_role'" :snap="data.snapshot" :detail-mode="data.snapshot.display_mode === 'detail'" image-mode />
     <WuwaGacha v-else-if="snapshot.kind === 'wuwa_gacha'" :snapshot="data.archive" image-mode />

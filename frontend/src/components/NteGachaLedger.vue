@@ -8,9 +8,19 @@ import AppIcon from './AppIcon.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
 import RingGauge from './RingGauge.vue'
+import NteIcon from './NteIcon.vue'
+import iconCatalog from '../nte-icon-catalog.js'
+import { safeNteIcon } from '../nte-icons.js'
 
 const props = defineProps({ accountId: { type: String, default: '' }, snapshot:{type:Object,default:null}, imageMode:{type:Boolean,default:false} })
 const summary = ref(null), records = ref([]), recordTotal = ref(0), rules = ref([])
+// An exact name or ID must identify one catalog entry; never guess from a pool.
+function rewardIcon(row) {
+  const matches = ['roles', 'weapons'].flatMap(bucket => Object.entries(iconCatalog[bucket] || {})
+    .filter(([name, item]) => row.reward_name === name || (row.reward_id != null && String(row.reward_id) === String(item.id)))
+    .map(([, item]) => safeNteIcon(item.icon))).filter(Boolean)
+  return new Set(matches).size === 1 ? matches[0] : ''
+}
 const pool = ref(''), offset = ref(0), busy = ref(false), error = ref(''), message = ref('')
 const documentData = ref(null), fileName = ref(''), preview = ref(null)
 const latest = ref(false), continuous = ref(false), identity = ref(false)
@@ -190,13 +200,15 @@ function pityGauge(item) {
       </div>
       <p v-if="imageMode && !records.length && summary?.total_records > 0" class="empty">逐条记录未加载；已导入 {{ summary.total_records }} 条，可在网页查看。</p>
       <p v-else-if="!records.length" class="empty">暂无逐抽记录</p>
-      <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间（源文件）</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td>{{ row.reward_name || row.reward_id }}</td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
+      <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间（源文件）</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td><span v-if="imageMode" class="ledger-reward-image"><NteIcon v-if="rewardIcon(row)" :src="rewardIcon(row)" :name="row.reward_name || row.reward_id" size="large" /><span>{{ row.reward_name || row.reward_id }}</span></span><template v-else>{{ row.reward_name || row.reward_id }}</template></td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
       <nav v-if="!imageMode && recordTotal > 100" class="pagination" aria-label="抽卡记录分页"><button type="button" class="ui-button small-button" :disabled="offset === 0 || busy" @click="offset = Math.max(0, offset - 100)">上一页</button><span>{{ Math.floor(offset / 100) + 1 }} / {{ Math.ceil(recordTotal / 100) }}</span><button type="button" class="ui-button small-button" :disabled="offset + 100 >= recordTotal || busy" @click="offset += 100">下一页</button></nav>
     </template>
   </section>
 </template>
 
 <style scoped>
+.ledger-reward-image { display:flex; align-items:center; gap:10px; min-width:0; }
+.ledger-reward-image > span { overflow-wrap:anywhere; }
 .ledger { display:grid; gap:12px; min-width:0; }
 .ledger > * { min-width:0; }
 .ledger h2 { font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.01em; }

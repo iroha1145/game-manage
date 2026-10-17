@@ -23,6 +23,9 @@ from .rendering import SummaryRenderer, RenderingUnavailable, RenderingPageUnava
 ORIGIN = 'https://render.invalid'
 KINDS = frozenset(('calendar', 'wuwa_role', 'nte_role', 'wuwa_gacha', 'nte_gacha','game_snapshot','notice'))
 UPLOAD_TARGET_BYTES = 256 * 1024
+PAGE_WIDTH = 720
+PAGE_MAX_HEIGHT = 1440
+MAX_PAGES = 100
 
 
 def validate_snapshot(value):
@@ -230,7 +233,10 @@ class BrowserRenderer(SummaryRenderer):
         base=super().cache_key(scope,result)
         font=Path(self.font_path)
         font_hash=self._unchanged('font_hash',[font],lambda:hashlib.sha256(font.read_bytes()).hexdigest() if font.is_file() else 'missing')
-        return hashlib.sha256(json.dumps([base,self._build(),font_hash,'shared-vue-v1']).encode()).hexdigest()
+        from .render_snapshot import asset_requests
+        assets=[(url,mode,self.asset_cache.url_fingerprint(url,artwork=mode=='artwork',portrait=mode=='portrait'))
+                for url,mode in asset_requests(result.payload.get('render_snapshot'))] if self.asset_cache is not None else []
+        return hashlib.sha256(json.dumps([base,self._build(),font_hash,assets,'shared-vue-v1']).encode()).hexdigest()
 
     async def render_summary_async(self, scope, result, *, budget_seconds):
         deadline=time.monotonic()+min(10,budget_seconds)
@@ -249,8 +255,13 @@ class BrowserRenderer(SummaryRenderer):
         try:
             async with asyncio.timeout(max(.001,deadline-time.monotonic())):
                 await self._start()
-                context=await self._browser.new_context(viewport={'width':1080,'height':2400},device_scale_factor=1,
+                context=await self._browser.new_context(viewport={'width':PAGE_WIDTH,'height':PAGE_MAX_HEIGHT},device_scale_factor=1,
                     locale='zh-CN',timezone_id='Asia/Shanghai',reduced_motion='reduce',service_workers='block',accept_downloads=False)
+                from .render_snapshot import asset_requests
+                image_modes={}
+                priority={'icon':0,'portrait':1,'artwork':2}
+                for url,mode in asset_requests(snapshot):
+                    if priority[mode]>=priority.get(image_modes.get(url),-1):image_modes[url]=mode
                 forbidden=[]
                 async def route(request):
                     url=request.request.url
@@ -270,7 +281,8 @@ class BrowserRenderer(SummaryRenderer):
                     # Only audited anonymous image URLs resolve to sanitized in-memory PNGs.
                     safe=safe_public_url(url)
                     if safe and self.asset_cache is not None and request.request.resource_type=='image':
-                        png=self.asset_cache.get_png(self.asset_cache.register_url(safe))
+                        mode=image_modes.get(safe,'icon')
+                        png=self.asset_cache.get_url_png(safe,artwork=mode=='artwork',portrait=mode=='portrait')
                         if png is not None:
                             return await request.fulfill(body=png,content_type='image/png')
                     if request.request.resource_type!='image':forbidden.append('external_or_unexpected_resource')
@@ -285,11 +297,19 @@ class BrowserRenderer(SummaryRenderer):
                 self.last_state=state
                 if forbidden or state.get('state')!='ready' or state.get('job_id')!=job or state.get('input_fingerprint')!=fingerprint:raise RenderingUnavailable('qq_browser_not_ready')
                 pages=state.get('pages',[])
-                if not 1<=len(pages)<=100:raise RenderingUnavailable('qq_browser_page_limit')
-                if len(pages)!=1:raise RenderingUnavailable('qq_browser_shared_content_incomplete')
+                if not isinstance(pages,list) or not 1<=len(pages)<=MAX_PAGES:raise RenderingUnavailable('qq_browser_page_limit')
+                content,displayed=state.get('content_blocks'),state.get('displayed_blocks')
+                if type(content) is not int or type(displayed) is not int or content<0 or content!=displayed:
+                    raise RenderingUnavailable('qq_browser_shared_content_incomplete')
+                # Validate every page: returning page one must not conceal invalid later content.
+                for geometry in pages:
+                    if (not isinstance(geometry,dict) or type(geometry.get('width')) is not int
+                        or type(geometry.get('height')) is not int or geometry['width']!=PAGE_WIDTH
+                        or not 0<geometry['height']<=PAGE_MAX_HEIGHT
+                        or geometry['width']*geometry['height']>self.max_pixels):
+                        raise RenderingUnavailable('qq_image_pixel_limit')
                 if snapshot['page']>len(pages):raise RenderingPageUnavailable(snapshot['page'],len(pages))
                 box=pages[snapshot['page']-1]
-                if box['width']!=1080 or not 0<box['height']<=16000 or box['width']*box['height']>self.max_pixels:raise RenderingUnavailable('qq_image_pixel_limit')
                 target=page.locator('.render-page').nth(snapshot['page']-1)
                 png=await target.screenshot(type='png',animations='disabled')
                 upload_target=min(UPLOAD_TARGET_BYTES,self.max_bytes)
@@ -311,7 +331,7 @@ class BrowserRenderer(SummaryRenderer):
                         if len(candidate)<len(png):png=candidate
                         if len(png)<=upload_target:break
                 with Image.open(BytesIO(png)) as image:
-                    if image.width!=box['width'] or image.height>16000 or image.height*image.width>self.max_pixels:raise RenderingUnavailable('qq_image_pixel_limit')
+                    if image.size!=(box['width'],box['height']) or image.height*image.width>self.max_pixels:raise RenderingUnavailable('qq_image_pixel_limit')
                 if len(png)>self.max_bytes:raise RenderingUnavailable('qq_image_size_limit')
                 png=RenderedImage(png,page=snapshot['page'],total_pages=len(pages))
                 with self.lock:

@@ -88,11 +88,14 @@ async def test_real_production_sized_nte_roster_and_selected_detail(selected, tm
         pytest.skip('Explicit isolated Chromium/font required')
     class InspectableRenderer(BrowserRenderer):
         page_texts = None
+        skill_texts = None
         async def _bounded_close(self, operation):
             if self._browser is not None and self._browser.contexts:
                 page = self._browser.contexts[0].pages[0]
                 if not page.is_closed() and self.last_state and self.last_state.get('state') == 'ready':
                     self.page_texts = await page.locator('.render-page').all_inner_texts()
+                    self.skill_texts = await page.locator('.render-page .nte-equipped-details > section').evaluate_all(
+                        "sections => sections.filter(section => section.querySelector('h4')?.textContent === '战技说明').flatMap(section => [...section.querySelectorAll('p')].map(p => p.textContent))")
             return await super()._bounded_close(operation)
     renderer = InspectableRenderer(executable_path=executable, font_path=font)
     value = role_snapshot('nte', rich_roster(), NOW, resolved_id='9008' if selected else None)
@@ -103,16 +106,21 @@ async def test_real_production_sized_nte_roster_and_selected_detail(selected, tm
         assert renderer.last_state['state'] == 'ready'
         assert renderer.last_state['displayed_blocks'] == renderer.last_state['content_blocks']
         assert renderer.last_state['content_blocks'] == (8 if selected else 21)
-        assert png.total_pages==1
-        assert Image.open(BytesIO(png)).width == 1080
+        assert 1<=png.total_pages<=100
+        assert all(row['width']==720 and 0<row['height']<=1440 for row in renderer.last_state['pages'])
+        assert Image.open(BytesIO(png)).width == 720
         if selected:
-            assert '合成角色7' in renderer.page_texts[0]
+            assert '合成角色7' in '\n'.join(renderer.page_texts)
             for text in ('Lv0', '觉醒', '未提供', '合成弧盘', '属性0', '技能0', '城区技能'):
-                assert text in renderer.page_texts[0]
-            assert '连续伤害与技能描述。' * 59 in '\n'.join(renderer.page_texts)
+                assert text in '\n'.join(renderer.page_texts)
+            # Long paragraphs may cross page boundaries. Rejoin only their
+            # original text, excluding repeated headings and navigation.
+            skill_text = ''.join(renderer.skill_texts)
+            expected = ''.join(f'技能{i}说明：' + '连续伤害与技能描述。' * 59 for i in range(6))
+            assert skill_text == expected
             assert '合成套装' in '\n'.join(renderer.page_texts)
         else:
-            assert any(f'合成角色{i}' in renderer.page_texts[0] for i in range(21))
+            assert any(f'合成角色{i}' in '\n'.join(renderer.page_texts) for i in range(21))
             assert '合成角色0' in '\n'.join(renderer.page_texts)
             assert '合成角色20' in '\n'.join(renderer.page_texts)
             assert '连续伤害与技能描述。' not in '\n'.join(renderer.page_texts)

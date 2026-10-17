@@ -164,7 +164,7 @@ async function download() {
           <p class="notice history-coverage">6★ 历史：最近 {{ pool.history_available }} 条 / 账本 {{ pool.history_total ?? '未知' }} 条<span v-if="pool.history_limit != null"> · 最多展示 {{ pool.history_limit }} 条</span></p>
           <p v-if="pool.history_truncated === true" class="notice">此处未展示全部 6★ 历史；展开逐条记录或导出完整已保存账本查看。</p><p v-else-if="pool.history_truncated == null" class="notice">历史覆盖范围未知。</p>
           <ul v-if="pool.history?.length" class="chip-list" :aria-label="`${pool.label}的 6★ 记录`">
-            <li v-for="(item, index) in pool.history" :key="index" class="chip six" :title="`${item.pool_name || pool.label} · ${pullDate(item.obtained_at)}`">{{ item.name || '未知' }} <b>{{ sixPullsParts(item) ? `${sixPullsParts(item).prefix}${sixPullsParts(item).count} ${sixPullsParts(item).unit}` : '未知' }}</b></li>
+            <li v-for="(item, index) in pool.history" :key="index" class="chip six" :class="{ 'six-image': imageMode }" :title="`${item.pool_name || pool.label} · ${pullDate(item.obtained_at)}`"><EndfieldArtwork v-if="imageMode" role :name="item.name || '未知'" />{{ item.name || '未知' }} <b>{{ sixPullsParts(item) ? `${sixPullsParts(item).prefix}${sixPullsParts(item).count} ${sixPullsParts(item).unit}` : '未知' }}</b></li>
           </ul>
         </article>
       </div>
@@ -200,6 +200,8 @@ async function download() {
 </template>
 
 <style scoped>
+.six-image { padding:6px 10px 6px 6px; gap:10px; white-space:normal; }
+.six-image :deep(.endfield-artwork) { width:48px; height:48px; flex-shrink:0; }
 /* One bento: a hero on the game tone, the rarity ring, the per-pool bars, a rail of recent 6★, a card per pool, and the ledger.
    Bot images set only --game-accent, so every game colour has a static fallback. */
 .endfield-gacha { --eg-six:var(--game-vivid,var(--game-endfield-vivid)); --eg-tone:var(--game-tone,var(--game-endfield-tone)); --eg-ink:var(--game-accent,var(--game-endfield)); --eg-five:var(--chart-2); --eg-four:color-mix(in srgb,var(--text-faint) 34%,var(--card-bg)); --eg-unknown:var(--border-strong);

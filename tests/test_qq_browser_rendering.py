@@ -81,14 +81,14 @@ def browser():
 
 
 async def out_of_bounds_rows(page,selector):
-    return await page.locator('.render-page').evaluate("""(host, selector) => {
+    return await page.locator('.render-page').evaluate_all("""(hosts, selector) => hosts.reduce((total, host) => {
         const page = host.getBoundingClientRect();
-        return [...host.querySelectorAll(selector)].filter(row => {
+        return total + [...host.querySelectorAll(selector)].filter(row => {
             const box = row.getBoundingClientRect();
             return box.width <= 0 || box.height <= 0 || box.left < page.left - .01 ||
                 box.top < page.top - .01 || box.right > page.right + .01 || box.bottom > page.bottom + .01;
         }).length;
-    }""",selector)
+    }, 0)""",selector)
 
 
 def test_strict_snapshot_rejects_unknown_paths_credentials_and_unbounded_data():
@@ -164,19 +164,19 @@ async def test_queue_exposes_only_known_output_limits_and_preserves_generic_fall
     await queue.aclose()
 
 
-async def test_real_complete_calendar_long_image_cache_isolation_and_clean_context(tmp_path):
+async def test_real_complete_calendar_short_pages_cache_isolation_and_clean_context(tmp_path):
     renderer=browser()
     try:
         value=calendar(70)
         first=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
-        assert first.total_pages==1 and first.page==1
+        assert 1<first.total_pages<=100 and first.page==1
         assert renderer.last_state['state']=='ready' and not renderer._browser.contexts
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
-        assert Image.open(BytesIO(first)).size[0]==1080
-        assert Image.open(BytesIO(first)).size[1]>2300
+        assert Image.open(BytesIO(first)).size[0]==720
+        assert Image.open(BytesIO(first)).size[1]<=1440
         assert len(first)<=renderer.max_bytes
         assert renderer.cache_key(SCOPE,envelope(value))!=renderer.cache_key(AccountScope('other','fixture-account','fixture-role'),envelope(value))
-        (tmp_path/('calendar-long.jpg' if first.startswith(b'\xff\xd8') else 'calendar-long.png')).write_bytes(first)
+        (tmp_path/('calendar-page.jpg' if first.startswith(b'\xff\xd8') else 'calendar-page.png')).write_bytes(first)
         value['page']=first.total_pages+1
         with pytest.raises(RenderingPageUnavailable) as error:await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
         assert error.value.total_pages==first.total_pages and not renderer._browser.contexts
@@ -200,22 +200,22 @@ async def test_real_font_transport_uses_validated_original_file_and_keeps_ready_
         assert observed==[{'path':renderer.font_path,'inline_body':False}]
         assert renderer.last_state['state']=='ready'
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
-        assert image.total_pages==1 and Image.open(BytesIO(image)).width==1080
+        assert image.total_pages>=1 and Image.open(BytesIO(image)).width==720
         assert not renderer._browser.contexts
     finally:await renderer.aclose()
 
 
-async def test_real_calendar_byte_limit_keeps_every_row_or_reports_whole_image_failure():
+async def test_real_calendar_many_rows_are_complete_short_pages_with_per_page_byte_limit():
     renderer=browser();renderer.max_bytes=512*1024
     try:
-        image=await renderer.render_summary_async(SCOPE,envelope(calendar(30)),budget_seconds=10)
-        assert image.total_pages==1 and len(image)<=512*1024
-        assert Image.open(BytesIO(image)).height>1000
-        # Flat timeline bars compress well: 160 rows came to about 480 KiB, so the oversized case uses 240 (about 710 KiB).
-        with pytest.raises(RenderingUnavailable,match='^qq_image_size_limit$'):
-            await renderer.render_summary_async(SCOPE,envelope(calendar(240)),budget_seconds=10)
-        assert renderer.last_state['pages'][0]['height']>6000
-        assert not renderer._browser.contexts
+        for count in (30,240):
+            image=await renderer.render_summary_async(SCOPE,envelope(calendar(count)),budget_seconds=10)
+            assert 1<image.total_pages<=100 and len(image)<=512*1024
+            assert Image.open(BytesIO(image)).width==720
+            assert 0<Image.open(BytesIO(image)).height<=1440
+            assert all(row['width']==720 and 0<row['height']<=1440 for row in renderer.last_state['pages'])
+            assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
+            assert not renderer._browser.contexts
     finally:await renderer.aclose()
 
 
@@ -269,12 +269,12 @@ async def test_real_shared_component_pngs_optional_images_and_no_account_api(kin
     try:
         png=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
         assert valid_reply_image(png,max_bytes=renderer.max_bytes) and renderer.last_state['state']=='ready'
-        assert png.total_pages==1 and png.page==1
+        assert 1<=png.total_pages<=100 and png.page==1
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
-        value['page']=2
+        value['page']=png.total_pages+1
         with pytest.raises(RenderingPageUnavailable) as error:
             await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
-        assert error.value.total_pages==1
+        assert error.value.total_pages==png.total_pages
         assert not renderer._browser.contexts
         evidence=Path('.superpowers/sdd/2026-10-14-game-modules-phase-one/render-evidence')
         evidence.mkdir(parents=True,exist_ok=True)
@@ -283,7 +283,7 @@ async def test_real_shared_component_pngs_optional_images_and_no_account_api(kin
 
 
 @pytest.mark.parametrize('kind',['nte_role','nte_gacha','wuwa_gacha','wuwa_role'])
-async def test_real_shared_long_records_retain_first_and_last_rows_in_one_image(kind,tmp_path):
+async def test_real_shared_long_records_retain_every_row_across_short_pages(kind,tmp_path):
     renderer=browser()
     texts=[]
     counts={}
@@ -298,7 +298,7 @@ async def test_real_shared_long_records_retain_first_and_last_rows_in_one_image(
             page=renderer._browser.contexts[0].pages[0]
             if not page.is_closed() and renderer.last_state and renderer.last_state.get('state')=='ready':
                 texts.extend(await page.locator('.render-page').all_inner_texts())
-                bounds.update(await page.locator('.render-page').bounding_box())
+                bounds.update(await page.locator('.render-page').first.bounding_box())
                 for selector in expected_counts:
                     counts[selector]=await page.locator('.render-page').locator(selector).count()
                     outside[selector]=await out_of_bounds_rows(page,selector)
@@ -322,13 +322,14 @@ async def test_real_shared_long_records_retain_first_and_last_rows_in_one_image(
         value=role_snapshot('wuthering_waves',row,NOW,detail=row,resolved_id='1304')
     try:
         image=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
-        assert image.total_pages==1 and image.page==1
-        assert len(renderer.last_state['pages'])==1
+        assert 1<image.total_pages<=100 and image.page==1
+        assert len(renderer.last_state['pages'])==image.total_pages
+        assert all(row['width']==720 and 0<row['height']<=1440 for row in renderer.last_state['pages'])
         geometry=renderer.last_state['pages'][0]
         with Image.open(BytesIO(image)) as picture:
             assert picture.size==(ceil(bounds['width']),ceil(bounds['height']))
             assert geometry['width']==bounds['width'] and abs(geometry['height']-bounds['height'])<1
-            assert picture.width==1080 and 0<picture.height<=16000
+            assert picture.width==720 and 0<picture.height<=1440
             assert picture.width*picture.height<=renderer.max_pixels
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
         assert counts==expected_counts
@@ -346,7 +347,7 @@ async def test_real_shared_long_records_retain_first_and_last_rows_in_one_image(
 
 
 @pytest.mark.parametrize('kind',['nte_role','nte_gacha'])
-async def test_real_shared_height_limit_rejects_whole_image_instead_of_returning_first_page(kind):
+async def test_real_large_roster_or_history_preserves_all_rows_across_bounded_pages(kind):
     renderer=browser()
     observed={}
     original_close=renderer._bounded_close
@@ -355,26 +356,22 @@ async def test_real_shared_height_limit_rejects_whole_image_instead_of_returning
             page=renderer._browser.contexts[0].pages[0]
             observed['rows']=await page.locator('.render-page').locator('.role-card' if kind=='nte_role' else '.pull-row').count()
             observed['outside']=await out_of_bounds_rows(page,'.role-card' if kind=='nte_role' else '.pull-row')
-            observed['text']=await page.locator('.render-page').inner_text()
+            observed['text']='\n'.join(await page.locator('.render-page').all_inner_texts())
         return await original_close(operation)
     renderer._bounded_close=inspect_close
     if kind=='nte_role':
-        renderer.max_pixels=1080*600
         row=QueryResult({'schema_version':1,'entries':[{'id':str(9000+i),'name':f'角色 {i:03}','level':80} for i in range(160)]},NOW.isoformat(),'ok',False)
         value=role_snapshot('nte',row,NOW)
     else:
-        assert renderer.max_pixels==16000000
         row=QueryResult({'schema_version':1,'pools':[{'name':'角色池','total_draws':6000,'s_count':400,'details':[{'name':f'抽卡 {i:03}','item_id':str(9000+i),'pity':15} for i in range(400)]}]},NOW.isoformat(),'ok',False)
         value=gacha_snapshot('nte',row,NOW)
     try:
-        with pytest.raises(RenderingUnavailable,match='^qq_image_pixel_limit$'):
-            await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
-        assert len(renderer.last_state['pages'])==1
-        assert renderer.last_state['pages'][0]['height']*1080>renderer.max_pixels
+        image=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
+        assert 1<image.total_pages<=100 and image.page==1
+        assert all(row['width']==720 and 0<row['height']<=1440 for row in renderer.last_state['pages'])
         assert renderer.last_state['content_blocks']==renderer.last_state['displayed_blocks']
         count,prefix=(160,'角色') if kind=='nte_role' else (400,'抽卡')
-        assert observed['rows']==count
-        assert observed['outside']==0
+        assert observed['rows']==count and observed['outside']==0
         assert all(f'{prefix} {index:03}' in observed['text'] for index in range(count))
         assert not renderer._browser.contexts
     finally:await renderer.aclose()

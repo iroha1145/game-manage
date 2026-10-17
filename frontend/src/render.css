@@ -1,32 +1,90 @@
 body { margin:0; }
-.render-image { width:1080px; color:var(--text); font-family:var(--font-sans); }
+/* A chat image has its own reading width and density. It shares the website's
+   palette and shape tokens, but contains no navigation or scrolling surfaces. */
+.render-image { width:720px; color:var(--text); font-family:var(--font-sans); font-size:26px; line-height:1.5; }
 .render-image *, .render-image *::before, .render-image *::after { animation:none !important; transition:none !important; }
-/* A bot image is one still frame: nothing waits to be scrolled to, drifts, or blurs what is behind it. */
 .render-image [data-reveal] { opacity:1 !important; transform:none !important; filter:none !important; }
 .render-image .plx-layer { transform:none !important; will-change:auto; }
 .render-image * { -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
-#render-content { position:absolute; left:-20000px; }
-.render-page { width:1080px; box-sizing:border-box; padding:32px; background:var(--bg); overflow-wrap:anywhere; }
-.render-page-header { margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
-.render-page-header h1 { font-size:26px; line-height:1.4; }
-.render-page-header p,.render-page-footer { font-size:14px; color:var(--text-muted); line-height:1.7; }
-.render-page-footer { margin-top:20px; border-top:1px solid var(--border); padding-top:14px; }
-.render-image .info-hint { display:none; }
-.render-image .version-calendars { padding:0; overflow:visible; }
-.render-image .version-axis { font-size:16px; }
-.render-image .role-card { break-inside:avoid; }
-.render-image .role-heading strong,.render-image .pull-name { white-space:normal; overflow:visible; text-overflow:clip; }
-.render-image .nte-roles-panel .toolbar,.render-image .compare-tray,.render-image .role-actions { display:none; }
-.render-image .wuwa-pager,.render-image .pagination,.render-image .records-toolbar .menu-select { display:none; }
-.render-image .wuwa-description,.render-image .wuwa-effect { white-space:normal; }
+#render-content { position:absolute; left:-20000px; width:664px; }
+.render-page { width:720px; box-sizing:border-box; padding:28px; background:var(--bg); overflow-wrap:anywhere; }
+.render-page-header { margin-bottom:22px; padding-bottom:18px; border-bottom:1px solid var(--border); }
+.render-page-header h1 { font-size:36px; line-height:1.3; letter-spacing:-.025em; }
+.render-page-header p { margin-top:8px; font-size:22px; line-height:1.5; color:var(--text-muted); }
+.render-page-body { display:grid; gap:20px; min-width:0; }
+.render-page-footer { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; margin-top:22px; border-top:1px solid var(--border); padding-top:16px; font-size:22px; line-height:1.5; color:var(--text-muted); }
+.render-page-footer span:last-child { color:var(--game-accent,var(--accent)); }
+.render-image :is(.info-hint,.nte-roles-panel .toolbar,.compare-tray,.role-actions,.wuwa-pager,.pagination,.records-toolbar .menu-select,.h-rail-nav,.t-glide,.t-glide-hover,.record-toggle,.t-disclosure) { display:none !important; }
+.render-image :is(.cap-card,.wuwa-panel,.ef-card,.challenge-report,.profile-account,.wuwa-detail-section,.role-assessment) { border-radius:24px; padding:22px; min-width:0; box-shadow:0 3px 12px #20263108,0 1px 2px #20263105; }
+.render-image :is(.cap-title,.wuwa-subhead,.snapshot-game-name,.report-heading) { line-height:1.4; margin-bottom:16px; flex-wrap:wrap; }
+.render-image :is(.cap-meta,.wuwa-meta,.ef-note,.render-observation,.notice-text,.challenge-note,.challenge-status) { color:var(--text-muted); }
+.render-image :is(.badge,.chip,.count-badge,.rank,.level,.record-result) { height:auto; min-height:0; line-height:1.5; white-space:normal; padding:3px 9px; }
+.render-image :is(.role-heading strong,.pull-name,.asset-name,.wuwa-role strong,.skill-name span,.ef-operator strong,.ef-medal strong) { white-space:normal; overflow:visible; text-overflow:clip; }
+.render-image :is(.wuwa-description,.wuwa-effect,.notice-text) { white-space:normal; overflow-wrap:anywhere; }
 .render-image details > summary { pointer-events:none; }
-.render-image .wuwa-table-wrap,.render-image .table-scroll { overflow:visible; max-height:none; }
-.render-image .asset-name,.render-image .wuwa-role strong { white-space:normal; overflow:visible; text-overflow:clip; }
-.render-missing-image { font-size:12px; color:var(--text-muted); }
-/* The NTE gacha image stacks the community card and the ledger card; the web page spaces them with a grid gap. */
-.render-image .community-stats + .ledger { margin-top:16px; }
-/* Rails lay every card out in the image instead of scrolling them out of the frame. */
-.render-image .h-rail .h-rail-track { overflow:visible; flex-wrap:wrap; margin:0; padding:0; -webkit-mask-image:none; mask-image:none; }
-.render-image .h-rail .h-rail-nav { display:none; }
-/* motion.css is not loaded in bot images, so the tab slips that v-glide inserts would sit in the flow as empty boxes. */
-.render-image .t-glide, .render-image .t-glide-hover { display:none; }
+.render-image :is(.wuwa-table-wrap,.table-scroll,.comparison-scroll) { overflow:visible; max-height:none; }
+.render-image :is(.wuwa-tiles,.wuwa-skills,.wuwa-echoes,.wuwa-chains,.role-grid,.wuwa-roster,.ef-operators,.ef-regions,.ef-ship-rooms,.challenge-weeks,.monument-groups,.nte-equipped-details,.gacha-overview,.ch-top-body,.ef-overview,.ef-hero-grid) { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; min-width:0; }
+.render-image :is(.kv-grid,.wuwa-kv,.wuwa-attrs,.summary-metrics,.ef-counts,.detail-rows,.ef-medals) { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.render-image :is(.wuwa-tile,.role-card,.challenge-week,.ef-operator,.ef-medal) { width:auto; min-width:0; max-width:100%; }
+.render-image .role-card { padding:18px; }
+.render-image .role-top { gap:16px; }
+.render-image .role-art { width:76px; height:76px; flex:0 0 76px; }
+.render-image .role-art .avatar { width:100%; height:100%; }
+.render-image .role-more { margin-top:12px; }
+.render-image .detail-rows > div { min-width:0; gap:12px; }
+.render-image .wuwa-role { padding:18px; }
+.render-image .wuwa-skin { max-width:120px; max-height:200px; object-fit:contain; }
+.render-image :is(.wuwa-basics,.wuwa-equip) { gap:18px; }
+.render-image .wuwa-tile-head { flex-wrap:wrap; }
+.render-image .wuwa-tile-head h4 { flex:1 1 220px; }
+.render-image .wuwa-supplement { margin-top:12px; }
+.render-image .wuwa-supplement > summary { margin-bottom:8px; }
+.render-image :is(.ring-gauge,.donut-ring) { flex-shrink:0; }
+.render-image .donut-legend { gap:12px; }
+.render-image .donut-legend li { grid-template-columns:10px minmax(0,1fr) auto; gap:10px; }
+.render-image .donut-legend small { grid-column:3; }
+.render-image .donut-ring { width:180px; height:180px; }
+.render-image .donut-chart { gap:24px; }
+.render-image .bar-plot { height:auto; display:grid; grid-template-columns:1fr; gap:14px; padding:0; border:0; }
+.render-image .bar-col { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px; min-height:42px; }
+.render-image .bar-slot { display:contents; }
+.render-image .bar-fill,.render-image .bar-unknown { display:none; }
+.render-image .bar-label { order:-1; width:auto; overflow:visible; text-overflow:clip; white-space:normal; }
+.render-image .bar-label { text-align:left; }
+.render-image .bar-value { position:static; opacity:1; transform:none; white-space:normal; }
+.render-image .bar-note { display:block; }
+.render-image .community-stats + .ledger { margin-top:20px; }
+.render-image .h-rail .h-rail-track { display:grid; grid-template-columns:1fr; overflow:visible; gap:14px; margin:0; padding:0; -webkit-mask-image:none; mask-image:none; }
+.render-image .h-rail .h-rail-track > * { min-width:0; max-width:100%; width:auto; }
+.render-image :is(.challenge-record,.ch-honors) { overflow:visible; }
+.render-image .challenge-record > summary { padding:0 0 16px; }
+.render-image .record-body { padding:0; }
+.render-image .challenge-honors li { width:auto; }
+.render-image .data-table { width:100%; min-width:0; table-layout:fixed; }
+.render-image .data-table :is(td,th) { padding:12px 8px; white-space:normal; overflow-wrap:anywhere; }
+/* Five narrow web columns become a two-line chat record. The pool and source
+   time remain visible; rarity/count labels travel with every record. */
+.render-image .wuwa-draws { display:block; table-layout:auto; }
+.render-image .wuwa-draws thead { display:none; }
+.render-image .wuwa-draws tbody { display:grid; gap:8px; }
+.render-image .wuwa-draws tr { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:4px 16px; padding:12px 0; border-bottom:1px solid var(--border); }
+.render-image .wuwa-draws td { padding:0; border:0; min-width:0; }
+.render-image .wuwa-draws td:nth-child(3) { grid-area:1 / 1; font-weight:600; }
+.render-image .wuwa-draws td:nth-child(4) { grid-area:1 / 2; }
+.render-image .wuwa-draws td:nth-child(5) { grid-area:1 / 3; }
+.render-image .wuwa-draws td:nth-child(1) { grid-area:2 / 1; color:var(--text-muted); font-size:22px !important; }
+.render-image .wuwa-draws td:nth-child(2) { grid-area:2 / 2 / auto / 4; color:var(--text-muted); font-size:22px !important; text-align:right; }
+.render-image .wuwa-draws td[data-chat-label]::before { content:attr(data-chat-label); font-size:22px; font-weight:400; color:var(--text-muted); }
+.render-image .wuwa-draws small { display:inline; margin-left:8px; font-size:22px !important; }
+.render-missing-image { font-size:22px; color:var(--text-muted); overflow-wrap:anywhere; }
+/* Outrank the shared image-mode roster's old two-column compact rules. */
+.render-image .nte-roles-panel.is-image .role-grid { grid-template-columns:minmax(0,1fr); }
+.render-image .nte-roles-panel.is-image:not(.role-detail-view) .role-card { grid-template-columns:96px minmax(0,1fr); column-gap:18px; }
+.render-image .nte-roles-panel.is-image .role-art { width:96px; height:112px; }
+.render-image .nte-roles-panel.is-image .role-art > .nte-icon[data-size] { padding:0; place-items:center; }
+.render-image .nte-roles-panel.is-image .level { margin:0; padding:2px 6px; }
+.render-image .nte-roles-panel.is-image .role-card > .chip-list { gap:8px; }
+.render-image .nte-roles-panel.is-image .chip { display:inline; }
+.render-image .nte-roles-panel.is-image.role-detail-view .role-top { grid-template-columns:96px minmax(0,1fr); }
+.render-image .nte-roles-panel.is-image .detail-rows { grid-template-columns:minmax(0,1fr); }
+.render-image .nte-roles-panel.is-image .detail-rows dt { overflow:visible; text-overflow:clip; white-space:normal; }

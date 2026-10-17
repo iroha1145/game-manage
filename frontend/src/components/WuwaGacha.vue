@@ -145,7 +145,7 @@ const goldShare = computed(() => {
   const total = archive.value?.total, gold = archive.value?.gold_total
   return typeof total === 'number' && total > 0 && typeof gold === 'number' ? `${((gold / total) * 100).toFixed(1)}%` : null
 })
-// The five-star rail: newest first, the latest one saturated. Icons only on the web page.
+// The five-star rail: newest first, the latest one saturated. The image table uses the same exact catalog artwork.
 const goldRail = computed(() => recentGold(archive.value?.gold, 12))
 const goldIcon = (row) => namedIcon(row.resource_type === '武器' ? 'weapons' : 'roles', row.name)
 function rarities(pool) {
@@ -309,7 +309,7 @@ function rarities(pool) {
             >共 {{ value(archive.gold_total) }} 条</span
           >
         </h3>
-        <template v-if="imageMode"><section v-for="group in goldGroups" :key="group.key" class="wuwa-section wuwa-pool-records"><h4 class="wuwa-subhead">{{ group.name }}</h4><WuwaDrawTable :rows="group.rows" :pool-names="poolNames" /></section><p v-if="!goldGroups.length" class="empty">暂无五星记录</p></template>
+        <template v-if="imageMode"><section v-for="group in goldGroups" :key="group.key" class="wuwa-section wuwa-pool-records"><h4 class="wuwa-subhead">{{ group.name }}</h4><WuwaDrawTable :rows="group.rows" :pool-names="poolNames" image-mode /></section><p v-if="!goldGroups.length" class="empty">暂无五星记录</p></template>
         <HRail v-else-if="goldRail.length" label="最近五星记录" class="gold-rail">
           <article v-for="(row, i) in goldRail" :key="row.draw_id || i" class="gold-card" :class="{ 'is-latest': i === 0 }">
             <WuwaIcon :src="goldIcon(row)" :name="row.name || '五星'" size="large" />
@@ -323,7 +323,7 @@ function rarities(pool) {
       </section>
       <details open class="wuwa-section wuwa-records-all">
         <summary>{{ imageMode ? '已导入记录（本次读取）' : '全部记录（当前页）' }}</summary>
-        <template v-if="imageMode"><section v-for="group in recordGroups" :key="group.key" class="wuwa-section wuwa-pool-records"><h4 class="wuwa-subhead">{{ group.name }}</h4><WuwaDrawTable :rows="group.rows" :pool-names="poolNames" /></section><p v-if="!recordGroups.length" class="empty">暂无记录</p></template>
+        <template v-if="imageMode"><section v-for="group in recordGroups" :key="group.key" class="wuwa-section wuwa-pool-records"><h4 class="wuwa-subhead">{{ group.name }}</h4><WuwaDrawTable :rows="group.rows" :pool-names="poolNames" image-mode /></section><p v-if="!recordGroups.length" class="empty">暂无记录</p></template>
         <WuwaDrawTable v-else :rows="list(archive.items)" :pool-names="poolNames" />
       </details>
       <nav v-if="!imageMode" class="wuwa-pager" aria-label="抽卡档案分页">

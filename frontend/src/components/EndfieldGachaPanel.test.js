@@ -125,3 +125,14 @@ test('a bot image keeps every pool and history chip but has no rail, no highligh
   assert.doesNotMatch(content(root), /最新/)
   for (const type of ['button', 'input', 'select', 'details']) assert.equal(nodes(root, type).length, 0, type)
 })
+
+test('QQ six-star pool history retains exact operator artwork and unknown names in compact rows',t=>{
+ api(t,()=>{throw Error('image must not fetch')})
+ const history=[{name:'秋栗',pulls:30,status:'exact'},{name:'未收录干员',pulls:null,status:'unknown'}]
+ const root=mount(t,Panel,{imageMode:true,snap:{payload:{...summary,pools:[{...summary.pools[0],history}]}}})
+ assert.deepEqual(nodes(root,'img').map(n=>n.props.src),['https://web.hycdn.cn/endfield/official-v4/_next/static/media/akekuri.3df4a3dc.png'])
+ assert.match(content(root),/秋栗 30 抽.*未收录干员 未知/)
+ assert.equal(nodes(root,'li').filter(n=>String(n.props.class).includes('six-image')).length,2)
+ const web=mount(t,Panel,{snap:{payload:{...summary,pools:[{...summary.pools[0],history}]}}})
+ assert.equal(nodes(web,'li').filter(n=>String(n.props.class).includes('six-image')).length,0)
+})

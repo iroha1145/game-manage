@@ -104,3 +104,20 @@ test('community image includes S records from every pool without hidden tabs',t=
  assert.equal(nodes(root,'li').filter(node=>node.props.class?.includes('pull-row')).length,60)
  assert.equal(nodes(root,'nav').length,0)
 })
+
+test('QQ draw tables show exact role and weapon artwork, retain failed or unknown names, and leave web tables unchanged', async t=>{
+ const Table=await loadVue(new URL('./WuwaDrawTable.vue',import.meta.url))
+ const rows=[{name:'今汐',resource_type:'角色',rarity:5},{name:'时和岁稔',resource_type:'武器',rarity:5},{name:'不在资料库的物品',resource_type:'未知'}]
+ const image=mount(t,Table,{rows,imageMode:true})
+ const {namedIcon}=await import('../wuwa-icons.js')
+ assert.deepEqual(nodes(image,'img').map(n=>n.props.src),[namedIcon('roles','今汐'),namedIcon('weapons','时和岁稔')])
+ assert.ok(nodes(image,'img').every(n=>n.props.src))
+ for(const row of rows)assert.ok(content(image).includes(row.name))
+ nodes(image,'img')[0].props.onError();await (await import('vue')).nextTick()
+ assert.ok(content(image).includes('今汐'))
+ const web=mount(t,Table,{rows})
+ assert.equal(nodes(web,'img').length,0)
+ assert.equal(nodes(web,'td').length,15)
+ const full=mount(t,WuwaGacha,{imageMode:true,snapshot:{total:1,gold_total:1,pools:[{pool:'1',name:'角色池'}],gold:[{pool:'1',...rows[0]}],items:[{pool:'1',...rows[0]}]}})
+ assert.deepEqual(nodes(full,'img').map(n=>n.props.src),[namedIcon('roles','今汐'),namedIcon('roles','今汐')])
+})

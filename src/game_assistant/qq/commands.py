@@ -18,7 +18,7 @@ VERBS.update({'帮助':'help','help':'help','数据坞':'calabash','calabash':'c
 VERBS.update({'理智':'stamina','练度':'training','全员练度':'training','training':'training',
               '地区':'regions','地区建设':'regions','regions':'regions','帝江号':'ship','ship':'ship','寻访战报':'gacha',
               '光荣之路':'honor','勋章':'honor','奖章':'honor','honor':'honor'})
-PAGED_COMMANDS = frozenset(('overview','summary','status','roles','exploration','combat','progress','gacha','calendar','events','recent_events','news',
+PAGED_COMMANDS = frozenset(('help','stamina','calabash','overview','summary','status','roles','exploration','combat','progress','gacha','calendar','events','recent_events','news',
                             'activities','resources','realestate','vehicles','teams','record','training','regions','ship','honor'))
 MAX_PAGE = 100
 
@@ -54,8 +54,13 @@ def parse_command(content):
         return Command('dashboard')
     if raw in GAMES:
         return Command('summary',GAMES[raw])
-    if raw in VERBS and VERBS[raw] in ('events','recent_events','calendar'):
-        return Command(VERBS[raw])
+    if parts and parts[0] in VERBS and VERBS[parts[0]] in ('help','events','recent_events','calendar'):
+        verb=VERBS[parts[0]]
+        if len(parts)==1:return Command(verb)
+        if len(parts)==2 and re.fullmatch(r'[0-9]+',parts[1]):
+            if verb in PAGED_COMMANDS and 1<=int(parts[1])<=MAX_PAGE:
+                return Command(verb,page=int(parts[1]))
+            return Command('help')
     # Keep established compact Chinese aliases, including 鸣潮角色.
     if parts:
         for alias in ('鸣潮','异环','终末地'):

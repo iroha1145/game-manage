@@ -24,6 +24,7 @@ IDENTITY = QqIdentity('app', 'group', 'g', 'sender')
     ('角色 异环 娜娜莉', 'roles', 'nte', '娜娜莉', 1),
     ('鸣潮 角色 今汐 2', 'roles', 'wuthering_waves', '今汐', 2),
     ('异环 体力', 'stamina', 'nte', None, 1),
+    ('异环 体力 2', 'stamina', 'nte', None, 2),
     ('探索 鸣潮 2', 'exploration', 'wuthering_waves', None, 2),
     ('挑战 终末地', 'combat', 'endfield', None, 1),
     ('抽卡 异环', 'gacha', 'nte', None, 1),
@@ -34,7 +35,7 @@ def test_unified_explicit_grammar(raw, verb, game, name, page):
     assert (parsed.command, parsed.game, parsed.role_name, parsed.page) == (verb, game, name, page)
 
 
-@pytest.mark.parametrize('raw', ['鸣潮 角色 0', '异环 角色 101', '异环 体力 2',
+@pytest.mark.parametrize('raw', ['鸣潮 角色 0', '异环 角色 101', '异环 体力 101',
                                  '总览 other-user', '刷新 异环 2', '角色 异环 名字\x00',
                                  'ww 角色 a b', '异环 角色 '+ '名' * 65])
 def test_unified_grammar_rejects_invalid_selector(raw):
@@ -231,7 +232,7 @@ async def test_new_parser_fields_propagate_through_internal_http_client():
 
 def test_internal_page_contract_rejects_cross_account_and_bad_page():
     for changes in ({'page': 0}, {'page': 101}, {'page': True}, {'page': 1.5}, {'page': '2'}, {'account_id': 'other'},
-                    {'command': 'stamina', 'page': 2}, {'command': 'summary', 'role_name': 'name'}):
+                    {'command': 'refresh', 'page': 2}, {'command': 'summary', 'role_name': 'name'}):
         with pytest.raises(ValueError):
             QueryBody.model_validate({'identity': asdict(IDENTITY), 'command': 'roles', 'game': 'nte', **changes})
 

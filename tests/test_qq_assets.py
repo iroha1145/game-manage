@@ -215,7 +215,8 @@ async def test_tls_connection_uses_pinned_ip_and_no_secrets(monkeypatch):
     b'HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: 99999999\r\n\r\n',
     b'HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\n\r\n',
 ])
-async def test_redirect_and_oversized_http_rejected(monkeypatch, headers):
+@pytest.mark.parametrize('artwork',[False,True])
+async def test_redirect_and_oversized_http_rejected(monkeypatch, headers, artwork):
     assets = module()
     loop = asyncio.get_running_loop()
     async def dns(*args, **kwargs):
@@ -231,7 +232,7 @@ async def test_redirect_and_oversized_http_rejected(monkeypatch, headers):
     async def connect(*args, **kwargs): return reader, Writer()
     monkeypatch.setattr(assets.asyncio, 'open_connection', connect)
     with pytest.raises(ValueError):
-        await assets._download('https://webstatic.tajiduo.com/a.png', timeout_seconds=.5)
+        await assets._download('https://webstatic.tajiduo.com/a.png', timeout_seconds=.5, artwork=artwork)
 
 
 async def test_chunked_size_and_unbounded_body_are_capped():
