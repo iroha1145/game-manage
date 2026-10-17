@@ -148,11 +148,19 @@ export function createCardAvoidance(root) {
         const target = record.target[key]
         if (record.fresh || media.matches) { record[key] = target; record[velocity] = 0 }
         else {
-          const step = dt / 2
-          for (let i = 0; i < 2; i++) {
-            record[velocity] += ((target - record[key]) * 260 - record[velocity] * 28) * step
-            record[key] += record[velocity] * step
+          const steps = Math.max(1, Math.min(24, Math.round(dt * 240)))
+          const h = dt / steps
+          let x = record[key], v = record[velocity]
+          const accel = (px, pv) => (target - px) * 260 - pv * 28
+          for (let i = 0; i < steps; i++) {
+            const a1 = accel(x, v)
+            const v2 = v + 0.5 * h * a1, a2 = accel(x + 0.5 * h * v, v2)
+            const v3 = v + 0.5 * h * a2, a3 = accel(x + 0.5 * h * v2, v3)
+            const v4 = v + h * a3, a4 = accel(x + h * v3, v4)
+            x += (h / 6) * (v + 2 * v2 + 2 * v3 + v4)
+            v += (h / 6) * (a1 + 2 * a2 + 2 * a3 + a4)
           }
+          record[key] = x; record[velocity] = v
           if (Math.abs(target - record[key]) < .05 && Math.abs(record[velocity]) < .1) { record[key] = target; record[velocity] = 0 }
           else moving = true
         }

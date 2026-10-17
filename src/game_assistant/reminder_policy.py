@@ -66,5 +66,5 @@ def stamina_candidates(payload, rule: ReminderRule, now: datetime) -> list[dict]
         else:
             continue
         result.append(dict(rule=name, title=title, source_read_at=read_at.isoformat(),
-            body=f'{label} {current}/{maximum}；读取时间 {read_at.astimezone(SHANGHAI):%Y-%m-%d %H:%M:%S}（Asia/Shanghai）。'))
+            body=f'{label} {current}/{maximum}；读取时间 {read_at.astimezone(SHANGHAI):%Y-%m-%d %H:%M:%S}（北京时间）。'))
     return result

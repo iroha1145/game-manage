@@ -59,7 +59,7 @@ def test_ship_percentages_share_rounding_keep_raw_values_and_unknown(mood,trust,
     assert fields['心情']['metric']['maximum']==100 and fields['信赖']['metric']['maximum']==200
     assert (fields['心情']['metric']['current'] is None)==(expected_mood=='未知')
     assert fields['心情原始值']['value']==('未知' if mood is None else str(mood))
-    assert '不按时间外推' in card_to_text(card) and source==before
+    assert '心情与信赖为抓取时的记录值' in card_to_text(card) and source==before
 
 
 def assert_honor_counts(card):

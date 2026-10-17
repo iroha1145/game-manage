@@ -344,7 +344,6 @@ const isAttributeList = (v) =>
 
     <details class="wuwa-supplement" :open="imageMode">
       <summary>声骸汇总属性</summary>
-      <p class="wuwa-field-label">声骸属性汇总</p>
       <dl
         v-if="isAttributeList(data.equip_phantom_attribute_list)"
         class="wuwa-kv"
@@ -358,7 +357,7 @@ const isAttributeList = (v) =>
         </div>
       </dl>
       <WuwaFields v-else :data="data.equip_phantom_attribute_list" />
-      <p class="wuwa-field-label">声骸附加属性汇总（非单个声骸副词条）</p>
+      <p class="wuwa-field-label">声骸附加属性汇总</p>
       <dl
         v-if="isAttributeList(data.equip_phantom_add_prop_list)"
         class="wuwa-kv"

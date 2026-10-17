@@ -83,7 +83,7 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
           <p v-if="source?.summary_changed" class="notice warning" role="status">原帖有更新，文字摘要待复核；以下为此前核对内容，请优先查看最新原图。</p>
           <p v-if="sourceError || source?.error" class="notice warning" role="alert">{{ friendlyDataError(sourceError || source.error) }}</p>
           <p v-else-if="sourceLoading" class="source-status" role="status">正在核对原帖与图片…</p>
-          <p v-else-if="source?.stale" class="source-status">当前展示缓存保存的旧版来源资料。</p></details>
+          <p v-else-if="source?.stale" class="source-status">当前展示旧版缓存资料。</p></details>
           <p v-if="guide.status === 'original_only'" class="notice">文字推荐待整理。已定位到原图第 {{ guide.pages.join('、') }} 页，可查看该角色的五类配装信息。</p>
           <div v-if="guide.status === 'reviewed'" class="advice-grid"><article v-for="(section, index) in guide.sections" :key="section.key" class="advice-card"><header><h4>{{ section.title }}</h4></header><ul v-if="section.items.length"><li v-for="(item, i) in section.items" :key="i"><NteGuideVisual :text="item" :section-key="section.key" :role-name="guide.name" /></li></ul><p v-else class="muted">暂无已整理的文字推荐</p><details v-if="section.note" class="section-note"><summary>适用条件与说明</summary><p>{{ section.note }}</p></details><button type="button" class="text-link" :disabled="sourceLoading || !source || !section.pages.some(n => n <= totalImages)" @click="showPage(section.pages[0])">查看对应原图 · 第 {{ section.pages.join('、') }} 页 ↗</button></article></div>
           <section ref="sourcePanel" class="source-card" aria-label="攻略原图与来源"><header><div><h4>原图与来源</h4><a v-if="originalLink" :href="originalLink" target="_blank" rel="noopener noreferrer">{{ sourceMeta.title }} ↗</a></div><button v-if="canMaintain" type="button" class="ui-button small-button" :disabled="sourceLoading" @click="loadSource(true)">{{ sourceLoading ? '读取中…' : '刷新原帖' }}</button></header>
@@ -136,7 +136,7 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
 .role-list button[aria-pressed=true] .guide-dot.reviewed { background:var(--game-accent); }
 /* Before one is chosen, the matches are plain buttons. */
 .nte-guides > .role-list { flex-wrap:wrap; overflow:visible; padding:0; margin:0 0 14px; }
-.nte-guides > .role-list button { width:auto; padding:6px 14px; border:1px solid var(--border); border-radius:10px; background:var(--card-bg); box-shadow:none; font-size:13px; }
+.nte-guides > .role-list button { width:auto; padding:6px 14px; border:1px solid var(--border); border-radius:var(--radius-control); background:var(--card-bg); box-shadow:none; font-size:13px; }
 .guide-main { min-width:0; }
 .guide-main > .ui-button { margin:0 8px 12px 0; }
 .role-heading { display:flex; gap:16px; align-items:center; padding:16px 18px; border-radius:var(--radius-tile); background:var(--game-tone); }
@@ -173,7 +173,7 @@ onBeforeUnmount(() => { disposed = true; requestId++; sourceController?.abort();
 .original-text summary { color:var(--text-muted); cursor:pointer; }
 .original-text p { margin-top:12px; line-height:1.8; overflow-wrap:anywhere; }
 .role-list button:focus-visible { border-radius:var(--radius-tile); }
-.nte-guides > .role-list button:focus-visible { border-radius:10px; }
+.nte-guides > .role-list button:focus-visible { border-radius:var(--radius-control); }
 @container (max-width:560px) {
   .guides-head { align-items:flex-start; }
   .catalog-count { line-height:1.6; }

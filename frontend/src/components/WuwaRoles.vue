@@ -180,7 +180,7 @@ function close() {
         class="wuwa-role t-item"
         :data-render-block="imageMode ? '' : undefined"
         :style="{ '--i': Math.min(index, 11) }"
-        :aria-pressed="selected?.role_id === r.role_id"
+        :aria-pressed="imageMode ? undefined : selected?.role_id === r.role_id"
         @click="open(r)"
       >
         <!-- Mockup .role-card: the picture on the tone with the level as a white tag, then name, rarity and one muted line. -->

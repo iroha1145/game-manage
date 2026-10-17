@@ -172,7 +172,7 @@ function rarities(pool) {
     <details v-if="!imageMode" class="wuwa-import" :open="importOpen" @toggle="importOpen = $event.target.open">
       <summary>导入记录</summary>
       <div class="wuwa-import-body">
-        <p class="wuwa-meta">授权链接仅用于本次导入，用后清空；记录保存在{{ cloudMode ? '本人空间' : '本机' }}。</p>
+        <p class="wuwa-meta">授权链接仅用于本次导入，用后清空；记录保存在{{ cloudMode ? '当前账号' : '本机' }}。</p>
         <form class="toolbar wuwa-import-row" @submit.prevent="importUrl">
           <input
             class="grow"
@@ -223,7 +223,7 @@ function rarities(pool) {
       </p>
       <details v-if="!imageMode" data-render-collapsed><summary>导入详情</summary><p class="wuwa-coverage">
         <span class="wuwa-meta" role="heading" aria-level="3">覆盖范围</span>
-        <span class="badge badge-stale">不完整历史</span>
+        <span v-if="!archive.coverage?.complete" class="badge badge-stale">不完整历史</span>
         <span class="wuwa-range"
           >{{ sourceTime(archive.coverage?.earliest) }} —
           {{ sourceTime(archive.coverage?.latest) }}</span

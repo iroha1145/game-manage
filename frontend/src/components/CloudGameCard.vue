@@ -14,6 +14,6 @@ const collection = computed(()=>Object.entries(combined.value).map(([cap,snap])=
 const scope = computed(()=>({user_id:props.userId,account_id:props.account.account_id,role_id:props.role,provider:props.account.provider}))
 </script>
 <template>
-  <p v-if="!caps.length" class="cap-card">此授权尚未提供云端数据能力，请在账号设置检查授权状态。</p>
+  <p v-if="!caps.length" class="cap-card">此授权尚未提供云端数据能力，请到「账号与授权」检查。</p>
   <template v-else><GameCard :game="game" :collection-status="collection" :external-snapshots="combined" :external-refreshing="refreshing" :cloud-account="account" :cloud-role="role" :cloud-scope="scope" :is-admin="isAdmin" :initial-section="section" @calendar="emit('calendar')" @refresh="emit('refresh')" /><CloudSnapshotStatus :snapshots="combined" :capabilities="[...caps,'news','events']" /></template>
 </template>

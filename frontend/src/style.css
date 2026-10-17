@@ -136,10 +136,10 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 /* Segmented control: a warm track with a white slip under the chosen item.
    v-glide moves the slip. */
 .segmented { display:inline-flex; flex-wrap:wrap; align-items:center; gap:2px; max-width:100%; padding:3px; border:0; border-radius:var(--radius-control); background:var(--control-track); }
-.segmented>button { min-height:34px; padding:6px 13px; border:0; border-radius:9px; background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; line-height:20px; white-space:nowrap; }
+.segmented>button { min-height:34px; padding:6px 13px; border:0; border-radius:calc(var(--radius-control) - 3px); background:transparent; color:var(--text-muted); font-size:13px; font-weight:500; line-height:20px; white-space:nowrap; }
 .segmented>button:is(.active,[aria-pressed="true"],[aria-selected="true"]) { color:var(--accent); }
 .segmented:not([data-glide])>button:is(.active,[aria-pressed="true"],[aria-selected="true"]) { background:var(--segment-active-bg); box-shadow:var(--control-selected-shadow); }
-.segmented>:is(.t-glide,.t-glide-hover) { border-radius:9px; }
+.segmented>:is(.t-glide,.t-glide-hover) { border-radius:calc(var(--radius-control) - 3px); }
 .segmented>button:not(:disabled):active { transform:translateY(1px); }
 @media(hover:hover) and (pointer:fine) { .segmented>button:not(:is(.active,[aria-pressed="true"],[aria-selected="true"])):hover { color:var(--text); background:var(--hover-bg); } }
 @media(pointer:coarse) { .segmented>button { min-height:40px; } }
@@ -181,10 +181,9 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 }
 .sidebar-label { display:flex; justify-content:space-between; padding:0 14px; margin:24px 0 8px; color:var(--text-muted); font-size:12px; font-weight:500; }.game-nav { display:grid; gap:5px; }
 /* Game marks sit on the game's own pale tone, like the cards they open. */
-.nav-game-mark { width:26px; height:26px; border-radius:8px; text-align:center; font-weight:600; font-size:13px; background:var(--mark-tone, var(--control-track)); box-shadow:inset 0 0 0 1px var(--card-border); }
+.nav-game-mark { width:26px; height:26px; border-radius:8px; text-align:center; font-weight:600; font-size:13px; background:var(--mark-tone, var(--control-track)); box-shadow:inset 0 0 0 1px var(--card-border); transition:transform var(--duration-spring) var(--ease-spring); }
 .nav-arrow { margin-left:auto; opacity:0; transform:translateX(-4px); transition:opacity var(--duration-quick) var(--ease-smooth-out),transform var(--duration-fast) var(--ease-smooth-out); }.game-nav a.active .nav-arrow,.game-nav a:hover .nav-arrow { opacity:1; transform:none; }
 .sidebar-bottom { margin-top:16px; border-top:1px solid var(--border); padding:14px 8px 2px; font-size:12px; line-height:1.7; color:var(--text-muted); }.local-status { display:flex; align-items:center; gap:7px; margin-bottom:4px; color:var(--text-body); }.local-status i { width:6px; height:6px; background:var(--success); border-radius:50%; }.local-status i.offline { background:var(--danger); }
-.nav-game-mark { transition:transform var(--duration-fast) var(--ease-bounce); }
 .game-nav a:focus-visible .nav-game-mark { transform:scale(1.06) rotate(-4deg); }
 @media(hover:hover) and (pointer:fine) { .game-nav a:hover .nav-game-mark { transform:scale(1.06) rotate(-4deg); } }
 /* Top bar: a plain row above the page — search on the left, date and
@@ -207,7 +206,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 /* Phones: a frosted tab bar at the bottom (mockup .mobile-nav) carries the main pages and opens the menu. */
 @media(max-width:960px) {
   .mobile-tabbar { position:absolute; left:0; right:0; bottom:0; z-index:3; display:flex; gap:2px; height:64px; padding:6px; border-radius:inherit; }
-  .mobile-tabbar > :is(a, button) { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:44px; min-height:52px; padding:5px 2px; border:0; border-radius:15px; background:transparent; color:var(--text-muted); font-size:11px; line-height:14px; text-decoration:none; white-space:nowrap; }
+  .mobile-tabbar > :is(a, button) { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:44px; min-height:52px; padding:5px 2px; border:0; border-radius:16px; background:transparent; color:var(--text-muted); font-size:11px; line-height:14px; text-decoration:none; white-space:nowrap; }
   .mobile-tabbar > .active { background:var(--accent-soft); color:var(--accent); font-weight:600; }
   .mobile-tabbar > :is(a, button):active { transform:translateY(1px); }
 }
@@ -223,9 +222,9 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 /* Right-side sheet (mockup .modal.sheet): detail dialogs open against the right edge at full
    height. --sheet-width widens it for reading; phones get a near-full-screen sheet. Add .t-dialog
    for the slide-in. */
-.sheet-dialog { position:fixed; inset:0; width:min(var(--sheet-width, 480px), calc(100vw - 32px)); max-width:none; height:calc(100dvh - 32px); max-height:none; margin:16px 16px 16px auto; padding:0; overflow:auto; overscroll-behavior:contain; border:1px solid var(--card-border); border-radius:25px; background:var(--card-bg); color:var(--text); box-shadow:var(--popover-shadow); }
+.sheet-dialog { position:fixed; inset:0; width:min(var(--sheet-width, 480px), calc(100vw - 32px)); max-width:none; height:calc(100dvh - 32px); max-height:none; margin:16px 16px 16px auto; padding:0; overflow:auto; overscroll-behavior:contain; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); color:var(--text); box-shadow:var(--popover-shadow); }
 .sheet-dialog::backdrop { background:var(--scrim); }
-@media(max-width:960px) { .sheet-dialog { width:calc(100vw - 20px); height:calc(100dvh - 20px); margin:10px; border-radius:23px; } }
+@media(max-width:960px) { .sheet-dialog { width:calc(100vw - 20px); height:calc(100dvh - 20px); margin:10px; border-radius:22px; } }
 /* ── Density kit ──────────────────────────────────────────────────────
    Shared pieces that replace prose and label/value stacks with compact,
    scannable data: header meta, ⓘ hints, key-value grids, one-line bar rows,

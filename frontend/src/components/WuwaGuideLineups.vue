@@ -18,7 +18,7 @@ watch(current, () => { failed.value = false })
         <img v-if="!failed" :key="current" :src="current" :alt="`${guide.author} · ${guide.scope} · 阵容图 ${index + 1}`" loading="lazy" decoding="async" referrerpolicy="no-referrer" @error="failed = true" />
         <span v-else class="wuwa-muted">图片暂未加载，点击重试查看大图，或通过下方入口查看原帖。</span>
       </a>
-      <figcaption class="wuwa-meta">{{ guide.author }} 原帖配图 · {{ index + 1 }}/{{ images.length }} · 点击图片查看大图</figcaption>
+      <figcaption class="wuwa-meta">{{ guide.author }} 原帖配图 · {{ index + 1 }}/{{ images.length }}</figcaption>
     </figure>
   </section>
 </template>

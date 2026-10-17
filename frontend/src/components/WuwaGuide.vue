@@ -57,7 +57,7 @@ function receiveGuide(value) {
           <a v-if="guideSourceUrl(source.url)" :href="guideSourceUrl(source.url)" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{{ source.title }} ↗</a>
           <span v-else>{{ source.title }}</span>
           <p class="wuwa-meta">{{ source.author }} · 发布 {{ source.publishedAt || '时间未提供' }}</p>
-          <p v-if="source.kind === 'preview'" class="guide-note">前瞻资料，仅供参考。</p>
+          <p v-if="source.kind === 'preview'" class="guide-note">前瞻资料</p>
         </article>
       </details>
     </template>

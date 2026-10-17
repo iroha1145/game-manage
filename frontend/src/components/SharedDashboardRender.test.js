@@ -67,7 +67,7 @@ test('image news omits technical quality markers while keeping dates, category a
 test('image news shares webpage excerpts for every long article and explicitly distinguishes summary from full text',t=>{
  const articles=Array.from({length:4},(_,i)=>({title:`长文公告${i}`,body:'合成长正文'.repeat(500)+`不可冒充全文末尾${i}`,published_at:'2026-10-14T04:00:00Z'}))
  const root=mount(t,Render,{snapshot:input([panel('wuthering_waves','news',articles)])})
- assert.match(content(root),/摘要.*全文.*原文.*看板/)
+ assert.match(content(root),/摘要.*全文请查看原文/)
  for(let i=0;i<4;i++)assert.ok(content(root).includes(`长文公告${i}`))
  const summaries=nodes(root,'p').filter(n=>String(n.props.class).includes('item-summary'))
  assert.equal(summaries.length,4)
@@ -105,7 +105,7 @@ test('QQ announcements keep real covers and text while webpage covers remain int
  const image=mount(t,Announcement,{snap:value,imageMode:true})
  assert.deepEqual(nodes(image,'img').map(n=>n.props.src),[cover])
  assert.equal(nodes(image,'button').length,0)
- assert.match(content(image),/摘要，全文请到原文或看板查看。.*有封面的公告.*完整摘要内容.*没有封面的公告.*保留文字/)
+ assert.match(content(image),/摘要，全文请查看原文。.*有封面的公告.*完整摘要内容.*没有封面的公告.*保留文字/)
  const web=mount(t,Announcement,{snap:value})
  assert.equal(nodes(web,'button').filter(n=>n.props.class==='article-cover').length,1)
  assert.deepEqual(nodes(web,'img').map(n=>n.props.src),[cover])

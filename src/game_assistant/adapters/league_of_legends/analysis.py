@@ -262,7 +262,7 @@ def _hextech(matches):
         "combinations": [{"ids": list(pair), "names": [f"强化 #{aid}" for aid in pair], **counts(samples)}
                          for pair, samples in sorted(pairs.items(), key=lambda p: (-len(p[1]), p[0]))],
         "rating_status": "unavailable",
-        "rating_note": "未接入同版本英雄强化外部样本，无法生成胡烂评级。胜率仅为个人已记录样本，组合为两两共现，不代表强度或因果。",
+        "rating_note": "未接入全服海克斯统计，暂不提供强度评级。",
     }
 
 
@@ -363,5 +363,5 @@ def analyze_matches(records, own_puuid, catalog=None, *, days=90, queue_id=None,
                      "score_games": sum(r["score"] is not None for r in selected),
                      "first_at": _iso(min(archive_dates)) if archive_dates else None,
                      "last_at": _iso(max(archive_dates)) if archive_dates else None,
-                     "scope_note": "仅含本账号在本机已归档的对局；客户端最近窗口不等于完整历史。日期按北京时间零点划分。"},
+                     "scope_note": "仅统计本机已归档的对局，日期按北京时间零点划分。"},
     }

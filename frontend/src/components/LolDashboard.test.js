@@ -102,7 +102,7 @@ test('real zero and unknown remain distinct; unknown result never becomes a loss
   button(root, '海克斯').props.onClick(); await flush()
   assert.match(content(root), /2 场/)
   assert.match(content(root), /1 场/)
-  assert.match(content(root), /不代表.*强度/)
+  assert.match(content(root), /重开与胜负未知不计入胜率/)
 })
 
 test('filter changes abort old requests and late responses cannot replace current data', async t => {
@@ -300,7 +300,7 @@ test('the hex view charts the ten most chosen augments above the complete table 
   await flush(); button(root, '海克斯').props.onClick(); await flush()
   assert.equal(byClass(root, 'li', 'bar-col').length, 10)
   assert.equal(nodes(nodes(root, 'table')[0], 'tr').length, 13) // header plus all twelve
-  assert.match(content(root), /样本胜率不代表强化强度/)
+  assert.match(content(root), /重开与胜负未知不计入胜率/)
   assert.equal(meter(root).props['aria-valuenow'], 9) // 9 of 12 hex games recorded their augments
 })
 

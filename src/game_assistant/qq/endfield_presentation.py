@@ -46,7 +46,7 @@ def _metric(label, data, current='current', maximum='total'):
 
 
 def _footer(snapshot, report=None):
-    footer = '更新时间（抓取）：' + view.format_time(snapshot.fetched_at)
+    footer = '更新时间：' + view.format_time(snapshot.fetched_at)
     if report and report.get('observed_at'):
         footer += ' · 观测时间：' + view.format_time(report['observed_at'])
     return footer + ' · 北京时间'
@@ -147,7 +147,7 @@ def challenge_document(reports):
         if kind=='crisis':
             fields += [view.field('最高值',summary['highest']),view.field('挑战次数',summary['challenge_count'])]
         if report['available'] and not report['records']:
-            fields.append(view.field('记录说明','本次返回列表为空；不据此判断未解锁或未挑战'))
+            fields.append(view.field('记录说明','暂无通关记录'))
         summaries.append(_section(label+' · 缓存状态',fields=fields,category='ef_challenge'))
         available.append(report['available'] and report['supported'] is not False)
         counts={unit:0 for unit in units[kind]};entries=[]
@@ -213,7 +213,7 @@ def challenge_document(reports):
         if not progressed:break
     sections=compose(selected)
     notices=['仅复用网站已查看的各分类默认查询缓存；未采集分类请在网站分别查看。',
-             '各分类时间独立；空列表不代表未参与，已采集记录不代表全部历史。']
+             '各分类更新时间独立。']
     if any(len(chosen)<len(entries) for chosen,entries in zip(selected,details)):
         notices.append('明细按各分类本图 / 已观测数量展示；超限部分已省略，完整内容请到网站查看。')
     return view.document('list','endfield','终末地 · 挑战记录',sections=sections,
@@ -236,7 +236,7 @@ def overview_document(snapshot, asset_cache=None, *, focus=None):
         sections.append(_section('日常与通行证', rows=tasks, layout='rows', category='ef_tasks'))
         todos = overview['todos']
         sections.append(_section('已知待办', fields=[view.field(view.text(item.get('name')), '还差 ' + view.text(item.get('remaining')))
-                                                   for item in todos] or [view.field('状态', '已知日常暂无未完成项；未采集任务不作判断')], category='ef_todos'))
+                                                   for item in todos] or [view.field('状态', '今日日常已完成')], category='ef_todos'))
     if focus is None:
         training = report['training']['summary']; regions = report['regions']['summary']; ship = report['ship']['summary']
         sections.append(_section('干员与建设', fields=[view.field('已采集干员', training.get('listed_count')),
@@ -357,7 +357,7 @@ def operator_document(snapshot, name, asset_cache=None, *, detail=None):
     else:
         sections.append(_section('战术道具',fields=[view.field('状态','未采集')],category='ef_tactical'))
     notices=[view.metadata(snapshot)[0]['value'],
-        '未知不等于未装备；缓存不代表实时状态。',detail_notice]
+        '部分部位暂无配装数据。',detail_notice]
     if tactical:
         notices[1]+='战术效果保留原文与参数。'+('过长效果已省略尾部，完整内容请到网站查看。' if tactical_clipped else '')
     card = view.document('detail', 'endfield', '终末地 · ' + view.text(name), sections=sections,
@@ -410,7 +410,7 @@ def ship_document(snapshot, asset_cache=None):
             _image(asset_cache, 'role', item)) for item in operators]
         sections.append(_section(view.text(room.get('name')), fields=[view.field('舱室等级', room.get('level'))] +
             ([] if operators else [view.field('驻守', '无驻守' if room.get('operators_available') is True else '未采集')]), rows=items, layout='rows', category='ef_room'))
-    notices = _notice(snapshot) + ['心情与信赖按协议终端公开模型换算快照；保留原始值，不按时间外推。']
+    notices = _notice(snapshot) + ['心情与信赖为抓取时的记录值。']
     if not ship['rooms']: notices.append(_missing(snapshot, 'ship', '舱室'))
     return view.document('list', 'endfield', '终末地 · 帝江号', sections=sections, notices=notices,
         subtitle='森空岛档案 · 舱室与驻守', footer=_footer(snapshot, report))
@@ -483,7 +483,7 @@ def honor_document(snapshot, asset_cache=None):
         candidate=[min(count+1,len(entries)) for count,(_,entries) in zip(counts,displayed)]
         if candidate==counts or not _honor_budget(compose(candidate)):break
         counts=candidate
-    notices=_notice(snapshot)+['只展示已采集勋章；未观测内容不推断为未获得，不补算隐藏进度。']
+    notices=_notice(snapshot)+['仅展示已同步勋章。']
     clipped=len(displayed)<len(groups) or any(count<len(entries) for count,(_,entries) in zip(counts,displayed))
     if clipped:
         notices.append('本图分类 '+str(len(displayed))+' / '+str(len(groups))+'；各类按覆盖数量展示，超限勋章或分类已省略，完整内容请到网站查看。')
@@ -586,7 +586,7 @@ def gacha_document(snapshot, asset_cache=None, *, compact=False):
             if candidate==counts or not _gacha_budget(compose(candidate)):break
             counts=candidate
     sections=compose(counts)
-    notices = [state, '只代表已记录历史；同步完成不证明全生涯历史完整。记录边界保留准确、下限或未知。',
+    notices = [state, '仅统计已同步的寻访记录。',
                '均抽来自报告中准确区间，不随图片裁减重算；免费抽与缺口不当作确定垫抽。']
     clipped=len(pools)<len(report['pools']) or any(count<len(entries) for count,entries in zip(counts,histories))
     if clipped or any(pool['history_truncated'] is True for pool in pools):

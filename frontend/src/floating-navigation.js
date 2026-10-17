@@ -37,6 +37,26 @@ function lockScroll(document) {
   }
 }
 
+const H = 1 / 240
+function stepRk4(pos, vel, target, k, c, dt, wall = 0) {
+  const steps = Math.max(1, Math.min(24, Math.round(dt / H)))
+  const h = dt / steps
+  let x = pos, v = vel
+  const accel = (px, pv) => {
+    const outside = wall ? px - clamp(px, 0, 1) : 0
+    return (target - px) * k - pv * c - outside * wall
+  }
+  for (let i = 0; i < steps; i++) {
+    const a1 = accel(x, v)
+    const v2 = v + 0.5 * h * a1, a2 = accel(x + 0.5 * h * v, v2)
+    const v3 = v + 0.5 * h * a2, a3 = accel(x + 0.5 * h * v2, v3)
+    const v4 = v + h * a3, a4 = accel(x + h * v3, v4)
+    x += (h / 6) * (v + 2 * v2 + 2 * v3 + v4)
+    v += (h / 6) * (a1 + 2 * a2 + 2 * a3 + a4)
+  }
+  return [x, v]
+}
+
 // The controller is independent of component lifetime so pointer and cleanup behavior
 // can be exercised with real DOM events in tests.
 export function createFloatingNavigation(refs) {
@@ -89,17 +109,11 @@ export function createFloatingNavigation(refs) {
     lastTime = time
     if (mobileNavigation.value) {
       // A lightly damped spring carries release momentum through the detent,
-      // then returns. Small substeps keep the rebound stable on slower frames.
-      const step = dt / 4
-      for (let i = 0; i < 4; i++) {
-        const outside = progress - clamp(progress, 0, 1)
-        pv += ((tp - progress) * 240 - pv * 19 - outside * 160) * step
-        progress += pv * step
-      }
+      // then returns. 240Hz RK4 substeps keep the rebound stable on any frame rate.
+      ;[progress, pv] = stepRk4(progress, pv, tp, 240, 19, dt, 160)
     } else {
-      vx += ((tx - x) * 260 - vx * 28) * dt
-      vy += ((ty - y) * 260 - vy * 28) * dt
-      x += vx * dt; y += vy * dt
+      ;[x, vx] = stepRk4(x, vx, tx, 260, 28, dt)
+      ;[y, vy] = stepRk4(y, vy, ty, 260, 28, dt)
     }
     paint()
     const done = mobileNavigation.value
@@ -150,7 +164,7 @@ export function createFloatingNavigation(refs) {
     if (!g || (event?.pointerId !== undefined && event.pointerId !== g.id)) return
     gesture = null
     releaseCapture(g)
-    if (win.performance.now() - g.time > 100) vx = vy = pv = 0
+    if (win.performance.now() - g.time > 60) vx = vy = pv = 0
     if (g.moved) suppressClickUntil = win.performance.now() + 700
     if (mobileNavigation.value) {
       const open = cancelled ? g.wasOpen : g.moved ? progress + pv * 0.12 > 0.5 : g.wasOpen

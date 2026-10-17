@@ -24,7 +24,6 @@ async function page(value) { emit('page-change', value); await nextTick(); resul
       <template v-for="section in sections" :key="section.key">
         <section v-if="section.total || filters.view === 'results'" class="es-match-section" :class="`is-${section.key}`" :aria-label="section.label">
           <h3 :ref="el => { if (section.key === 'completed') resultsHeading = el }" tabindex="-1">{{ section.label }}<span>{{ section.total }} 场已收录</span></h3>
-          <p v-if="section.key === 'live' && section.total" class="es-inline-notice">进行中比赛请以实时直播为准。</p>
           <p v-if="!section.total" class="es-empty">当前筛选暂无赛果。</p>
           <div v-for="group in section.groups" :key="group.date" v-reveal class="es-date-group" :class="railed(section.key) ? 'is-rail' : 'is-list'">
             <h4>{{ esportsDayLabel(group.date) }}</h4>

@@ -32,7 +32,7 @@ const segments = computed(()=>{
         </ul>
       </div>
       <div class="coverage"><span>同步于 {{ view.snapshot.fetched_at ? displayBeijing(view.snapshot.fetched_at) : '未知' }}（北京时间）</span><span>{{ report?.pending === true ? '部分待同步' : report?.pending === false ? '本轮同步完成' : '记录完整性未知' }}</span></div>
-      <p v-if="report?.average_exact_pulls != null">已展示历史内 {{ report.known_exact_intervals ?? '未知' }} 个准确 6★ 区间均值 {{ report.average_exact_pulls }} 抽；不代表完整生涯或未来出货。</p>
+      <p v-if="report?.average_exact_pulls != null">已展示历史内 {{ report.known_exact_intervals ?? '未知' }} 个准确 6★ 区间均值 {{ report.average_exact_pulls }} 抽。</p>
     </template>
     <div v-else class="gs-empty"><span class="gs-ghost" aria-hidden="true"></span><p>{{ view.message || '尚未同步寻访记录，请刷新数据。' }}</p></div>
     <footer><button type="button" class="ui-button primary" @click="emit('details')">查看寻访详情 →</button><button type="button" class="ui-button" :disabled="refreshing" @click="emit('refresh')">{{ refreshing ? '同步中…' : '刷新寻访数据' }}</button></footer>

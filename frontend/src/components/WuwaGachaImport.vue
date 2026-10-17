@@ -52,24 +52,23 @@ async function backup(){
   <div class="wuwa-import-body">
     <p v-if="busy" class="wuwa-meta" role="status">正在读取 / 预览 / 提交，请稍候…</p>
     <div class="toolbar wuwa-import-row">
-      <label>文件来源 <MenuSelect class="import-source-menu" label="文件来源" v-model="source" :disabled="busy" :options="[{value:'json_import',label:'真实逐抽 / 本项目归档'},{value:'mcgf',label:'mcgf 五星汇总'},{value:'xhh',label:'xhh 五星汇总（result 本体）'}]" @change="invalidate" /></label>
+      <label>文件来源 <MenuSelect class="import-source-menu" label="文件来源" v-model="source" :disabled="busy" :options="[{value:'json_import',label:'逐抽记录 / 归档文件'},{value:'mcgf',label:'mcgf 五星汇总'},{value:'xhh',label:'xhh 五星汇总'}]" @change="invalidate" /></label>
       <input ref="fileInput" type="file" accept=".json,application/json" aria-label="预览抽卡文件" :disabled="busy" @change="file=$event.target.files?.[0];invalidate()" />
       <button class="ui-button small-button" :disabled="busy || !file" @click="readFile">预览文件</button>
     </div>
-    <p class="wuwa-meta">文件最大 2 MiB。mcgf/xhh 仅保留来源自报汇总，不生成逐抽记录。文件缺少区服时按当前账号区服绑定并标注。</p>
+    <p class="wuwa-meta">单文件上限 2 MB。mcgf/xhh 仅导入五星汇总，不含逐抽明细。</p>
     <div v-if="source==='json_import'" class="toolbar">
-      <label><input v-model="latest" type="checkbox" :disabled="busy" @change="invalidate" />我确认本段覆盖导入时最新记录</label>
-      <label><input v-model="continuous" type="checkbox" :disabled="busy" @change="invalidate" />我确认本段真实逐抽连续无缺口</label>
+      <label><input v-model="latest" type="checkbox" :disabled="busy" @change="invalidate" />包含最新抽卡记录</label>
+      <label><input v-model="continuous" type="checkbox" :disabled="busy" @change="invalidate" />记录连续无遗漏</label>
     </div>
     <div v-if="preview" class="wuwa-notice">
-      <p>{{ preview.import_kind==='aggregate'?'五星汇总':preview.import_kind==='archive'?'逐抽与汇总归档':'真实逐抽' }} · 收到 {{ preview.received }} 条 · 新增 {{ preview.new_records }} 条 · 重复 {{ preview.duplicates }} 条</p>
+      <p>{{ preview.import_kind==='aggregate'?'五星汇总':preview.import_kind==='archive'?'逐抽与汇总归档':'逐抽记录' }} · 收到 {{ preview.received }} 条 · 新增 {{ preview.new_records }} 条 · 重复 {{ preview.duplicates }} 条</p>
       <p>{{ preview.message }}</p><p>{{ preview.diagnostics?.map(gachaReason).join('、') }}</p>
       <button class="ui-button small-button primary" :disabled="busy" @click="commit">确认导入本次预览</button>
     </div>
-    <button class="ui-button small-button" :disabled="busy" @click="backup">导出归档（超过上限分段）</button>
+    <button class="ui-button small-button" :disabled="busy" @click="backup">导出归档</button>
     <details :open="ruleOpen" @toggle="ruleOpen=$event.target.open">
       <summary>用户规则配置</summary>
-      <p class="wuwa-meta">按你设置的保底规则计算，不代表官方规则，也不推断 UP；不确定时请保持未设置。</p>
       <form class="toolbar" @submit.prevent="saveRule">
         <input v-model="pool" aria-label="规则卡池 ID" required placeholder="卡池 ID" />
         <input v-model="hard" aria-label="用户设置保底上限" type="number" min="1" max="10000" required placeholder="保底上限" />

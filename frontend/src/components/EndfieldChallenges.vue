@@ -50,7 +50,7 @@ const weekBars = record => {
       </div>
     </section>
     <template v-if="report.available && report.supported !== false">
-      <p v-if="!report.records.length" class="challenge-report challenge-empty"><template v-if="imageMode">尚无已记录的{{ label }}挑战。</template><template v-else>本次返回没有{{ label }}记录；不能据此判断所有挑战均已完成或尚未参与。</template></p>
+      <p v-if="!report.records.length" class="challenge-report challenge-empty"><template v-if="imageMode">尚无已记录的{{ label }}挑战。</template><template v-else>本次返回没有{{ label }}记录。</template></p>
       <details v-for="(record,index) in report.records" :key="record.id ?? index" v-reveal class="challenge-report challenge-record" :open="imageMode || index===0"><summary><div><h3>{{ record.name || (record.id != null ? `记录 ${record.id}` : `挑战记录 ${index+1}`) }}</h3></div><span v-if="kind==='war'" class="record-result" :class="{ latest: index===0 }">{{ display(record.stars) }} 星</span><span v-else-if="kind==='crisis'" class="record-result" :class="{ latest: index===0 }">{{ display(record.result) }}</span><span class="record-toggle" aria-hidden="true">⌄</span></summary><div class="record-body">
         <p v-if="record.start_at || record.end_at" class="challenge-note period">{{ time(record.start_at) }} — {{ time(record.end_at) }}</p>
         <template v-if="kind==='war'"><p v-if="!rows(record.weeks).length" class="challenge-note">尚无轮换明细。</p>
@@ -94,7 +94,7 @@ p.challenge-empty.challenge-report{padding:24px}
 .record-result{padding:0 14px;border-radius:var(--radius-chip);background:var(--control-track);color:var(--text);font-size:18px;font-weight:550;line-height:34px;letter-spacing:-.02em;overflow-wrap:anywhere;max-width:45%;font-variant-numeric:tabular-nums}
 /* The newest season or round takes the game tone. */
 .record-result.latest{background:var(--ch-tone);color:var(--ch-ink)}
-.record-toggle{font-size:18px;color:var(--text-muted);transform:rotate(-90deg);transition:transform var(--duration-fast,250ms) var(--ease-smooth-out,ease)}
+.record-toggle{font-size:18px;color:var(--text-muted);transform:rotate(-90deg);transition:transform var(--duration-spring-smooth,260ms) var(--ease-spring-smooth,ease)}
 details[open]>.record-toggle,details[open]>summary>.record-toggle{transform:none}
 .record-body{padding:0 20px 20px}
 .period{margin-bottom:12px}

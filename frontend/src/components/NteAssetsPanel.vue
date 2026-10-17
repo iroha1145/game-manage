@@ -81,7 +81,7 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
       <span v-if="payload && !legacy && capability === 'vehicles' && (data.show_name || data.show_id)" class="chip">展示载具：{{ data.show_name || data.show_id }}</span>
       <span v-if="fetchedAt" class="cap-meta">更新于 {{ fetchedAt }}</span>
     </header>
-    <p v-if="!payload" class="empty">暂无数据，请刷新数据</p>
+    <p v-if="!payload" class="empty">暂无数据，请刷新后查看</p>
     <p v-else-if="legacy" class="empty">数据版本已更新，请刷新获取资产详情</p>
     <template v-else>
       <div v-if="entries.length && !imageMode" class="toolbar">

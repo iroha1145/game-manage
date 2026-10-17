@@ -48,7 +48,7 @@ const time=value=>value == null || value === '' ? '未知' : displayBeijing(valu
 .loadout-module>header{display:flex;gap:10px;align-items:center;margin-bottom:12px}
 .loadout-module h3{font-size:15px;font-weight:600;letter-spacing:-.01em}
 .loadout-hero{grid-column:span 5;overflow:hidden;display:grid;grid-template-rows:auto 1fr;padding:6px}
-.loadout-portrait{width:100%;height:314px;border-radius:17px}
+.loadout-portrait{width:100%;height:314px;border-radius:calc(var(--radius-card) - 6px)}
 .hero-identity{position:relative;display:grid;gap:4px;padding:6px 16px 16px}
 .hero-class{font-size:12px;color:var(--text-muted);line-height:1.7}
 .hero-identity h3{font-size:24px;font-weight:600;line-height:1.3;letter-spacing:-.02em;overflow-wrap:anywhere;margin:0 0 10px}
@@ -111,6 +111,7 @@ const time=value=>value == null || value === '' ? '未知' : displayBeijing(valu
 @media(max-width:600px){
   .loadout-module{padding:16px;border-radius:22px}
   .loadout-hero{border-radius:22px}
+  .loadout-portrait{border-radius:16px}
   .equipment-slots{grid-template-columns:repeat(2,minmax(0,1fr))}
   .weapon-art{width:76px;height:76px}
   .weapon-line{gap:14px}

@@ -77,7 +77,7 @@ class RoleBoxClient:
         if data.get("code") != 200:
             msg = str(data.get("msg", "未知错误"))
             if any(mark in msg for mark in _INVALID_TICKET_MARKS):
-                raise RoleBoxError("b-at 已失效或角色不可见，请在账号管理重新登录", data.get('code'))
+                raise RoleBoxError("登录凭据已失效或角色不可见，请在账号管理重新登录", data.get('code'))
             if data.get('code') == 10903:
                 raise RoleBoxError('数据令牌已失效，请在账号管理重新登录', 10903)
             raise RoleBoxError(msg, data.get('code'))

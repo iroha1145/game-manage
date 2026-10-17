@@ -178,11 +178,11 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
     <p v-if="collectNote && section !== 'esports'" class="lol-notice" role="status">{{ collectNote }}</p>
     <div class="lol-toolbar">
       <nav v-glide class="lol-tabs segmented" aria-label="英雄联盟数据分区"><button v-for="[key, label] in tabs" :key="key" type="button" :aria-pressed="section === key" @click="section = key">{{ label }}</button></nav>
-      <div v-if="filterable" class="lol-filters"><label>时间<MenuSelect class="lol-filter-menu" label="时间" v-model="days" :options="periods.map(([value,label]) => ({value,label}))" /></label><label>模式<MenuSelect class="lol-filter-menu" label="模式" v-model="queue" :options="queues.map(([value,label]) => ({value,label}))" /></label><button class="reload-button ui-button small-button" type="button" :disabled="loading" @click="load">重新读取</button></div>
+      <div v-if="filterable" class="lol-filters"><label>时间<MenuSelect class="lol-filter-menu" label="时间" v-model="days" :options="periods.map(([value,label]) => ({value,label}))" /></label><label>模式<MenuSelect class="lol-filter-menu" label="模式" v-model="queue" :options="queues.map(([value,label]) => ({value,label}))" /></label><button class="reload-button ui-button small-button" type="button" :disabled="loading" @click="load()">重新读取</button></div>
     </div>
     <p v-if="loading && filterable" class="lol-notice" role="status">正在读取本地分析…</p>
     <p v-if="error && filterable" class="lol-error" role="alert">{{ error }}<span v-if="analysis && filterable">；保留上次成功读取的数据。</span></p>
-    <ul v-if="analysis && filterable" class="coverage-line chip-list"><li class="chip">当前展示：{{ filterLabel }}</li><li class="chip">归档 {{ val(coverage.archived_games) }} 场</li><li class="chip">当前筛选 {{ val(overview.games) }} 场</li><li class="chip">有详情 {{ val(coverage.detail_games) }} 场</li><li v-if="analysis.collected_at" class="chip">采集于 {{ fmt(analysis.collected_at) }}（北京时间）</li></ul>
+    <ul v-if="analysis && filterable" class="coverage-line chip-list"><li class="chip">当前展示：{{ filterLabel }}</li><li class="chip">归档 {{ val(coverage.archived_games) }} 场</li><li class="chip">当前筛选 {{ val(overview.games) }} 场</li><li class="chip">有详情 {{ val(coverage.detail_games) }} 场</li><li v-if="analysis.collected_at" class="chip">同步于 {{ fmt(analysis.collected_at) }}（北京时间）</li></ul>
 
     <div :key="section" class="lol-view t-panel">
       <LolEsportsPanel v-if="section === 'esports'" :snap="snaps.esports" :browse-state="esportsBrowse" @snapshot="emit('esports-snapshot', $event)" @browse-change="emit('esports-browse', $event)" />
@@ -198,7 +198,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
           <div class="lol-empty-copy">
             <h3>{{ analysis ? '本机尚无归档' : '本地档案暂不可用' }}</h3>
             <p>请启动并登录英雄联盟客户端，再点击上方「同步战绩」。</p>
-            <p>客户端未运行时不能采集；已归档数据可以离线查看。客户端近期窗口通常最多 20 场，不代表完整历史。</p>
+            <p>同步需保持客户端在线，已归档的对局可离线查看。</p>
           </div>
           <div class="lol-ghost" aria-hidden="true">
             <span class="ghost-ring"></span>
@@ -343,7 +343,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
               <button type="button" class="ui-button small-button" :aria-expanded="expanded === row.match_id" @click="toggleDetail(row)">{{ expanded === row.match_id ? '收起详情' : '查看详情' }}</button>
             </div>
             <div class="match-tags"><span>伤害 {{ val(row.damage) }}</span><span>参团 {{ percent(row.kp) }}</span><span>伤害占比 {{ percent(row.damage_share) }}</span><span v-for="augment in row.augments" :key="augment.id" class="augment">{{ augment.name || `强化 #${augment.id}` }}</span><span v-for="label in row.highlights" :key="label" class="rare-tag">{{ label }}</span></div>
-            <section v-if="expanded === row.match_id" class="match-detail"><p v-if="detailLoading" role="status">对局详情加载中…</p><p v-else-if="detailError" class="lol-error" role="alert">{{ detailError }}</p><template v-else-if="detail"><div v-for="team in detail.teams || []" :key="team.team_id" class="team-block"><h4 :class="resultClass({ win: team.win, remake: row.remake || detail.remake })">{{ result(team.win, row.remake || detail.remake) }} · 队伍 {{ team.team_id }}<span v-if="team.participants?.some(p => p.is_own)"> · 我方</span></h4><div class="lol-table-wrap"><table class="data-table"><thead><tr><th>英雄</th><th>K / D / A</th><th>伤害</th><th>金币</th></tr></thead><tbody><tr v-for="(player, i) in team.participants || []" :key="i" :class="{ own: player.is_own }"><td>{{ player.champion_name || `英雄 #${player.champion_id ?? '?'}` }}<span v-if="player.is_own"> · 我</span></td><td>{{ kda(player) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': damageShare(player) }"></i></span>{{ val(player.damage) }}</span></td><td>{{ val(player.gold) }}</td></tr></tbody></table></div></div></template><p v-else>本机未取得详情，可启动客户端后重新采集。</p></section>
+            <section v-if="expanded === row.match_id" class="match-detail"><p v-if="detailLoading" role="status">对局详情加载中…</p><p v-else-if="detailError" class="lol-error" role="alert">{{ detailError }}</p><template v-else-if="detail"><div v-for="team in detail.teams || []" :key="team.team_id" class="team-block"><h4 :class="resultClass({ win: team.win, remake: row.remake || detail.remake })">{{ result(team.win, row.remake || detail.remake) }} · 队伍 {{ team.team_id }}<span v-if="team.participants?.some(p => p.is_own)"> · 我方</span></h4><div class="lol-table-wrap"><table class="data-table"><thead><tr><th>英雄</th><th>K / D / A</th><th>伤害</th><th>金币</th></tr></thead><tbody><tr v-for="(player, i) in team.participants || []" :key="i" :class="{ own: player.is_own }"><td>{{ player.champion_name || `英雄 #${player.champion_id ?? '?'}` }}<span v-if="player.is_own"> · 我</span></td><td>{{ kda(player) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': damageShare(player) }"></i></span>{{ val(player.damage) }}</span></td><td>{{ val(player.gold) }}</td></tr></tbody></table></div></div></template><p v-else>本机暂无详情，可启动客户端后重新同步。</p></section>
           </article>
           </div>
         </template>
@@ -355,7 +355,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
                 <RingGauge v-if="hexCoverage != null" :value="hexCoverage" :max="hex.games" label="已记录强化的海克斯对局占比" :size="112" :stroke="11" color="var(--game-vivid)"><span class="ring-big small" aria-hidden="true">{{ Math.round(hexCoverage / hex.games * 100) }}<small>%</small></span></RingGauge>
                 <p class="hex-count">当前筛选内海克斯对局 {{ val(hex.games) }} 场 · 已记录强化 {{ val(hex.recorded_games) }} 场</p>
               </div>
-              <p class="method-note">样本胜率不代表强化强度；重开与未知胜负不计入胜率。</p>
+              <p class="method-note">重开与胜负未知不计入胜率。</p>
               <p v-if="hex.rating_note" class="method-note">{{ hex.rating_note }}</p>
             </section>
             <section v-reveal class="cap-card b-card hex-chart">
@@ -365,7 +365,7 @@ onBeforeUnmount(() => { disposed = true; generation++; analysisController?.abort
             </section>
           </div>
           <section v-reveal class="cap-card b-card"><div class="b-head"><h3>强化选择记录</h3><span v-if="hex.augments?.length" class="b-meta">{{ hex.augments.length }} 项</span></div><div v-if="hex.augments?.length" class="lol-table-wrap tall"><table class="data-table"><thead><tr><th>强化</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="augment in hex.augments" :key="augment.id"><td>{{ augment.name || `强化 #${augment.id}` }}</td><td>{{ val(augment.games) }}</td><td>{{ val(augment.wins) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': `${augment.winrate ?? 0}%` }"></i></span>{{ percent(augment.winrate) }}</span></td></tr></tbody></table></div><p v-else class="method-note">暂无强化选择记录。</p></section>
-          <section v-reveal class="cap-card b-card"><div class="b-head"><h3>强化组合</h3><span v-if="hex.combinations?.length" class="b-meta">{{ hex.combinations.length }} 项 · 两两共现</span></div><div v-if="hex.combinations?.length" class="lol-table-wrap tall"><table class="data-table"><thead><tr><th>组合</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="(combo, i) in hex.combinations" :key="i"><td>{{ combo.names?.join(' + ') || combo.ids?.join(' + ') || '未知组合' }}</td><td>{{ val(combo.games) }}</td><td>{{ val(combo.wins) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': `${combo.winrate ?? 0}%` }"></i></span>{{ percent(combo.winrate) }}</span></td></tr></tbody></table></div><p v-else class="method-note">暂无可统计的强化组合。</p></section>
+          <section v-reveal class="cap-card b-card"><div class="b-head"><h3>强化组合</h3><span v-if="hex.combinations?.length" class="b-meta">{{ hex.combinations.length }} 项</span></div><div v-if="hex.combinations?.length" class="lol-table-wrap tall"><table class="data-table"><thead><tr><th>组合</th><th>场次</th><th>胜场</th><th>样本胜率</th></tr></thead><tbody><tr v-for="(combo, i) in hex.combinations" :key="i"><td>{{ combo.names?.join(' + ') || combo.ids?.join(' + ') || '未知组合' }}</td><td>{{ val(combo.games) }}</td><td>{{ val(combo.wins) }}</td><td><span class="cell-meter"><span class="meter" aria-hidden="true"><i :style="{ '--pct': `${combo.winrate ?? 0}%` }"></i></span>{{ percent(combo.winrate) }}</span></td></tr></tbody></table></div><p v-else class="method-note">暂无可统计的强化组合。</p></section>
         </template>
       </template>
       <details v-if="section === 'overview' && snaps.account?.payload" class="cap-card quiet"><summary>账号与排位{{ snaps.account.stale ? ' · 待更新' : '' }}</summary><AccountCard :snap="snaps.account" /></details>

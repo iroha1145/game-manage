@@ -35,7 +35,7 @@ const statOptions=computed(()=>props.game==='nte'?(editedModel.value.nte_spec?.c
 function equipmentStatOptions(stat){return [{value:'',label:'未提供'},...(stat.canonical_id&&!statOptions.value.some(o=>o.id===stat.canonical_id)?[{value:stat.canonical_id,label:stat.canonical_id+'（来源词条，待声明）'}]:[]),...statOptions.value.map(o=>({value:o.id,label:o.label}))]}
 const weightRows=computed(()=>props.game==='nte'?(editedModel.value.nte_spec?.catalog||[]):Object.keys(editedModel.value.wuwa_weights||{}).map(canonical_id=>({canonical_id,label:wuwaStats[canonical_id]})))
 function changeModel(fn){const value=structuredClone(editedModel.value);fn(value);modelJson.value=json(value);edited()}
-function changeItems(fn){const value=JSON.parse(itemsJson.value);fn(value);itemsJson.value=json(value);edited()}
+function changeItems(fn){const value=structuredClone(editedItems.value);fn(value);itemsJson.value=json(value);edited()}
 function weight(id,role){return props.game==='nte'?editedModel.value.nte_profile?.[role+'_weights']?.[id]??'':editedModel.value.wuwa_weights?.[id]??''}
 function setWeight(id,value,role='substat'){changeModel(m=>{const weights=props.game==='nte'?m.nte_profile[role+'_weights']:m.wuwa_weights;if(value==='')delete weights[id];else weights[id]=value})}
 function addWeight(){if(!newStat.value)return;changeModel(m=>{if(props.game==='nte'){if(!m.nte_spec.catalog.some(s=>s.canonical_id===newStat.value)){m.nte_spec.catalog.push({canonical_id:newStat.value,label:newStat.value,kinds:['drive','cartridge'],main:false,sub:true,unit:'flat'});m.nte_spec.eligible_substats.push(newStat.value)}}else m.wuwa_weights[newStat.value]=''});newStat.value=''}
@@ -69,7 +69,6 @@ function load(row){name.value=row.data.name;itemsJson.value=json(row.data.items)
 <template>
  <section v-if="!imageMode || initialAssessment" class="personal-assessment">
   <h4>个人权重评分</h4>
-  <p>按你设置的偏好权重评价当前角色装备。</p>
   <button v-if="!imageMode && !opened" type="button" :disabled="!characterId" @click="open">配置权重与 A/B 对比</button>
   <div v-if="!imageMode && opened" class="assessment-editor">
    <p role="alert" v-if="error">{{ error }}</p>
@@ -79,9 +78,9 @@ function load(row){name.value=row.data.name;itemsJson.value=json(row.data.items)
    <div v-for="row in weightRows" :key="row.canonical_id" class="stat-row"><strong>{{ row.label }}</strong><template v-if="game==='nte'"><label>显示名称<input :value="row.label" @input="setCatalog(row.canonical_id,'label',$event.target.value)" /></label><label>单位<MenuSelect :model-value="row.unit" @change="setCatalog(row.canonical_id,'unit',$event)" :label="row.label+'单位'" :options="[{value:'flat',label:'平值'},{value:'ratio',label:'比例'}]" /></label><label><input type="checkbox" :checked="row.sub" @change="setCatalog(row.canonical_id,'sub',$event.target.checked)" />副词条</label><label><input type="checkbox" :checked="row.main" @change="setCatalog(row.canonical_id,'main',$event.target.checked)" />主词条</label></template><label>{{ game==='nte'?'副词条权重':'偏好权重' }}<input :aria-label="row.label+'权重'" type="number" min="0" max="100" step="any" :value="weight(row.canonical_id,'substat')" @input="setWeight(row.canonical_id,$event.target.value)" placeholder="未配置" /></label><label v-if="game==='nte'">主词条权重<input type="number" min="0" max="100" step="any" :value="weight(row.canonical_id,'mainstat')" @input="setWeight(row.canonical_id,$event.target.value,'mainstat')" placeholder="未配置" /></label><button type="button" @click="removeWeight(row.canonical_id)">移除词条</button></div>
    <template v-if="game==='nte'"><h5>自定义品质因子</h5><label>品质标识<input :value="newQuality" @input="newQuality=$event.target.value" placeholder="使用自己的来源标识" /></label><button type="button" @click="addQuality">添加品质</button><label v-for="(factor,key) in editedModel.nte_spec.quality_factors" :key="key">{{ key }} 因子<input type="number" min="0" step="any" :value="factor" @input="changeModel(m=>m.nte_spec.quality_factors[key]=$event.target.value)" /></label><h5>卡带主属性参考值</h5><button type="button" @click="addReference">添加主属性参考</button><div v-for="(reference,i) in editedModel.nte_spec.mainstat_reference_values" :key="i" class="field-row"><MenuSelect label="参考词条" :model-value="reference.canonical_id" @change="setReference(i,'canonical_id',$event)" :options="[{value:'',label:'请选择词条'},...statOptions.map(o=>({value:o.id,label:o.label}))]" /><input aria-label="参考值" type="number" min="0" step="any" :value="reference.value" @input="setReference(i,'value',$event.target.value)" placeholder="正参考值" /><MenuSelect label="参考单位" :model-value="reference.unit" @change="setReference(i,'unit',$event)" :options="[{value:'flat',label:'平值'},{value:'ratio',label:'比例'}]" /><input aria-label="参考上下文" :value="reference.context.scope" @input="setReference(i,'scope',$event.target.value)" placeholder="自定义参考上下文名称" /></div></template>
    <button type="button" :disabled="busy" @click="saveModel">保存权重模型</button>
-   <button type="button" :disabled="busy" @click="useEquipped">读取已采集装备副本</button>
+   <button type="button" :disabled="busy" @click="useEquipped">导入当前穿戴装备</button>
    <label>配置名称<input aria-label="配置名称" :value="name" @input="name=$event.target.value" maxlength="80" /></label>
-   <p v-if="observedAt">装备副本原观测时间：{{ observedAt }}；手动补充输入标为用户配置。</p><button type="button" @click="addItem">添加装备</button>
+   <p v-if="observedAt">装备数据时间：{{ observedAt }}</p><button type="button" @click="addItem">添加装备</button>
    <section v-for="(item,i) in editedItems" :key="item.id" class="equipment-input"><h5>装备 {{ i+1 }} <span v-if="item.source_group">来源分组 {{ item.source_group }}</span></h5><button type="button" @click="changeItems(items=>items.splice(i,1))">移除装备</button>
    <template v-if="game==='nte'"><label>装备类型<MenuSelect label="装备类型" :model-value="item.nte?.kind||''" @change="setItem(i,'kind',$event)" :options="[{value:'',label:'未提供'},{value:'drive',label:'驱动'},{value:'cartridge',label:'卡带'}]" /></label><label>品质<MenuSelect label="装备品质" :disabled="!item.nte" :model-value="item.nte?.quality||''" @change="setItem(i,'quality',$event)" :options="[{value:'',label:'未提供'},...Object.keys(editedModel.nte_spec.quality_factors).map(value=>({value,label:value}))]" /></label><label v-if="item.nte?.kind==='drive'">驱动面积<input aria-label="驱动面积" type="number" min="1" step="1" :value="item.nte.area" @input="setItem(i,'area',$event.target.value||null)" placeholder="未提供" /></label><label><input type="checkbox" :checked="item.nte?.substats_complete===true" :disabled="!item.nte" @change="setItem(i,'substats_complete',$event.target.checked?true:null)" />已核对完整副词条列表</label></template>
    <label v-else><input type="checkbox" :checked="item.stats_complete===true" @change="setItem(i,'stats_complete',$event.target.checked?true:null)" />已核对完整主副词条列表（未出现词条按零计）</label>
@@ -117,8 +116,8 @@ function load(row){name.value=row.data.name;itemsJson.value=json(row.data.items)
 .assessment-editor :deep(.menu-select){margin:3px;max-width:100%;min-width:100px;vertical-align:middle}
 .assessment-editor :deep(.menu-select-trigger){min-height:32px;padding:4px 12px;font-size:13px}
 @media(pointer:coarse){.assessment-editor :deep(.menu-select-trigger){min-height:44px}}
-/* Buttons follow the shared small button: white, a hairline, a 10px corner, one pixel down when pressed. */
-.personal-assessment button{border-radius:10px;color:var(--text);font-weight:500;line-height:20px}
+/* Buttons follow the shared small button: white, a hairline, a 14px corner, one pixel down when pressed. */
+.personal-assessment button{color:var(--text);font-weight:500;line-height:20px}
 .personal-assessment button:not(:disabled):active{transform:translateY(1px)}
 .personal-assessment input[type=checkbox]{margin:3px 6px 3px 3px;accent-color:var(--accent)}
 @media(hover:hover) and (pointer:fine){.personal-assessment button:not(:disabled):hover{background:var(--button-hover-bg);border-color:var(--border-strong)}}

@@ -123,7 +123,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
           <RingGauge :value="item.current" :max="item.total" :label="item.label" :size="88" :stroke="10" color="var(--ef-vivid)"><span class="ef-pct">{{ item.percent == null ? '—' : `${item.percent}%` }}</span></RingGauge>
           <div class="ef-prog-copy"><span class="k">{{ item.label }}</span><strong>{{ display(item.current) }} <small>/ {{ display(item.total) }}</small></strong><p v-if="item.note">{{ item.note }}</p></div>
         </li></ul>
-        <p v-else class="ef-empty">尚未采集进度。</p>
+        <p v-else class="ef-empty">暂无进度记录。</p>
       </section>
       <component :is="imageMode ? 'div' : 'button'" v-for="item in counts" :key="item.key" v-reveal class="ef-count" :type="imageMode ? undefined : 'button'" @click="imageMode ? undefined : emit('navigate', item.key)">
         <span class="k">{{ item.label }}</span><strong>{{ display(item.value) }}</strong>
@@ -133,7 +133,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
       </component>
       <section v-reveal class="ef-card ef-todo"><header><div><h2>已知待办</h2></div></header>
         <ul v-if="rows(overview.todos).length" class="ef-todos"><li v-for="(item,index) in overview.todos" :key="item.id || index"><span>{{ item.name }}</span><strong>还需 {{ display(item.remaining) }}</strong></li></ul>
-        <p v-else class="ef-empty">{{ overview.todos == null || !knownTasks ? '尚未采集到可判断的每日或每周任务进度。' : '已采集的每日与每周任务没有已知未完成项。' }}</p>
+        <p v-else class="ef-empty">{{ overview.todos == null || !knownTasks ? '暂无每日或每周任务进度。' : '当前每日与每周任务没有待办项。' }}</p>
       </section>
     </template>
 
@@ -151,7 +151,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
           <div class="stack-bar" role="img" :aria-label="phaseChart.map(part => `${part.label} ${part.value}`).join('，')"><i v-for="part in phaseChart.filter(part => part.value)" :key="part.key" :style="{ '--series': part.color, flex: part.value }" /></div>
           <ul class="legend"><li v-for="part in phaseChart" :key="part.key" :style="{ '--series': part.color }">{{ part.label }} <b>{{ part.value }}</b></li></ul>
         </section>
-        <section v-if="featured.length && !imageMode" v-reveal class="ef-card ef-featured"><h2 class="ef-title">6★ 干员<span class="ef-sub">按当前筛选和排序</span></h2>
+        <section v-if="featured.length && !imageMode" v-reveal class="ef-card ef-featured"><h2 class="ef-title">6★ 干员</h2>
           <HRail label="6★ 干员"><button v-for="(operator,index) in featured" :key="operator.id || index" type="button" class="ef-feature" :aria-label="`查看${operator.name || '干员'}配装`" :aria-expanded="operatorDetailId === String(operator.id)" :disabled="operatorBusy && operatorDetailId === String(operator.id) || !operator.id" @click="inspect(operator.id,$event)">
             <span class="ef-feature-art"><EndfieldArtwork role portrait :operator-id="operator.char_id || operator.id" :src="operator.avatar_url" :name="operator.name || '干员'" /></span>
             <span class="ef-feature-copy"><strong>{{ display(operator.name) }}</strong><span>Lv. {{ display(operator.level) }}<small>潜能 {{ display(operator.potential) }}</small></span></span>
@@ -172,7 +172,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
           </article></div>
         </section>
       </div>
-      <section v-if="operatorDetailId" ref="detailPanel" class="ef-detail" tabindex="-1" aria-label="干员配装详情" aria-live="polite"><div v-if="!imageMode" class="ef-detail-toolbar"><button type="button" class="text-link" @click="emit('close-detail')">← 返回全员练度</button><span v-if="operatorStale" class="badge badge-stale">配装待更新</span></div><header><div><h2>干员配装<span v-if="!detail"> · {{ detailName }}</span></h2></div><button v-if="!imageMode" type="button" class="ui-button" :disabled="operatorBusy" @click="emit('inspect',operatorDetailId)">重新读取配装</button></header>
+      <section v-if="operatorDetailId" ref="detailPanel" class="ef-detail" tabindex="-1" aria-label="干员配装详情"><div v-if="!imageMode" class="ef-detail-toolbar"><button type="button" class="text-link" @click="emit('close-detail')">← 返回全员练度</button><span v-if="operatorStale" class="badge badge-stale">配装待更新</span></div><header><div><h2>干员配装<span v-if="!detail"> · {{ detailName }}</span></h2></div><button v-if="!imageMode" type="button" class="ui-button" :disabled="operatorBusy" @click="emit('inspect',operatorDetailId)">重新读取配装</button></header>
         <p v-if="operatorBusy" class="ef-empty" role="status">正在读取干员配装…</p><p v-if="operatorError" class="ef-error" role="alert">{{ operatorError }}</p>
         <p v-if="!imageMode" class="ef-detail-time">配装同步于 {{ time(operatorFetchedAt) }}<span v-if="operatorStale"> · 正在显示上次成功读取的配装</span><span v-else-if="!operatorFetchedAt"> · 来源未提供独立更新时间</span></p>
         <EndfieldLoadout v-if="detail" :operator="detail" />
@@ -197,7 +197,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
 
     <!-- 帝江号 -->
     <template v-else-if="view === 'ship'">
-      <section v-reveal class="ef-card ef-ship-intro"><header><div><h2>帝江号</h2></div><span class="chip">快照换算</span></header><dl class="ef-ship-counts"><div><dt>房间数</dt><dd>{{ display(report.ship?.summary?.room_count) }}</dd></div><div><dt>有驻守记录的房间</dt><dd>{{ display(report.ship?.summary?.staffed_rooms) }}</dd></div><div><dt>驻守席位记录</dt><dd>{{ display(report.ship?.summary?.operator_slots) }}</dd></div></dl><p v-if="!imageMode" class="ef-note ef-ship-time">游戏观测于 {{ time(report.observed_at) }} · 抓取于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p><details v-if="!imageMode" class="ef-model-note"><summary>查看换算依据</summary><p>心情与信赖采用原站 API v3.5.0 参考模型换算该次快照，不外推当前状态。心情以 100% 为上限，信赖最高 200%。</p><p>模型声明心情原始值为 0–10000；超出范围时保留原值，百分比显示未知。信赖按来源阈值分为友好、亲近、信任。换算结果不是官方实时状态，也未计入时间或房间加成。</p><a :href="SHIP_CONVERSION_MODEL.source_url" target="_blank" rel="noopener noreferrer">公开模型说明 ↗</a></details></section>
+      <section v-reveal class="ef-card ef-ship-intro"><header><div><h2>帝江号</h2></div><span class="chip">快照换算</span></header><dl class="ef-ship-counts"><div><dt>房间数</dt><dd>{{ display(report.ship?.summary?.room_count) }}</dd></div><div><dt>有驻守记录的房间</dt><dd>{{ display(report.ship?.summary?.staffed_rooms) }}</dd></div><div><dt>驻守席位记录</dt><dd>{{ display(report.ship?.summary?.operator_slots) }}</dd></div></dl><p v-if="!imageMode" class="ef-note ef-ship-time">游戏观测于 {{ time(report.observed_at) }} · 抓取于 {{ time(fetchedAt || report.fetched_at) }}（北京时间）</p><details v-if="!imageMode" class="ef-model-note"><summary>查看换算依据</summary><p>心情与信赖采用原站 API v3.5.0 参考模型换算该次快照，不外推当前状态。心情以 100% 为上限，信赖最高 200%。</p><p>心情原始值范围 0–10000，超出范围保留原值；信赖按阈值分为友好、亲近、信任。</p><a :href="SHIP_CONVERSION_MODEL.source_url" target="_blank" rel="noopener noreferrer">公开模型说明 ↗</a></details></section>
       <p v-if="!rooms.length" class="ef-empty ef-card">尚无帝江号资料。</p>
       <div class="ef-ship-rooms"><section v-for="(room,index) in rooms" :key="room.id || index" v-reveal class="ef-card ef-ship-room"><header><div><h2>{{ room.name || '舱室' }}</h2></div><span class="ef-room-level"><span>等级</span> LV. {{ display(room.level) }}</span></header><p v-if="!rows(room.operators).length" class="ef-empty">{{ room.operators_available === true ? '当前没有驻守干员记录。' : '尚未采集驻守干员资料。' }}</p><EndfieldShipResident v-for="(operator,number) in rows(room.operators)" :key="operator.id || operator.charId || number" :operator="operator" :image-mode="imageMode" /></section></div>
     </template>
@@ -208,7 +208,7 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
       <section v-if="categoryChart.length > 1" v-reveal class="ef-card ef-categories"><h2 class="ef-title">奖章分类</h2>
         <DonutChart :segments="categoryChart" label="已记录奖章的分类占比" unit=" 枚" :size="116" :stroke="14"><span class="ef-donut-center"><strong>{{ medals.length }}</strong><small>枚</small></span></DonutChart>
       </section>
-      <section v-if="recent.length >= 3 && !imageMode" v-reveal class="ef-card ef-recent"><h2 class="ef-title">最近获得<span class="ef-sub">按获得时间，新的在前</span></h2>
+      <section v-if="recent.length >= 3 && !imageMode" v-reveal class="ef-card ef-recent"><h2 class="ef-title">最近获得</h2>
         <HRail label="最近获得的奖章"><div v-for="(medal,index) in recent" :key="medal.id ?? index" class="ef-recent-medal" :class="{ plated: medal.is_plated === true }"><EndfieldArtwork :src="medal.icon_url" :name="medal.name || '奖章'" /><strong>{{ medal.name || '未命名奖章' }}</strong><span>{{ dayOf(medal.obtained_at) }}</span></div></HRail>
       </section>
       <p v-if="!medals.length" class="ef-card ef-empty">{{ honor.available === true ? '当前档案没有奖章记录。' : '尚未采集奖章详情，请刷新档案。' }}</p>
@@ -306,7 +306,7 @@ button.ef-count:active { transform:translateY(1px); }
 .ef-featured :deep(.h-rail) { --rail-gap:12px; --rail-pad-block:10px; --rail-pad:2px; }
 /* The 6★ rail (web only) is the mockup role card: a white frame, the art on the game tone with the level as a white tag, then the name. */
 .ef-feature { display:grid; grid-template-columns:minmax(0,1fr); gap:0; width:172px; padding:6px; text-align:left; border:1px solid var(--card-border); border-radius:22px; background:var(--card-bg); box-shadow:var(--card-shadow); color:var(--text); font:inherit; }
-.ef-feature-art { grid-area:1 / 1; position:relative; display:block; height:164px; border-radius:17px; overflow:hidden; background:var(--ef-tone); }
+.ef-feature-art { grid-area:1 / 1; position:relative; display:block; height:164px; border-radius:16px; overflow:hidden; background:var(--ef-tone); }
 .ef-feature-art .endfield-artwork { position:absolute; right:0; bottom:-10px; width:150px; height:190px; border-radius:0; background:transparent; }
 .ef-feature-copy { display:contents; }
 .ef-feature-copy strong { grid-area:2 / 1; min-width:0; overflow:hidden; padding:12px 8px 8px; font-size:14px; line-height:20px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
@@ -342,7 +342,7 @@ button.ef-count:active { transform:translateY(1px); }
 .endfield-reports:not(.is-image) .ef-roster { grid-template-columns:repeat(auto-fill,minmax(196px,1fr)); gap:16px; }
 .endfield-reports:not(.is-image) .ef-operator { grid-template-columns:minmax(0,1fr); gap:0; padding:6px; border:1px solid var(--card-border); border-radius:22px; background:var(--card-bg); box-shadow:var(--card-shadow); }
 .endfield-reports:not(.is-image) .ef-operator-top, .endfield-reports:not(.is-image) .ef-operator-copy { display:contents; }
-.endfield-reports:not(.is-image) .ef-avatar { grid-area:1 / 1; justify-self:stretch; height:136px; padding:0; border-radius:17px; background:var(--ef-tone); overflow:hidden; }
+.endfield-reports:not(.is-image) .ef-avatar { grid-area:1 / 1; justify-self:stretch; height:136px; padding:0; border-radius:16px; background:var(--ef-tone); overflow:hidden; }
 .endfield-reports:not(.is-image) .ef-operator-top .endfield-artwork { position:absolute; right:0; bottom:0; width:128px; height:128px; border-radius:0; background:transparent; }
 .endfield-reports:not(.is-image) .ef-tier { left:11px; top:11px; bottom:auto; transform:none; padding:3px 7px; line-height:16px; background:var(--card-bg); color:var(--ef-ink); box-shadow:none; }
 .endfield-reports:not(.is-image) .ef-operator.top .ef-tier { background:var(--ef-ink); color:var(--accent-ink); }

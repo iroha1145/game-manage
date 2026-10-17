@@ -111,7 +111,7 @@ def test_failed_unknown_and_successful_empty_stay_distinct_in_long_fallback():
     assert coverage(card)['丰碑']=={'记录':'未知 / 未采集','关卡组':'未知 / 未采集'}
     assert coverage(card)['危机']=={'记录':'0 / 0'}
     assert '最近读取失败，尚无成功观测' in text and '本分类抓取时间：未知' in text
-    assert '本次返回列表为空；不据此判断未解锁或未挑战' in text
+    assert '暂无通关记录' in text
     assert '最高值：0' in text and '挑战次数：未知' in text
     assert_final_coverage(card)
 

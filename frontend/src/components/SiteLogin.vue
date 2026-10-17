@@ -28,13 +28,13 @@ async function submit() {
       <p class="eyebrow">游戏管家</p><h1>{{ registering ? '邀请注册' : '网站登录' }}</h1>
       <form @submit.prevent="submit">
         <label>用户名<input name="username" v-model="username" autocomplete="username" required maxlength="64" /></label>
-        <small v-if="registering">用户名为 3–64 位英文字母、数字、下划线（_）、点（.）或短横线（-）。</small>
-        <label>网站密码<input name="password" v-model="password" type="password" :autocomplete="registering ? 'new-password' : 'current-password'" required :minlength="registering ? 12 : 1" maxlength="128" /></label>
+        <small v-if="registering">3–64 位字母、数字、_、. 或 -</small>
+        <label>密码<input name="password" v-model="password" type="password" :autocomplete="registering ? 'new-password' : 'current-password'" required :minlength="registering ? 12 : 1" maxlength="128" /></label>
         <label v-if="registering">邀请码<input name="invite" v-model="invite" autocomplete="off" required maxlength="128" /></label>
         <p v-if="error" role="alert">{{ error }}</p>
         <button class="ui-button primary" :disabled="busy">{{ busy ? '正在验证…' : registering ? '注册并登录' : '登录' }}</button>
       </form>
-      <button type="button" class="text-link" :disabled="busy" @click="registering = !registering; error = ''; password = ''; invite = ''">{{ registering ? '已有网站账号，去登录' : '使用邀请码注册' }}</button>
+      <button type="button" class="text-link" :disabled="busy" @click="registering = !registering; error = ''; password = ''; invite = ''">{{ registering ? '已有账号，去登录' : '使用邀请码注册' }}</button>
     </div>
   </section>
 </template>

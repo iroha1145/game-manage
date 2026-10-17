@@ -113,7 +113,7 @@ def test_derived_metrics_keep_unknown_totals_and_gacha_record_boundaries():
     assert equipment['metric']['maximum'] is None and '缺' not in equipment['value']
     gacha=card_to_text(gacha_document(snapshot(synthetic_gacha())))
     assert '至少 61' in gacha and '至少 12' in gacha and '边界未知' in gacha
-    assert '同步完成不证明全生涯历史完整' in gacha
+    assert '仅统计已同步的寻访记录' in gacha
     assert '报告准确区间均抽：39.0' in gacha
 
 

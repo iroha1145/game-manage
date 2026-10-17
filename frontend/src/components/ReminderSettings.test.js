@@ -60,7 +60,7 @@ test('group form offers supported controls while saving preserves hidden subscri
   assert.equal(nodes(root, 'fieldset').some(node => content(node).includes('公共订阅')), false)
   assert.equal(nodes(root, 'input').some(node => node.props.type === 'time'), false)
   assert.doesNotMatch(content(root), /不实现|兼容保留|不生效|群静默/)
-  assert.match(content(root), /允许查询的游戏、图片偏好与查询频率/)
+  assert.match(content(root), /允许查询的游戏.*使用图片回复查询结果.*群查询每分钟上限/)
   nodes(root, 'input').find(node => node.props.type === 'number').props['onUpdate:modelValue'](25)
   await nodes(root, 'form')[0].props.onSubmit({ preventDefault() {} }); await flush()
   const saved = JSON.parse(calls.find(([url, options]) => url === '/api/admin/qq/groups/group-existing/settings' && options.method === 'PUT')[1].body)

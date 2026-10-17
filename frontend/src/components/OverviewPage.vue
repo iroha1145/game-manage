@@ -54,7 +54,7 @@ const metricValue = card => `${card.summary.metric === 'gacha' && card.summary.p
 const metricUnit = card => card.summary.hasStamina ? `/ ${card.summary.maximum ?? '—'}` : METRIC_UNITS[card.summary.metric]
 function resourceNote(card) {
   const s = card.summary
-  if (s.metric === 'gacha') return `特许寻访 · ${s.value == null ? '等待寻访记录更新' : s.pityStatus === 'exact' ? '按连续记录计算' : '有缺口或免费寻访，为最少值'}`
+  if (s.metric === 'gacha') return `特许寻访 · ${s.value == null ? '等待更新' : s.pityStatus === 'exact' ? '按连续记录计算' : '含缺口或免费寻访，为下限'}`
   // 胜率不含重开和结果未知的对局；分母和总场数不同时写出来，免得按总场数去算。
   if (!s.hasStamina) return s.totalGames == null ? '等待对局数据' : `最近 ${s.totalGames} 场 · ${s.wins == null ? '胜场未知' : `${s.wins} 胜`}${s.decided != null && s.decided !== s.totalGames ? ` · 胜率按 ${s.decided} 场计` : ''}`
   if (s.percent >= 100) return '体力已满'
@@ -153,7 +153,7 @@ function quickLinks(card) {
       <section v-else class="ov-hero is-empty" :aria-busy="loading || undefined"><div class="hero-inner"><p>{{ loading ? '加载中…' : '暂无已启用的游戏。' }}</p></div></section>
 
       <section class="ov-tasks cap-card" aria-labelledby="ov-tasks-title">
-        <div class="card-heading"><div><h2 id="ov-tasks-title">日常进度</h2><p class="sub">每日和本周会重置的进度</p></div></div>
+        <div class="card-heading"><div><h2 id="ov-tasks-title">日常进度</h2></div></div>
         <template v-if="tasks.length">
           <div class="tasks-progress">
             <RingGauge :value="tasksDone" :max="tasks.length" label="已完成的日常进度" :size="72" :stroke="7"><span class="tasks-count"><b>{{ tasksDone }}</b><small>/{{ tasks.length }}</small></span></RingGauge>
@@ -167,7 +167,7 @@ function quickLinks(card) {
             </li>
           </ul>
         </template>
-        <p v-else class="ov-empty">{{ loading ? '加载中…' : '还没有读到每日或每周进度，刷新数据后显示。' }}</p>
+        <p v-else class="ov-empty">{{ loading ? '加载中…' : '暂无日常或周常进度，刷新后显示。' }}</p>
       </section>
     </div>
 
@@ -195,7 +195,7 @@ function quickLinks(card) {
     <div class="ov-analytics">
       <section v-reveal class="ov-deadlines cap-card" aria-labelledby="ov-deadline-title">
         <div class="card-heading">
-          <div><h2 id="ov-deadline-title">活动截止</h2><p class="sub">每天结束的活动数 · 北京时间</p></div>
+          <div><h2 id="ov-deadline-title">活动截止</h2></div>
           <div v-glide class="segmented" role="group" aria-label="时间范围"><button v-for="n in [7, 30]" :key="n" type="button" :aria-pressed="range === n" @click="range = n">{{ n }} 天</button></div>
         </div>
         <p class="chart-summary"><b v-pop>{{ rangeTotal }}</b><small>项</small><span>{{ range }} 天内结束</span></p>
@@ -210,7 +210,7 @@ function quickLinks(card) {
 
       <section v-reveal class="ov-gacha" :class="{ 'is-empty': !digest }" :style="digest ? gameVars(digest.gameId) : undefined" aria-labelledby="ov-gacha-title">
         <div class="card-heading">
-          <div><h2 id="ov-gacha-title">抽卡概况</h2><p class="sub">{{ digest ? `${digest.gameName} · 全部卡池` : '同步抽卡记录后显示' }}</p></div>
+          <div><h2 id="ov-gacha-title">抽卡概况</h2><p v-if="digest" class="sub">{{ digest.gameName }} · 全部卡池</p></div>
           <div v-if="digests.length > 1" v-glide class="segmented" role="group" aria-label="抽卡记录的游戏"><button v-for="item in digests" :key="item.gameId" type="button" :aria-pressed="item.gameId === digest.gameId" @click="gachaId = item.gameId">{{ item.gameName }}</button></div>
         </div>
         <template v-if="digest">
@@ -219,11 +219,11 @@ function quickLinks(card) {
           <a class="gacha-latest" :href="gameHref(digest.gameId, digest.tab)">
             <GameIcon class="latest-mark" :game-id="digest.gameId" />
             <span v-if="digest.latest" class="latest-copy"><strong>{{ digest.latest.name }}</strong><small>{{ digest.latest.detail }}<template v-if="digest.latest.time"> · {{ shortDate(digest.latest.time) }}</template></small></span>
-            <span v-else class="latest-copy"><strong>查看抽卡记录</strong><small>还没有最高稀有度的记录</small></span>
+            <span v-else class="latest-copy"><strong>查看抽卡记录</strong><small>暂无最高稀有度记录</small></span>
             <AppIcon name="arrow" :size="15" />
           </a>
         </template>
-        <p v-else class="ov-empty">{{ loading ? '加载中…' : '在游戏页导入或同步抽卡记录后，这里显示总抽数和最近的高稀有度。' }}</p>
+        <p v-else class="ov-empty">{{ loading ? '加载中…' : '同步抽卡记录后显示总抽数与最近出货。' }}</p>
       </section>
     </div>
 

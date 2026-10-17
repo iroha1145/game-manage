@@ -47,7 +47,6 @@ const dayTitle=(row,index)=>`${day(row.day ?? index + 1)} · ${row.done === true
       <p v-if="data?.signed_at" class="note">签到于 {{ time(data.signed_at) }}（北京时间）</p>
       <ol v-if="calendar.length" class="att-days" aria-hidden="true"><li v-for="(row,index) in calendar" :key="row.day ?? index" class="att-day" :class="dayState(row,index)" :title="dayTitle(row,index)">{{ row.day ?? index + 1 }}</li></ol>
       <details class="note"><summary>来源与更新时间</summary><p>状态观测于 {{ time(data?.updated_at) }}<template v-if="data?.fetched_at"> · 抓取于 {{ time(data.fetched_at) }}</template>（北京时间）</p></details>
-      <p v-if="stale && observed" class="note">正在显示已有签到资料；当前状态请以重新读取结果为准。</p>
       <details v-if="calendar.length || rows(data?.records).length" class="attendance-records"><summary>查看签到日历与记录</summary>
         <ul v-if="calendar.length"><li v-for="(row,index) in calendar" :key="row.day ?? index"><strong>{{ day(row.day) }}</strong><span>{{ row.done === true ? '已签到' : row.done === false ? '未签到' : '状态未知' }}</span><span>{{ name(row) }}<template v-if="row.count != null"> × {{ display(row.count) }}</template></span><span v-if="row.signed_at">签到于 {{ time(row.signed_at) }}</span></li></ul>
         <div v-if="rows(data?.records).length" class="record-history"><h3>来源签到记录</h3><p v-for="(row,index) in rows(data.records)" :key="index">{{ time(row.signed_at) }} · {{ name(row) }}<template v-if="row.count != null"> × {{ display(row.count) }}</template></p></div>

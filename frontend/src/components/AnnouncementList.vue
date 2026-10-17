@@ -19,7 +19,7 @@ const fetchedAt = computed(() => snapshots.value.map(snap => snap.fetched_at).fi
 const failed = computed(() => snapshots.value.some(snap => collectionState(snap) === 'failed'))
 const partialFailure = computed(() => failed.value && snapshots.value.filter(snap => collectionState(snap) === 'failed').every(hasFreshPublicFallback))
 const retained = computed(() => snapshots.value.some(snap => Array.isArray(snap.payload)))
-const emptyText = computed(() => snapshots.value.some(snap => collectionState(snap) === 'never') ? '尚未采集公告与资讯，请等待公共采集。' : snapshots.value.some(snap => collectionState(snap) === 'collected') ? '已采集，暂无公告与资讯' : '暂无公告与资讯')
+const emptyText = computed(() => snapshots.value.some(snap => collectionState(snap) === 'never') ? '尚未采集公告与资讯。' : snapshots.value.some(snap => collectionState(snap) === 'collected') ? '已采集，暂无公告与资讯' : '暂无公告与资讯')
 function date(value) { return value ? formatTime(value, { hour: undefined, minute: undefined }) : '' }
 watch(categories, value => { if (category.value !== 'all' && !value.some(item => item.id === category.value)) category.value = 'all' })
 watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all' })
@@ -27,9 +27,9 @@ watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all'
 <template>
   <section class="cap-card article-list" :class="{'article-image':imageMode}">
     <div class="cap-title article-heading"><h2>公告与资讯</h2><span v-if="stale && !imageMode" class="badge badge-stale">数据可能过期</span><span v-if="fetchedAt" class="cap-meta">更新于 {{ formatTime(fetchedAt) }}</span><slot name="actions" /></div>
-    <p v-if="imageMode" class="article-excerpt-note">摘要，全文请到原文或看板查看。</p>
+    <p v-if="imageMode" class="article-excerpt-note">摘要，全文请查看原文。</p>
     <template v-if="!imageMode"><p v-for="error in errors" :key="error" class="article-error" role="status">{{ error }}</p>
-    <p v-if="failed" class="article-error" role="status">{{ partialFailure ? '部分来源不可用，显示可用来源数据。' : `采集失败，${retained ? '保留上次成功数据，请留意更新时间。' : '尚无可显示的公告与资讯快照。'}` }}</p></template>
+    <p v-if="failed" class="article-error" role="status">{{ partialFailure ? '部分来源不可用，显示可用来源数据。' : `采集失败，${retained ? '保留上次成功数据。' : '尚无公告与资讯。'}` }}</p></template>
     <nav v-if="rows.length && !imageMode" class="article-filters" aria-label="文章内容分类"><button type="button" :aria-pressed="category === 'all'" @click="category = 'all'">全部 <span>{{ rows.length }}</span></button><button v-for="item in categories" :key="item.id" type="button" :aria-pressed="category === item.id" @click="category = item.id">{{ item.label }} <span>{{ item.count }}</span></button></nav>
     <p v-if="!rows.length && !failed" class="empty" role="status">{{ emptyText }}</p>
     <ul v-if="rows.length" class="item-list">
@@ -37,8 +37,8 @@ watch(() => props.gameId, () => { selectedKey.value = ''; category.value = 'all'
         <div v-if="imageMode && articleArtwork(it).length" class="article-cover qq-article-cover"><ArtworkImage :candidates="articleArtwork(it)" decorative /></div>
         <button v-if="!imageMode && articleArtwork(it).length" type="button" class="article-cover" :aria-label="`查看公告：${it.title}`" @click="selectedKey = it.key"><ArtworkImage :candidates="articleArtwork(it)" decorative /></button>
         <p class="item-title"><span v-if="imageMode" class="item-link">{{ it.title }}</span><button v-else type="button" class="item-link" @click="selectedKey = it.key">{{ it.title }}</button></p>
-        <p class="item-meta"><span class="chip article-category">{{ it.categoryLabel }}</span><span v-if="it.source_name && !imageMode" class="item-source">{{ it.source_name }}</span><span v-if="it.source_stale && !imageMode" class="badge badge-stale">来源采集异常，保留旧记录</span><span v-if="date(it.published_at)" class="item-date">{{ date(it.published_at) }}</span></p>
-        <p v-if="it.excerpt" class="item-summary">{{ it.excerpt }}</p><p v-else class="item-summary article-missing">{{ imageMode ? '正文请查看原文。' : contentNote(it) || '正文仅包含图片，点击查看详情。' }}</p>
+        <p class="item-meta"><span class="chip article-category">{{ it.categoryLabel }}</span><span v-if="it.source_name && !imageMode" class="item-source">{{ it.source_name }}</span><span v-if="it.source_stale && !imageMode" class="badge badge-stale">来源异常，保留旧记录</span><span v-if="date(it.published_at)" class="item-date">{{ date(it.published_at) }}</span></p>
+        <p v-if="it.excerpt" class="item-summary">{{ it.excerpt }}</p><p v-else class="item-summary article-missing">{{ imageMode ? '正文请查看原文。' : contentNote(it) || '正文仅含图片，点击查看详情。' }}</p>
         <div v-if="it.tags.length" class="item-tags"><span v-for="tag in it.tags" :key="tag" class="chip">{{ tag }}</span></div>
         <div class="item-actions"><button v-if="!imageMode" type="button" @click="selectedKey = it.key">查看详情</button><a v-if="it.url" :href="it.url" target="_blank" rel="noopener noreferrer">原文 ↗</a></div>
       </li>

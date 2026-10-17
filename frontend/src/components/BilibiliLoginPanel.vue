@@ -136,7 +136,6 @@ onUnmounted(()=>{stopped=true;invalidate()})
 
 <template>
   <section class="bili-login" aria-label="B站登录">
-    <p class="login-note">用于同步 B 站官方动态。凭据在本机加密保存，不保存密码和短信验证码。</p>
     <p v-if="props.account.configured" class="login-note">当前账号：{{ props.account.nickname || props.account.uid || '已配置' }} · {{ props.account.state === 'validated' ? '本次运行已验证' : '已配置，尚未重新验证' }}</p>
     <nav class="login-tabs" aria-label="B站登录方式">
       <button v-for="[value,label] in modes" :key="value" type="button" :aria-pressed="mode===value" @click="selectMode(value)">{{ label }}</button>
@@ -144,7 +143,7 @@ onUnmounted(()=>{stopped=true;invalidate()})
     <p v-if="error" role="alert" class="login-error">{{ error }}</p>
     <p v-if="stateText || message" role="status">{{ message || stateText }}</p>
     <div v-if="state==='pending_save'">
-      <p>原账号仍保留。采集结束后，在有效期内重试保存。</p>
+      <p>同步结束后可重试保存，原账号仍保留。</p>
       <button :disabled="busy" type="button" class="ui-button" @click="retrySave">重试保存</button>
     </div>
     <template v-else-if="state!=='complete'">
@@ -167,7 +166,7 @@ onUnmounted(()=>{stopped=true;invalidate()})
         <button type="submit" class="ui-button primary" :disabled="busy || state!=='sms_sent' || !/^[0-9]{4,8}$/.test(code)">登录</button>
       </form>
       <form v-else @submit.prevent="importCookie">
-        <p class="login-note">备用入口：从已登录的 bilibili.com 浏览器 Cookie 复制，验证有效后保存。</p>
+        <p class="login-note">从已登录的 bilibili.com 浏览器 Cookie 复制。</p>
         <label>SESSDATA<input v-model="sessdata" type="password" maxlength="4096" autocomplete="off" /></label>
         <label>bili_jct（可选）<input v-model="csrf" type="password" maxlength="128" autocomplete="off" /></label>
         <label>buvid3（可选）<input v-model="buvid" type="password" maxlength="256" autocomplete="off" /></label>

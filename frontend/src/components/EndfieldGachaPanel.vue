@@ -109,7 +109,7 @@ async function download() {
           </ul>
         </div>
         <div v-if="report" class="gacha-coverage"><span>已知记录缺口 <b>{{ report.gaps ?? '未知' }}</b></span><span>同步状态 <b>{{ report.pending === true ? '部分待同步' : report.pending === false ? '本轮同步完成' : '未知' }}</b></span><span>记录内准确区间均值 <b>{{ report.average_exact_pulls == null ? '未知' : `${report.average_exact_pulls} 抽` }}</b></span></div>
-        <p v-if="report?.average_exact_pulls != null" class="notice">均值仅来自当前展示历史中 {{ report.known_exact_intervals }} 个抽数准确的 6★ 区间，不代表完整生涯或未来出货。</p>
+        <p v-if="report?.average_exact_pulls != null" class="notice">均值来自当前展示历史中 {{ report.known_exact_intervals }} 个抽数准确的 6★ 区间。</p>
         <p v-if="summary.complete === false" class="notice warn" role="status">还有未同步完的记录，下次刷新会接着同步。</p>
         <p v-else-if="summary.complete !== true" class="notice warn" role="status">当前记录完整性未知，请留意各卡池的记录范围。</p>
       </template>
@@ -129,7 +129,7 @@ async function download() {
           <BarChart :items="poolBars" label="各卡池的寻访抽数" unit=" 抽" :highlight="latestPool" :height="116" color="var(--eg-six)" />
         </div>
         <div v-if="recent.length && !imageMode" v-reveal class="eg-card eg-recent">
-          <h3 class="eg-title">最近的 6★<span class="eg-sub">按获得时间，新的在前</span></h3>
+          <h3 class="eg-title">最近的 6★</h3>
           <HRail label="最近的 6★ 记录">
             <article v-for="(item, index) in recent" :key="`${item.pool_key}:${index}`" class="six-card" :class="{ latest: index === 0 }" :title="`${item.pool_name || item.pool_label} · ${pullDate(item.obtained_at)}`">
               <div class="six-top"><EndfieldArtwork role :name="item.name || '未知'" /><span v-if="index === 0" class="six-badge">最新</span></div>
@@ -141,7 +141,7 @@ async function download() {
         </div>
       </template>
 
-      <p v-if="!pools.length" class="empty eg-card">{{ cloudMode ? '本人档案' : '本机' }}暂无寻访记录。</p>
+      <p v-if="!pools.length" class="empty eg-card">暂无寻访记录。</p>
       <div v-else class="pool-grid">
         <article v-for="(pool,index) in pools" :key="pool.key" v-reveal class="pool-card" :class="{ 'is-latest': index === latestPool }" :style="{ '--span': spans[index] }">
           <header class="pool-head">

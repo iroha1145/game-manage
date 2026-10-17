@@ -17,15 +17,12 @@ onBeforeUnmount(()=>{disposed=true;clear();unsubscribe()})
 </script>
 <template>
   <section class="cap-card qq-binding"><h2>QQ 绑定</h2>
-    <p>生成绑定码后，在已开通机器人的群里 @机器人 发送下方指令；收到「绑定成功」即完成。</p>
-    <p>绑定会保存本机器人中的 QQ 用户标识、群标识及其与本站账号的关联，用于核对查询权限。游戏昵称、角色和记录等查询结果会发到当前会话，群内其他成员也能看到；游戏登录凭据不会发到聊天中。</p>
-    <p>生成绑定码并发送绑定指令，表示同意上述用途。解除关联会停止后续查询，但不会删除已保存的关联、网站数据或 QQ 聊天记录。申请删除保存的数据，请联系网站管理员。</p>
-    <p>绑定码有效 2 分钟，仅可使用一次。不要提前分享绑定码，公开群内其他成员可能抢先使用。更换绑定码会使旧码失效。</p>
+    <p>在群里 @机器人 发送下方指令完成绑定。绑定码 2 分钟内单次有效，请勿公开分享。</p>
     <div class="qq-controls"><button class="ui-button primary" :disabled="busy" @click="generate">生成或更换绑定码</button><button class="ui-button" :disabled="busy" @click="run(load)">刷新已关联身份</button></div>
     <div v-if="code" class="qq-command"><code>绑定 {{ code }}</code><button class="ui-button" :disabled="busy" @click="copy">复制绑定指令</button><span v-if="copied" role="status">已复制</span><p>到期 {{ displayBeijing(expires) }}</p></div>
     <p v-if="error" role="alert">{{ error }}</p>
     <article v-for="(link, index) in links" :key="link.link_id"><h3>已关联 · {{ link.identity.scene === 'group' ? '群聊' : '私聊' }} {{ index + 1 }}</h3><details><summary>查看绑定标识</summary><p>群标识：{{ link.identity.group_openid || '无' }} · 发送者：{{ link.identity.sender_openid }}</p></details><button class="ui-button" :disabled="busy" @click="unlink(link)">解除关联</button></article>
-    <p v-if="!links.length">还没有绑定的 QQ。</p><p v-else class="muted">解除后，该 QQ 立刻无法查询你的数据。</p>
+    <p v-if="!links.length">还没有绑定的 QQ。</p>
   </section>
 </template>
 <style scoped>

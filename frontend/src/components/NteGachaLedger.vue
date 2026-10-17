@@ -137,8 +137,8 @@ function pityGauge(item) {
   <section class="cap-card ledger" :aria-label="cloudMode ? '本人逐抽账本' : '本地逐抽账本'">
     <header class="cap-title ledger-head">
       <h2>逐抽账本</h2>
-      <InfoHint text="逐条保存真实记录。导入覆盖范围与社区统计分别计算。" />
-      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已保存记录 · 截至导入文件时间</span>
+      <InfoHint text="导入的逐条抽卡记录与社区统计分别计算。" />
+      <span v-if="accountId" class="saved-count"><b>{{ summary?.total_records ?? 0 }}</b>条已保存记录</span>
       <span v-if="!imageMode" class="head-actions">
         <label v-if="accountId" class="check"><input type="checkbox" v-model="segmented" :disabled="busy" />分段导出大账本</label>
         <button v-if="accountId" type="button" class="ui-button small-button" :disabled="busy" @click="load">刷新账本</button>
@@ -169,7 +169,7 @@ function pityGauge(item) {
             <p v-if="preview.identity_confirmation_required" class="warn">文件未标明角色，请勾选“确认属于当前角色”后重新预览。</p>
             <ul v-if="preview.warnings?.length"><li v-for="(note, index) in preview.warnings" :key="index">{{ requirementLabel(note) }}</li></ul>
             <ul v-if="preview.missing_requirements?.length"><li v-for="(note, index) in preview.missing_requirements" :key="index">{{ requirementLabel(note) }}</li></ul>
-            <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">{{ cloudMode ? '确认导入到本人空间' : '确认导入到本机' }}</button>
+            <button type="button" class="ui-button small-button primary" :disabled="busy || (preview.identity_confirmation_required && !identity)" @click="commitImport">{{ cloudMode ? '确认导入到当前账号' : '确认导入到本机' }}</button>
           </div>
           <details class="source-help"><summary>导入文件说明</summary><p>使用逐抽历史导出文件，或本账本导出的备份。社区出 S 汇总无法导入。</p><p><a href="https://github.com/Golumpa/nte-exporter" target="_blank" rel="noopener noreferrer">nte-exporter 文件格式说明 ↗</a></p></details>
         </div>
@@ -200,7 +200,7 @@ function pityGauge(item) {
       </div>
       <p v-if="imageMode && !records.length && summary?.total_records > 0" class="empty">逐条记录未加载；已导入 {{ summary.total_records }} 条，可在网页查看。</p>
       <p v-else-if="!records.length" class="empty">暂无逐抽记录</p>
-      <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间（源文件）</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td><span v-if="imageMode" class="ledger-reward-image"><NteIcon v-if="rewardIcon(row)" :src="rewardIcon(row)" :name="row.reward_name || row.reward_id" size="large" /><span>{{ row.reward_name || row.reward_id }}</span></span><template v-else>{{ row.reward_name || row.reward_id }}</template></td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
+      <div v-else class="records-table"><table class="data-table"><thead><tr><th>时间</th><th>卡池</th><th>物品</th><th>品质</th><th class="num">数量</th><th>计数信息</th></tr></thead><tbody><tr v-for="row in records" :key="row.uid"><td>{{ ledgerDate(row.timestamp) }}</td><td>{{ poolLabel(row.pool_group_id) }}</td><td><span v-if="imageMode" class="ledger-reward-image"><NteIcon v-if="rewardIcon(row)" :src="rewardIcon(row)" :name="row.reward_name || row.reward_id" size="large" /><span>{{ row.reward_name || row.reward_id }}</span></span><template v-else>{{ row.reward_name || row.reward_id }}</template></td><td>{{ row.reward_rank || '未知' }}</td><td class="num">{{ row.quantity ?? '未知' }}</td><td>{{ resultLabel(row.result_type) }}</td></tr></tbody></table></div>
       <nav v-if="!imageMode && recordTotal > 100" class="pagination" aria-label="抽卡记录分页"><button type="button" class="ui-button small-button" :disabled="offset === 0 || busy" @click="offset = Math.max(0, offset - 100)">上一页</button><span>{{ Math.floor(offset / 100) + 1 }} / {{ Math.ceil(recordTotal / 100) }}</span><button type="button" class="ui-button small-button" :disabled="offset + 100 >= recordTotal || busy" @click="offset += 100">下一页</button></nav>
     </template>
   </section>

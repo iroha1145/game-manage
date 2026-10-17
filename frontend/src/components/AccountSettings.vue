@@ -12,16 +12,16 @@ const chooseRole = (account, value) => account.state === 'active' ? action(accou
 const revoke = account => action(account.account_id, () => revokeAuthorization(account.account_id))
 function sklandSource(account) {
   if (account.authorization_source === 'manual') return '来源：手动凭据'
-  if (account.authorization_source !== 'passport') return '授权来源未提供'
+  if (account.authorization_source !== 'passport') return '来源未提供'
   const parent = props.accounts.find(item => item.account_id === account.parent_account_id && item.provider === 'hypergryph')
   const role = parent?.roles?.find(item => item.role_id === account.parent_role_id)
-  return `来源：鹰角授权 · ${role?.display_name || '来源角色名称未提供'}${parent?.state?.startsWith('revoked') ? '（来源已撤销）' : ''}`
+  return `来源：鹰角授权 · ${role?.display_name || '角色未提供'}${parent?.state?.startsWith('revoked') ? '（已撤销）' : ''}`
 }
 </script>
 <template>
   <section class="cloud-account-settings" aria-label="本人游戏授权">
     <h2>游戏授权与默认角色</h2>
-    <p v-if="error" role="alert">{{ error }}</p><p v-if="!accounts.length">尚未关联游戏账号，请使用下方社区授权。</p>
+    <p v-if="error" role="alert">{{ error }}</p><p v-if="!accounts.length">尚未关联游戏账号，请在下方登录。</p>
     <article v-for="account in accounts" :key="account.account_id" class="cap-card">
       <header><h3>{{ providerName(account) }}</h3><span>{{ labels[account.state] || '状态未知' }}</span></header>
       <p v-if="account.provider === 'skland'">{{ sklandSource(account) }}</p>

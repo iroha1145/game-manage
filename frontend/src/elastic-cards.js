@@ -1,9 +1,29 @@
 import { onBeforeUnmount, onMounted, watch } from 'vue'
 
 const CARD = '[data-elastic-card]'
-const EXCLUDED = 'a, button, input, select, textarea, option, label, summary, dialog, [role="button"], [role="slider"], [contenteditable]:not([contenteditable="false"]), [draggable="true"], [data-elastic-ignore], .render-image, .calendar, .version-calendar, .h-rail-track'
+const GLOBAL_EXCLUDED = '[data-elastic-ignore], .render-image, [data-bot-render], [data-render-image]'
+const INNER_EXCLUDED = 'a, button, input, select, textarea, option, label, summary, dialog, [role="button"], [role="slider"], [contenteditable]:not([contenteditable="false"]), [draggable="true"], .calendar, .version-calendar, .h-rail-track'
 const PROPERTIES = ['translate', 'rotate', 'scale']
 const PASSIVE = { passive: true }
+const H = 1 / 240
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
+
+function stepSpring(state, posKey, velKey, target, k, c, dt) {
+  const steps = Math.max(1, Math.min(24, Math.round(dt / H)))
+  const h = dt / steps
+  let x = state[posKey], v = state[velKey]
+  const accel = (px, pv) => (target - px) * k - pv * c
+  for (let i = 0; i < steps; i++) {
+    const a1 = accel(x, v)
+    const v2 = v + 0.5 * h * a1, a2 = accel(x + 0.5 * h * v, v2)
+    const v3 = v + 0.5 * h * a2, a3 = accel(x + 0.5 * h * v2, v3)
+    const v4 = v + h * a3, a4 = accel(x + h * v3, v4)
+    x += (h / 6) * (v + 2 * v2 + 2 * v3 + v4)
+    v += (h / 6) * (a1 + 2 * a2 + 2 * a3 + a4)
+  }
+  state[posKey] = x
+  state[velKey] = v
+}
 
 /** Decorative feedback only: never moves, reorders, captures or cancels input. */
 export function createElasticCards(root, { selector = CARD } = {}) {
@@ -11,6 +31,7 @@ export function createElasticCards(root, { selector = CARD } = {}) {
   if (!view || !root.addEventListener) return { reset() {}, destroy() {} }
   const doc = root.ownerDocument
   const media = view.matchMedia?.('(prefers-reduced-motion: reduce)')
+  const clock = () => view.performance?.now?.() ?? Date.now()
   let gesture = null, frame = 0, disposed = false
   const listeners = []
   const listen = (target, type, handler) => {
@@ -41,6 +62,7 @@ export function createElasticCards(root, { selector = CARD } = {}) {
     if (!gesture || (event?.pointerId != null && event.pointerId !== gesture.id)) return
     if (!available()) { reset(); return }
     gesture.released = true
+    if (clock() - gesture.time > 60) gesture.vx = gesture.vy = 0
     if (frame) view.cancelAnimationFrame(frame)
     let previousTime = null
     const spring = time => {
@@ -49,10 +71,9 @@ export function createElasticCards(root, { selector = CARD } = {}) {
       const dt = previousTime == null ? 1 / 60 : Math.min(0.032, Math.max(0.001, (time - previousTime) / 1000))
       previousTime = time
       for (const [position, velocity, target] of [['x', 'vx', 0], ['y', 'vy', 0], ['scale', 'vs', 1]]) {
-        gesture[velocity] += ((target - gesture[position]) * 330 - gesture[velocity] * 29) * dt
-        gesture[position] += gesture[velocity] * dt
+        stepSpring(gesture, position, velocity, target, 330, 29, dt)
       }
-      if (Math.abs(gesture.x) + Math.abs(gesture.y) < 0.025 && Math.abs(1 - gesture.scale) < 0.0001) { reset(); return }
+      if (Math.abs(gesture.x) + Math.abs(gesture.y) < 0.025 && Math.abs(1 - gesture.scale) < 0.0001 && Math.hypot(gesture.vx, gesture.vy) < 0.5) { reset(); return }
       paint()
       if (gesture) frame = view.requestAnimationFrame(spring)
     }
@@ -64,7 +85,9 @@ export function createElasticCards(root, { selector = CARD } = {}) {
     if (!available() || event.isPrimary === false || (event.pointerType === 'mouse' && event.button !== 0)) return
     const target = event.target?.nodeType === 1 ? event.target : event.target?.parentElement
     const card = target?.closest(selector)
-    if (!card || !root.contains(card) || target.closest(EXCLUDED)) return
+    if (!card || !root.contains(card) || target.closest(GLOBAL_EXCLUDED)) return
+    const inner = target.closest(INNER_EXCLUDED)
+    if (inner && inner !== card && card.contains(inner)) return
     const outerCard = card.parentElement?.closest(selector)
     if (outerCard && root.contains(outerCard)) return
     // Leave nested scrolling surfaces alone, including future calendar/rail variants.
@@ -76,7 +99,7 @@ export function createElasticCards(root, { selector = CARD } = {}) {
     reset()
     gesture = {
       card, id: event.pointerId, touch: event.pointerType !== 'mouse', startX: event.clientX, startY: event.clientY,
-      x: 0, y: 0, scale: 0.994, vx: 0, vy: 0, vs: 0, released: false,
+      x: 0, y: 0, scale: 0.994, vx: 0, vy: 0, vs: 0, time: clock(), released: false,
       previous: PROPERTIES.map(name => [name, card.style.getPropertyValue(name), card.style.getPropertyPriority(name)]),
     }
     paint()
@@ -87,8 +110,17 @@ export function createElasticCards(root, { selector = CARD } = {}) {
     const dx = event.clientX - gesture.startX, dy = event.clientY - gesture.startY
     if (gesture.touch && Math.abs(dy) > 5 && Math.abs(dy) >= Math.abs(dx) * 0.8) { reset(); return }
     if (gesture.touch && Math.max(Math.abs(dx), Math.abs(dy)) < 5) return
-    gesture.x = 8 * Math.tanh(dx / 100)
-    gesture.y = gesture.touch ? 0 : 8 * Math.tanh(dy / 100)
+    const nx = 8 * Math.tanh(dx / 100)
+    const ny = gesture.touch ? 0 : 8 * Math.tanh(dy / 100)
+    const now = clock(), elapsed = now - gesture.time
+    if (elapsed > 0) {
+      const dt = Math.max(0.008, elapsed / 1000)
+      gesture.vx = clamp((nx - gesture.x) / dt, -240, 240)
+      gesture.vy = clamp((ny - gesture.y) / dt, -240, 240)
+      gesture.time = now
+    }
+    gesture.x = nx
+    gesture.y = ny
     paint()
   }
   listen(root, 'pointerdown', down)

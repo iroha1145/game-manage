@@ -33,7 +33,7 @@ test('registration explains username rules and rejects invalid input before a re
   const root = mount(t, SiteLogin)
   nodes(root, 'button').find(x => x.props.type === 'button').props.onClick()
   await nextTick()
-  assert.match(content(root), /用户名为 3–64 位英文字母、数字、下划线（_）、点（\.）或短横线（-）/)
+  assert.match(content(root), /3–64 位字母、数字、_、\. 或 -/)
   const inputs = nodes(root, 'input')
   inputs.find(x => x.props.name === 'username').props['onUpdate:modelValue']('朋友账号')
   inputs.find(x => x.props.name === 'password').props['onUpdate:modelValue']('sample-password')

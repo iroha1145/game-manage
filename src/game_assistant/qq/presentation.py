@@ -139,7 +139,7 @@ def help_document(game=None):
     if game in (None,'endfield'):
         sections.append({'title':'终末地专项','layout':'help','fields':[field(title,'终末地 '+title) for title in ('理智','练度','地区','帝江号','光荣之路','挑战','寻访战报')]+[field('干员配装','终末地 干员 精确名称')]})
     card=document('help',game or 'all',prefix+' · 帮助' if game else '帮助 · 游戏管家',subtitle='游戏前缀：鸣潮、异环、终末地；公共单游戏活动无需绑定',sections=sections,
-        notices=['先登录网站生成绑定码，再发送绑定指令；收到成功回复即完成。','不写游戏名时，活动按已授权的游戏分别显示；近期活动指未来168小时内开始或结束。'])
+        notices=['先登录网站生成绑定码，再发送绑定指令；收到成功回复即完成。','不写游戏名时，活动按已授权的游戏分别显示；近期活动指未来 7 天内开始或结束。'])
     card['version']=3
     return card
 
@@ -245,7 +245,7 @@ def gacha_document(game,provider,snapshot,asset_cache=None,*,ledger=None):
                 entries.append(item)
             sections.append({'title':text(pool.get('name') or '未命名卡池'),'layout':'gacha','fields':values,'rows':entries})
     if ledger is None:
-        sections.append({'title':'本人逐抽账本','fields':[field('导入状态','未导入；社区统计不代表完整历史')]})
+        sections.append({'title':'本人逐抽账本','fields':[field('导入状态','未导入')]})
     else:
         section=capability_section(game,provider,'gacha',ledger,asset_cache)
         section['title']='本人逐抽账本';section['fields']+=metadata(ledger);sections.append(section)
@@ -257,7 +257,7 @@ def gacha_document(game,provider,snapshot,asset_cache=None,*,ledger=None):
 def record_gacha_document(game,provider,snapshot,asset_cache=None):
     data=obj(snapshot.payload);sections=[]
     sections.append({'title':'已记录抽卡','layout':'stats','fields':[field(title,data[key]) for key,title in (('total','记录数'),('gold_total','5星数量')) if key in data]+metadata(snapshot)})
-    notices=['仅展示已导入或已采集记录；历史完整性以来源为准，不从社区统计推断当前垫抽。']
+    notices=['仅展示已导入或已同步的抽卡记录。']
     for pool in rows(data.get('pools')):
         values=[];entries=[]
         for key,title in (('total','记录数'),('six_star','6星'),('five_star','5星'),('free','免费抽取'),('gaps','已知记录缺口'),('pending','待同步')):

@@ -68,7 +68,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
     <div class="bili-body">
       <div class="bili-intro">
         <span class="eyebrow">收录范围</span>
-        <InfoHint text="收录官方图文通知与社区资讯；日期明确的游戏内活动会加入日历和提醒。" />
+        <InfoHint text="收录官方图文通知与社区资讯；带明确日期的活动会加入日历。" />
       </div>
       <p v-if="error" role="alert" class="bili-alert">{{ error }}</p>
       <div v-for="s in visible" :key="s.uid" class="bili-status">
@@ -98,7 +98,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
         <div class="toolbar">
           <span class="audit-filter-label">
             筛选记录
-            <MenuSelect v-model="decision" label="筛选记录" :options="[{ value: 'accepted', label: '游戏内通知' }, { value: 'excluded', label: '其他采集记录' }, { value: '', label: '全部' }]" />
+            <MenuSelect v-model="decision" label="筛选记录" :options="[{ value: 'accepted', label: '游戏内通知' }, { value: 'excluded', label: '已过滤动态' }, { value: '', label: '全部' }]" />
           </span>
         </div>
         <p v-if="!filtered.length" class="muted bili-empty">暂无符合条件的动态</p>
@@ -110,7 +110,7 @@ onUnmounted(() => { stopped = true; clearTimeout(timer) })
           </div>
           <p v-if="r.time_evidence?.length" class="audit-evidence">日期依据：{{ r.time_evidence.map(t => t.text).join('；') }}</p>
           <details>
-            <summary>查看已采集内容</summary>
+            <summary>查看原文</summary>
             <p class="original">{{ r.body || '无文字内容' }}</p>
           </details>
         </article>

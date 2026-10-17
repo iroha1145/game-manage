@@ -60,7 +60,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
   <section class="cap-card nte-roles-panel" :class="{ 'role-detail-view': detailMode, 'is-image': imageMode }">
     <div class="cap-title">
       角色练度
-      <InfoHint v-if="roles.length" text="收藏保存在当前浏览器，按网站用户、授权账号及游戏角色分别保存。" />
+      <InfoHint v-if="roles.length" text="收藏保存在当前浏览器，按账号与角色分别保存。" />
       <span v-if="snap?.stale" class="badge badge-stale">数据可能过期</span>
       <span v-if="roles.length" class="chip-list summary">
         <span class="chip">角色总数 <b>{{ roles.length }}</b></span>
@@ -83,7 +83,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
         <label class="favorite-filter"><input type="checkbox" aria-label="仅收藏" :checked="favoritesOnly" @change="favoritesOnly = $event.target.checked" /><span>仅收藏</span></label>
         <span class="count">显示 {{ visible.length }} / {{ roles.length }}</span>
       </div>
-      <p v-if="!canPersist && !imageMode" class="notice">当前账号身份未提供，暂不可收藏。</p>
+      <p v-if="!canPersist && !imageMode" class="notice">登录账号后可收藏角色。</p>
       <p v-if="storageError" class="notice" role="status">{{ storageError }}</p>
       <div v-if="!imageMode" class="compare-tray" role="group" aria-label="角色对比选择">
         <div class="compare-heading">
@@ -194,7 +194,7 @@ input[type=checkbox] { margin: 0; accent-color: var(--accent); }
 .role-card { min-width: 0; padding: 6px; border: 1px solid var(--card-border); border-radius: 22px; background: var(--card-bg); box-shadow: var(--card-shadow); }
 .role-card.compared { border-color: var(--game-vivid); box-shadow: 0 0 0 1px var(--game-vivid); }
 .role-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "art art" "heading action"; align-items: center; }
-.role-art { grid-area: art; position: relative; height: 176px; overflow: hidden; border-radius: 17px; background: var(--game-tone); isolation: isolate; }
+.role-art { grid-area: art; position: relative; height: 176px; overflow: hidden; border-radius: 16px; background: var(--game-tone); isolation: isolate; }
 .avatar { position: absolute; right: 0; bottom: 0; width: 100%; height: 100%; object-fit: contain; object-position: right bottom; }
 .role-art > .nte-icon[data-size] { --size: 100%; position: absolute; right: 0; bottom: 0; place-items: end end; padding: 0 22px 10px 0; border-radius: 0; background: none; }
 .role-art :deep(.icon-fallback) { font-size: 72px; }

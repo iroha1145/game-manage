@@ -17,10 +17,13 @@
   --ease-linear: linear;
   --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
   --ease-bounce-strong: cubic-bezier(0.34, 3.85, 0.64, 1);
-  /* A damped spring (mass 1, 3.2 Hz, damping ratio 0.68: about 5% overshoot,
-     settled in 340ms), sampled into linear() the way feel exports springs. */
+  /* Damped springs sampled from Feel.response(p, -1, 0) into CSS linear():
+     - --ease-spring (mass 1, 3.2 Hz, zeta 0.68): ~5% overshoot, settled in 340ms
+     - --ease-spring-smooth (mass 1, 2.8 Hz, zeta 0.86): crisp settle in 260ms */
   --ease-spring: linear(0, 0.027, 0.099, 0.193, 0.306, 0.418, 0.532, 0.634, 0.725, 0.808, 0.874, 0.93, 0.972, 1.004, 1.026, 1.041, 1.05, 1.053, 1.053, 1.05, 1.045, 1.04, 1.034, 1.028, 1.022, 1.017, 1.012, 1.008, 1);
   --duration-spring: 340ms;
+  --ease-spring-smooth: linear(0, 0.036, 0.124, 0.236, 0.358, 0.478, 0.588, 0.685, 0.767, 0.834, 0.887, 0.928, 0.958, 0.979, 0.993, 1.002, 1.007, 1.009, 1.009, 1.008, 1.006, 1.004, 1.003, 1.002, 1.001, 1);
+  --duration-spring-smooth: 260ms;
   /* Distances */
   --distance-micro: 4px;
   --distance-small: 6px;
@@ -63,16 +66,16 @@
   to { background-position: -200% 0; }
 }
 /* Page frame: the routed page slides up on every navigation. */
-.t-page { animation: t-page-enter var(--duration-fast) var(--ease-smooth-out); }
+.t-page { animation: t-page-enter var(--duration-spring-smooth) var(--ease-spring-smooth); }
 /* Panel: a section that swaps inside a page (tabs, detail views). */
-.t-panel { animation: t-page-enter var(--duration-fast) var(--ease-smooth-out); }
+.t-panel { animation: t-page-enter var(--duration-spring-smooth) var(--ease-spring-smooth); }
 /* Item in a list or grid: pass --i for a stagger. */
 .t-item {
-  animation: t-page-enter var(--duration-medium) var(--ease-smooth-out) backwards;
+  animation: t-page-enter var(--duration-spring) var(--ease-spring-smooth) backwards;
   animation-delay: calc(min(var(--i, 0), 5) * var(--duration-stagger));
 }
 /* Replayed on a number when its text changes (v-pop). */
-.t-pop { animation: t-pop var(--duration-very-slow) var(--ease-smooth-out) backwards; }
+.t-pop { animation: t-pop var(--duration-spring) var(--ease-spring-smooth) backwards; }
 /* Loading text: a highlight band sweeps across muted text. */
 .t-shimmer {
   color: transparent;
@@ -115,9 +118,9 @@
   border-radius: var(--radius-control);
   pointer-events: none;
   transition:
-    transform var(--duration-fast) var(--ease-smooth-out),
-    width var(--duration-fast) var(--ease-smooth-out),
-    height var(--duration-fast) var(--ease-smooth-out),
+    transform var(--duration-spring) var(--ease-spring),
+    width var(--duration-spring-smooth) var(--ease-spring-smooth),
+    height var(--duration-spring-smooth) var(--ease-spring-smooth),
     opacity var(--duration-quick) var(--ease-smooth-out),
     background-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
@@ -128,18 +131,21 @@
 }
 .t-glide-hover {
   background: var(--hover-bg);
+  transition:
+    transform var(--duration-spring-smooth) var(--ease-spring-smooth),
+    width var(--duration-spring-smooth) var(--ease-spring-smooth),
+    height var(--duration-spring-smooth) var(--ease-spring-smooth),
+    opacity var(--duration-quick) var(--ease-smooth-out);
 }
 
 /* ── Scroll reveal (v-reveal) ─────────────────────────────────────── */
 /* The attribute only exists while a below-the-fold card waits and rises; the
    transition is !important for that window so a card's own hover transition
    cannot cut the rise short, and v-reveal removes it when the rise ends. */
-/* transitions.dev "texts reveal", scaled for cards: a 20px blurred rise in
-   500–600ms on the smooth-out curve; cards arriving together stagger 60ms. */
 [data-reveal] {
   transition:
     opacity var(--duration-very-slow) var(--ease-smooth-out) var(--reveal-delay, 0ms),
-    transform 600ms var(--ease-smooth-out) var(--reveal-delay, 0ms),
+    transform 600ms var(--ease-spring-smooth) var(--reveal-delay, 0ms),
     filter var(--duration-very-slow) var(--ease-smooth-out) var(--reveal-delay, 0ms) !important;
 }
 [data-reveal="pending"] {
@@ -163,7 +169,7 @@
 .t-dialog { --dialog-shift:8px; --dialog-shift-x:0px; --dialog-scale:.99; }
 /* A right-side sheet (.sheet-dialog in style.css) slides in from the right edge instead. */
 .t-dialog.sheet-dialog { --dialog-shift:0px; --dialog-shift-x:30px; --dialog-scale:1; }
-.t-dialog[open] { animation:t-dialog-enter var(--duration-fast) var(--ease-smooth-out); }
+.t-dialog[open] { animation:t-dialog-enter var(--duration-spring-smooth) var(--ease-spring-smooth); }
 .t-dialog[data-closing] { animation:t-dialog-exit var(--duration-quick) var(--ease-out) both; }
 .t-dialog::backdrop { animation:t-fade-in var(--duration-fast) var(--ease-out); }
 .t-dialog[data-closing]::backdrop { animation:t-fade-in var(--duration-quick) var(--ease-out) reverse both; }
@@ -186,16 +192,16 @@ details::details-content {
   overflow-y: clip;
   opacity: 0;
   transition:
-    block-size var(--duration-fast) var(--ease-smooth-out),
+    block-size var(--duration-spring-smooth) var(--ease-spring-smooth),
     opacity var(--duration-fast) var(--ease-smooth-out),
-    content-visibility var(--duration-fast) allow-discrete;
+    content-visibility var(--duration-spring-smooth) allow-discrete;
 }
 details[open]::details-content { block-size: auto; opacity: 1; }
 /* Separate rule: browsers without ::details-content drop the whole list. */
 @media (prefers-reduced-motion: reduce) { details::details-content { transition: none; } }
 
 /* Disclosure arrow that flips when a details element opens. */
-.t-disclosure { display: inline-block; transition: transform var(--duration-fast) var(--ease-smooth-out); }
+.t-disclosure { display: inline-block; transition: transform var(--duration-spring-smooth) var(--ease-spring-smooth); }
 details[open] > summary .t-disclosure { transform: rotate(180deg); }
 
 /* ── Error shake (transitions.dev 12): replay by toggling .is-shaking ── */
@@ -213,7 +219,7 @@ details[open] > summary .t-disclosure { transform: rotate(180deg); }
   to { opacity: 1; transform: none; filter: none; }
 }
 @keyframes t-check-draw { to { stroke-dashoffset: 0; } }
-.t-check { width: 18px; height: 18px; flex-shrink: 0; color: var(--success); animation: t-check-in var(--duration-fast) var(--ease-bounce) both; }
+.t-check { width: 18px; height: 18px; flex-shrink: 0; color: var(--success); animation: t-check-in var(--duration-spring) var(--ease-spring) both; }
 .t-check-path { stroke-dasharray: 21; stroke-dashoffset: 21; animation: t-check-draw var(--duration-very-slow) var(--ease-smooth-out) var(--duration-quick) forwards; }
 /* With animations off the stroke would stay hidden; draw it at once. */
 @media (prefers-reduced-motion: reduce) { .t-check-path { stroke-dashoffset: 0; } }

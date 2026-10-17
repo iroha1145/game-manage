@@ -175,3 +175,27 @@ test('blank-card selectstart preserves mouse feedback; an actual text selection 
   pointer('pointermove', card, { clientX: 100 })
   assert.equal(card.style.translate, '1px 2px', 'selection cancellation cannot revive the gesture')
 })
+
+test('cards inside horizontal rails and button-cards receive elastic feedback while nested controls stay excluded', t => {
+  const { root, pointer } = setup(
+    t,
+    '<div class="h-rail-track"><article class="ov-game"><h3>鸣潮</h3><button class="inner">详情</button></article><button class="event-card"><span>限时活动</span></button></div>',
+    { selector: '.ov-game, .event-card' },
+  )
+  const gameCard = root.querySelector('.ov-game')
+  const innerBtn = root.querySelector('.inner')
+  const eventCard = root.querySelector('.event-card')
+
+  pointer('pointerdown', innerBtn)
+  assert.equal(gameCard.style.scale, '', 'nested button inside rail card must not trigger card elasticity')
+  pointer('pointerup', innerBtn)
+
+  pointer('pointerdown', gameCard.querySelector('h3'))
+  assert.equal(gameCard.style.scale, '0.99400', 'card inside .h-rail-track must receive elastic feedback')
+  pointer('pointerup', gameCard)
+
+  pointer('pointerdown', eventCard.querySelector('span'))
+  assert.equal(eventCard.style.scale, '0.99400', 'button-card itself must receive elastic feedback')
+  pointer('pointerup', eventCard)
+})
+

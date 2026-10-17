@@ -62,7 +62,7 @@ test('Endfield connection hint offers an explicit cloud button after login and p
   t.after(() => configureHttpClient({ mode: 'local' }))
   const cloud = mount(t).vm
   cloud.selectGame('endfield')
-  assert.match(cloud.endfieldConnectionHint, /下方.*选择.*鹰角.*角色.*一键连接森空岛/)
+  assert.match(cloud.endfieldConnectionHint, /下方.*一键连接森空岛/)
   assert.doesNotMatch(cloud.endfieldConnectionHint, /自动连接/)
   configureHttpClient({ mode: 'local' })
   const local = mount(t).vm

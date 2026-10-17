@@ -112,7 +112,7 @@ function capProps(cap) {
         v-if="!game.credentials_configured && game.game_id !== 'endfield'"
         class="badge badge-danger"
       >
-        未配置凭据
+        未登录
       </span>
       <button
         type="button"
