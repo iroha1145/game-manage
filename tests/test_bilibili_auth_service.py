@@ -12,6 +12,14 @@ VALUES = {'sessdata': 'FAKE_SESS', 'bili_jct': 'FAKE_JCT', 'dedeuserid': '10001'
 PROOF = {'validate': 'FAKE_VALIDATE', 'seccode': 'FAKE_SECCODE'}
 
 
+async def eventually(condition, timeout=2):
+    # Expiry runs on real timers here; slow CI timers need more than a fixed sleep.
+    deadline = asyncio.get_running_loop().time() + timeout
+    while not condition() and asyncio.get_running_loop().time() < deadline:
+        await asyncio.sleep(.01)
+    return condition()
+
+
 class Clock:
     def __init__(self): self.value = 1000.0
     def __call__(self): return self.value
@@ -179,8 +187,7 @@ async def test_idle_candidate_is_removed_and_provider_closed(monkeypatch):
     c = make_case(); c.service.clock = time.monotonic; c.source.busy = True
     s = await sid(c, 'qr')
     with pytest.raises(c.error): await c.service.qr_poll(s)
-    await asyncio.sleep(.06)
-    assert not c.service._sessions and c.calls['closed'] == 1
+    assert await eventually(lambda: not c.service._sessions and c.calls['closed'] == 1)
     await c.service.aclose()
 
 
@@ -189,8 +196,8 @@ async def test_idle_captcha_secrets_expire_without_next_request(monkeypatch):
     import game_assistant.auth.bilibili_service as module
     monkeypatch.setattr(module, 'CAPTCHA_TTL', .02)
     c = make_case(); c.service.clock = time.monotonic; s = await sid(c, 'password')
-    await c.service.captcha(s); await asyncio.sleep(.06)
-    assert c.service._sessions[s].captcha is None
+    await c.service.captcha(s)
+    assert await eventually(lambda: c.service._sessions[s].captcha is None)
     await c.service.aclose()
 
 
