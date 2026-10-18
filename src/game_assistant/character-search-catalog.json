@@ -4,23 +4,23 @@
     "sources": [
       {
         "path": "frontend/src/nte-icon-catalog.js",
-        "sha256": "932157e8903a4e0fa0f6c23b69c14005bd7f036755055dac9da2845185a60b4a"
+        "sha256": "a88049665e986415cb5227d9a62246695f9ec6bde38ac1244635e7f9411d3347"
       },
       {
         "path": "frontend/src/wuwa-icon-catalog.js",
-        "sha256": "c8a896c72829fafd16fdd053e430d1c92b584fa40881ca8278dd896c284d58f7"
+        "sha256": "5538289985160a8f4e918b97d954a4e80fc9b61ad45cfd6f56b8cd134dd64f24"
       },
       {
         "path": "frontend/src/wuwa-guides-catalog.js",
-        "sha256": "3b6355b46f282cc7305e407cf89e7e431dbb73e40637bacb18d48050bfb2729a"
+        "sha256": "3751641297522ea2b0a668197b23e633dcbd6a152846d00ab7858098cfa5396d"
       },
       {
         "path": "src/game_assistant/nte_guides_catalog.py",
-        "sha256": "432c7244f58c359b515aebe0f6be02cbcb78f92ed756a9960fb6c07427502985"
+        "sha256": "98dc529848524ac4ee6b6663c28c4ecff85e5c438069810275eab760213e8342"
       },
       {
         "path": "src/game_assistant/wuwa_guide_updates.py",
-        "sha256": "1fa329539789f39a53d639105272adcca6c069f4a4581f2722a9edd0b83dae01"
+        "sha256": "904a611801825fb09c365d71c32b3666ca76d3e9219fa9c18e1f47ab7cdc5a5c"
       }
     ],
     "alias_policy": "Existing icon aliases; NTE guide zero aliases; Wuwa guide-title confirmed wind protagonist aliases only.",
@@ -35,6 +35,19 @@
     "unknown_ids": "Excluded; observed roles retain their own ID/name, without borrowed aliases."
   },
   "characters": [
+    {
+      "game": "nte",
+      "character_id": "1057",
+      "canonical_name": "明音",
+      "form": "",
+      "aliases": [],
+      "pinyin": [
+        "mingyin"
+      ],
+      "initials": [
+        "my"
+      ]
+    },
     {
       "game": "nte",
       "character_id": "1003",

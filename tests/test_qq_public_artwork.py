@@ -144,6 +144,11 @@ def test_projected_news_cover_fields_become_actual_article_artwork_candidates():
     ('nte',{'reward_id':'fork_yuren'},('weapon','fork_yuren')),
     ('nte',{'item_id':'1003'},('role','1003')),
     ('endfield',{'name':'佩丽卡'},('role','佩丽卡')),
+    ('endfield',{'name':'破碎君王'},('weapon','破碎君王')),
+    ('endfield',{'name':'玉中身'},('weapon','玉中身')),
+    ('nte',{'item_id':'1057'},('role','1057')),
+    ('wuthering_waves',{'name':'莉莉'},('role','莉莉')),
+    ('wuthering_waves',{'name':'玉阙玄华'},('weapon','玉阙玄华')),
 ])
 def test_public_catalog_images_used_by_gacha_components_are_prefetched(game,payload,expected):
     snapshot={'game':game,'display_data':payload}
@@ -420,3 +425,32 @@ async def test_expired_artwork_budget_starts_no_download_or_retry(monkeypatch):
     await cache._fetch(cache.register_url(COVER,artwork=True),100)
     download.assert_not_awaited()
     await cache.aclose()
+
+
+def test_gacha_projection_keeps_public_reward_identity_for_cold_cache_images():
+    source=row({'gold':[{'name':'Sanhua','resource_id':'1102','resource_type':'角色','token':'PRIVATE'}]})
+    snapshot=shared.gacha_snapshot('wuthering_waves',source,NOW)
+    entry=snapshot['display_data']['archive']['gold'][0]
+    assert entry=={'name':'Sanhua','resource_id':'1102','resource_type':'角色'}
+    assert validate_snapshot(snapshot)==snapshot
+    icon=CATALOG['games']['wuthering_waves']['role']['1102']
+    assert (icon,'icon') in set(shared.asset_requests(snapshot))
+
+
+@pytest.mark.parametrize('name,canonical',[('勿 忘伞','勿忘伞'),('「光波眩晕」','光波眩晕')])
+def test_nte_projected_gacha_normalizes_only_public_catalog_weapon_names(name,canonical):
+    ledger=row({'records':[{'reward_name':name,'reward_type':'arc','reward_id':'unknown','auth_token':'PRIVATE'}]})
+    snapshot=shared.gacha_snapshot('nte',row({'schema_version':1,'pools':[]}),NOW,ledger=ledger)
+    entry=snapshot['display_data']['ledger']['records'][0]
+    assert entry['reward_type']=='arc' and 'auth_token' not in entry
+    assert validate_snapshot(snapshot)==snapshot
+    icon=CATALOG['games']['nte']['weapon'][canonical]
+    assert (icon,'icon') in set(shared.asset_requests(snapshot))
+
+
+@pytest.mark.parametrize('reward_type',['item','arc',{'name':'unknown'}])
+def test_projected_nte_noncharacter_reward_does_not_borrow_a_character_image(reward_type):
+    ledger=row({'records':[{'reward_name':'早雾','reward_type':reward_type}]})
+    snapshot=shared.gacha_snapshot('nte',row({'schema_version':1,'pools':[]}),NOW,ledger=ledger)
+    assert snapshot['display_data']['ledger']['records'][0]['reward_type']==reward_type
+    assert not list(shared.asset_requests(snapshot))

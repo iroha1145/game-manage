@@ -1,6 +1,8 @@
 <script setup>
 import { pityText, aggregateKind, gachaReason } from '../wuwa-gacha.js'
 import { pityGauge } from '../wuwa-charts.js'
+import { gachaItemIcon } from '../wuwa-icons.js'
+import WuwaIcon from './WuwaIcon.vue'
 import RingGauge from './RingGauge.vue'
 defineProps({ archive: { type:Object, default:null }, imageMode:{type:Boolean,default:false} })
 </script>
@@ -26,10 +28,14 @@ defineProps({ archive: { type:Object, default:null }, imageMode:{type:Boolean,de
       <p class="wuwa-meta">五星汇总记录，未计入逐抽统计。</p>
       <div class="wuwa-tiles">
         <article v-for="(item,index) in archive.aggregates.items || []" :key="index" class="wuwa-tile">
-          <b>{{ item.name || '当前垫抽标记' }}</b> · 卡池 {{ item.pool }} · {{ aggregateKind(item) }} {{ item.period_count }} 抽
+          <span class="gacha-summary-item"><WuwaIcon v-if="gachaItemIcon(item)" :src="gachaItemIcon(item)" :name="item.name" size="small" /><b>{{ item.name || '当前垫抽标记' }}</b></span> · 卡池 {{ item.pool }} · {{ aggregateKind(item) }} {{ item.period_count }} 抽
           <details v-if="!imageMode" data-render-collapsed><summary>记录详情</summary><p class="wuwa-meta">{{ item.source }} · 来源时间 {{ item.source_time }}（{{ item.time_basis === 'source_unix_timestamp' ? '来源 Unix 时间值' : '来源显示时间' }}）</p><p v-if="item.diagnostics?.length" class="wuwa-meta">{{ item.diagnostics.map(gachaReason).join('、') }}</p></details>
         </article>
       </div>
     </template>
   </section>
 </template>
+
+<style scoped>
+.gacha-summary-item { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+</style>

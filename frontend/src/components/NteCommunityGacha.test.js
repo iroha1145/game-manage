@@ -84,3 +84,20 @@ test('official rating codes drive labels and colors independently of pull counts
   assert.match(bars[5].props.class, /unknown/)
   assert.equal(bars[0].props.style.width, `${80 / 90 * 100}%`)
 })
+
+test('community artwork uses known names and catalog fallbacks before leaving a placeholder', async t => {
+ const root=mount(t,Panel,{snap:snapshot([{name:'记录',details:[
+  {item_id:'fork_yuren',name:'勿忘伞'},
+  {name:'「光波眩晕」'},
+  {item_id:'1057',name:'明音'},
+  {name:'未收录物品'},
+ ]}]),roles:[{id:'1057',icon_url:'https://example.com/missing.png'}]})
+ assert.deepEqual(nodes(root,'img').map(n=>n.props.src),[
+  'https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/fork_yuren.png',
+  'https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/fork_bopu.png',
+  'https://example.com/missing.png',
+ ])
+ nodes(root,'img')[2].props.onError(); await nextTick()
+ assert.equal(nodes(root,'img')[2].props.src,'https://webstatic.tajiduo.com/bbs/pic/player_057_256.png')
+ assert.match(content(root),/未收录物品/)
+})

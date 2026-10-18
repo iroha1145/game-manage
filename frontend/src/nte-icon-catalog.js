@@ -1,7 +1,8 @@
 // Public NTE metadata only. Verified official PNG URLs; provenance and gaps: docs/nte-icons.md.
 // Categories are explicit metadata types; actual skill names are also indexed.
+// Mingyin (1057): official team metadata and PNG response verified 2026-10-18.
 export default {
-  "updatedAt": "2026-09-26",
+  "updatedAt": "2026-10-18",
   "sources": [
     "https://bbs-api.tajiduo.com/apihub/awapi/yh/team",
     "https://webstatic.tajiduo.com/bbs/yh-game-record/index.html",
@@ -9,6 +10,10 @@ export default {
     "https://github.com/Waifus-Grace/NTE_Assets/blob/ae1f348c35378184a9e14b56593f43854b7ce575/DataTable/Equipment/DT_EquipmentSuitData.json"
   ],
   "roles": {
+    "明音": {
+      "id": "1057",
+      "icon": "https://webstatic.tajiduo.com/bbs/pic/player_057_256.png"
+    },
     "早雾": {
       "id": "1003",
       "icon": "https://webstatic.tajiduo.com/bbs/pic/player_003_256.png"

@@ -5,7 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useWuwaRequest } from '../wuwa-api.js'
 import { value, list, stamp } from '../wuwa-display.js'
 import { poolPulls, rarityTotals, recentGold } from '../wuwa-charts.js'
-import { namedIcon } from '../wuwa-icons.js'
+import { gachaItemIcon } from '../wuwa-icons.js'
 import WuwaDrawTable from './WuwaDrawTable.vue'
 import BarChart from './BarChart.vue'
 import DonutChart from './DonutChart.vue'
@@ -147,7 +147,6 @@ const goldShare = computed(() => {
 })
 // The five-star rail: newest first, the latest one saturated. The image table uses the same exact catalog artwork.
 const goldRail = computed(() => recentGold(archive.value?.gold, 12))
-const goldIcon = (row) => namedIcon(row.resource_type === '武器' ? 'weapons' : 'roles', row.name)
 function rarities(pool) {
   return Object.entries(pool.rarity_distribution || {})
     .map(([rarity, count]) => ({
@@ -312,7 +311,7 @@ function rarities(pool) {
         <template v-if="imageMode"><section v-for="group in goldGroups" :key="group.key" class="wuwa-section wuwa-pool-records"><h4 class="wuwa-subhead">{{ group.name }}</h4><WuwaDrawTable :rows="group.rows" :pool-names="poolNames" image-mode /></section><p v-if="!goldGroups.length" class="empty">暂无五星记录</p></template>
         <HRail v-else-if="goldRail.length" label="最近五星记录" class="gold-rail">
           <article v-for="(row, i) in goldRail" :key="row.draw_id || i" class="gold-card" :class="{ 'is-latest': i === 0 }">
-            <WuwaIcon :src="goldIcon(row)" :name="row.name || '五星'" size="large" />
+            <WuwaIcon :src="gachaItemIcon(row)" :name="row.name || '五星'" size="large" />
             <strong>{{ row.name || '名称未知' }}</strong>
             <span class="wuwa-meta">{{ poolNames[row.pool] || value(row.pool) }}</span>
             <span class="wuwa-meta">{{ sourceTime(row.time) }}</span>

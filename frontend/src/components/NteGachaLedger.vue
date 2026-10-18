@@ -9,18 +9,11 @@ import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
 import RingGauge from './RingGauge.vue'
 import NteIcon from './NteIcon.vue'
-import iconCatalog from '../nte-icon-catalog.js'
-import { safeNteIcon } from '../nte-icons.js'
+import { nteRewardIcon } from '../nte-icons.js'
 
 const props = defineProps({ accountId: { type: String, default: '' }, snapshot:{type:Object,default:null}, imageMode:{type:Boolean,default:false} })
 const summary = ref(null), records = ref([]), recordTotal = ref(0), rules = ref([])
-// An exact name or ID must identify one catalog entry; never guess from a pool.
-function rewardIcon(row) {
-  const matches = ['roles', 'weapons'].flatMap(bucket => Object.entries(iconCatalog[bucket] || {})
-    .filter(([name, item]) => row.reward_name === name || (row.reward_id != null && String(row.reward_id) === String(item.id)))
-    .map(([, item]) => safeNteIcon(item.icon))).filter(Boolean)
-  return new Set(matches).size === 1 ? matches[0] : ''
-}
+const rewardIcon = row => nteRewardIcon({ id: row.reward_id, name: row.reward_name, type: row.reward_type })
 const pool = ref(''), offset = ref(0), busy = ref(false), error = ref(''), message = ref('')
 const documentData = ref(null), fileName = ref(''), preview = ref(null)
 const latest = ref(false), continuous = ref(false), identity = ref(false)
