@@ -191,6 +191,7 @@ export function createCardAvoidance(root) {
     update(rect, active) {
       menu = rect
       if (!active) {
+        if (!enabled && !records.length && !rails.size) return
         enabled = false
         if (frame) view.cancelAnimationFrame(frame)
         frame = 0; time = 0; dirty = true
