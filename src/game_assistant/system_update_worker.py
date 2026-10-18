@@ -112,9 +112,11 @@ class Runner:
         except OSError:
             return False
 
-    def _sandbox(self, argv, *, cwd, env, user, group, timeout, write_paths, private_network):
+    def _sandbox(self, argv, *, cwd, env, user, group, timeout, write_paths, private_network, tasks_max):
         if sys.platform != 'linux' or os.geteuid() != 0 or not user or not group:
             fail('unprivileged_build_identity_required')
+        if tasks_max not in {64, 128}:
+            fail('unsupported_task_limit')
         if not Path('/sys/fs/cgroup/cgroup.controllers').is_file():
             fail('unified_cgroups_required')
         if self._run(['systemctl', 'is-active', '--quiet', self.lifecycle_unit], timeout=15).returncode:
@@ -137,7 +139,7 @@ class Runner:
             'ProtectControlGroups': 'yes', 'ProtectKernelTunables': 'yes',
             'RestrictSUIDSGID': 'yes', 'Delegate': 'no',
             'MemoryHigh': '320M', 'MemoryMax': '384M', 'MemorySwapMax': '0',
-            'TasksMax': '64', 'CPUQuota': '50%', 'IOWeight': '25', 'Nice': '10',
+            'TasksMax': str(tasks_max), 'CPUQuota': '50%', 'IOWeight': '25', 'Nice': '10',
             'InaccessiblePaths': '-/run/user -/run/dbus/system_bus_socket -/run/systemd/private',
             'ReadWritePaths': ' '.join(str(path) for path in paths),
             'BindPaths': ' '.join(str(path) for path in paths),
@@ -169,11 +171,11 @@ class Runner:
         return result
 
     def __call__(self, argv, *, cwd=None, env=None, user=None, group=None, timeout=1800,
-                 check=True, write_paths=(), private_network=False):
+                 check=True, write_paths=(), private_network=False, tasks_max=64):
         argv = protected_git_argv(argv)
         if user is not None:
             result = self._sandbox(argv, cwd=cwd, env=env, user=user, group=group,
-                timeout=timeout, write_paths=write_paths, private_network=private_network)
+                timeout=timeout, write_paths=write_paths, private_network=private_network, tasks_max=tasks_max)
         else:
             result = self._run(argv, cwd=cwd, env=env, timeout=timeout)
         if check and result.returncode: fail('command_failed')
@@ -616,9 +618,11 @@ class LinuxPlatform(Platform):
             self.run([python, '-c', 'import sys; open(sys.argv[1], "rb").read(4)', font],
                      cwd=release, env=api_environment, user=self.api.pw_uid, group=self.api.pw_gid, timeout=30,
                  write_paths=(release, api_home), private_network=True)
+            # Sandboxed Chromium uses about 100 tasks on the supported host;
+            # this probe has the runtime task bound while builds retain 64.
             self.run([python, '-c', script, browser], cwd=release, env=api_environment,
                      user=self.api.pw_uid, group=self.api.pw_gid, timeout=45,
-                     write_paths=(release, api_home), private_network=True)
+                     write_paths=(release, api_home), private_network=True, tasks_max=128)
         self.retain_render_assets(release)
         # Do not leave the active source owned by the build account. Normal venv
         # symlinks are retained; source symlinks were rejected before the build.

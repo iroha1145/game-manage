@@ -460,7 +460,8 @@ def test_root_helper_unit_never_starts_candidate_interpreter_or_site_packages():
     assert 'from game_assistant.' not in installer
 
 
-def test_transient_command_has_lifecycle_binding_and_is_fully_reaped_before_return(tmp_path, monkeypatch):
+@pytest.mark.parametrize('tasks_max', [64, 128])
+def test_transient_command_has_lifecycle_binding_and_is_fully_reaped_before_return(tmp_path, monkeypatch, tasks_max):
     import game_assistant.system_update_worker as worker
     calls = []
     run = Runner('isolated-test-lifecycle.service')
@@ -474,10 +475,11 @@ def test_transient_command_has_lifecycle_binding_and_is_fully_reaped_before_retu
         return SimpleNamespace(returncode=0,stdout=stdout)
     monkeypatch.setattr(run, '_run', command)
     result = run([sys.executable, '-c', 'pass'],cwd=tmp_path,user=65534,group=65534,
-                 write_paths=(tmp_path,),env={'PATH':'/usr/bin:/bin'})
+                 write_paths=(tmp_path,),env={'PATH':'/usr/bin:/bin'},tasks_max=tasks_max)
     assert result.returncode == 0
     systemd = next(argv for argv in calls if argv[0]=='systemd-run')
     assert '--wait' in systemd and '--service-type=exec' in systemd
+    assert '--property=TasksMax=' + str(tasks_max) in systemd
     for setting in ('KillMode=control-group','BindsTo=isolated-test-lifecycle.service',
                     'After=isolated-test-lifecycle.service','PartOf=isolated-test-lifecycle.service',
                     'ProtectSystem=strict','ProtectControlGroups=yes','NoNewPrivileges=yes'):
