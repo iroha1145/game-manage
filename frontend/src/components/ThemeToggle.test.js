@@ -59,46 +59,27 @@ test('automatic mode is indicated even when browser appearance remains dark, wit
   assert.equal(view.transitions.length, 0)
 })
 
-test('rapid clicks retain every step and delayed old callbacks cannot overwrite the latest choice', async t => {
+test('rapid clicks commit each step immediately without a full-page transition', async t => {
   const view = mount(t, { animate: true })
-  view.button.click()
-  assert.equal(view.transitions.length, 1)
-  view.button.click(); view.button.click(); view.button.click()
-  assert.equal(view.transitions.length, 2)
-  assert.equal(view.transitions[0].skipped, true)
-  await view.transitions[1].run()
-  await view.transitions[0].run()
-  assert.equal(themeMode.value, 'dark', 'four clicks from light end in dark')
+  for (const mode of ['dark', 'auto', 'light', 'dark']) {
+    view.button.click()
+    assert.equal(themeMode.value, mode, 'each click updates the selection before another task runs')
+  }
+  await nextTick()
   assert.equal(theme.value, 'dark')
   assert.equal(view.active(), 'moon')
-  view.transitions[1].finish(); await nextTick()
-  assert.equal(document.documentElement.hasAttribute('data-theme-switching'), false)
+  assert.equal(view.transitions.length, 0, 'page snapshot layers must not intercept later clicks')
 })
 
-test('reduced motion changes the mode immediately without a page transition', async t => {
-  const view = mount(t, { animate: true, reduce: true })
+test('reduced motion and an unavailable page transition API keep the same three-state behavior', async t => {
+  const view = mount(t, { reduce: true })
+  let transitionCalls = 0
+  document.startViewTransition = () => { transitionCalls++; throw new Error('transition unavailable') }
   view.button.click(); await nextTick()
   assert.equal(themeMode.value, 'dark')
   assert.equal(view.active(), 'moon')
-  assert.equal(view.transitions.length, 0)
-})
-
-test('a failed transition still applies the requested mode and clears temporary styles', async t => {
-  const view = mount(t)
-  document.startViewTransition = () => { throw new Error('transition unavailable') }
   view.button.click(); await nextTick()
-  assert.equal(themeMode.value, 'dark')
-  assert.equal(view.active(), 'moon')
-  assert.equal(document.documentElement.hasAttribute('data-theme-switching'), false)
-})
-
-test('unmounting during a transition preserves the user choice and prevents a stale callback from changing it', async t => {
-  const view = mount(t, { animate: true })
-  view.button.click(); view.app.unmount()
-  assert.equal(themeMode.value, 'dark')
-  setThemeMode('auto')
-  await view.transitions[0].run()
   assert.equal(themeMode.value, 'auto')
-  assert.equal(document.documentElement.hasAttribute('data-theme-switching'), false)
-  assert.equal(document.documentElement.style.getPropertyValue('--theme-r'), '')
+  assert.equal(view.active(), 'auto')
+  assert.equal(transitionCalls, 0)
 })
