@@ -5,6 +5,7 @@ import { vGlide } from '../motion.js'
 import { share } from '../chart-math.js'
 import InfoHint from './InfoHint.vue'
 import RingGauge from './RingGauge.vue'
+import WuwaCombatRole from './WuwaCombatRole.vue'
 const props = defineProps({
   roleNames: { type: Object, default: () => ({}) },
   data: { default: null },
@@ -123,14 +124,7 @@ const glyphs = (floor) => {
                 <td>
                   <ul v-if="roster(floor).length" class="chip-list">
                     <li v-for="(role, k) in roster(floor)" :key="k" class="chip">
-                      {{
-                        role.role_name ||
-                        role.name ||
-                        roleNames[role.role_id] ||
-                        `角色 ${role.role_id ?? '未知'}`
-                      }}<small v-if="role.role_level != null"
-                        >Lv.{{ role.role_level }}</small
-                      >
+                      <WuwaCombatRole :role="role" :role-names="roleNames" />
                     </li>
                   </ul>
                   <span v-else class="wuwa-muted">未提供</span>

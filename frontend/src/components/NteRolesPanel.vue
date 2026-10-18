@@ -164,7 +164,7 @@ function imageFailed(event) { const url = safeUrl(event.currentTarget?.src); if 
 .roster-charts{display:grid;grid-template-columns:180px minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:center;margin:12px 0 24px}.role-open{padding:0;border:0;background:none;text-align:left;color:var(--text);font:inherit;font-weight:600;cursor:pointer}.role-open:hover{color:var(--accent)}.role-open:focus-visible{outline:2px solid var(--accent)}@media(max-width:560px){.roster-charts{grid-template-columns:1fr}}
 .skill-name { display:flex;align-items:center;gap:6px;min-width:0; }
 .skill-name > span:last-child { overflow:hidden;text-overflow:ellipsis; }
-.nte-roles-panel { min-width: 0; overflow-wrap: anywhere; }
+.nte-roles-panel { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
 .cap-title { position: relative; font-size: 16px; line-height: 24px; }
 .summary { gap: 4px; }
 .muted { color: var(--text-muted); font-size: 12px; line-height: 1.6; }

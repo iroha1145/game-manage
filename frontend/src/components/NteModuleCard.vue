@@ -258,9 +258,9 @@ const pulls=computed(()=>gacha.value.recent.map(item=>({...item,
    a feature block is filled with it, its labels take the ink, and everything else is a
    soft tile with a hairline. */
 .nte-module-card{display:flex;flex-direction:column;gap:16px;align-self:stretch;grid-column:1/-1}
-/* Stamina with progress, and houses with vehicles, sit side by side; alone they take the full row. */
-.nte-module-card.module-stamina,.nte-module-card.module-progress,.nte-module-card.module-realestate,.nte-module-card.module-vehicles{grid-column:auto}
-.nte-module-card.module-stamina:not(:has(+ .module-progress)),.nte-module-card.module-progress:not(.module-stamina + .module-progress),.nte-module-card.module-realestate:not(:has(+ .module-vehicles)),.nte-module-card.module-vehicles:not(.module-realestate + .module-vehicles){grid-column:1/-1}
+/* Stamina and progress share a row; alone each takes the full width. */
+.nte-module-card.module-stamina,.nte-module-card.module-progress{grid-column:auto}
+.nte-module-card.module-stamina:not(:has(+ .module-progress)),.nte-module-card.module-progress:not(.module-stamina + .module-progress){grid-column:1/-1}
 .module-record{flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px 32px}
 .module-record>.mod-head{min-width:96px}
 .module-record>.inline-content{flex:1 1 360px;min-width:0}

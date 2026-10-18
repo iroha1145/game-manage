@@ -6,6 +6,7 @@ import RingGauge from './RingGauge.vue'
 import WuwaTower from './WuwaTower.vue'
 import WuwaStatus from './WuwaStatus.vue'
 import WuwaFields from './WuwaFields.vue'
+import WuwaCombatRole from './WuwaCombatRole.vue'
 const props = defineProps({
   mode: { type: String, default: 'tower' },
   roleNames: { type: Object, default: () => ({}) },
@@ -37,11 +38,6 @@ const percent = (done, cap) => {
 }
 // The two halves of a challenge as parts of its score; unknown halves take no room.
 const halfShare = (half) => (typeof half.score === 'number' && half.score > 0 ? half.score : 0)
-const roleName = (role) =>
-  role.role_name ||
-  role.name ||
-  props.roleNames[role.role_id] ||
-  `角色 ${role.role_id ?? '未知'}`
 </script>
 <template>
   <div class="wuwa-board">
@@ -88,10 +84,7 @@ const roleName = (role) =>
               >
               <ul v-if="list(boss.roles).length" class="chip-list">
                 <li v-for="(role, j) in list(boss.roles)" :key="j" class="chip">
-                  {{ role.role_name || '未知角色'
-                  }}<small v-if="role.role_level != null"
-                    >Lv.{{ role.role_level }}</small
-                  >
+                  <WuwaCombatRole :role="role" :role-names="roleNames" />
                 </li>
               </ul>
               <span v-else class="wuwa-muted">队伍未提供</span>
@@ -181,7 +174,7 @@ const roleName = (role) =>
                       :key="m"
                       class="chip"
                     >
-                      {{ roleName(role) }}
+                      <WuwaCombatRole :role="role" :role-names="roleNames" />
                     </li>
                   </ul>
                   <span v-else class="wuwa-muted">队伍未提供</span>
