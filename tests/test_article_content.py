@@ -96,3 +96,32 @@ async def test_partial_refresh_retains_last_successful_body_without_overwriting_
     assert row['body'] == '已有完整正文'
     assert row['content_status'] == 'stale'
     assert row['content_error']
+
+
+def test_tajiduo_normalizes_native_image_objects_with_plain_text_placeholders():
+    item = parse_official_posts({'data': {'posts': [{'postId': 514677,
+        'subject': '轨外之境「澄明环线」特别路线即将开启', 'content': '[图片]\n活动正文',
+        'images': [{'url': '//bbs-upload.tajiduo.com/source.jpeg', 'width': 1920},
+                   {'url': 'javascript:bad'}, {'url': 'https://bbs-upload.tajiduo.com/source.jpeg'},
+                   {'url': 'https://user:password@example.com/private.jpeg'}]}]}})[0]
+    assert item.images == ['https://bbs-upload.tajiduo.com/source.jpeg']
+    assert item.body == '[图片]\n活动正文'
+
+
+@respx.mock
+async def test_wuwa_keeps_list_cover_on_successful_or_failed_detail():
+    respx.post('https://api.kurobbs.com/forum/companyEvent/findEventList').respond(200, json={
+        'code': 200, 'data': {'list': [
+            {'postId': '42', 'postTitle': '活动', 'coverUrl': '//img.kurobbs.com/42.jpg'},
+            {'postId': '43', 'postTitle': '维护', 'coverUrl': 'https://img.kurobbs.com/43.jpg'}]}})
+    def detail(request):
+        if 'postId=42' in request.content.decode():
+            return httpx.Response(200, json={'code': 200, 'data': {'postDetail': {
+                'postId': '42', 'postH5Content': '<p>完整正文</p><img src="https://img.kurobbs.com/body.jpg">'}}})
+        return httpx.Response(503)
+    respx.post('https://api.kurobbs.com/forum/getPostDetail').mock(side_effect=detail)
+    result = await WutheringWavesAdapter(Settings()).fetch(Capability.ANNOUNCEMENT)
+    assert result.ok
+    assert result.payload[0].images == ['https://img.kurobbs.com/42.jpg', 'https://img.kurobbs.com/body.jpg']
+    assert result.payload[1].images == ['https://img.kurobbs.com/43.jpg']
+    assert result.payload[1].content_status == 'error'

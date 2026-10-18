@@ -63,3 +63,9 @@ test('lean calendar artwork sources preserve game and version ownership without 
   assert.deepEqual(eventArtwork({gameId:'nte',source_url:article.url,source:'official',version:'1.3'},snapshot),[])
   assert.deepEqual(eventArtwork({gameId:'endfield',source_url:article.url,source:'official',version:'1.4'},snapshot),[])
 })
+
+test('matched supplementary notice pictures survive public calendar merging without unrelated news', () => {
+  const event = { gameId:'nte', source:'bilibili', source_url:'https://www.bilibili.com/read/cv123',
+    supplement_sources:[{source:'community', source_post_id:'42', image_urls:[image('supplement'), 'javascript:bad']} ] }
+  assert.deepEqual(eventArtwork(event,snapshots),[image('supplement')])
+})

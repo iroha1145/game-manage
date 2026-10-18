@@ -109,21 +109,21 @@ class CredentialStore:
         if not isinstance(parent, dict):
             raise CredentialStoreError('来源授权不可用')
         row = self.connection.execute(
-            "SELECT g.grant_id,g.provider_subject,r.game_uid,a.server FROM accounts a "
+            "SELECT g.grant_id,g.provider_subject,r.game_uid,a.server,a.channel FROM accounts a "
             "JOIN roles r ON r.account_id=a.account_id AND r.user_id=a.user_id "
             "AND r.provider=a.provider AND r.game=a.game AND r.channel=a.channel AND r.server=a.server "
             "JOIN grants g ON g.grant_id=a.grant_id AND g.user_id=a.user_id "
             "WHERE a.user_id=? AND a.account_id=? AND r.role_id=? AND a.provider='hypergryph' "
             "AND g.provider='hypergryph' AND g.state='active'",
             (user_id, parent.get('account_id'), parent.get('role_id'))).fetchone()
-        if row is None or tuple(row) != tuple(parent.get(k) for k in ('grant_id','subject','game_uid','server')):
+        if row is None or tuple(row[:4]) != tuple(parent.get(k) for k in ('grant_id','subject','game_uid','server')) or row[4] != parent.get('channel', 'official'):
             raise CredentialStoreError('来源授权已改变')
         credentials = self.load_grant(user_id, row[0])
         # Legacy cloud grants need no re-login or mutation. Reauthorization replaces this marker.
         identity = credentials.get('_authorization_id') or 'legacy:' + row[0]
-        if str(credentials.get('uid') or '') != row[1] or credentials.get('_parent') or identity != parent.get('authorization_id') or not any(
-                str(role.get('role_id')) == row[2] and str(role.get('server_id')) == row[3]
-                for role in credentials.get('_verified_roles', [])):
+        from game_assistant.accounts.identities import has_verified_role
+        if str(credentials.get('uid') or '') != row[1] or credentials.get('_parent') or identity != parent.get('authorization_id') or not has_verified_role(
+                credentials, row[2], row[3], row[4]):
             raise CredentialStoreError('来源授权已改变')
         return credentials
 

@@ -176,7 +176,7 @@ class WutheringWavesAdapter(BaseGameAdapter):
         async def run():
             raw = await self._public_client.find_event_list(3)  # eventType 3=公告
             items = announcements.parse_announcement_list(raw)
-            from game_assistant.sources.article_content import article_content
+            from game_assistant.sources.article_content import article_content, article_images
             slots = asyncio.Semaphore(3)
 
             async def enrich(item):
@@ -187,7 +187,9 @@ class WutheringWavesAdapter(BaseGameAdapter):
                         detail = await self._public_client.get_post_detail(item.id)
                     if detail.get('postId') is not None and str(detail['postId']) != item.id:
                         raise ValueError('article identity mismatch')
-                    return item.model_copy(update=article_content(detail.get('postH5Content')))
+                    content = article_content(detail.get('postH5Content'))
+                    content['images'] = article_images(item.images, detail.get('coverUrl'), content['images'])
+                    return item.model_copy(update=content)
                 except KuroError:
                     pass  # Public source failures cannot expire a private game grant.
                 except ValueError:

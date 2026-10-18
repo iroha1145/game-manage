@@ -61,6 +61,7 @@ EVENTS_POSTS_RAW = {"code": 0, "msg": "ok", "ok": True, "data": {
 }}
 EVENTS_POST_FULL_RAW = {"code": 0, "msg": "ok", "ok": True, "data": {"post": {
     "postId": 486000, "subject": "《异环》1.5版本内容说明",
+    "images": [{"url": "https://bbs-upload.tajiduo.com/version.jpeg"}],
     "content": "<p>[演练演习]战斗活动</p>"
                "<p>活动时间：2026年9月20日10:00 ~ 2026年10月8日03:59（服务器时间）</p>"
                "<p>[签到赠礼]七日签到活动</p>"
@@ -159,6 +160,7 @@ async def test_fetch_events_ok():
     assert [e.name for e in r.payload] == ["演练演习", "签到赠礼"]
     first, second = r.payload
     assert first.category == "战斗活动"
+    assert first.model_dump(mode="json")["image_urls"] == ["https://bbs-upload.tajiduo.com/version.jpeg"]
     assert first.start_at is not None and first.end_at is not None
     assert second.start_at is None            # "1.5版本更新后" 相对开始
     assert {e.source_post_id for e in r.payload} == {"486000"}
@@ -394,3 +396,10 @@ def test_notice_without_create_time_still_reads_dates_that_carry_a_year():
     post = {'postId': 486000, 'subject': '《异环》1.4版本内容说明'}
     detail = {'content': '[演练演习]战斗活动\n活动时间：2026年10月1日10:00 ~ 2026年10月28日03:59'}
     assert [event.name for event in _parse_notice_events(post, detail, '1.4')] == ['演练演习']
+
+
+def test_notice_images_cannot_follow_a_different_post_identity():
+    with pytest.raises(ValueError, match='identity mismatch'):
+        adapter_mod._parse_notice_events(
+            {'postId': 42, 'subject': '1.4版本更新公告'},
+            {'postId': 43, 'images': [{'url': 'https://example.com/wrong.jpg'}]}, '1.4')

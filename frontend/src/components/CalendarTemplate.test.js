@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
 import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
-import { calendarRange, collectVersionCalendars } from '../calendar.js'
+import { browserCalendarRange as calendarRange, calendarDaysRange, browserCalendarDaysRange, collectVersionCalendars } from '../calendar.js'
 
 const Page = await loadVue(new URL('./CalendarPage.vue', import.meta.url))
 const Version = await loadVue(new URL('./VersionCalendarContent.vue', import.meta.url))
@@ -13,6 +13,31 @@ const snapshots = { nte: { events: { version: '1.4', payload: [
   { name: '异常日期', version: '1.4', start_at: '2027-02-05T10:00:00+08:00', end_at: '2026-12-20T10:00:00+08:00' },
   { name: '未公布日期', version: '1.4' },
 ] } } }
+
+test('dense screen headers separate months from numeric days while retaining true boundary dates and compact images', t => {
+  const asOf=new Date(2026,9,1,12).getTime()
+  const range=browserCalendarDaysRange(new Date(2026,8,24).getTime(),new Date(2026,11,4).getTime())
+  const events=[{id:'cross-month',gameId:'nte',gameName:'异环',name:'跨月活动',
+    start_at:new Date(2026,8,30,12).toISOString(),end_at:new Date(2026,9,1,12).toISOString()}]
+  const screen=mount(t,Timeline,{events,range,asOf,rangeMode:'version'})
+  const cells=nodes(screen,'div').filter(n=>n.props.class?.split(' ').includes('date-cell'))
+  assert.equal(cells.length,71)
+  assert.deepEqual(nodes(screen,'span').filter(n=>n.props.class==='day-month').map(content),['9月','10月','11月','12月'])
+  assert.deepEqual(cells.map(cell=>content(nodes(cell,'strong')[0])),range.days.map(day=>String(day.day)))
+  const first=cells.find(cell=>cell.props.title==='10 月 1 日')
+  assert.match(first.props.class,/is-month-start/)
+  assert.match(first.props.class,/is-today/)
+  assert.match(first.props.class,/is-boundary/)
+  assert.equal(content(nodes(first,'small')[0]),'四')
+  assert.equal(content(nodes(first,'span').find(n=>n.props.class==='day-today')),'今天')
+  assert.deepEqual(cells.filter(cell=>cell.props.class?.split(' ').includes('is-boundary')).map(cell=>cell.props.title),['9 月 30 日','10 月 1 日'])
+  const image=mount(t,Timeline,{events,range,asOf,rangeMode:'version',mode:'image'})
+  assert.equal(nodes(image,'span').filter(n=>n.props.class==='day-month').length,0)
+  const imageFirst=nodes(image,'div').find(n=>n.props.title==='10 月 1 日')
+  assert.equal(content(nodes(imageFirst,'strong')[0]),'10/ 1')
+  assert.equal(nodes(imageFirst,'br').length,1)
+  assert.equal(nodes(image,'div').filter(n=>n.props.class?.split(' ').includes('date-cell')).length,71)
+})
 
 test('switching game or range resets timeline scrolling but refreshing the same window preserves it', async t => {
   const asOf=Date.parse('2026-10-17T12:00:00+08:00')
@@ -146,7 +171,8 @@ test('screen presents category sections and recorded boundary accents while bot 
   assert.equal(nodes(screen,'div').filter(node=>node.props.class==='timeline-group').length,3)
   assert.match(content(screen),/寻访与角色.*武器与装备.*活动与玩法/)
   const boundaries=nodes(screen,'div').filter(node=>node.props.class?.split(' ').includes('is-boundary'))
-  assert.ok(boundaries.some(node=>node.props.title==='10 月 15 日'))
+  const startDate=new Date('2026-10-15T12:00:00+08:00')
+  assert.ok(boundaries.some(node=>node.props.title===`${startDate.getMonth()+1} 月 ${startDate.getDate()} 日`))
   assert.ok(boundaries.some(node=>node.props.title==='10 月 22 日'))
   const short=nodes(screen,'button').find(node=>node.props['aria-label']==='查看活动详情：武器横幅')
   assert.ok(short.props.class.includes('is-short'))
@@ -158,4 +184,23 @@ test('screen presents category sections and recorded boundary accents while bot 
   assert.equal(nodes(image,'div').filter(node=>node.props.class==='timeline-group').length,1)
   assert.ok(!nodes(image,'img').some(img=>img.props.src?.startsWith('https://example.com/')))
   assert.ok(!nodes(image,'div').some(node=>node.props.class?.split(' ').includes('is-boundary')))
+})
+
+test('browser today line and one-day bars share fixed civil-date columns across daylight saving changes', t => {
+  for (const [month, day] of [[2,8],[10,1]]) {
+    const start=new Date(2026,month,day).getTime()
+    const range=calendarRange(start,'fortnight')
+    const next=range.days[1].timestamp
+    const asOf=start+(next-start)/2
+    const events=[{id:'day',gameId:'nte',gameName:'异环',name:'当地整日',start_at:new Date(start).toISOString(),end_at:new Date(next).toISOString()}]
+    const root=mount(t,Timeline,{events,range,asOf,rangeMode:'fortnight'})
+    const today=nodes(root,'div').filter(node=>node.props.class?.split(' ').includes('is-today'))
+    assert.equal(today.length,1)
+    assert.equal(today[0].props.title,`${month+1} 月 ${day} 日`)
+    const line=nodes(root,'div').find(node=>node.props.class==='today-line')
+    assert.ok(Math.abs(parseFloat(line.props.style.left)-50/14)<1e-8)
+    const bar=nodes(root,'button').find(node=>node.props['aria-label']==='查看活动详情：当地整日')
+    assert.equal(bar.props.style.left,'0%')
+    assert.ok(Math.abs(parseFloat(bar.props.style.width)-100/14)<1e-8)
+  }
 })

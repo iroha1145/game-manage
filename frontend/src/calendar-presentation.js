@@ -24,13 +24,13 @@ export function presentationGroups(events, mode = 'screen') {
 }
 
 /** Emphasize recorded boundaries, without inventing release dates or changing the date axis. */
-export function activityBoundaryDays(events) {
+export function activityBoundaryDays(events, dayStart = beijingDayStart) {
   const days = new Set()
   for (const event of events) {
     const geometry = event.geometry
     if (!geometry || !['range','point'].includes(geometry.kind)) continue
-    if (geometry.start !== null) days.add(beijingDayStart(geometry.start))
-    if (geometry.end !== null) days.add(beijingDayStart(geometry.end - (!event.end_at && event.end_date ? 1 : 0)))
+    if (geometry.start !== null) days.add(dayStart(geometry.start))
+    if (geometry.end !== null) days.add(dayStart(geometry.end - (!event.end_at && event.end_date || event.end_precision === 'day' || /^\d{4}-\d{2}-\d{2}$/.test(event.end_at) ? 1 : 0)))
   }
   return days
 }

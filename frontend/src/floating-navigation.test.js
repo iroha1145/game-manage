@@ -266,3 +266,27 @@ test('reduced motion permits direct resisted dragging but removes the release re
   assert.equal($('#surface').style.getPropertyValue('--drawer-stretch'), '0px')
   assert.equal($('#surface').style.getPropertyValue('--drawer-progress'), '1')
 })
+
+test('in-flight mobile drawer frames update surface and scrim without mutating root styles every frame', t => {
+  const { win, $, controller, step, flush } = setup(t, true)
+  const scrim = win.document.createElement('button')
+  scrim.className = 'sidebar-scrim'
+  $('#root').prepend(scrim)
+  let rootWrites = 0
+  const origSetProperty = $('#root').style.setProperty.bind($('#root').style)
+  t.mock.method($('#root').style, 'setProperty', (prop, val) => {
+    rootWrites++
+    return origSetProperty(prop, val)
+  })
+  controller.openMenu()
+  step()
+  step()
+  assert.equal(rootWrites, 0, 'in-flight frames must not invalidate the root workbench subtree')
+  const midProgress = parseFloat($('#surface').style.getPropertyValue('--drawer-progress'))
+  assert.ok(midProgress > 0 && midProgress < 1)
+  assert.equal(scrim.style.getPropertyValue('--drawer-progress'), String(midProgress))
+  flush()
+  assert.equal(rootWrites, 1, 'root --drawer-progress is written once when settled')
+  assert.equal($('#root').style.getPropertyValue('--drawer-progress'), '1')
+  assert.equal(scrim.style.getPropertyValue('--drawer-progress'), '1')
+})

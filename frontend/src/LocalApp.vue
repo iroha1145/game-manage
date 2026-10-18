@@ -5,11 +5,13 @@ import { getAuthStatus } from './auth-api.js'
 import { createDashboard, readRoute, gameStyle, gameVars } from './dashboard.js'
 import { GAME_SECTIONS } from './search-index.js'
 import { vGlide } from './motion.js'
-import { followSystem, setTheme, theme } from './theme.js'
+import { followSystem } from './theme.js'
 import { lazyPage } from './lazy-page.js'
 import { useFloatingNavigation } from './floating-navigation.js'
 import { useElasticCards } from './elastic-cards.js'
 import AppIcon from './components/AppIcon.vue'
+import ThemeToggle from './components/ThemeToggle.vue'
+import SystemUpdateControl from './components/SystemUpdateControl.vue'
 import GameIcon from './components/GameIcon.vue'
 import OverviewPage from './components/OverviewPage.vue'
 import CalendarPage from './components/CalendarPage.vue'
@@ -83,33 +85,6 @@ function navigate(page, game = '') {
   window.location.hash = page === 'game' ? `/game/${encodeURIComponent(game)}` : page === 'calendar' ? `/calendar${game ? '?game=' + encodeURIComponent(game) : ''}` : page === 'accounts' ? '/accounts' : '/'
   menuOpen.value = false
 }
-let themeWipe = 0
-function toggleTheme(event) {
-  const next = theme.value === 'light' ? 'dark' : 'light'
-  const root = document.documentElement
-  if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) { setTheme(next); return }
-  // beUI theme toggle: the new theme opens as a circle from the button.
-  const box = event.currentTarget.getBoundingClientRect()
-  const x = box.left + box.width / 2, y = box.top + box.height / 2
-  root.style.setProperty('--theme-x', `${x}px`)
-  root.style.setProperty('--theme-y', `${y}px`)
-  root.style.setProperty('--theme-r', `${Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))}px`)
-  // Colour transitions pause until the wipe ends, so the revealed theme is already settled.
-  // A second click mid-wipe skips this wipe and settles it early, so only the
-  // latest wipe may resume them.
-  const wipe = ++themeWipe
-  root.dataset.themeSwitching = ''
-  const settle = () => { if (wipe === themeWipe) delete root.dataset.themeSwitching }
-  try {
-    const transition = document.startViewTransition(async () => { setTheme(next); await nextTick() })
-    transition.finished.then(settle, settle)
-    // The skipped wipe rejects its ready promise.
-    transition.ready.catch(() => {})
-  } catch {
-    setTheme(next)
-    settle()
-  }
-}
 async function refreshAll() { if (!refreshing.value) await Promise.all(state.games.map(game => dashboard.refresh(game.game_id))) }
 async function onAccountChanged({ game }) {
   dashboard.invalidateGame(game)
@@ -163,9 +138,8 @@ onBeforeUnmount(() => { clearInterval(timer); clearInterval(clockTimer); stopFol
         </div>
         <div class="topbar-right">
           <span class="topbar-date"><AppIcon name="calendar" :size="15" /><span>{{ today }}</span><span class="topbar-clock" aria-hidden="true">{{ clock }}</span></span>
-          <button class="icon-button theme-toggle" :aria-label="theme === 'light' ? '切换到夜间模式' : '切换到白天模式'" :title="theme === 'light' ? '夜间模式' : '白天模式'" @click="toggleTheme">
-            <span class="icon-swap"><AppIcon name="sun" :size="16" :data-active="theme !== 'light'" /><AppIcon name="moon" :size="16" :data-active="theme === 'light'" /></span>
-          </button>
+          <ThemeToggle />
+          <SystemUpdateControl :allowed="true" />
         </div>
       </header>
       <main id="main-content" ref="mainContent" tabindex="-1" class="workspace-main">

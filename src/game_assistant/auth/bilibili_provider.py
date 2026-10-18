@@ -142,6 +142,10 @@ class BilibiliLoginProvider:
         if not isinstance(payload, dict) or type(payload.get('code')) is not int:
             raise BilibiliProtocolError('UNSUPPORTED_RESPONSE')
         if payload['code'] != 0:
+            if payload['code'] in (-352, -412):
+                raise BilibiliProtocolError('UPSTREAM_RESTRICTED')
+            if payload['code'] == -101:
+                raise BilibiliProtocolError('INVALID_CREDENTIALS', 400)
             raise BilibiliProtocolError('UPSTREAM_REJECTED', 400)
         data = payload.get('data')
         if not isinstance(data, dict):
@@ -235,10 +239,9 @@ class BilibiliLoginProvider:
         cookies = {name: values[key] for name, key in FIELDS.items() if key in values}
         cookie_header = httpx.Request('GET', NAV, cookies=cookies).headers['cookie']
         response = await self._request('GET', NAV, headers={'Cookie': cookie_header})
-        try:
-            data = self._data(response)
-        except BilibiliProtocolError:
-            raise BilibiliProtocolError('INVALID_CREDENTIALS', 400) from None
+        # Upstream rejection and incompatible responses do not establish that
+        # the credential is invalid. Preserve the sanitized failure category.
+        data = self._data(response)
         uid = data.get('mid')
         uid = str(uid) if isinstance(uid, (str, int)) and not isinstance(uid, bool) else ''
         if (data.get('isLogin') is not True or not uid.isascii() or not uid.isdigit() or len(uid) > 20 or int(uid) <= 0

@@ -2,12 +2,12 @@ const id = value => typeof value === 'string' || typeof value === 'number' ? Str
 const blocked = value => ['expired', 'auth_expired', 'revoked', 'unconfigured', 'disabled'].includes(value)
 const expired = snapshot => blocked(snapshot?.state) || blocked(snapshot?.poll_status?.state)
 
-// A passport ledger and a Skland profile have separate identities. The cloud
-// envelope proves the selected grant; payload role IDs prove its ledger owner.
+// The passport ledger retains its own authorization even on a combined role page.
+// The cloud envelope proves that grant; payload role IDs prove its ledger owner.
 export function gachaView({ snaps = {}, cloudAccount, cloudRole, configured, authAccount } = {}) {
   const unavailable = message => ({ account: null, snapshot: null, accountId: '', message })
   if (cloudAccount) {
-    if (cloudAccount.provider !== 'hypergryph') return unavailable('寻访数据需要单独选择鹰角授权。')
+    if (cloudAccount.provider !== 'hypergryph') return unavailable('此角色尚未连接鹰角寻访，请到「账号与授权」登录。')
     if (cloudAccount.state !== 'active' || !cloudAccount.roles?.some(role => id(role.role_id) === id(cloudRole))) return unavailable('当前鹰角授权或角色不可用，请重新授权。')
   } else if (configured === false || authAccount?.configured === false || blocked(authAccount?.state)) {
     return unavailable('请登录有效的鹰角通行证后刷新寻访数据。')

@@ -22,20 +22,22 @@ def _image_url(value):
     return None
 
 
-def article_images(values, *, upgrade_http_hosts=()):
-    """Read explicit media fields, never unrelated URLs from a whole response."""
+def article_images(*sources, upgrade_http_hosts=()):
+    """Normalize explicit media fields; upgrade HTTP only for approved hosts."""
     result = []
-    for value in values if isinstance(values, (list, tuple)) else []:
-        if isinstance(value, dict):
-            value = value.get('url') or value.get('src')
-        url = _image_url(value)
-        if not url:
-            continue
-        parsed = urlsplit(url)
-        if parsed.scheme == 'http' and parsed.hostname in upgrade_http_hosts:
-            url = 'https:' + url[5:]
-        if url.startswith('https://') and url not in result:
-            result.append(url)
+    for source in sources:
+        for value in source if isinstance(source, (list, tuple)) else [source]:
+            if isinstance(value, dict):
+                value = value.get('url') or value.get('src')
+            url = _image_url(value)
+            if not url:
+                continue
+            parsed = urlsplit(url)
+            if parsed.scheme == 'http' and parsed.netloc in upgrade_http_hosts:
+                url = 'https:' + url[5:]
+            if url.startswith('https://') and url not in result:
+                result.append(url)
+    return result
     return result
 
 

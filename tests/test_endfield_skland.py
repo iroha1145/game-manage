@@ -51,7 +51,7 @@ class FakeClient:
     async def binding(self, cred, token, device_id=""):
         self.calls.append(("binding", cred, device_id))
         role = "r1" if cred.split("#")[0] == "account-one" else "r2"
-        return {"list": [{"appCode": "endfield", "bindingList": [{"uid": "not-role-id", "roles": [
+        return {"list": [{"appCode": "endfield", "bindingList": [{"uid": "uid-1" if role == "r1" else "uid-2", "isOfficial": True, "channelMasterId": 1, "roles": [
             {"roleId": role, "serverId": "1", "nickname": f"角色{role}"},
             {"roleId": role + "b", "serverId": "2", "nickname": "备用"}]}]}]}
 
@@ -504,10 +504,9 @@ async def test_passport_connect_requires_login_and_failure_keeps_manual_session(
 
 async def test_passport_role_missing_from_skland_is_not_auto_selected(tmp_path):
     service, *_ = passport_service(tmp_path, identity=("hg-one", "uid-1", "r9"))
-    status = await service.connect_with_passport()
-    assert status["connected"] and status["selected_role_id"] is None
-    with pytest.raises(SklandError, match="请先选择终末地角色"):
-        await service.read_card()
+    with pytest.raises(SklandError, match="同一角色.*原连接已保留"):
+        await service.connect_with_passport()
+    assert service.store.load() == {}
 
 
 @pytest.mark.parametrize("grant_error, message, expired", [
@@ -552,13 +551,14 @@ async def test_reads_refuse_a_passport_session_after_a_missed_switch(tmp_path):
 async def test_expired_passport_session_is_renewed_once_and_keeps_chosen_role(tmp_path):
     service, fake, current, grants, _ = passport_service(tmp_path)
     await service.connect_with_passport()
-    await service.select_role("r1b", "2")
+    with pytest.raises(SklandError, match="仅对应当前鹰角角色.*手动授权"):
+        await service.select_role("r1b", "2")
     first = service.store.load()["session"]["cred"]
     fake.expired_creds.add(first)
     card = await service.read_card(force=True)
-    assert card["error"] is None and card["payload"]["base"]["role_id"] == "r1b"
+    assert card["error"] is None and card["payload"]["base"]["role_id"] == "r1"
     renewed = service.store.load()["session"]
-    assert renewed["cred"] != first and (renewed["role_id"], renewed["server_id"]) == ("r1b", "2")
+    assert renewed["cred"] != first and (renewed["role_id"], renewed["server_id"]) == ("r1", "1")
     assert grants == ["hg-one", "hg-one"]
 
 
@@ -640,3 +640,105 @@ def test_disconnect_reports_a_failed_credential_save(tmp_path):
     assert response.status_code == 400
     assert response.json() == {"detail": "本机森空岛凭据保存失败，原连接已保留"}
     assert client.get("/api/endfield/skland/status").json()["connected"] is True
+
+
+
+@pytest.mark.parametrize("metadata", [
+    {"uid": "wrong-uid", "channelMasterId": 2},
+    {"uid": "bili-uid", "channelMasterId": 1, "isOfficial": True},
+    {"uid": "bili-uid"},
+    {"uid": "bili-uid", "channelMasterId": 2, "isOfficial": True},
+    {"uid": "bili-uid", "channelMasterId": 2, "serverId": "2"},
+])
+async def test_bilibili_passport_refuses_other_identity_and_keeps_manual_session(tmp_path, metadata):
+    service, fake, *_ = passport_service(tmp_path, identity=("hg-one", "bili-uid", "r1", "bilibili", "1"))
+    await service.connect("account-two")
+    await service.select_role("r2", "1")
+    good = await service.read_card()
+    saved = service.store.load()
+    async def binding(*args):
+        account = {key: value for key, value in metadata.items() if key != "serverId"}
+        account["roles"] = [{"roleId": "r1", "serverId": metadata.get("serverId", "1")}]
+        return {"list": [{"appCode": "endfield", "bindingList": [account]}]}
+    fake.binding = binding
+    with pytest.raises(SklandError, match="同一角色.*原连接已保留"):
+        await service.connect_with_passport()
+    assert service.store.load() == saved
+    assert service._cache == good and service.status()["source"] == "manual"
+
+
+@pytest.mark.parametrize("uid", ["bili-uid", None])
+async def test_bilibili_passport_accepts_verified_channel_with_matching_or_unprovided_uid(tmp_path, uid):
+    service, fake, *_ = passport_service(tmp_path, identity=("hg-one", "bili-uid", "r1", "bilibili", "1"))
+    async def binding(*args):
+        return {"list": [{"appCode": "endfield", "bindingList": [
+            {"uid": "wrong-uid", "isOfficial": True, "roles": [{"roleId": "r1", "serverId": "1"}]},
+            {"uid": uid, "channelMasterId": 2, "roles": [{"roleId": "r1", "serverId": "1"}]}]}]}
+    fake.binding = binding
+    await service.connect_with_passport()
+    saved = service.store.load()["session"]
+    assert saved["passport_uid"] == "bili-uid" and saved["passport_channel"] == "bilibili"
+    assert saved["passport_server_id"] == "1" and saved["roles"][0]["channel"] == "bilibili"
+    assert len(saved["roles"]) == 1
+
+
+async def test_passport_renewal_rejects_channel_change_and_retains_authorization_and_cache(tmp_path):
+    service, fake, *_ = passport_service(tmp_path)
+    await service.connect_with_passport()
+    good = await service.read_card()
+    saved = service.store.load()
+    fake.expired_creds.add(saved["session"]["cred"])
+    async def binding(*args):
+        return {"list": [{"appCode": "endfield", "bindingList": [
+            {"uid": "uid-1", "channelMasterId": 2, "roles": [{"roleId": "r1", "serverId": "1"}]}]}]}
+    fake.binding = binding
+    card = await service.read_card(force=True)
+    assert card["stale"] and "同一角色" in card["error"] and card["payload"] == good["payload"]
+    assert service.store.load() == saved
+
+
+async def test_passport_role_selection_rejection_preserves_selected_role_and_cache(tmp_path):
+    service, *_ = passport_service(tmp_path)
+    await service.connect_with_passport()
+    good = await service.read_card()
+    saved = service.store.load()
+    with pytest.raises(SklandError, match="其他角色请使用手动授权"):
+        await service.select_role("r1b", "2")
+    assert service.store.load() == saved and service._cache == good
+
+
+@pytest.mark.parametrize("changed", [
+    ("hg-one", "uid-1", "r1", "bilibili", "1"),
+    ("hg-one", "uid-1", "r1", "official", "2"),
+    ("hg-one", "different", "r1", "official", "1"),
+])
+async def test_saved_passport_session_is_bound_to_full_parent_identity(tmp_path, changed):
+    service, fake, current, *_ = passport_service(tmp_path)
+    await service.connect_with_passport()
+    current["identity"] = changed
+    assert service.status()["connected"] is False
+    before = list(fake.calls)
+    with pytest.raises(SklandError, match=PASSPORT_CHANGED):
+        await service.read_card()
+    assert fake.calls == before
+
+
+async def test_legacy_official_passport_session_defaults_parent_channel_and_server_only(tmp_path):
+    service, fake, current, _, build = passport_service(tmp_path)
+    await service.connect_with_passport()
+    saved = service.store.load()["session"]
+    saved.pop("passport_channel")
+    saved.pop("passport_server_id")
+    service.store.save({"session": saved})
+    assert build().status()["connected"] is True
+    current["identity"] = ("hg-one", "uid-1", "r1", "bilibili", "1")
+    assert build().status()["connected"] is False
+
+
+def test_local_route_passport_reader_includes_channel_and_server(tmp_path):
+    settings = Settings(db_path=str(tmp_path / "db"), endfield_hg_token="hg", endfield_uid="bili-uid",
+                        endfield_role_id="r", endfield_channel="bilibili", endfield_server_id="1")
+    app = FastAPI()
+    install_endfield_skland_routes(app, settings)
+    assert app.state.endfield_skland._passport() == {
+        "token": "hg", "uid": "bili-uid", "role_id": "r", "channel": "bilibili", "server_id": "1"}

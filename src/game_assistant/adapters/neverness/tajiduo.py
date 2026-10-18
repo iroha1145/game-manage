@@ -68,7 +68,7 @@ def parse_official_posts(raw) -> list[AnnouncementItem]:
         if not isinstance(it, dict):
             continue
         content = article_content(it.get('content'))
-        content['images'] = article_images([*(it.get('images') or []), *content['images']])
+        content['images'] = article_images(it.get('images'), content['images'])
         if not content['summary']:
             content['summary'] = it.get('sDesc') or it.get('summary') or ''
         items.append(AnnouncementItem(

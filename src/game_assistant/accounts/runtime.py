@@ -8,6 +8,7 @@ from game_assistant.auth.store import CredentialStoreError
 from game_assistant.identity.models import Principal
 from game_assistant.models import Capability, FetchResult
 from .store import AccountNotFoundError
+from .identities import has_verified_role
 
 
 class SklandAccountAdapter(BaseGameAdapter):
@@ -49,8 +50,7 @@ class AccountRuntime:
         info = self.accounts.describe(scope)
         # Loading on each resolution detects missing key/corruption even for cached adapters.
         credentials = self.accounts.credentials.load_grant(scope.user_id,info['grant_id'])
-        if not any(str(role.get('role_id'))==info['game_uid'] and str(role.get('server_id'))==info['server']
-                   for role in credentials.get('_verified_roles',[])):
+        if not has_verified_role(credentials, info['game_uid'], info['server'], info['channel']):
             raise AccountNotFoundError()
         existing = self._registries.get(scope)
         if existing and existing[0] == info['version']:
@@ -122,6 +122,8 @@ class _GrantGuard:
             setattr(settings,FIELDS[self.info['game']]['role_id'],self.info['game_uid'])
             if 'server_id' in FIELDS[self.info['game']]:
                 setattr(settings,FIELDS[self.info['game']]['server_id'],self.info['server'])
+            if self.info['provider'] == 'hypergryph':
+                settings.endfield_channel = self.info['channel']
             adapter.credentials_configured = True
             if self.info['game'] == 'wuthering_waves':
                 from game_assistant.adapters.wuthering_waves.kuro_client import KuroClient

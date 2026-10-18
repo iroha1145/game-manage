@@ -212,3 +212,185 @@ test('session reinitialization refreshes CSRF after another tab rotates its cook
   assert.deepEqual(await requestJson('/api/accounts/synthetic/roles/r/refresh/account',{method:'POST'}),{ok:true})
   assert.equal(csrfReads,2)
 })
+
+const endfieldAccounts = () => ['hypergryph', 'skland'].map((provider, i) => ({
+  account_id: provider, provider, game: 'endfield', state: 'active', version: 1, grant_id: `${provider}-grant`, channel: 'bilibili', server: '1',
+  capabilities: i ? ['account'] : ['account', 'gacha'], roles: [{ role_id: `${provider}-role`, game_uid: '123', is_default: true }],
+}))
+const endfieldSnapshot = (account, role, value = account) => ({ account_id: account, role_id: role, payload: { value }, state: 'ok', poll_status: { refresh_state: 'idle' } })
+function endfieldSetup(t, api = {}) {
+  const dashboard = createCloudDashboard(api); t.after(dashboard.dispose)
+  dashboard.state.user = { user_id: 'u' }; dashboard.state.accounts = endfieldAccounts(); dashboard.selectAccount(dashboard.state.accounts[0])
+  return dashboard
+}
+test('Endfield snapshots load concurrently by source and preserve the selected physical snapshot contract', async t => {
+  const pending = []
+  const dashboard = endfieldSetup(t, { getAccountSnapshot: (account, role, cap) => new Promise(resolve => pending.push({ account, role, cap, resolve })) })
+  const loading = dashboard.loadSelectedSnapshots()
+  assert.equal(pending.length, 3)
+  for (const { account, role, cap, resolve } of pending.reverse()) resolve(endfieldSnapshot(account, role, `${account}-${cap}`))
+  await loading
+  assert.equal(dashboard.state.sourceSnapshots.hypergryph.account.payload.value, 'hypergryph-account')
+  assert.equal(dashboard.state.sourceSnapshots.skland.account.payload.value, 'skland-account')
+  assert.equal(dashboard.state.snapshots.account.payload.value, 'hypergryph-account')
+  assert.equal(dashboard.state.snapshots.gacha.payload.value, 'hypergryph-gacha')
+  dashboard.selectAccount(dashboard.state.accounts[1])
+  assert.equal(dashboard.state.sources.hypergryph.account.account_id, 'hypergryph')
+})
+test('one source read failure preserves its successful payload and leaves the other source intact', async t => {
+  let failure = false
+  const dashboard = endfieldSetup(t, { getAccountSnapshot: async (account, role) => {
+    if (failure && account === 'skland') throw new Error('来源暂时不可用')
+    return endfieldSnapshot(account, role, failure ? 'fresh' : 'old')
+  } })
+  await dashboard.loadSelectedSnapshots(); failure = true; await dashboard.loadSelectedSnapshots()
+  assert.equal(dashboard.state.sourceSnapshots.skland.account.payload.value, 'old')
+  assert.equal(dashboard.state.sourceSnapshots.skland.account.state, 'error')
+  assert.equal(dashboard.state.sourceSnapshots.hypergryph.account.payload.value, 'fresh')
+})
+test('Endfield rejects an envelope for another account or role before its payload enters either cache', async t => {
+  let mismatch = 'account'
+  const dashboard = endfieldSetup(t, { getAccountSnapshot: async (account, role) => endfieldSnapshot(mismatch === 'account' ? 'foreign' : account, mismatch === 'role' ? 'foreign' : role, 'foreign-secret') })
+  for (mismatch of ['account', 'role']) {
+    await dashboard.loadSelectedSnapshots()
+    for (const source of Object.values(dashboard.state.sourceSnapshots)) for (const result of Object.values(source)) {
+      assert.equal(result.payload, null); assert.match(result.error, /不匹配/)
+      assert.notEqual(result.account_id, 'foreign'); assert.notEqual(result.role_id, 'foreign')
+    }
+    assert.equal(dashboard.state.snapshots.account.payload, null)
+  }
+})
+for (const change of ['version', 'grant_id', 'state', 'role']) test(`a related Endfield authorization ${change} change clears both sources and rejects late data`, async t => {
+  const finishes = []
+  let rows = endfieldAccounts()
+  const dashboard = endfieldSetup(t, { getAccounts: async () => ({ accounts: rows }), getAccountSnapshot: (account, role) => new Promise(resolve => finishes.push(() => resolve(endfieldSnapshot(account, role, 'old-secret')))) })
+  dashboard.state.sourceSnapshots = { hypergryph: { account: { payload: 'old' } }, skland: { account: { payload: 'old' } } }
+  const pending = dashboard.loadSelectedSnapshots()
+  rows = endfieldAccounts()
+  if (change === 'role') rows[1].roles = [{ role_id: 'new-role', game_uid: '456' }]
+  else rows[1][change] = ({ version: 2, grant_id: 'new-grant', state: 'revoked' })[change]
+  await dashboard.loadAccounts()
+  assert.deepEqual(dashboard.state.sourceSnapshots, {}); assert.deepEqual(dashboard.state.snapshots, {})
+  finishes.forEach(finish => finish()); await pending
+  assert.deepEqual(dashboard.state.sourceSnapshots, {}); assert.deepEqual(dashboard.state.snapshots, {})
+})
+test('ordinary Endfield account polling retains snapshots while a role switch or logout drops both sources', async t => {
+  const dashboard = endfieldSetup(t, { getAccounts: async () => ({ accounts: endfieldAccounts() }), logoutSite: async () => ({}), getAccountSnapshot: async (account, role) => endfieldSnapshot(account, role) })
+  await dashboard.loadSelectedSnapshots(); const before = dashboard.state.revision
+  await dashboard.loadAccounts()
+  assert.equal(dashboard.state.revision, before)
+  assert.equal(dashboard.state.sourceSnapshots.skland.account.payload.value, 'skland')
+  dashboard.selectAccount(dashboard.state.accounts[0], 'another-role')
+  assert.deepEqual(dashboard.state.sources, {}); assert.deepEqual(dashboard.state.sourceSnapshots, {})
+  dashboard.selectAccount(dashboard.state.accounts[0]); await dashboard.loadSelectedSnapshots(); await dashboard.logout()
+  assert.deepEqual(dashboard.state.sources, {}); assert.deepEqual(dashboard.state.sourceSnapshots, {})
+})
+test('Endfield refreshes track both account capabilities independently and keep a successful source on failure', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const receipts = []
+  const dashboard = endfieldSetup(t, { refreshAccount: async (account, role, cap) => { receipts.push([account, role, cap]); return { state: 'queued' } }, getAccountSnapshot: async (account, role) => {
+    if (account === 'skland') throw new Error('来源失败')
+    return endfieldSnapshot(account, role)
+  } })
+  dashboard.state.sourceSnapshots.skland = { account: { payload: 'last-success' } }
+  await dashboard.refreshSelected()
+  assert.equal(receipts.length, 3)
+  assert.equal(dashboard.state.refreshPending['hypergryph:account'], true); assert.equal(dashboard.state.refreshPending['skland:account'], true)
+  t.mock.timers.tick(0); await flush()
+  assert.equal(dashboard.state.refreshPending['hypergryph:account'], false); assert.equal(dashboard.state.refreshPending['skland:account'], false)
+  assert.equal(dashboard.state.sourceSnapshots.hypergryph.account.payload.value, 'hypergryph')
+  assert.equal(dashboard.state.sourceSnapshots.skland.account.payload, 'last-success')
+  assert.match(dashboard.state.refreshing['skland:account'], /失败/)
+})
+
+for (const change of ['revoked', 'deleted', 'role-unavailable']) test(`an unavailable selected Endfield source (${change}) continues on its previously verified healthy partner`, async t => {
+  let rows = endfieldAccounts()
+  rows[1].authorization_source = 'manual'
+  const calls = []
+  const dashboard = endfieldSetup(t, { getAccounts: async () => ({ accounts: rows }), getAccountSnapshot: async (account, role, cap) => {
+    calls.push([account, role, cap]); return endfieldSnapshot(account, role, 'healthy-partner')
+  } })
+  // The prior association, rather than the order of the replacement listing,
+  // determines the only acceptable fallback.
+  rows = endfieldAccounts(); rows[1].authorization_source = 'manual'
+  if (change === 'revoked') rows[0].state = 'revoked'
+  if (change === 'deleted') rows.shift()
+  if (change === 'role-unavailable') rows[0].roles = [{ role_id: 'another-character', game_uid: 'different' }]
+  rows.unshift({ ...endfieldAccounts()[0], account_id: 'unrelated', roles: [{ role_id: 'unrelated-role', game_uid: '999' }] })
+  await dashboard.loadAccounts()
+  assert.equal(dashboard.state.selected.account_id, 'skland')
+  assert.equal(dashboard.state.role, 'skland-role')
+  assert.deepEqual(Object.keys(dashboard.state.sources), ['skland'])
+  assert.deepEqual(calls, [['skland', 'skland-role', 'account']])
+  assert.equal(dashboard.state.snapshots.account.payload.value, 'healthy-partner')
+  assert.equal(dashboard.state.sourceSnapshots.skland.account.account_id, 'skland')
+})
+for (const change of ['uid', 'channel', 'server', 'role', 'missing-uid', 'owner', 'ambiguous-role', 'ambiguous-account', 'revoked']) test(`an old Endfield partner with ${change} cannot take over the selected character`, async t => {
+  let rows = endfieldAccounts(), reads = 0
+  const dashboard = endfieldSetup(t, { getAccounts: async () => ({ accounts: rows }), getAccountSnapshot: async (account, role) => {
+    reads++; return endfieldSnapshot(account, role)
+  } })
+  rows = endfieldAccounts(); rows[0].state = 'revoked'
+  if (change === 'uid') rows[1].roles[0].game_uid = 'changed'
+  if (change === 'channel') rows[1].channel = 'official'
+  if (change === 'server') rows[1].server = '2'
+  if (change === 'role') rows[1].roles[0].role_id = 'new-opaque-role'
+  if (change === 'missing-uid') delete rows[1].roles[0].game_uid
+  if (change === 'owner') rows[1].user_id = 'other-user'
+  if (change === 'ambiguous-role') rows[1].roles.push({ role_id: 'second', game_uid: '123' })
+  if (change === 'ambiguous-account') rows.push({ ...rows[1], account_id: 'second-skland' })
+  if (change === 'revoked') rows[1].state = 'revoked'
+  await dashboard.loadAccounts()
+  assert.equal(dashboard.state.selected, null)
+  assert.deepEqual(dashboard.state.sources, {}); assert.deepEqual(dashboard.state.sourceSnapshots, {})
+  assert.equal(reads, 0)
+})
+test('removing an Endfield source without a prior verified partner does not select a different character', async t => {
+  let rows = endfieldAccounts()
+  rows[1].roles[0].game_uid = 'different-character'
+  const dashboard = createCloudDashboard({ getAccounts: async () => ({ accounts: rows }) }); t.after(dashboard.dispose)
+  dashboard.state.user = { user_id: 'u' }; dashboard.state.accounts = rows; dashboard.selectAccount(rows[0])
+  assert.deepEqual(Object.keys(dashboard.state.sources), ['hypergryph'])
+  rows = [rows[1]]; await dashboard.loadAccounts()
+  assert.equal(dashboard.state.selected, null); assert.deepEqual(dashboard.state.sources, {})
+  const revision = dashboard.state.revision
+  await dashboard.loadAccounts()
+  assert.equal(dashboard.state.selected, null); assert.equal(dashboard.state.revision, revision, 'a later poll must not choose the unrelated character')
+  dashboard.selectAccount(rows[0])
+  assert.equal(dashboard.state.selected.account_id, 'skland', 'an explicit selection still works')
+})
+test('a selected active Endfield source stays selected when only its authorization version changes', async t => {
+  let rows = endfieldAccounts(), reads = 0
+  const dashboard = endfieldSetup(t, { getAccounts: async () => ({ accounts: rows }), getAccountSnapshot: async () => { reads++ } })
+  rows[0].version = 2; await dashboard.loadAccounts()
+  assert.equal(dashboard.state.selected.account_id, 'hypergryph'); assert.equal(dashboard.state.selected.version, 2)
+  assert.equal(dashboard.state.role, 'hypergryph-role'); assert.equal(reads, 0)
+})
+test('old dual-source reads and refresh receipts cannot restore a failed source after healthy-source migration', async t => {
+  const oldReads = [], receipts = []
+  let rows = endfieldAccounts(), hold = true
+  const dashboard = endfieldSetup(t, { getAccounts: async () => ({ accounts: rows }),
+    getAccountSnapshot: (account, role) => hold ? new Promise(resolve => oldReads.push(() => resolve(endfieldSnapshot(account, role, 'late-old-secret')))) : Promise.resolve(endfieldSnapshot(account, role, 'fresh-partner')),
+    refreshAccount: () => new Promise(resolve => receipts.push(resolve)),
+  })
+  const pending = dashboard.loadSelectedSnapshots(), refresh = dashboard.refresh('account', 'hypergryph')
+  rows[0].state = 'revoked'; hold = false; await dashboard.loadAccounts()
+  assert.equal(dashboard.state.selected.account_id, 'skland')
+  oldReads.forEach(resolve => resolve()); receipts.forEach(resolve => resolve({ state: 'queued' }))
+  await Promise.all([pending, refresh])
+  assert.deepEqual(Object.keys(dashboard.state.sources), ['skland'])
+  assert.deepEqual(Object.keys(dashboard.state.sourceSnapshots), ['skland'])
+  assert.equal(dashboard.state.snapshots.account.payload.value, 'fresh-partner')
+  assert.deepEqual(dashboard.state.refreshing, {}); assert.deepEqual(dashboard.state.refreshPending, {})
+})
+test('an initial Endfield source failure carries only its requested account and role context with a null payload', async t => {
+  const dashboard = endfieldSetup(t, { getAccountSnapshot: async () => { throw new Error('来源首次读取失败') } })
+  await dashboard.loadSelectedSnapshots(); await dashboard.loadOverview()
+  for (const provider of ['hypergryph', 'skland']) {
+    const direct = dashboard.state.sourceSnapshots[provider].account, overview = dashboard.state.overview[provider].snapshots.account
+    for (const error of [direct, overview]) {
+      assert.equal(error.account_id, provider); assert.equal(error.role_id, `${provider}-role`)
+      assert.equal(error.payload, null); assert.equal(error.state, 'error'); assert.equal(error.error, '来源首次读取失败')
+    }
+  }
+})

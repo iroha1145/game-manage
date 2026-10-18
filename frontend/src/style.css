@@ -192,13 +192,15 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .workspace-topbar { position:relative; z-index:30; height:80px; display:flex; align-items:center; justify-content:space-between; gap:16px; background:var(--topbar-bg); }
 .topbar-left,.topbar-right { display:flex; align-items:center; gap:10px; }
 .topbar-left { min-width:0; flex:1 1 auto; }
-.topbar-right { flex-shrink:0; }
+.topbar-right { --topbar-control-size:44px; flex-shrink:0; }
+.topbar-right > :is(.icon-button,.ui-button,.topbar-date) { height:var(--topbar-control-size); min-height:var(--topbar-control-size); border-radius:var(--radius-control); }
+.topbar-right > .icon-button { width:var(--topbar-control-size); min-width:var(--topbar-control-size); }
 /* ⌘K opens the jump-to search; the trigger looks like a field so its purpose needs no label. */
 .search-trigger { display:flex; align-items:center; gap:9px; width:min(340px, 100%); min-width:0; min-height:44px; padding:10px 13px; border:1px solid var(--border); border-radius:var(--radius-control); background:var(--card-bg); color:var(--text-muted); font-size:13px; text-align:left; }
 .search-trigger>span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .search-trigger kbd { margin-left:auto; flex-shrink:0; padding:0 5px; border:1px solid var(--border); border-radius:4px; color:var(--text-muted); font:500 11px/18px var(--font-sans); }
 @media(hover:hover) and (pointer:fine) { .search-trigger:hover { border-color:var(--border-strong); color:var(--text-body); } }
-/* Date chip: today's date in Beijing time, quiet beside the actions. */
+/* Date chip: today's date, quiet beside the actions. */
 .topbar-date { display:flex; align-items:center; gap:8px; min-height:40px; padding:0 13px; border:1px solid var(--border); border-radius:10px; background:var(--panel-bg); color:var(--text-muted); font-size:12px; white-space:nowrap; }
 .topbar-clock { color:var(--text); font-weight:500; font-variant-numeric:tabular-nums; }
 .workspace-main { padding:6px 0 56px; max-width:1480px; margin:0 auto; outline:none; min-width:0; }
@@ -283,7 +285,7 @@ button,a,input,select,summary { transition: color var(--duration-quick) var(--ea
 .stars { display:inline-flex; gap:1px; color:var(--game-color, var(--game-wuwa)); font-size:12px; letter-spacing:-1px; line-height:1; }.stars .off { color:var(--track); }
 @media(max-width:1250px) { .workspace-sidebar { padding-left:12px; padding-right:12px; }.brand { font-size:17px; letter-spacing:1.5px; } }
 @media(max-width:1100px) { .workspace-main .accounts-page .accounts { grid-template-columns:1fr; } }
-@media(max-width:960px) { .workspace-body { margin-left:0; margin-right:0; padding:0 16px; }.mobile-sidebar-close { display:grid; position:absolute; right:12px; top:22px; }.sidebar-scrim { display:block; position:fixed; inset:0; background:var(--scrim); border:0; z-index:35; opacity:var(--drawer-progress, 0); pointer-events:none; touch-action:none; transition:none; }.menu-open .sidebar-scrim { pointer-events:auto; }.workspace-topbar { height:68px; gap:8px; }.search-trigger { flex:1; width:auto; }.search-trigger kbd,.topbar-date { display:none; }.workspace-main { padding:4px 0 104px; }.page-heading { margin-bottom:16px; }.page-heading h1 { font-size:26px; line-height:34px; }.cap-card { padding:18px; border-radius:22px; }.workspace-main .accounts-page .login-panel { padding:16px; }.workspace-main .accounts-page .account-row { padding:16px; }.workspace-main .accounts-page .account-info>strong { font-size:15px; }.service-error { align-items:flex-start; flex-direction:column; } }
+@media(max-width:960px) { .workspace-body { --drawer-progress:0; margin-left:0; margin-right:0; padding:0 16px; }.mobile-sidebar-close { display:grid; position:absolute; right:12px; top:22px; }.sidebar-scrim { display:block; position:fixed; inset:0; background:var(--scrim); border:0; z-index:35; opacity:var(--drawer-progress, 0); will-change:opacity; pointer-events:none; touch-action:none; transition:none; }.menu-open .sidebar-scrim { pointer-events:auto; }.workspace-topbar { height:68px; gap:8px; }.search-trigger { flex:1; width:auto; }.search-trigger kbd,.topbar-date { display:none; }.workspace-main { padding:4px 0 104px; }.page-heading { margin-bottom:16px; }.page-heading h1 { font-size:26px; line-height:34px; }.cap-card { padding:18px; border-radius:22px; }.workspace-main .accounts-page .login-panel { padding:16px; }.workspace-main .accounts-page .account-row { padding:16px; }.workspace-main .accounts-page .account-info>strong { font-size:15px; }.service-error { align-items:flex-start; flex-direction:column; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
 @media(max-width:400px) { .topbar-right { gap:6px; }.workspace-body { padding:0 12px; } }
 @media (prefers-reduced-motion:reduce) {

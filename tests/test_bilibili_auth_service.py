@@ -311,3 +311,23 @@ async def test_failed_save_and_corrupt_store_preserve_original_file(tmp_path):
     login = BilibiliLoginService(source)
     assert login.status()['state'] == 'storage_error'
     await login.aclose(); await source.close()
+
+
+async def test_cookie_status_during_validation_is_verifying_and_contains_no_secret():
+    c = make_case(); s = await sid(c, 'cookie')
+    gate, entered = asyncio.Event(), asyncio.Event()
+    original = c.service._sessions[s].provider.validate_credentials
+    async def delayed(values):
+        entered.set()
+        await gate.wait()
+        return await original(values)
+    c.service._sessions[s].provider.validate_credentials = delayed
+    pending = asyncio.create_task(c.service.cookie(s, VALUES))
+    await entered.wait()
+    status = c.service.session_status(s)
+    assert status['state'] == 'verifying'
+    assert 'FAKE_SESS' not in str(status)
+    assert c.source.saved == []
+    gate.set()
+    assert (await pending)['state'] == 'complete'
+    await c.service.aclose()

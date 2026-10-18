@@ -130,7 +130,7 @@ const activeRead = computed(() => current.value[({gacha:'account',history:'accou
         <AnnouncementList game-id="wuthering_waves" :snap="snaps.news?.payload ? snaps.news : snaps.announcement" />
       </template>
       <p v-else-if="!configured" class="wuwa-panel wuwa-empty">
-        请先登录鸣潮账号以查看私人档案。
+        请先登录鸣潮账号。
       </p>
       <p v-else-if="section !== 'profile' && activeRead?.reading && !activeRead?.payload" class="wuwa-panel" role="status">正在读取数据…</p>
       <p v-else-if="section !== 'profile' && activeRead?.readError && !activeRead?.payload" class="wuwa-panel" role="status">{{ activeRead.readError }}</p>
@@ -198,7 +198,7 @@ const activeRead = computed(() => current.value[({gacha:'account',history:'accou
         </WuwaModuleCard>
       </template>
       <p v-else class="wuwa-panel wuwa-empty">
-        尚未读取到当前账号标识，请刷新数据后重试。
+        尚未读取到账号信息，请刷新数据。
       </p>
     </div>
   </div>

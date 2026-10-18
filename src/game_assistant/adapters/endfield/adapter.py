@@ -1,4 +1,4 @@
-"""终末地官服账号、寻访账本与官网资讯日历。
+"""终末地官服和B服账号、寻访账本与官网资讯日历。
 
 森空岛档案使用独立授权和角色选择，在 endfield_skland 中按账号隔离。
 """
@@ -84,10 +84,13 @@ class EndfieldAdapter(BaseGameAdapter):
 
     async def fetch_account(self) -> FetchResult:
         async def run():
-            token, _, role_id = self._credentials()
+            token, uid, role_id = self._credentials()
             async with HypergryphClient() as client:
                 binding = await client.binding_list(await client.grant(token))
-            return FetchResult(ok=True, payload=parse.parse_account(binding, expected_role_id=role_id))
+            return FetchResult(ok=True, payload=parse.parse_account(
+                binding, expected_role_id=role_id, expected_uid=uid,
+                expected_server_id=self._settings.endfield_server_id or "1",
+                channel=self._settings.endfield_channel))
         return await self._guarded_run(run)
 
     async def fetch_gacha(self) -> FetchResult:
@@ -95,7 +98,12 @@ class EndfieldAdapter(BaseGameAdapter):
             token, uid, role_id = self._credentials()
             store = self.gacha_store()
             async with HypergryphClient() as client:
-                u8_token = await client.u8_token(uid, await client.grant(token))
+                grant = await client.grant(token)
+                binding = await client.binding_list(grant)
+                parse.select_role(binding, self._settings.endfield_channel, expected_uid=uid,
+                                  expected_role_id=role_id,
+                                  expected_server_id=self._settings.endfield_server_id or "1")
+                u8_token = await client.u8_token(uid, grant)
                 await store.sync(role_id, client, u8_token, budget=self.sync_budget, interval=self.sync_interval)
             return FetchResult(ok=True, payload=store.summary(role_id))
         return await self._guarded_run(run)

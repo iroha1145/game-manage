@@ -1,6 +1,7 @@
 """按参考项目记录的字段解析绑定列表与寻访记录，不做递归猜键。"""
 from typing import Any
 
+from game_assistant.adapters.endfield.channels import binding_channel
 from game_assistant.adapters.endfield.data_models import EndfieldAccount, EndfieldRole
 from game_assistant.adapters.endfield.endpoints import BINDING_APP_CODE, OFFICIAL_SERVER_ID
 
@@ -38,38 +39,57 @@ def _rows(value: Any) -> list[dict]:
     return value
 
 
-def select_official_role(data: Any) -> EndfieldRole:
-    """从 binding_list 的 data 中选出官服角色：官方渠道、未删除，优先默认且未封禁的角色。"""
+def select_role(data: Any, channel: str = "official", *, expected_uid: str = "",
+                expected_role_id: str = "", expected_server_id: str = "") -> EndfieldRole:
+    """只从可信渠道和国服中选角色；保存过身份时忽略上游默认角色的变化。"""
+    if channel not in ("official", "bilibili"):
+        raise ValueError("不支持的终末地渠道")
     if not isinstance(data, dict):
         raise ValueError(_ERROR)
     apps = [app for app in _rows(data.get("list", [])) if app.get("appCode") == BINDING_APP_CODE]
     candidates = []
+    pinned = bool(expected_uid or expected_role_id or expected_server_id)
     for app in apps:
         for account in _rows(app.get("bindingList", [])):
             uid = _text(account.get("uid"))
-            if not uid or account.get("isDeleted") is True or account.get("isOfficial") is not True:
+            if (not uid or account.get("isDeleted") is True or account.get("isDelete") is True
+                    or account.get("isBanned") is True or binding_channel(account) != channel):
                 continue
             for role in _rows(account.get("roles", [])):
                 role_id, server_id = _text(role.get("roleId")), _text(role.get("serverId"))
-                if not role_id or server_id != OFFICIAL_SERVER_ID:
+                if (not role_id or server_id != OFFICIAL_SERVER_ID or role.get("isBanned") is True
+                        or role.get("isDeleted") is True or role.get("isDelete") is True):
                     continue
-                rank = (role.get("isBanned") is True, role.get("isDefault") is not True,
-                        account.get("isDefault") is not True)
+                if ((expected_uid and uid != expected_uid)
+                        or (expected_role_id and role_id != expected_role_id)
+                        or (expected_server_id and server_id != expected_server_id)):
+                    continue
+                rank = (role.get("isDefault") is not True, account.get("isDefault") is not True)
                 candidates.append((rank, EndfieldRole(
                     uid=uid, role_id=role_id, server_id=server_id, nickname=_text(role.get("nickName")),
                     level=_count(role.get("level")), server_name=_text(role.get("serverName")),
-                    channel=_text(account.get("channelName")))))
+                    channel=_text(account.get("channelName")), channel_id=channel)))
     if not candidates:
+        if pinned:
+            raise RoleChangedError("终末地绑定角色已变化，请在「社区账号」重新登录")
+        if channel == "bilibili":
+            raise ValueError("该鹰角通行证未绑定终末地B服角色，请先在鹰角账号中心选择bilibili服，填写游戏UID并完成游戏内邮件验证")
         raise ValueError(NO_OFFICIAL_ROLE)
     return min(candidates, key=lambda item: item[0])[1]
 
 
-def parse_account(data: Any, expected_role_id: str = "") -> EndfieldAccount:
-    role = select_official_role(data)
-    if expected_role_id and role.role_id != expected_role_id:
-        raise RoleChangedError("终末地绑定角色已变化，请在「社区账号」重新登录")
+def select_official_role(data: Any) -> EndfieldRole:
+    """兼容已有官服调用。"""
+    return select_role(data)
+
+
+def parse_account(data: Any, expected_role_id: str = "", *, channel: str = "official",
+                  expected_uid: str = "", expected_server_id: str = "") -> EndfieldAccount:
+    role = select_role(data, channel, expected_uid=expected_uid, expected_role_id=expected_role_id,
+                       expected_server_id=expected_server_id)
     return EndfieldAccount(nickname=role.nickname, level=role.level, role_id=role.role_id,
-                           uid=role.uid, server_name=role.server_name, channel=role.channel)
+                           uid=role.uid, server_name=role.server_name, channel=role.channel,
+                           channel_id=role.channel_id)
 
 
 def _timestamp_ms(value: Any) -> int | None:

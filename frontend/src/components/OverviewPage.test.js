@@ -50,6 +50,28 @@ test('the first deadline leads, and the week chart counts deadlines per Beijing 
   assert.match(content(byClass(root, 'ov-stats')[0]), /3.*进行中的活动.*2.*3 天内截止/)
 })
 
+test('deadline range switching preserves the next event and counts all dates without zero-value bars', async t => {
+  const events = [
+    { name: '最近活动', start_at: '2026-10-10 10:00', end_at: '2026-10-18 03:59' },
+    { name: '下月活动', start_at: '2026-10-10 10:00', end_at: '2026-11-05 03:59' },
+  ]
+  const root = mount(t, Overview, { games: [wuwa], now, snapshots: { wuthering_waves: { events: { payload: events } } } })
+  const chart = () => byClass(root, 'bar-chart')[0]
+  const next = content(byClass(root, 'ov-next')[0])
+  assert.match(content(byClass(root, 'chart-summary')[0]), /1 项 7 天内结束/)
+  assert.equal(byClass(chart(), 'bar-fill').length, 1)
+  nodes(root, 'button').find(button => content(button) === '30 天').props.onClick()
+  await nextTick()
+  assert.match(content(byClass(root, 'chart-summary')[0]), /2 项 30 天内结束/)
+  assert.equal(byClass(chart(), 'bar-col').length, 30)
+  assert.equal(byClass(chart(), 'bar-fill').length, 2)
+  assert.equal(content(byClass(root, 'ov-next')[0]), next)
+  nodes(root, 'button').find(button => content(button) === '7 天').props.onClick()
+  await nextTick()
+  assert.equal(byClass(chart(), 'bar-col').length, 7)
+  assert.equal(byClass(chart(), 'bar-fill').length, 1)
+})
+
 test('daily rows share the rounded gauge and keep empty and done states distinct', t => {
   const root = mount(t, Overview, { games: [wuwa], now, snapshots: { wuthering_waves: { progress: { payload: [
     { name: '活跃度', cur: 50, total: 100 },

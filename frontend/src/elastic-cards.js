@@ -102,7 +102,7 @@ export function createElasticCards(root, { selector = CARD } = {}) {
       x: 0, y: 0, scale: 0.994, vx: 0, vy: 0, vs: 0, time: clock(), released: false,
       previous: PROPERTIES.map(name => [name, card.style.getPropertyValue(name), card.style.getPropertyPriority(name)]),
     }
-    paint()
+    if (!gesture.touch) paint()
   }
   const move = event => {
     if (!gesture || gesture.released || event.pointerId !== gesture.id) return

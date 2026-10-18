@@ -48,7 +48,7 @@ class EndfieldSklandService:
     def __init__(self, db_path: str, *, client: SklandClient | None = None,
                  store: CredentialStore | None = None, clock=None, passport=None, hypergryph=None):
         self.client = client or SklandClient()
-        # passport() → (通行证令牌, uid, role_id)，取自登录服务写入的设置；未登录时为空。
+        # passport() → (通行证令牌, uid, role_id, channel, server_id)，旧三字段仅用于官服兼容。
         self._passport_reader = passport or (lambda: ("", "", ""))
         self._hypergryph = hypergryph or HypergryphClient
         self.store = store or CredentialStore(credential_path(db_path))
@@ -79,16 +79,34 @@ class EndfieldSklandService:
                 "error": self._storage_error}
 
     def _passport(self) -> dict | None:
-        token, uid, role_id = (str(value or "") for value in self._passport_reader())
-        return {"token": token, "uid": uid, "role_id": role_id} if token and role_id else None
+        values = tuple(str(value or "") for value in self._passport_reader())
+        if len(values) == 3:
+            values += ("official", "1")
+        if len(values) != 5:
+            return None
+        token, uid, role_id, channel, server_id = values
+        server_id = server_id or "1"
+        if not token or not uid or not role_id or channel not in ("official", "bilibili") or server_id != "1":
+            return None
+        return {"token": token, "uid": uid, "role_id": role_id,
+                "channel": channel, "server_id": server_id}
 
     def _belongs_to_passport(self, session: dict) -> bool:
-        """Manual sessions are independent; a passport session follows the current login."""
+        """Manual sessions are independent; derived sessions follow the complete parent identity."""
         if session.get("source") != "passport":
             return True
         passport = self._passport()
-        return bool(passport) and (session.get("passport_uid"), session.get("passport_role_id")) == (
-            passport["uid"], passport["role_id"])
+        return bool(passport) and (
+            session.get("passport_uid"), session.get("passport_role_id"),
+            session.get("passport_channel", "official"), session.get("passport_server_id", "1")) == (
+                passport["uid"], passport["role_id"], passport["channel"], passport["server_id"])
+
+    @staticmethod
+    def _role_matches_passport(role: dict, passport: dict) -> bool:
+        return (role.get("role_id") == passport["role_id"]
+                and role.get("server_id") == passport["server_id"]
+                and role.get("channel") == passport["channel"]
+                and (not role.get("uid") or role["uid"] == passport["uid"]))
 
     def _save(self, session: dict, *, clear_cache: bool = True):
         try:
@@ -144,13 +162,15 @@ class EndfieldSklandService:
             raise SklandError("森空岛暂时无法连接，请稍后重试" if temporary else PASSPORT_REJECTED) from None
         session, token = await self._validated(await self.client.cred_by_code(code))
         roles = session["roles"]
-        # Keep the user's choice on renewal; otherwise only the passport's own role is auto-selected.
-        role = (next((r for r in roles if (r["role_id"], r["server_id"]) == keep), None) if keep else None) \
-            or next((r for r in roles if r["role_id"] == passport["role_id"]), None)
-        return {**session, "source": "passport", "passport_uid": passport["uid"],
-                "passport_role_id": passport["role_id"],
-                "role_id": role["role_id"] if role else None,
-                "server_id": role["server_id"] if role else None}, token
+        role = next((r for r in roles if self._role_matches_passport(r, passport)
+                     and (keep is None or (r["role_id"], r["server_id"]) == keep)), None)
+        if role is None:
+            raise SklandError("森空岛未绑定当前终末地渠道的同一角色，原连接已保留")
+        # Only this verified parent identity can be selected in a derived session.
+        return {**session, "roles": [role], "source": "passport", "passport_uid": passport["uid"],
+                "passport_role_id": passport["role_id"], "passport_channel": passport["channel"],
+                "passport_server_id": passport["server_id"],
+                "role_id": role["role_id"], "server_id": role["server_id"]}, token
 
     async def connect_with_passport(self) -> dict:
         async with self._lock:
@@ -175,6 +195,10 @@ class EndfieldSklandService:
             raise SklandError("角色参数不正确")
         async with self._lock:
             session = self._connected()
+            if session.get("source") == "passport":
+                passport = self._passport()
+                if not passport or (role_id, server_id) != (passport["role_id"], passport["server_id"]):
+                    raise SklandError("该连接仅对应当前鹰角角色，其他角色请使用手动授权")
             if not any(r["role_id"] == role_id and r["server_id"] == server_id for r in session.get("roles", [])):
                 raise SklandError("该角色不在当前绑定列表中")
             self._save({**session, "role_id": role_id, "server_id": server_id})
@@ -199,6 +223,10 @@ class EndfieldSklandService:
         s = self._connected()
         if not s.get("role_id") or not s.get("server_id"):
             raise SklandError("请先选择终末地角色")
+        if s.get("source") == "passport":
+            passport = self._passport()
+            if not passport or (s["role_id"], s["server_id"]) != (passport["role_id"], passport["server_id"]):
+                raise SklandError("森空岛角色与当前终末地登录不一致，请重新连接")
         return s
 
     async def _token(self, s):

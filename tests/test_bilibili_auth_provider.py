@@ -141,7 +141,7 @@ async def test_verified_account_and_legacy_sessdata_import():
 
 
 @pytest.mark.parametrize('data', [{'isLogin': False, 'mid': 10001}, {'isLogin': True, 'mid': 0},
-    {'isLogin': True, 'mid': True}, {'isLogin': True, 'mid': 999}, {'isLogin': True, 'mid': 'bad'}, []])
+    {'isLogin': True, 'mid': True}, {'isLogin': True, 'mid': 999}, {'isLogin': True, 'mid': 'bad'}])
 @respx.mock
 async def test_nav_rejects_anonymous_malformed_or_wrong_identity(data):
     p = provider()
@@ -263,4 +263,23 @@ async def test_empty_userinfo_is_rejected_without_exchange_request():
         headers=[('set-cookie','SESSDATA=FAKE_SESS'),('set-cookie','bili_jct=FAKE_JCT'),('set-cookie','DedeUserID=10001')])
     with pytest.raises(Exception) as caught: await p.poll_qr('FAKE')
     assert caught.value.error_code == 'UNSUPPORTED_RESPONSE' and len(respx.calls) == 1
+    await p.aclose()
+
+
+@pytest.mark.parametrize('payload,code', [
+    ({'code': -101}, 'INVALID_CREDENTIALS'),
+    ({'code': -352}, 'UPSTREAM_RESTRICTED'),
+    ({'code': -412}, 'UPSTREAM_RESTRICTED'),
+    ({'code': -500}, 'UPSTREAM_REJECTED'),
+    ({'code': 0, 'data': []}, 'UNSUPPORTED_RESPONSE'),
+    ({'message': 'SYNTHETIC_UPSTREAM_SECRET'}, 'UNSUPPORTED_RESPONSE'),
+])
+@respx.mock
+async def test_nav_preserves_failure_category_without_upstream_text(payload, code, caplog):
+    p = provider()
+    respx.get(NAV).respond(200, json={**payload, 'message': 'SYNTHETIC_UPSTREAM_SECRET'})
+    with pytest.raises(Exception) as caught:
+        await p.validate_credentials(VALUES)
+    assert caught.value.error_code == code
+    assert 'SYNTHETIC_UPSTREAM_SECRET' not in str(caught.value) + caplog.text
     await p.aclose()

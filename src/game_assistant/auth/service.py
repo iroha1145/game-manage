@@ -24,7 +24,7 @@ FIELDS = {
     'nte': {'access_token': 'nte_access_token', 'refresh_token': 'nte_refresh_token',
         'device_id': 'nte_device_id', 'role_id': 'nte_role_id'},
     'endfield': {'hg_token': 'endfield_hg_token', 'uid': 'endfield_uid',
-        'role_id': 'endfield_role_id', 'server_id': 'endfield_server_id'},
+        'role_id': 'endfield_role_id', 'server_id': 'endfield_server_id', 'channel': 'endfield_channel'},
 }
 # Public feeds remain available without a community session.
 PUBLIC_CAPABILITIES = {
@@ -73,6 +73,8 @@ class LoginService:
                 # Credentials written by the first SMS-login release had no source.
                 # sdkLogin returns an APP token; sending it as h5 yields code 220.
                 self._accounts[game].setdefault('token_source', 'ios')
+            if game == 'endfield':
+                self._accounts[game].setdefault('channel', 'official')
             if game == 'nte' and not self._accounts[game].get('device_id') and any(
                     self._accounts[game].get(k) for k in ('access_token', 'refresh_token')):
                 self._accounts[game]['device_id'] = 'HT' + uuid.uuid4().hex[:14].upper()
@@ -142,10 +144,16 @@ class LoginService:
             accounts[game] = {'configured': configured, 'source': source, 'state': state,
                               'nickname': account.get('nickname', ''),
                               'message': self._errors.get(game, '')}
+            if game == 'endfield':
+                channel = account.get('channel') or 'official'
+                accounts[game].update(channel=channel,
+                    channel_name={'official': '官服', 'bilibili': 'B服'}.get(channel, '渠道未提供'))
         return {'accounts': accounts}
 
-    async def start(self, game):
+    async def start(self, game, *, channel='official'):
         self._game(game)
+        if channel not in ('official', 'bilibili') or (game != 'endfield' and channel != 'official'):
+            raise LoginError('该游戏不支持所选登录渠道')
         async with self._locks[game]:
             now = self.clock()
             self._start_times = [t for t in self._start_times if now - t < 60]
@@ -164,6 +172,8 @@ class LoginService:
                            else '无法初始化登录，请检查网络后重试')
                 raise LoginError(message, 502) from None
             sid = secrets.token_urlsafe(32)
+            if game == 'endfield':
+                context = {**context, 'channel': channel}
             self._sessions[sid] = {'game': game, 'context': context,
                 'expires': self.clock() + 600, 'attempts': 0, 'mobile': None, 'sent': False}
             return {'session_id': sid, 'expires_in': 600,
@@ -395,10 +405,10 @@ class ScopedLoginService:
         context._session(self.provider_games[provider],sid)
         return context
 
-    async def start(self, principal, provider):
+    async def start(self, principal, provider, *, channel='official'):
         provider = self.provider(provider)
         context = self._context(principal,provider)
-        result = await context.start(self.provider_games[provider])
+        result = await context.start(self.provider_games[provider], channel=channel)
         # Drop expired and superseded ownership entries with their contexts.
         self._sessions = {sid: owner for sid,owner in self._sessions.items()
                           if sid in self._contexts[owner[:2]]._sessions}
@@ -506,6 +516,7 @@ class ScopedLoginService:
             role = roles[0]
             return self.accounts.save_verified(principal,'skland',{'cred':cred.strip(),'device_id':device_id,
                 'user_id':user_id,'role_id':role['role_id'],'server_id':role['server_id'],
+                'channel':role.get('channel', 'unknown'),
                 'nickname':role.get('nickname',''),'roles':roles,'_updated_at':self.clock()})
         except LoginError:
             raise
@@ -524,13 +535,19 @@ class ScopedLoginService:
             token = await client.refresh(cred)
             roles = parse_roles(await client.binding(cred,token,''))
             user_id = parse_user_id(await client.user(cred,token,''))
-            selected = next((role for role in roles if (role['role_id'],role['server_id']) == (role_id,server_id)),None)
+            channel = credentials.get('channel') or 'official'
+            candidates = [role for role in roles
+                          if (role['role_id'],role['server_id']) == (role_id,server_id)
+                          and role.get('channel', 'unknown') == channel
+                          and (not role.get('uid') or str(role['uid']) == str(credentials.get('uid')))]
+            selected = {**candidates[0], 'channel': channel} if len(candidates) == 1 else None
             if selected is None:
                 raise LoginError('森空岛绑定角色与所选鹰角角色不匹配，请使用手动授权并确认角色',409,'skland_role_mismatch')
             if not user_id:
                 raise ValueError('missing verified user')
             # A derived authorization covers only the verified parent role and server.
             return {'cred':cred,'user_id':user_id,'role_id':role_id,'server_id':server_id,
+                    'channel':channel,
                     'device_id':'','roles':[selected],'_verified_roles':[selected],
                     'nickname':selected.get('nickname',''),'_updated_at':self.clock()}
         except LoginError:
@@ -564,10 +581,10 @@ class ScopedLoginService:
         if info['provider'] != 'hypergryph':
             raise AccountNotFoundError()
         credentials = self.accounts.credentials.load_grant(principal.user_id,info['grant_id'])
+        from game_assistant.accounts.identities import has_verified_role
         subject = str(credentials.get('uid') or '')
-        if not subject or not credentials.get('hg_token') or not any(
-                str(role.get('role_id')) == info['game_uid'] and str(role.get('server_id')) == info['server']
-                for role in credentials.get('_verified_roles', [])):
+        if not subject or not credentials.get('hg_token') or not has_verified_role(
+                credentials, info['game_uid'], info['server'], info['channel']):
             raise AccountNotFoundError()
         # Website-user budget is bounded and shared across source grants.
         now = self.clock()
@@ -579,6 +596,7 @@ class ScopedLoginService:
         self._skland_attempts[principal.user_id] = [*attempts,now]
         parent = dict(grant_id=info['grant_id'],account_id=account_id,role_id=role_id,
                       subject=subject,game_uid=info['game_uid'],server=info['server'],
+                      channel=info['channel'],
                       authorization_id=credentials.get('_authorization_id') or 'legacy:'+info['grant_id'])
         versions = self.accounts.grant_versions(principal,'skland')
         updated = await self._exchange_skland(credentials,info['game_uid'],info['server'])

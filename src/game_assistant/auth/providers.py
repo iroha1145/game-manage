@@ -19,8 +19,9 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 
 from game_assistant.adapters.endfield import endpoints as endfield_endpoints
+from game_assistant.adapters.endfield.channels import channel_master_id
 from game_assistant.adapters.endfield.hypergryph import EndfieldError, HypergryphClient, request_data
-from game_assistant.adapters.endfield.parse import select_official_role
+from game_assistant.adapters.endfield.parse import select_role
 from game_assistant.adapters.neverness.endpoints import GAME_ID as NTE_GAME_ID
 from game_assistant.adapters.neverness.tajiduo_client import make_ds_header
 from game_assistant.adapters.wuthering_waves.rolebox_client import USER_AGENT
@@ -257,7 +258,7 @@ class NteLoginProvider:
 
 
 class EndfieldLoginProvider:
-    """鹰角通行证短信登录（官服）。通行证 token 没有续期接口，失效后重新登录。"""
+    """鹰角通行证短信登录（官服或已绑定的B服）。通行证 token 没有续期接口，失效后重新登录。"""
 
     async def start_context(self) -> dict:
         return {}
@@ -282,11 +283,17 @@ class EndfieldLoginProvider:
         account = await self._account(endfield_endpoints.TOKEN_BY_PHONE_CODE, {"phone": mobile, "code": code},
                                       "登录失败，请检查短信验证码后重试")
         token = _required(account, "token")
-        role = await self._role(token)
-        return {"hg_token": token, "uid": role.uid, "role_id": role.role_id,
-                "server_id": role.server_id, "nickname": role.nickname or ""}
+        channel = context.get("channel", "official")
+        if channel not in ("official", "bilibili"):
+            raise AuthError("不支持的终末地渠道")
+        role = await self._role(token, channel)
+        identity = {"uid": role.uid, "role_id": role.role_id, "server_id": role.server_id,
+                    "nickname": role.nickname or "", "channel": role.channel_id,
+                    "channel_name": role.channel or ("bilibili服" if channel == "bilibili" else "官服"),
+                    "channel_master_id": channel_master_id(role.channel_id)}
+        return {"hg_token": token, **identity, "_verified_roles": [identity.copy()]}
 
-    async def _role(self, token: str):
+    async def _role(self, token: str, channel: str = "official"):
         try:
             async with HypergryphClient(trust_env=False) as client:
                 binding = await client.binding_list(await client.grant(token))
@@ -295,6 +302,6 @@ class EndfieldLoginProvider:
                 raise AuthError(_INVALID_SESSION, 401) from None
             raise AuthError(error.hint or "终末地角色查询失败，请稍后重试", error.status_code) from None
         try:
-            return select_official_role(binding)
+            return select_role(binding, channel)
         except ValueError as error:
             raise AuthError(str(error)) from None

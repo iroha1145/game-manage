@@ -113,6 +113,15 @@ test('image rendering and non-browser renderers never start animations', async t
   click(); await flush(); assert.equal(calls.length, 0)
 })
 
+test('automatic theme feedback rotates only its arrows and keeps the central A upright', async t => {
+  const { $, click, calls, flush } = setup(t, '<button><svg data-app-icon="auto"><g data-icon-part="body"><path data-icon-part="path"/><g data-icon-part="orbit"><path/></g></g></svg></button>')
+  click(); await flush()
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].target, $('[data-icon-part="orbit"]'))
+  assert.deepEqual(calls[0].frames.map(frame => frame.transform), ['rotate(0deg)', 'rotate(180deg)'])
+  assert.equal($('[data-icon-part="body"]').getAttribute('style'), null)
+})
+
 test('theme feedback follows the newly active icon and includes summary and role buttons', async t => {
   const { $, click, calls, flush, win } = setup(t, `<button>${icon('sun', 'data-active="false"')}${icon('moon', 'data-active="true"')}</button><details><summary>${icon('chevron')}</summary></details><div role="button">${icon('search')}</div>`)
   $('button').addEventListener('click', () => queueMicrotask(() => {

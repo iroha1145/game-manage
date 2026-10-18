@@ -1,32 +1,66 @@
 import { ref } from 'vue'
 
-// Day / night theme. public/theme-boot.js resolves the saved or system choice
-// onto <html data-theme> before the first paint; this module keeps it live.
+// Keep this resolution policy aligned with public/theme-boot.js, which runs
+// before paint. A browser without color-scheme support falls back to dark.
 const KEY = 'gm-theme'
+const SYSTEM_QUERY = '(prefers-color-scheme: light)'
 const root = typeof document === 'undefined' ? null : document.documentElement
+const normalizeMode = mode => mode === 'light' || mode === 'dark' ? mode : 'auto'
 
-export const theme = ref(root?.dataset.theme === 'light' ? 'light' : 'dark')
-
-// The pick also lives in memory, so a browser that refuses storage still keeps
-// it for this session instead of following the system again.
-let picked = null
-function saved() {
-  try { return localStorage.getItem(KEY) ?? picked } catch { return picked }
+function systemMedia() {
+  try { return typeof matchMedia === 'function' ? matchMedia(SYSTEM_QUERY) : null }
+  catch { return null }
 }
 
-export function setTheme(next, { remember = true } = {}) {
-  theme.value = next
-  if (remember) picked = next
-  if (!root) return
-  root.dataset.theme = next
-  if (remember) try { localStorage.setItem(KEY, next) } catch { /* private mode */ }
+export function resolveThemeMode(mode) {
+  return mode === 'light' || mode === 'dark' ? mode : systemMedia()?.matches ? 'light' : 'dark'
 }
 
-/** Track the OS setting until the user picks a theme; returns a cleanup. */
+function initialMode() {
+  try { return normalizeMode(localStorage.getItem(KEY)) }
+  catch { return 'auto' }
+}
+
+// Storage is read once. The in-memory choice then owns this session, including
+// when a write fails and storage still contains an older, different choice.
+export const themeMode = ref(initialMode())
+export const theme = ref(resolveThemeMode(themeMode.value))
+
+function applyTheme(actual) {
+  theme.value = actual
+  if (root) {
+    root.dataset.theme = actual
+    root.dataset.themeMode = themeMode.value
+  }
+}
+applyTheme(theme.value)
+
+export function setThemeMode(next) {
+  themeMode.value = normalizeMode(next)
+  applyTheme(resolveThemeMode(themeMode.value))
+  try { localStorage.setItem(KEY, themeMode.value) } catch { /* storage unavailable */ }
+}
+
+// Compatibility for existing callers that select a concrete light/dark theme.
+export const setTheme = setThemeMode
+
+export function nextThemeMode(mode = themeMode.value) {
+  return mode === 'light' ? 'dark' : mode === 'dark' ? 'auto' : 'light'
+}
+
+/** Follow browser preference only in automatic mode; return a listener cleanup. */
 export function followSystem() {
-  if (typeof matchMedia !== 'function') return () => {}
-  const media = matchMedia('(prefers-color-scheme: light)')
-  const changed = () => { if (!saved()) setTheme(media.matches ? 'light' : 'dark', { remember: false }) }
-  media.addEventListener('change', changed)
-  return () => media.removeEventListener('change', changed)
+  const media = systemMedia()
+  if (!media) return () => {}
+  const changed = () => {
+    if (themeMode.value === 'auto') applyTheme(media.matches ? 'light' : 'dark')
+  }
+  changed()
+  if (typeof media.addEventListener === 'function') {
+    media.addEventListener('change', changed)
+    return () => media.removeEventListener?.('change', changed)
+  }
+  // Older browser versions expose the same notification through addListener.
+  media.addListener?.(changed)
+  return () => media.removeListener?.(changed)
 }

@@ -3,13 +3,14 @@ import asyncio
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-
-from game_assistant.event_calendar import BEIJING_TZ as BJ
+from urllib.parse import urlsplit, urlunsplit
 
 from .article_content import article_images
 
+from game_assistant.event_calendar import BEIJING_TZ as BJ
+
 logger = logging.getLogger(__name__)
-RULE_VERSION = 6
+RULE_VERSION = 7
 REASONS = {'accepted': '有明确日期的游戏内通知', 'video': '视频或转发视频',
            'lottery': '抽奖或开奖', 'promotion': '宣传展示或社区内容',
            'no_date': '正文没有可确认的日期', 'not_ingame': '非游戏内通知',
@@ -29,6 +30,20 @@ class SourceError(Exception):
         self.http_status = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
         self.business_code = business_code if type(business_code) is int and -(2**31) <= business_code < 2**31 else None
 
+def _pictures(*sources):
+    """Upgrade only the observed Bilibili image host; never rewrite arbitrary HTTP."""
+    result = []
+    for url in article_images(*sources, upgrade_http_hosts={'i0.hdslb.com'}):
+        parts = urlsplit(url)
+        if parts.scheme == 'http':
+            if parts.netloc != 'i0.hdslb.com':
+                continue
+            url = urlunsplit(parts._replace(scheme='https'))
+        if url not in result:
+            result.append(url)
+    return result
+
+
 def _body(item):
     dynamic = (item.get('modules') or {}).get('module_dynamic') or {}
     major = dynamic.get('major') or {}
@@ -42,23 +57,28 @@ def _body(item):
     if item.get('_full_text'):
         text = item['_full_text']
     pictures = list(opus.get('pics') or []) + list((major.get('draw') or {}).get('items') or [])
-    return text, article_images(pictures, upgrade_http_hosts={'i0.hdslb.com'}), bool(not item.get('_full_text') and (desc.get('has_more') or summary.get('has_more')))
+    return text, _pictures(pictures, item.get('_full_images')), bool(not item.get('_full_text') and (desc.get('has_more') or summary.get('has_more')))
 
-def opus_text(data, uid, id):
+def opus_content(data, uid, id):
     item = data.get('item') or {}
     if str(item.get('id_str')) != str(id) or str((item.get('basic') or {}).get('uid')) != str(uid):
         raise SourceError('专栏身份与动态不匹配')
-    parts = []
+    parts, pictures = [], []
     for module in item.get('modules', []):
         if module.get('module_blocked') or module.get('module_paywall'):
             raise SourceError('专栏正文不可访问')
         title = (module.get('module_title') or {}).get('text')
         if title: parts.append(title)
         for paragraph in (module.get('module_content') or {}).get('paragraphs', []):
+            pictures += [p.get('url') for p in (paragraph.get('pic') or {}).get('pics', [])]
             text = ''.join((n.get('word') or {}).get('words') or (n.get('rich') or {}).get('text') or '' for n in (paragraph.get('text') or {}).get('nodes', []))
             if text: parts.append(text)
     if len(parts) < 2: raise SourceError('专栏正文不完整')
-    return '\n'.join(parts)
+    return {'body': '\n'.join(parts), 'images': _pictures(pictures)}
+
+
+def opus_text(data, uid, id):
+    return opus_content(data, uid, id)['body']
 
 def _video(item):
     major = ((item.get('modules') or {}).get('module_dynamic') or {}).get('major') or {}
@@ -189,7 +209,9 @@ class BilibiliClient:
                 if not _video(item) and _body(item)[2]:
                     try:
                         detail = await asyncio.wait_for(opus.Opus(int(item['id_str']), credential=self.credential).get_info(), timeout=25)
-                        item['_full_text'] = opus_text(detail, self.uid, item['id_str'])
+                        content = opus_content(detail, self.uid, item['id_str'])
+                        item['_full_text'] = content['body']
+                        item['_full_images'] = content['images']
                     except Exception:
                         logger.info("opus 全文补全失败，保留摘要")
             return data

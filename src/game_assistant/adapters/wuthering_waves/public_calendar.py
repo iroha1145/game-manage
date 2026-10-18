@@ -6,6 +6,7 @@ from pydantic import ConfigDict
 
 from game_assistant.event_calendar import BEIJING_TZ, parse_ms_or_iso, strip_html
 from game_assistant.models import GameEvent
+from game_assistant.sources.article_content import article_content, article_images
 from game_assistant.sources.public_content import VERSION, _same_event, parse_post_events, resolve_relative_starts
 
 
@@ -47,7 +48,10 @@ async def read_calendar(client, rows, title_keys):
                     published_at=stamp.isoformat() if stamp else None,
                     source='community', source_name='库街区官方公告', fetched_at=now.isoformat(),
                     url=f'https://www.kurobbs.com/forum/post/{ident}')
-        events = parse_post_events(post, 'wuthering_waves', version)
+        images = article_images(row.get('coverUrl'), detail.get('coverUrl'),
+                                article_content(detail.get('postH5Content'))['images'])
+        events = [{**event, 'image_urls': images}
+                  for event in parse_post_events(post, 'wuthering_waves', version)]
         if not events and not allow_empty:
             raise ValueError('public calendar notice has no dated events')
         return post, events
