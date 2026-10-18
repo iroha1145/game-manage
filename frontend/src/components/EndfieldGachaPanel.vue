@@ -4,6 +4,7 @@ import { isCloudMode } from '../http-client.js'
 import { fetchedLabel } from '../time.js'
 import { exportRecords, getRecords, pityParts, pullDate, pullDay, rarityLabel } from '../endfield-gacha-api.js'
 import { gachaPools, latestPoolIndex, poolSpans, poolTotal, recentSixStars, sixPullsParts } from '../endfield-gacha-summary.js'
+import { gachaArtwork } from '../endfield-reports.js'
 import { vReveal } from '../motion.js'
 import AppIcon from './AppIcon.vue'
 import BarChart from './BarChart.vue'
@@ -132,7 +133,7 @@ async function download() {
           <h3 class="eg-title">最近的 6★</h3>
           <HRail label="最近的 6★ 记录">
             <article v-for="(item, index) in recent" :key="`${item.pool_key}:${index}`" class="six-card" :class="{ latest: index === 0 }" :title="`${item.pool_name || item.pool_label} · ${pullDate(item.obtained_at)}`">
-              <div class="six-top"><EndfieldArtwork role :name="item.name || '未知'" /><span v-if="index === 0" class="six-badge">最新</span></div>
+              <div class="six-top"><EndfieldArtwork :src="gachaArtwork(item, item.pool_kind)" :name="item.name || '未知'" /><span v-if="index === 0" class="six-badge">最新</span></div>
               <strong class="six-name">{{ item.name || '未知' }}</strong>
               <b class="six-pulls"><template v-if="sixPullsParts(item)">{{ sixPullsParts(item).prefix }}{{ sixPullsParts(item).count }}<small>{{ sixPullsParts(item).unit }}</small></template><template v-else>未知</template></b>
               <span class="six-meta">{{ item.pool_name || item.pool_label }} · {{ pullDay(item.obtained_at) }}</span>
@@ -164,7 +165,7 @@ async function download() {
           <p class="notice history-coverage">6★ 历史：最近 {{ pool.history_available }} 条 / 账本 {{ pool.history_total ?? '未知' }} 条<span v-if="pool.history_limit != null"> · 最多展示 {{ pool.history_limit }} 条</span></p>
           <p v-if="pool.history_truncated === true" class="notice">此处未展示全部 6★ 历史；展开逐条记录或导出完整已保存账本查看。</p><p v-else-if="pool.history_truncated == null" class="notice">历史覆盖范围未知。</p>
           <ul v-if="pool.history?.length" class="chip-list" :aria-label="`${pool.label}的 6★ 记录`">
-            <li v-for="(item, index) in pool.history" :key="index" class="chip six" :class="{ 'six-image': imageMode }" :title="`${item.pool_name || pool.label} · ${pullDate(item.obtained_at)}`"><EndfieldArtwork v-if="imageMode" role :name="item.name || '未知'" />{{ item.name || '未知' }} <b>{{ sixPullsParts(item) ? `${sixPullsParts(item).prefix}${sixPullsParts(item).count} ${sixPullsParts(item).unit}` : '未知' }}</b></li>
+            <li v-for="(item, index) in pool.history" :key="index" class="chip six" :class="{ 'six-image': imageMode }" :title="`${item.pool_name || pool.label} · ${pullDate(item.obtained_at)}`"><EndfieldArtwork v-if="imageMode" :src="gachaArtwork(item, pool.kind)" :name="item.name || '未知'" />{{ item.name || '未知' }} <b>{{ sixPullsParts(item) ? `${sixPullsParts(item).prefix}${sixPullsParts(item).count} ${sixPullsParts(item).unit}` : '未知' }}</b></li>
           </ul>
         </article>
       </div>

@@ -20,6 +20,16 @@ export function nteNamedIcon(bucket,name) {
   const matches=Object.entries(entries).filter(([key])=>normalized(key)===normalized(name))
   return matches.length===1 ? safeNteIcon(matches[0][1].icon) : ''
 }
+// Pulls and imported ledger rows share the same identity lookup. A known ID
+// wins over a stale label, and an explicit reward type limits the catalog.
+export function nteRewardIcon({id, name, type} = {}) {
+  const buckets = type === 'character' ? ['roles'] : type === 'arc' ? ['weapons'] : type ? [] : ['roles', 'weapons']
+  const entries = buckets.flatMap(bucket => Object.entries(catalog[bucket] || {}))
+  const byId = id != null && String(id) !== '' ? entries.filter(([, item]) => String(item.id) === String(id)) : []
+  const matches = byId.length ? byId : name ? entries.filter(([key]) => normalized(key) === normalized(name)) : []
+  const icons = [...new Set(matches.map(([, item]) => safeNteIcon(item.icon)).filter(Boolean))]
+  return icons.length === 1 ? icons[0] : ''
+}
 export function nteSkillIcon(nameOrId,skill) {
   const id=nteRole(nameOrId)?.id || nameOrId, entries=catalog.skills[String(id)] || {}
   const exact=entries[skill] || Object.values(entries).find(entry=>entry.name===skill)

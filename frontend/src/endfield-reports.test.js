@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { selectOperators, selectMedals, profileReport, operatorImage, operatorArtwork, rarityParts, phaseParts, medalCategoryParts, recentMedals, platedSummary } from './endfield-reports.js'
+import { selectOperators, selectMedals, profileReport, operatorImage, operatorArtwork, gachaArtwork, rarityParts, phaseParts, medalCategoryParts, recentMedals, platedSummary } from './endfield-reports.js'
 
 test('operator filters combine name rarity and profession; stable numeric sorting preserves zero and unknown last', () => {
   const items = [{ id:'missing',name:'未知',rarity:6,profession:'近卫' },{id:'zero',name:'管理员零',level:0,rarity:6,profession:'近卫'},
@@ -128,4 +128,16 @@ test('recent medals need a real acquisition time and come newest first', () => {
 test('plating counts separate reported false from not reported', () => {
   assert.deepEqual(platedSummary([{ is_plated: true }, { is_plated: false }, {}, { is_plated: 'yes' }]), { plated: 1, known: 2, listed: 4 })
   assert.deepEqual(platedSummary(undefined), { plated: 0, known: 0, listed: 0 })
+})
+
+test('gacha artwork uses the exact weapon catalog without borrowing operator images', () => {
+  assert.match(gachaArtwork({name:'破碎君王'},'weapon'), /^https:\/\/bbs\.hycdn\.cn\/image\/.+\.png$/)
+  assert.match(gachaArtwork({name:'玉中身'},'weapon'), /^https:\/\/bbs\.hycdn\.cn\/image\/.+\.png$/)
+  assert.notEqual(gachaArtwork({name:'玉中身'},'weapon'),gachaArtwork({name:'破碎君王'},'weapon'))
+  assert.equal(gachaArtwork({name:'祀'},'character'),operatorArtwork({name:'祀'}))
+  assert.equal(gachaArtwork({name:'祀'},'weapon'),null)
+  assert.equal(gachaArtwork({name:'破碎君王'},'character'),null)
+  assert.equal(gachaArtwork({name:'未收录武器'},'weapon'),null)
+  assert.equal(gachaArtwork({name:'破碎君王'},undefined),null)
+  assert.equal(gachaArtwork({name:'破碎'},'weapon'),null)
 })

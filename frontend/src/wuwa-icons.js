@@ -13,6 +13,16 @@ export function safeWuwaIcon(value) {
 export const characterIcon = id => safeWuwaIcon(icons.characters[String(id)]?.icon)
 export const namedIcon = (bucket, name) => safeWuwaIcon(icons[bucket]?.[name]?.icon)
 
+// Gacha imports may omit the type or localized name. Use only exact public
+// catalog identities; wiki entry IDs are not game resource IDs.
+export function gachaItemIcon(row) {
+  if (!row || row.kind === 'current_count') return ''
+  const role = () => characterIcon(row.resource_id) || namedIcon('roles', row.name)
+  if (row.resource_type === '武器') return namedIcon('weapons', row.name)
+  if (row.resource_type === '角色') return role()
+  return role() || namedIcon('weapons', row.name)
+}
+
 const skillAliases = {
   固有技能: '固有技能', 共鸣回路: '共鸣回路', 回路: '共鸣回路',
   共鸣解放: '共鸣解放', 解放: '共鸣解放', 共鸣技能: '共鸣技能', 技能: '共鸣技能',

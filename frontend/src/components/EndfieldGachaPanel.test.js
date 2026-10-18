@@ -136,3 +136,22 @@ test('QQ six-star pool history retains exact operator artwork and unknown names 
  const web=mount(t,Panel,{snap:{payload:{...summary,pools:[{...summary.pools[0],history}]}}})
  assert.equal(nodes(web,'li').filter(n=>String(n.props.class).includes('six-image')).length,0)
 })
+
+test('recent and image-mode histories show weapons by pool kind and retain fallback names', async t => {
+  const weaponPool = { ...summary.pools[0],key:'weapon:sample',kind:'weapon',label:'武库申领',
+    history:[{name:'破碎君王',pulls:12,status:'exact',obtained_at:1792000000000},
+      {name:'玉中身',pulls:0,status:'lower_bound',obtained_at:1791900000000}] }
+  const characterPool = {...summary.pools[0],history:[{name:'祀',pulls:18,status:'lower_bound',obtained_at:1791800000000}]}
+  const props = {accountId:'r1',snap:{payload:{...summary,pools:[weaponPool,characterPool]}}}
+  const root = mount(t,Panel,props)
+  const cards = by(root,'article','six-card')
+  assert.deepEqual(cards.map(card=>nodes(card,'img')[0]?.props.alt),['破碎君王','玉中身','祀'])
+  assert.ok(nodes(cards[0],'img')[0].props.src.startsWith('https://bbs.hycdn.cn/image/'))
+  assert.match(content(cards[1]),/玉中身 ≥0 抽/)
+  nodes(cards[0],'img')[0].props.onError()
+  await nextTick()
+  assert.equal(nodes(cards[0],'img').length,0)
+  assert.match(content(cards[0]),/破碎君王/)
+  const shared = mount(t,Panel,{...props,imageMode:true})
+  assert.deepEqual(nodes(shared,'img').map(image=>image.props.alt),['破碎君王','玉中身','祀'])
+})

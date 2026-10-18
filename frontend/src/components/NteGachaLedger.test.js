@@ -123,10 +123,25 @@ test('rule editor uses the reset reward the backend requires and skips the myste
   assert.match(content(root), /S 弧盘/)
 })
 
-test('QQ ledger maps only exact reward names or IDs to artwork and preserves unknown rewards',t=>{
+test('QQ ledger maps reward names or IDs to artwork and preserves unknown rewards',t=>{
  const records=[{uid:'a',reward_name:'早雾'},{uid:'b',reward_id:'fork_yuren'},{uid:'c',reward_name:'勿 忘伞'},{uid:'d',reward_name:'未收录物品'}]
  const root=mount(t,Panel,{imageMode:true,snapshot:{total_records:4,pools:[],records}})
- assert.deepEqual(nodes(root,'img').map(n=>n.props.src),['https://webstatic.tajiduo.com/bbs/pic/player_003_256.png','https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/fork_yuren.png'])
+ assert.deepEqual(nodes(root,'img').map(n=>n.props.src),['https://webstatic.tajiduo.com/bbs/pic/player_003_256.png','https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/fork_yuren.png','https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/fork_yuren.png'])
  for(const text of ['早雾','fork_yuren','勿 忘伞','未收录物品'])assert.ok(content(root).includes(text))
  assert.equal(nodes(root,'td').length,24)
+})
+
+test('QQ ledger keeps reward types separate and uses identity before a stale name', t => {
+ const records=[
+  {uid:'a',reward_type:'arc',reward_name:'勿忘伞'},
+  {uid:'b',reward_type:'character',reward_id:'1057',reward_name:'旧名称'},
+  {uid:'c',reward_type:'item',reward_name:'早雾'},
+  {uid:'d',reward_type:'arc',reward_name:'早雾'},
+ ]
+ const root=mount(t,Panel,{imageMode:true,snapshot:{total_records:4,pools:[],records}})
+ assert.deepEqual(nodes(root,'img').map(n=>n.props.src),[
+  'https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/fork_yuren.png',
+  'https://webstatic.tajiduo.com/bbs/pic/player_057_256.png',
+ ])
+ assert.match(content(root),/勿忘伞.*旧名称.*早雾.*早雾/)
 })

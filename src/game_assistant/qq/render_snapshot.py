@@ -22,6 +22,7 @@ ROLE |= frozenset('item_id item_results partial partial_known_total display_mode
 NTE_OVERVIEW = frozenset('id name level quality element awaken_level mix_level affinity_exp icon_url'.split())
 GACHA = frozenset('schema_version pools details name id item_id total_draws s_count average guarantee luck_title luck_type lucky_type pity obtained_at total gold_total items gold pool coverage earliest latest imported_at source message failed_pools state total rarity_distribution rank rarity time timestamp quantity reward_name reward_id reward_rank pool_group_id result_type pool_id total_pulls hard_pity_remaining rule_basis as_of latest_record_at basis missing_requirements total_records records counts complete'.split())
 GACHA |= frozenset('aggregates five_star_total period_count kind source_time time_basis diagnostics segment_count latest_confirmed continuity_confirmed warnings rule_version up_guarantee count status limit offset'.split())
+GACHA |= frozenset('resource_id resource_type reward_type'.split())
 
 # Named business fields used by the corresponding website components. Raw
 # evolving dictionaries and account identity fields are never copied wholesale.
@@ -374,7 +375,8 @@ def asset_requests(node):
     """Safe URL/mode pairs for mounted image fields and reviewed catalog fallbacks.
 
     Only the whitelisted display projection is inspected. Catalog matches use
-    exact public entity names/IDs, never account IDs, fuzzy titles or URL guesses.
+    public entity names/IDs and the NTE frontend's reviewed name normalization,
+    never account IDs, fuzzy titles or URL guesses.
     """
     from .public_asset_catalog import CATALOG
     seen=set()
@@ -386,13 +388,23 @@ def asset_requests(node):
             pair=(safe,mode)
             if pair not in seen:seen.add(pair);yield pair
     def catalogs(value,game,role_ids,include_portrait=False):
+        if value.get('kind')=='current_count':return
         catalog=CATALOG['games'].get(game,{})
-        names=[str(value[key]) for key in ('name','role_name','weapon_name','reward_name','char_name','id','role_id','char_id','charId','item_id','reward_id')
+        names=[str(value[key]) for key in ('name','role_name','weapon_name','reward_name','char_name','id','role_id','char_id','charId','item_id','reward_id','resource_id')
                if type(value.get(key)) in (str,int)]
         for bucket,entries in catalog.items():
             if bucket=='skill' or bucket=='portrait' and not include_portrait:continue
+            if game=='nte' and value.get('reward_type') and bucket in ('role','weapon'):
+                reward_kind={'character':'role','arc':'weapon'}.get(value['reward_type']) if isinstance(value['reward_type'],str) else None
+                if bucket!=reward_kind:continue
+            if game=='wuthering_waves' and value.get('resource_type') in ('角色','武器') and bucket in ('role','weapon'):
+                if bucket!={'角色':'role','武器':'weapon'}[value['resource_type']]:continue
             for name in names:
                 url=entries.get(name)
+                if not url and game=='nte' and bucket in ('role','weapon'):
+                    normalized=re.sub(r'[·：:\s「」『』]','',name)
+                    matches={image for label,image in entries.items() if re.sub(r'[·：:\s「」『』]','',label)==normalized}
+                    if len(matches)==1:url=next(iter(matches))
                 if url:yield from emit(url,'portrait' if bucket=='portrait' else 'icon')
         skill=catalog.get('skill',{})
         for role in role_ids:

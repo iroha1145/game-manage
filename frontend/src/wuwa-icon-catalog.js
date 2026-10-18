@@ -1,12 +1,16 @@
 // Public names and icon URLs only. See docs/wuwa-guides.md for provenance.
 export default {
-  "updatedAt": "2026-09-26",
+  "updatedAt": "2026-10-18",
   "sources": [
     "https://wiki.kurobbs.com",
     "https://api.kurobbs.com/wiki/core/catalogue/item/getPage",
     "https://api.kurobbs.com/aki/roleBox/akiBox/getRoleDetail"
   ],
   "roles": {
+    "莉莉": {
+      "icon": "https://prod-alicdn-community.kurobbs.com/forum/925568129dd44f2e9d6da52ed9f3c53820261013.png",
+      "wikiEntry": "1559521973715369984"
+    },
     "景燃": {
       "icon": "https://prod-alicdn-community.kurobbs.com/forum/befddf3913ef4aa8ac6c9553847ece6b20260810.png",
       "wikiEntry": "1536352499213860864"
@@ -269,6 +273,10 @@ export default {
     }
   },
   "weapons": {
+    "玉阙玄华": {
+      "icon": "https://prod-alicdn-community.kurobbs.com/forum/aad1c5fa0fbe486893fe241c6940e60d20260929.png",
+      "wikiEntry": "1553149741704716288"
+    },
     "千般渡": {
       "icon": "https://prod-alicdn-community.kurobbs.com/forum/eac677d4231c42e59b004e628649debe20260909.png",
       "wikiEntry": "1539728419079364608"

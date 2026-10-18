@@ -129,6 +129,15 @@ export function operatorArtwork(operator, { portrait = false } = {}) {
   return matches.length === 1 ? operatorImage(matches[0].icon) : null
 }
 
+// Gacha pool identity distinguishes operators from weapons. Official wiki IDs
+// are not game item IDs, so weapon fallback uses only an exact, unique name.
+export function gachaArtwork(item, kind) {
+  if (kind === 'character') return operatorArtwork(item)
+  if (kind !== 'weapon') return null
+  const matches = Object.values(iconCatalog.weapons || {}).filter(weapon => weapon.name === item?.name)
+  return matches.length === 1 ? operatorImage(matches[0].icon) : null
+}
+
 // ── Distributions for the charts. Keys are the numeric values the source reported, as strings. ──
 const countOf = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 function countParts(counts, label, direction) {

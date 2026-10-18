@@ -6,6 +6,7 @@ import { finiteValue } from '../dashboard.js'
 import { vGlide } from '../motion.js'
 import { gachaRating, gachaTone, luckTone, officialPullIcon } from '../nte-charts.js'
 import InfoHint from './InfoHint.vue'
+import { nteRewardIcon } from '../nte-icons.js'
 
 const props = defineProps({ snap: { type: Object, default: null }, roles: { type: Array, default: () => [] }, imageMode:{type:Boolean,default:false} })
 const legacy = computed(() => props.snap?.payload && props.snap.payload.schema_version !== 1)
@@ -25,7 +26,7 @@ const fetched = computed(() => props.snap?.fetched_at ? displayBeijing(props.sna
 const roleIcons = computed(() => new Map(props.roles.map(role => [String(role.id), role.icon_url])))
 function icon(entry) {
   const id = String(entry.item_id || '')
-  for (const raw of [roleIcons.value.get(id), officialPullIcon(id)]) {
+  for (const raw of [roleIcons.value.get(id), nteRewardIcon({ id, name: entry.name }), officialPullIcon(id)]) {
     const url = safeUrl(raw)
     if (url && !failedImages.has(raw) && !failedImages.has(url)) return url
   }

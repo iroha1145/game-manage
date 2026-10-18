@@ -49,7 +49,7 @@ export const sixPullsText = item => { const parts = sixPullsParts(item); return 
 // 6★ across all pools, newest first. An unknown time sorts last; equal times keep their pool order.
 export function recentSixStars(pools, limit = Infinity) {
   const items = []
-  for (const pool of rows(pools)) for (const item of rows(pool.history)) items.push({ ...item, pool_key: pool.key, pool_label: pool.label })
+  for (const pool of rows(pools)) for (const item of rows(pool.history)) items.push({ ...item, pool_key: pool.key, pool_label: pool.label, pool_kind: pool.kind })
   return items
     .map((item, index) => ({ item, index, at: Number.isFinite(item.obtained_at) ? item.obtained_at : null }))
     .sort((a, b) => (a.at == null) - (b.at == null) || (b.at ?? 0) - (a.at ?? 0) || a.index - b.index)
