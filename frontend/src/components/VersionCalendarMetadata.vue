@@ -1,8 +1,13 @@
 <script setup>
-import { formatBeijingDateTime, safeUrl } from '../calendar.js'
+import { formatBeijingDateTime, formatBrowserDateTime, browserCalendarBoundary, safeUrl } from '../calendar.js'
 import { gameStyle } from '../dashboard.js'
 
-defineProps({ calendars:{type:Array,default:()=>[]} })
+const props = defineProps({ calendars:{type:Array,default:()=>[]}, mode:{type:String,default:'screen'} })
+const formatTime = value => (props.mode === 'image' ? formatBeijingDateTime : formatBrowserDateTime)(value)
+function versionBoundary(version,side) {
+  if (!version[side+'_at'] && !version[side+'_date']) return '未知'
+  return props.mode === 'image' ? version[side+'_at'] ? formatBeijingDateTime(version[side+'_at']) : version[side+'_date'] : browserCalendarBoundary(version,side,true)
+}
 const gameAccent = id => gameStyle(id === 'lol' ? 'league_of_legends' : id).color
 const versionLabel = version => version.id ? `${version.id}版本活动` : '已公布活动'
 function sources(calendar) {
@@ -17,10 +22,10 @@ function sources(calendar) {
 <template>
   <section v-for="calendar in calendars" :key="calendar.key" class="version-metadata" :style="{'--game-accent':gameAccent(calendar.gameId)}">
     <h3>{{ calendar.gameName }} · {{ versionLabel(calendar.version) }}</h3>
-    <p>版本开放：{{ calendar.version.start_date || '未知' }}；版本结束：{{ calendar.version.end_at ? formatBeijingDateTime(calendar.version.end_at) : calendar.version.end_date || '未知' }}</p>
+    <p>版本开放：{{ versionBoundary(calendar.version,'start') }}；版本结束：{{ versionBoundary(calendar.version,'end') }}</p>
     <p>{{ calendar.version.source_stale ? '数据可能过期。' : '' }}{{ calendar.version.coverage === 'partial' ? '部分来源不可用。' : '' }}</p>
     <p v-for="diagnostic in calendar.version.diagnostics || []" :key="diagnostic">{{ diagnostic.replace('有界来源列表可能遗漏公告', '公告列表可能遗漏补充内容') }}</p>
-    <div class="version-sources"><strong>来源与读取状态</strong><p v-for="source in sources(calendar)" :key="source.key"><strong>{{ source.name }}</strong> · <a v-if="source.url" :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }}</a><span v-else>{{ source.title }}</span>{{ source.stale ? ' · 数据可能过期' : '' }} · 更新于 {{ formatBeijingDateTime(source.fetchedAt) }}</p></div>
+    <div class="version-sources"><strong>来源与读取状态</strong><p v-for="source in sources(calendar)" :key="source.key"><strong>{{ source.name }}</strong> · <a v-if="source.url" :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }}</a><span v-else>{{ source.title }}</span>{{ source.stale ? ' · 数据可能过期' : '' }} · 更新于 {{ formatTime(source.fetchedAt) }}</p></div>
   </section>
 </template>
 <style scoped>

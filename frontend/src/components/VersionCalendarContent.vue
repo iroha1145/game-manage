@@ -2,13 +2,14 @@
 import { computed } from 'vue'
 import CalendarTimelineContent from './CalendarTimelineContent.vue'
 import VersionCalendarMetadata from './VersionCalendarMetadata.vue'
-import { formatBeijingDateTime, versionCalendarRange } from '../calendar.js'
+import { formatBeijingDateTime, versionCalendarRange, formatBrowserDateTime, browserVersionCalendarRange } from '../calendar.js'
 
 const props = defineProps({ calendars:{type:Array,default:()=>[]}, snapshots:{type:Object,default:()=>({})}, asOf:{type:Number,required:true}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showSourceDetails:{type:Boolean,default:true} })
 defineEmits(['select'])
 const events = computed(() => props.calendars.flatMap(calendar => calendar.events))
-const range = computed(() => versionCalendarRange(events.value, props.asOf))
-const dateLabel = range => `${formatBeijingDateTime(range.start).slice(0,10)} — ${formatBeijingDateTime(range.end-1).slice(0,10)}`
+const range = computed(() => (props.mode === 'image' ? versionCalendarRange : browserVersionCalendarRange)(events.value, props.asOf))
+const formatTime = value => (props.mode === 'image' ? formatBeijingDateTime : formatBrowserDateTime)(value)
+const dateLabel = range => `${formatTime(range.start).slice(0,10)} — ${formatTime(range.end-1).slice(0,10)}`
 </script>
 <template>
   <div class="version-calendars" :class="{'image-mode':mode==='image'}">
@@ -18,7 +19,7 @@ const dateLabel = range => `${formatBeijingDateTime(range.start).slice(0,10)} �
     <section class="version-window-content">
       <CalendarTimelineContent :events="events" :snapshots="snapshots" :range="range" :as-of="asOf" range-mode="version" :mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="(event,interaction)=>$emit('select',event,interaction)" />
     </section>
-    <details v-if="mode !== 'image' && showSourceDetails && calendars.length" class="version-details" data-render-collapsed><summary>数据来源详情</summary><VersionCalendarMetadata :calendars="calendars" /></details>
+    <details v-if="mode !== 'image' && showSourceDetails && calendars.length" class="version-details" data-render-collapsed><summary>数据来源详情</summary><VersionCalendarMetadata :calendars="calendars" :mode="mode" /></details>
   </div>
 </template>
 <style scoped>

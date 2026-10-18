@@ -25,3 +25,19 @@ test('empty or unsafe artwork has no image request', t => {
   const root=mount(t,ArtworkImage,{candidates:['data:image/png,bad']})
   assert.equal(nodes(root,'img').length,0)
 })
+
+
+test('an unchanged candidate retries only when an explicit snapshot boundary changes', async t => {
+  const url='https://i0.hdslb.com/bfs/new_dyn/142523d4e14d0798078580892d98674d1955897084.jpg'
+  const props=reactive({candidates:[url],retryKey:{fetched_at:'same-cached-source'}})
+  const root=mount(t,ArtworkImage,props)
+  nodes(root,'img')[0].props.onError();await nextTick()
+  assert.equal(nodes(root,'img').length,0)
+  props.candidates=[url];await nextTick()
+  assert.equal(nodes(root,'img').length,0,'ordinary parent renders do not retry exhausted URLs')
+  props.retryKey={fetched_at:'same-cached-source'};await nextTick()
+  assert.equal(nodes(root,'img')[0].props.src,url,'an explicit snapshot reread retries even when its timestamp is unchanged')
+  nodes(root,'img')[0].props.onError();await nextTick()
+  props.retryKey.fetched_at='mutated-in-place';await nextTick()
+  assert.equal(nodes(root,'img').length,0,'the retry boundary watches snapshot replacement, not nested changes')
+})

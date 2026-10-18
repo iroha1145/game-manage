@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { nextTick, reactive } from 'vue'
-import { calendarRange, formatBeijingDateTime } from '../calendar.js'
+import { browserCalendarRange as calendarRange, formatBrowserDateTime as formatBeijingDateTime } from '../calendar.js'
 import { loadVue, mount, content, nodes } from '../test-utils/vue.js'
 
 const CalendarPage = await loadVue(new URL('./CalendarPage.vue', import.meta.url))
@@ -66,7 +66,7 @@ test('calendar filters by initial game, keeps unknown events and exposes accessi
   await trigger.props.onClick()
   await nextTick()
   assert.match(content(root), /版本公告/)
-  assert.match(content(root), /2026-09-14 10:00/)
+  assert.ok(content(root).includes(formatBeijingDateTime('2026-09-14T10:00:00+08:00')))
   assert.ok(nodes(root, 'section').some(n => n.props['aria-labelledby'] === 'calendar-detail-title'))
   props.initialGameId = 'lol'
   await nextTick()
@@ -85,7 +85,7 @@ test('an event ending before the next version update shows the notice wording un
   assert.equal(content(nodes(boundary(),'dd')[0]), '版本更新维护前')
   props.snapshots = events('2026-10-15T06:00:00+08:00')
   await nextTick(); await open()
-  assert.match(content(nodes(boundary(),'dd')[0]), /2026-10-15 06:00/)
+  assert.equal(content(nodes(boundary(),'dd')[0]),formatBeijingDateTime('2026-10-15T06:00:00+08:00'))
   assert.match(content(boundary()), /时刻取自下个版本的维护预告/)
 })
 

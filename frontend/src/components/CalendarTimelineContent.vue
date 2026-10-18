@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import GameIcon from './GameIcon.vue'
 import ArtworkImage from './ArtworkImage.vue'
 import { eventArtwork } from '../event-artwork.js'
-import { beijingDayStart, eventGeometry, eventStatus } from '../calendar.js'
+import { beijingDayStart, eventGeometry, eventStatus, browserDayStart, browserEventGeometry, browserEventStatus, browserCalendarPosition } from '../calendar.js'
 import { presentationGroups, activityBoundaryDays } from '../calendar-presentation.js'
 import { useCalendarPan } from '../calendar-pan.js'
 import { gameStyle, gameVars } from '../dashboard.js'
@@ -23,22 +23,24 @@ watch([
     viewport.value.scrollTop = 0
   }
 }, { flush:'post' })
-const today = computed(() => beijingDayStart(props.asOf))
-const todayPosition = computed(() => props.range ? (props.asOf-props.range.start)/(props.range.end-props.range.start)*100 : 0)
+const dayStart = value => props.mode === 'image' ? beijingDayStart(value) : browserDayStart(value)
+const position = time => props.mode === 'image' ? (time-props.range.start)/(props.range.end-props.range.start)*100 : browserCalendarPosition(time,props.range)
+const today = computed(() => dayStart(props.asOf))
+const todayPosition = computed(() => props.range ? position(props.asOf) : 0)
 const todayVisible = computed(() => props.range && props.asOf>=props.range.start && props.asOf<props.range.end)
 const events = computed(() => props.events.map(event => {
-  const geometry = eventGeometry(event, props.range || {start:props.asOf,end:props.asOf+86400000})
-  const status = eventStatus(event,props.asOf)
+  const geometry = (props.mode === 'image' ? eventGeometry : browserEventGeometry)(event, props.range || {start:props.asOf,end:props.asOf+86400000})
+  const status = (props.mode === 'image' ? eventStatus : browserEventStatus)(event,props.asOf)
   let elapsed=null, remainingDays=null
   if (geometry.kind==='range' && status==='进行中' && props.range) {
     const start=Math.max(geometry.start,props.range.start), end=Math.min(geometry.end,props.range.end)
-    if (end>start) elapsed=Math.min(100,Math.max(0,(props.asOf-start)/(end-start)*100))
+    if (end>start) elapsed=Math.min(100,Math.max(0,(position(props.asOf)-position(start))/(position(end)-position(start))*100))
     remainingDays=Math.max(0,Math.ceil((geometry.end-props.asOf)/86400000))
   }
   return {...event,geometry,status,elapsed,remainingDays}
 }))
 const groups = computed(() => presentationGroups(events.value.filter(event => event.geometry.visible), props.mode))
-const boundaryDays = computed(() => props.mode === 'image' ? new Set() : activityBoundaryDays(events.value))
+const boundaryDays = computed(() => props.mode === 'image' ? new Set() : activityBoundaryDays(events.value,dayStart))
 const undated = computed(() => props.showUnplaced ? events.value.filter(event => event.geometry.kind==='undated') : [])
 const invalid = computed(() => props.showUnplaced ? events.value.filter(event => event.geometry.kind==='invalid') : [])
 const gameAccent = id => gameStyle(id==='lol' ? 'league_of_legends' : id).color
@@ -74,8 +76,8 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
                 <div v-if="todayVisible" class="today-line" :style="{ left: `${todayPosition}%` }" aria-hidden="true" />
                 <div v-for="event in group.events" :key="event.id" class="event-lane" data-render-block>
                   <component :is="mode === 'image' ? 'article' : 'button'" :type="mode === 'image' ? undefined : 'button'" class="timeline-event" :class="{ 'is-point': event.geometry.kind === 'point', 'is-short': event.geometry.kind === 'range' && event.geometry.width < 30, 'label-left': event.geometry.left >= 50, 'is-ended': event.status === '已结束', 'clipped-start': event.geometry.clippedStart, 'clipped-end': event.geometry.clippedEnd, 'is-selected': selectedId === event.id }" :style="barStyle(event)" :title="eventDescription(event)" :aria-label="`查看活动详情：${event.name || '未命名活动'}`" :aria-pressed="mode === 'image' ? undefined : selectedId === event.id" @click="selectEvent(event, $event)">
-                    <ArtworkImage v-if="mode !== 'image' && event.geometry.kind === 'range'" class="event-artwork" :candidates="eventArtwork(event, snapshots)" decorative /><template v-if="event.geometry.kind === 'range'"><i v-if="event.elapsed != null" class="event-elapsed" :style="{width:`${event.elapsed}%`}" aria-hidden="true" /><span class="event-summary"><span class="event-heading"><span class="event-bar-title">{{ event.geometry.clippedStart ? '‹ ' : '' }}{{ event.name || '未命名活动' }}{{ event.geometry.clippedEnd ? ' ›' : '' }}</span><small class="event-category">{{ event.category }}</small><small class="event-status">{{ stateLabel(event) }}</small><small v-if="event.remainingDays != null" class="event-remaining" :class="{urgent:event.remainingDays<=3}">剩 {{ event.remainingDays }} 天</small></span></span></template>
-                    <template v-else><span class="point-diamond" aria-hidden="true" /><span class="point-label" :class="{ 'point-label-left': event.geometry.left >= 50 }"><ArtworkImage v-if="mode !== 'image'" class="point-artwork" :candidates="eventArtwork(event, snapshots)" decorative /><span class="event-heading"><strong>{{ event.name || '未命名活动' }}</strong><small class="event-category">{{ event.category }}</small><small class="event-status">{{ stateLabel(event) }}</small></span></span></template>
+                    <ArtworkImage v-if="mode !== 'image' && event.geometry.kind === 'range'" class="event-artwork" :candidates="eventArtwork(event, snapshots)" :retry-key="snapshots[event.gameId]?.events" decorative /><template v-if="event.geometry.kind === 'range'"><i v-if="event.elapsed != null" class="event-elapsed" :style="{width:`${event.elapsed}%`}" aria-hidden="true" /><span class="event-summary"><span class="event-heading"><span class="event-bar-title">{{ event.geometry.clippedStart ? '‹ ' : '' }}{{ event.name || '未命名活动' }}{{ event.geometry.clippedEnd ? ' ›' : '' }}</span><small class="event-category">{{ event.category }}</small><small class="event-status">{{ stateLabel(event) }}</small><small v-if="event.remainingDays != null" class="event-remaining" :class="{urgent:event.remainingDays<=3}">剩 {{ event.remainingDays }} 天</small></span></span></template>
+                    <template v-else><span class="point-diamond" aria-hidden="true" /><span class="point-label" :class="{ 'point-label-left': event.geometry.left >= 50 }"><ArtworkImage v-if="mode !== 'image'" class="point-artwork" :candidates="eventArtwork(event, snapshots)" :retry-key="snapshots[event.gameId]?.events" decorative /><span class="event-heading"><strong>{{ event.name || '未命名活动' }}</strong><small class="event-category">{{ event.category }}</small><small class="event-status">{{ stateLabel(event) }}</small></span></span></template>
                   </component>
                 </div>
               </div>
@@ -85,7 +87,7 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
         </div>
       </div>
     <p v-if="!range && !events.length" class="calendar-empty">{{ emptyTitle }}</p>
-<section v-if="undated.length || invalid.length" class="calendar-unplaced" aria-label="待确认的时间"><div class="unplaced-heading"><h2>待确认的时间</h2></div><div class="unplaced-grid"><div v-for="bucket in [{ title: '日期未提供', events: undated }, { title: '日期异常', events: invalid }]" v-show="bucket.events.length" :key="bucket.title" class="unplaced-bucket"><h3>{{ bucket.title }} <span>{{ bucket.events.length }}</span></h3><component :is="mode === 'image' ? 'article' : 'button'" v-for="event in bucket.events" :key="event.id" data-render-block :type="mode === 'image' ? undefined : 'button'" class="unplaced-event" :aria-label="`查看活动详情：${event.name || '未命名活动'}`" @click="selectEvent(event, $event)"><ArtworkImage v-if="mode !== 'image'" class="unplaced-artwork" :candidates="eventArtwork(event, snapshots)" decorative /><span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.category }} · {{ stateLabel(event) }}</small></span></component></div></div></section>
+<section v-if="undated.length || invalid.length" class="calendar-unplaced" aria-label="待确认的时间"><div class="unplaced-heading"><h2>待确认的时间</h2></div><div class="unplaced-grid"><div v-for="bucket in [{ title: '日期未提供', events: undated }, { title: '日期异常', events: invalid }]" v-show="bucket.events.length" :key="bucket.title" class="unplaced-bucket"><h3>{{ bucket.title }} <span>{{ bucket.events.length }}</span></h3><component :is="mode === 'image' ? 'article' : 'button'" v-for="event in bucket.events" :key="event.id" data-render-block :type="mode === 'image' ? undefined : 'button'" class="unplaced-event" :aria-label="`查看活动详情：${event.name || '未命名活动'}`" @click="selectEvent(event, $event)"><ArtworkImage v-if="mode !== 'image'" class="unplaced-artwork" :candidates="eventArtwork(event, snapshots)" :retry-key="snapshots[event.gameId]?.events" decorative /><span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.category }} · {{ stateLabel(event) }}</small></span></component></div></div></section>
   </div>
 </template>
 <style scoped>
@@ -215,7 +217,7 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .group-category { display:block; margin-top:7px; color:var(--game-accent); font-size:12px; font-weight:600; line-height:1.5; }
 .calendar-content:not(.image-mode) .event-lane:has(.event-artwork) { min-height:80px; padding-bottom:8px; }
 .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) { min-height:72px; padding:10px 13px; color:#fff; background:#18212b; }
-.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork)::before { inset:0; width:auto; border-radius:inherit; background:linear-gradient(90deg,rgba(7,13,22,.94) 0%,rgba(7,13,22,.86) 28%,rgba(7,13,22,.46) 60%,rgba(7,13,22,.05) 100%); z-index:1; }
+.calendar-content:not(.image-mode) .timeline-event:has(.event-artwork)::before { inset:0; width:auto; border-radius:inherit; background:linear-gradient(90deg,rgba(7,13,22,.78) 0%,rgba(7,13,22,.58) 28%,rgba(7,13,22,.18) 60%,rgba(7,13,22,.04) 100%); z-index:1; }
 .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-artwork { object-position:center 38%; }
 .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-summary { width:min(300px,76%); z-index:2; text-shadow:0 1px 3px #000; }
 .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-heading { gap:5px; }
@@ -225,7 +227,7 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-remaining { color:#fff; background:rgba(5,12,22,.8); border:1px solid rgba(255,255,255,.24); border-radius:4px; padding:1px 5px; font-size:11px; white-space:normal; }
 .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) .event-elapsed { opacity:.2; }
 .calendar-content:not(.image-mode) .timeline-event.is-short:has(.event-artwork) { padding-inline:0; }
-.calendar-content:not(.image-mode) .timeline-event.is-short:has(.event-artwork) .event-summary { width:min(280px,42cqw); background:rgba(11,19,30,.95); border-radius:5px; padding:5px 7px; left:4px; }
+.calendar-content:not(.image-mode) .timeline-event.is-short:has(.event-artwork) .event-summary { width:min(280px,42cqw); background:rgba(11,19,30,.35); border-radius:5px; padding:5px 7px; left:4px; }
 .calendar-content:not(.image-mode) .timeline-event.is-short.label-left:has(.event-artwork) .event-summary { left:100%; transform:translateX(-100%); }
 .calendar-content:not(.image-mode) .timeline-event.is-ended:has(.event-artwork) { opacity:.88; }
 

@@ -8,7 +8,7 @@ import VersionCalendarMetadata from './VersionCalendarMetadata.vue'
 import AppIcon from './AppIcon.vue'
 import MenuSelect from './MenuSelect.vue'
 import DonutChart from './DonutChart.vue'
-import { DAY_MS, calendarRange, calendarBoundary, collectCalendarEvents, collectVersionCalendars, eventGeometry, eventStatus, formatBeijingDateTime, versionCalendarRange, safeUrl, shiftCalendarAnchor } from '../calendar.js'
+import { DAY_MS, browserTimeZone, browserCalendarRange, browserCalendarBoundary, collectCalendarEvents, collectVersionCalendars, browserEventGeometry, browserEventStatus, formatBrowserDateTime, browserVersionCalendarRange, safeUrl, shiftBrowserCalendarAnchor } from '../calendar.js'
 import { gameStyle, gameVars as themeVars } from '../dashboard.js'
 import { prefersReducedMotion, vGlide, vReveal } from '../motion.js'
 import { collectionState, hasFreshPublicFallback } from '../snapshot-state.js'
@@ -22,6 +22,7 @@ const props = defineProps({
   readErrors: { type: Object, default: () => ({}) },
   showSourceStatus: { type:Boolean, default:false },
 })
+const timeZone = browserTimeZone()
 const now = ref(Date.now())
 const anchor = ref(now.value)
 const mode = ref('version')
@@ -60,13 +61,13 @@ watch(() => props.initialGameId, (id) => { filter.value = id === 'all' ? '' : id
 watch(filter, () => { selectedId.value = null })
 
 const versionCalendars = computed(() => collectVersionCalendars(props.games, props.snapshots, filter.value, now.value))
-const range = computed(() => mode.value === 'version' ? versionCalendarRange(versionCalendars.value.flatMap(c => c.events), now.value) || calendarRange(anchor.value, 'rolling') : calendarRange(anchor.value, mode.value))
+const range = computed(() => mode.value === 'version' ? browserVersionCalendarRange(versionCalendars.value.flatMap(c => c.events), now.value) || browserCalendarRange(anchor.value, 'rolling') : browserCalendarRange(anchor.value, mode.value))
 const rangeTitle = computed(() => mode.value === 'version' ? '版本活动汇总' : mode.value === 'month'
-  ? formatBeijingDateTime(range.value.start).slice(0, 7).replace('-', ' 年 ') + ' 月'
-  : `${formatBeijingDateTime(range.value.start).slice(5, 10)} — ${formatBeijingDateTime(range.value.end - 1).slice(5, 10)}`)
+  ? formatBrowserDateTime(range.value.start).slice(0, 7).replace('-', ' 年 ') + ' 月'
+  : `${formatBrowserDateTime(range.value.start).slice(5, 10)} — ${formatBrowserDateTime(range.value.end - 1).slice(5, 10)}`)
 const events = computed(() => (mode.value === 'version' ? versionCalendars.value.flatMap(c => c.events) : collectCalendarEvents(props.games, props.snapshots, filter.value)).map(event => {
-  const geometry = eventGeometry(event, range.value)
-  const status = eventStatus(event, now.value)
+  const geometry = browserEventGeometry(event, range.value)
+  const status = browserEventStatus(event, now.value)
   return {...event, geometry, status}
 }))
 const visibleEvents = computed(() => mode.value === 'version' ? events.value : events.value.filter(event => event.geometry.visible))
@@ -104,7 +105,7 @@ const agenda = computed(() => [
   ...visibleEvents.value.filter(event => event.status === '进行中' && event.geometry.end != null).sort((a, b) => a.geometry.end - b.geometry.end),
   ...visibleEvents.value.filter(event => event.status === '未开始').sort((a, b) => (a.geometry.start ?? Infinity) - (b.geometry.start ?? Infinity)),
 ].slice(0, 6))
-function shift(direction) { anchor.value = shiftCalendarAnchor(anchor.value, mode.value, direction) }
+function shift(direction) { anchor.value = shiftBrowserCalendarAnchor(anchor.value, mode.value, direction) }
 function goToday() { now.value = Date.now(); anchor.value = now.value }
 function setMode(value) { mode.value = value }
 async function selectEvent(event, interaction) {
@@ -128,7 +129,7 @@ async function closeDetail() {
   <div class="calendar-page">
     <header class="page-heading">
       <div class="page-heading-copy"><h1>活动日历</h1></div>
-      <div class="page-meta calendar-timezone"><AppIcon name="clock" :size="14" /> 北京时间</div>
+      <div class="page-meta calendar-timezone"><AppIcon name="clock" :size="14" /> {{ timeZone }}</div>
     </header>
 
     <div class="calendar-layout">
@@ -157,15 +158,15 @@ async function closeDetail() {
       <aside class="calendar-aside">
         <section v-if="selected" ref="detailElement" class="calendar-detail t-panel" aria-labelledby="calendar-detail-title" tabindex="-1" :style="gameVars(selected.gameId)" @keydown.esc.stop="closeDetail">
           <div class="detail-heading"><div><p class="eyebrow">{{ selected.gameName }} / {{ selected.category }}</p><h2 id="calendar-detail-title">{{ selected.name || '未命名活动' }}</h2></div><button type="button" class="detail-close" aria-label="关闭活动详情" @click="closeDetail"><AppIcon name="close" :size="16" /></button></div>
-          <ArtworkImage class="detail-artwork" :candidates="eventArtwork(selected, snapshots)" :alt="`${selected.name || '活动'}配图`" /><div class="detail-status"><span>{{ selected.status }}</span><span v-if="selected.geometry.reason">{{ selected.geometry.reason }}</span><span v-if="selected.stale" class="calendar-stale">数据可能过期</span></div>
-          <dl><div><dt>开始时间</dt><dd>{{ calendarBoundary(selected, 'start') }}</dd><small v-if="selected.geometry.approximateStart">仅知开始日期 {{ selected.start_date }}，具体时刻未知</small></div><div><dt>截止时间</dt><dd>{{ calendarBoundary(selected, 'end') }}</dd><small v-if="selected.end_at && selected.end_precision === 'version_end'">{{ selected.end_text }}，时刻取自下个版本的维护预告</small></div><div><dt>来源标题</dt><dd>{{ selected.source_name ? selected.source_name + ' · ' : '' }}{{ selected.source_title || '未提供' }}</dd></div><div><dt>数据更新时间</dt><dd>{{ formatBeijingDateTime(selected.fetchedAt) }}</dd></div></dl>
+          <ArtworkImage class="detail-artwork" :candidates="eventArtwork(selected, snapshots)" :retry-key="snapshots[selected.gameId]?.events" :alt="`${selected.name || '活动'}配图`" /><div class="detail-status"><span>{{ selected.status }}</span><span v-if="selected.geometry.reason">{{ selected.geometry.reason }}</span><span v-if="selected.stale" class="calendar-stale">数据可能过期</span></div>
+          <dl><div><dt>开始时间</dt><dd>{{ browserCalendarBoundary(selected, 'start') }}</dd><small v-if="selected.geometry.approximateStart">仅知开始日期 {{ selected.start_date }}，具体时刻未知</small></div><div><dt>截止时间</dt><dd>{{ browserCalendarBoundary(selected, 'end') }}</dd><small v-if="selected.end_at && selected.end_precision === 'version_end'">{{ selected.end_text }}，时刻取自下个版本的维护预告</small></div><div><dt>来源标题</dt><dd>{{ selected.source_name ? selected.source_name + ' · ' : '' }}{{ selected.source_title || '未提供' }}</dd></div><div><dt>数据更新时间</dt><dd>{{ formatBrowserDateTime(selected.fetchedAt) }}</dd></div></dl>
           <p v-if="selected.source_note" class="source-id">{{ selected.source_note }}</p>
           <a v-if="sourceUrl" :href="sourceUrl" target="_blank" rel="noopener noreferrer" class="source-link">查看原始公告 ↗</a>
         </section>
         <section v-else class="calendar-agenda" aria-labelledby="calendar-agenda-title">
           <h2 id="calendar-agenda-title" ref="agendaElement" tabindex="-1">即将截止</h2>
           <ul v-if="agenda.length" class="agenda-list">
-            <li v-for="event in agenda" :key="event.id"><button type="button" class="agenda-item" :style="gameVars(event.gameId)" @click="selectEvent(event, $event)"><ArtworkImage class="agenda-artwork" :candidates="eventArtwork(event, snapshots)" decorative /><span class="agenda-pill">{{ event.gameName }} · {{ event.status }}</span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.status === '未开始' ? `${calendarBoundary(event, 'start')} 开始` : `${calendarBoundary(event, 'end')} 截止` }}</small><AppIcon name="arrow" :size="14" /></button></li>
+            <li v-for="event in agenda" :key="event.id"><button type="button" class="agenda-item" :style="gameVars(event.gameId)" @click="selectEvent(event, $event)"><ArtworkImage class="agenda-artwork" :candidates="eventArtwork(event, snapshots)" :retry-key="snapshots[event.gameId]?.events" decorative /><span class="agenda-pill">{{ event.gameName }} · {{ event.status }}</span><strong>{{ event.name || '未命名活动' }}</strong><small>{{ event.status === '未开始' ? `${browserCalendarBoundary(event, 'start')} 开始` : `${browserCalendarBoundary(event, 'end')} 截止` }}</small><AppIcon name="arrow" :size="14" /></button></li>
           </ul>
           <p v-else class="agenda-empty">{{ loading ? '加载中…' : '当前范围内没有进行中或即将开始的活动。' }}</p>
         </section>
@@ -183,9 +184,10 @@ async function closeDetail() {
 <style scoped>
 .calendar-page { min-width: 0; display: grid; gap: 20px; color: var(--text); }
 .calendar-page > .page-heading { margin-bottom: 0; }
+:global(.workspace-main:has(.calendar-page)) { max-width:1800px; }
 .calendar-timezone { gap: 6px; white-space: nowrap; }
 /* Board on the left; on the right the selected event's detail, or what ends first, then the counts. */
-.calendar-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(280px, 320px); gap:20px; align-items:start; }
+.calendar-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(260px, 280px); gap:20px; align-items:start; }
 .calendar-aside { position:sticky; top:16px; display:grid; gap:16px; min-width:0; }
 /* Counts under the side list, and the split by game. */
 .calendar-stats { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
@@ -200,9 +202,9 @@ async function closeDetail() {
 .calendar-split { grid-column:1 / -1; padding:14px 18px; display:flex; align-items:center; border-radius:var(--radius-tile); }
 .calendar-split :deep(.donut-chart) { width:100%; }
 .split-total { font-size:22px; font-weight:600; letter-spacing:-.02em; }
-.calendar-board { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); box-shadow: var(--card-shadow); overflow: visible; min-width: 0; display:flex; flex-direction:column; min-height:max(520px,calc(100dvh - var(--calendar-top) - 24px)); }
+.calendar-board { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); box-shadow: var(--card-shadow); overflow: visible; min-width: 0; display:flex; flex-direction:column; min-height:max(760px,calc(100dvh - var(--calendar-top) - 24px)); }
 .calendar-board > .version-calendars { flex:none; }
-.calendar-board :deep(.calendar-content:not(.image-mode)) { flex:none; min-height:320px; max-height:max(320px,calc(100dvh - var(--calendar-top) - 180px)); overflow:auto; }
+.calendar-board :deep(.calendar-content:not(.image-mode)) { flex:none; min-height:min(640px,80dvh); max-height:max(720px,calc(100dvh - 56px)); overflow:auto; }
 .calendar-board > :not(.calendar-content):not(.version-calendars){flex-shrink:0}
 .calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 18px 20px 12px; }
 .calendar-navigation, .calendar-filters { display: flex; align-items: center; gap: 12px; }
@@ -275,6 +277,8 @@ async function closeDetail() {
 .agenda-empty { margin-top:16px; color:var(--text-muted); font-size:13px; line-height:1.8; }
 @media (max-width: 1250px) { .calendar-layout { grid-template-columns:minmax(0, 1fr); } .calendar-aside { position:static; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); align-items:start; } .calendar-aside > .calendar-detail { grid-column:1 / -1; } }
 @media (max-width: 760px) {
+  .calendar-board { min-height:700px; }
+  .calendar-board :deep(.calendar-content:not(.image-mode)) { min-height:min(560px,70dvh); max-height:max(620px,calc(100dvh - 80px)); }
   .calendar-aside { grid-template-columns:minmax(0, 1fr); }
   .calendar-stats { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
   .calendar-stat { padding:14px; }

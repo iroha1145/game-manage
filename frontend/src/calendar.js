@@ -72,34 +72,119 @@ export function shiftCalendarAnchor(anchor, mode, direction) {
   return Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + direction, 1) - BEIJING_OFFSET
 }
 
-export function eventGeometry(event, range) {
-  const start = parseBeijingTime(event.start_at || event.start_date)
-  let end = parseBeijingTime(event.end_at || event.end_date)
-  if (end !== null && !event.end_at && event.end_date) end += DAY_MS
-  const base = { start, end, approximateStart: !event.start_at && !!event.start_date, left: 0, width: 0, visible: false, clippedStart: false, clippedEnd: false }
+/** Browser display helpers are separate from the China-server source parser above. */
+export function browserTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || '本地时区'
+}
+
+export function formatBrowserDateTime(value) {
+  const time = parseBeijingTime(value)
+  if (time === null) return '未知'
+  const date = new Date(time)
+  if (!Number.isFinite(date.getTime())) return '未知'
+  const year = date.getFullYear()
+  if (year < 1000 || year > 9999) return '未知'
+  const pad = value => String(value).padStart(2, '0')
+  return `${year}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function browserDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || parseBeijingTime(value) === null) return null
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month-1, day).getTime()
+}
+export function browserDayStart(value = Date.now()) {
+  const time = parseBeijingTime(value)
+  if (time === null) return null
+  const date = new Date(time)
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+}
+export function addBrowserDays(value, count) {
+  const date = new Date(value)
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()+count).getTime()
+}
+export function browserCalendarDaysRange(start, end) {
+  const days = []
+  for (let timestamp = start; timestamp < end; timestamp = addBrowserDays(timestamp, 1)) {
+    const date = new Date(timestamp)
+    days.push({timestamp, day:date.getDate(), month:date.getMonth()+1, weekday:'日一二三四五六'[date.getDay()], weekend:[0,6].includes(date.getDay())})
+  }
+  return {start, end, days}
+}
+export function browserCalendarRange(anchor = Date.now(), mode = 'month') {
+  const day = browserDayStart(anchor) ?? browserDayStart()
+  const date = new Date(day)
+  const start = mode === 'month' ? new Date(date.getFullYear(),date.getMonth(),1).getTime() : mode === 'rolling' ? addBrowserDays(day,-3) : day
+  const end = mode === 'month' ? new Date(date.getFullYear(),date.getMonth()+1,1).getTime() : addBrowserDays(start,mode === 'rolling' ? 30 : 14)
+  return browserCalendarDaysRange(start,end)
+}
+export function shiftBrowserCalendarAnchor(anchor, mode, direction) {
+  const day = browserDayStart(anchor), date = new Date(day)
+  return mode === 'month' ? new Date(date.getFullYear(),date.getMonth()+direction,1).getTime() : addBrowserDays(day,direction*(mode === 'rolling' ? 30 : 14))
+}
+// Every civil date owns one fixed-width column, including 23/25-hour DST dates.
+function browserDayCoordinate(time) {
+  const date = new Date(time), start = browserDayStart(time), end = addBrowserDays(start,1)
+  return Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())/DAY_MS + (time-start)/(end-start)
+}
+export function browserCalendarPosition(time, range) {
+  return (browserDayCoordinate(time)-browserDayCoordinate(range.start))/(browserDayCoordinate(range.end)-browserDayCoordinate(range.start))*100
+}
+function browserDateOnly(event, side) {
+  return !event[side+'_at'] || event[side+'_precision'] === 'day' || /^\d{4}-\d{2}-\d{2}$/.test(event[side+'_at'])
+}
+function browserBoundaryTime(event, side) {
+  const exact = event[side+'_at'], day = event[side+'_date'] || (browserDateOnly(event,side) && typeof exact === 'string' ? exact.slice(0,10) : null)
+  return browserDateOnly(event,side) ? browserDate(day) : parseBeijingTime(exact)
+}
+export function browserEventGeometry(event, range) { return eventGeometry(event,range,true) }
+export function browserEventStatus(event, now = Date.now()) { return eventStatus(event,now,true) }
+export function browserVersionCalendarRange(events = [], asOf = Date.now()) {
+  const dates = events.flatMap(event => {
+    const geometry = browserEventGeometry(event,{start:asOf,end:addBrowserDays(asOf,1)})
+    if (['invalid','undated'].includes(geometry.kind)) return []
+    const endpoints = [geometry.start,geometry.end === null ? null : geometry.end - (browserDateOnly(event,'end') ? 1 : 0)].filter(value => value !== null)
+    if (geometry.permanent) endpoints.push(asOf)
+    return endpoints
+  })
+  return dates.length ? browserCalendarDaysRange(browserDayStart(Math.min(...dates)),addBrowserDays(browserDayStart(Math.max(...dates)),1)) : null
+}
+export function browserCalendarBoundary(event, side, compact = false) {
+  const exact = event[side+'_at'], precision = event[side+'_precision']
+  if (exact && browserDateOnly(event,side)) return calendarBoundary({...event,[side+'_at']:null,[side+'_date']:event[side+'_date'] || exact.slice(0,10)},side,compact)
+  return exact && !['day','relative','unknown','dependent'].includes(precision) && !(side === 'end' && event.permanent === true && precision === 'permanent')
+    ? formatBrowserDateTime(exact) : calendarBoundary(event,side,compact)
+}
+
+export function eventGeometry(event, range, browser = false) {
+  const start = browser ? browserBoundaryTime(event,'start') : parseBeijingTime(event.start_at || event.start_date)
+  let end = browser ? browserBoundaryTime(event,'end') : parseBeijingTime(event.end_at || event.end_date)
+  const dateEnd = !event.end_at && event.end_date || browser && browserDateOnly(event,'end')
+  if (end !== null && dateEnd) end = browser ? addBrowserDays(end,1) : end + DAY_MS
+  const position = time => browser ? browserCalendarPosition(time,range) : (time-range.start)/(range.end-range.start)*100
+  const base = { start, end, approximateStart: (!event.start_at && !!event.start_date) || browser && browserDateOnly(event,'start') && !!event.start_at, left: 0, width: 0, visible: false, clippedStart: false, clippedEnd: false }
   if ((!missing(event.start_at || event.start_date) && start === null) || (!missing(event.end_at || event.end_date) && end === null)) return { ...base, kind: 'invalid', reason: '日期无法解析' }
   if (start !== null && end !== null && end < start) return { ...base, kind: 'invalid', reason: '截止早于开始' }
   if (start === null && end === null) return { ...base, kind: 'undated', reason: '起止时间均未知' }
-  const span = range.end - range.start
   if (start !== null && end === null && event.permanent === true && event.end_precision === 'permanent') {
     return { ...base, kind:'range', permanent:true, reason:'永久开放', visible:start < range.end,
-      left:Math.max(0,(start-range.start)/span*100), width:Math.max(0,(range.end-Math.max(start,range.start))/span*100), clippedStart:start < range.start }
+      left:Math.max(0,position(start)), width:Math.max(0,100-position(Math.max(start,range.start))), clippedStart:start < range.start }
   }
   if (start === null || end === null || start === end) {
-    const time = start ?? (!event.end_at && event.end_date ? end - DAY_MS : end)
-    return { ...base, kind: 'point', endpoint: start === null ? 'end' : end === null ? 'start' : 'instant', reason: start === null ? '开始时间未知' : end === null ? '截止时间未知' : '同一时点', visible: time >= range.start && time < range.end, left: (time - range.start) / span * 100 }
+    const time = start ?? (dateEnd ? (browser ? addBrowserDays(end,-1) : end-DAY_MS) : end)
+    return { ...base, kind: 'point', endpoint: start === null ? 'end' : end === null ? 'start' : 'instant', reason: start === null ? '开始时间未知' : end === null ? '截止时间未知' : '同一时点', visible: time >= range.start && time < range.end, left: position(time) }
   }
   return { ...base, kind: 'range', reason: '', visible: end > range.start && start < range.end,
-    left: Math.max(0, (start - range.start) / span * 100), width: Math.max(0, (Math.min(end, range.end) - Math.max(start, range.start)) / span * 100),
+    left: Math.max(0,position(start)), width: Math.max(0,position(Math.min(end,range.end))-position(Math.max(start,range.start))),
     clippedStart: start < range.start, clippedEnd: end > range.end }
 }
 
-export function eventStatus(event, now = Date.now()) {
-  const geometry = eventGeometry(event, { start: now, end: now + DAY_MS })
+export function eventStatus(event, now = Date.now(), browser = false) {
+  const geometry = eventGeometry(event, { start: now, end: now + DAY_MS }, browser)
   if (geometry.kind === 'invalid') return '日期异常'
   if (geometry.end !== null && geometry.end <= now) return '已结束'
   if (geometry.start !== null && geometry.start > now) return '未开始'
-  if (geometry.approximateStart && beijingDayStart(now) === geometry.start) return '更新后开放'
+  if (geometry.approximateStart && (browser ? browserDayStart(now) : beijingDayStart(now)) === geometry.start) return '更新后开放'
   if (event.permanent === true && event.end_precision === 'permanent') return '常驻开放'
   if (geometry.end === null) return geometry.start === null ? '时间待定' : '截止未知'
   if (geometry.start === null) return '开始未知'
