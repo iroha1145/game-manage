@@ -239,7 +239,7 @@ details[open] > summary .t-disclosure { transform: rotate(180deg); }
 }
 
 /* ── Theme switch ─────────────────────────────────────────────────── */
-/* Icon swap (transitions.dev 09): sun and moon share one slot. */
+/* Day, night and automatic mode share the same button slot. */
 .icon-swap { display: inline-grid; place-items: center; }
 .icon-swap > svg {
   grid-area: 1 / 1;

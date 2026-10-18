@@ -1,7 +1,16 @@
-// Runs before the first paint, so the saved or system theme never flashes the other one.
+// Runs before paint. Keep resolution aligned with src/theme.js.
 (() => {
-  let theme = null
-  try { theme = localStorage.getItem('gm-theme') } catch { /* private mode */ }
-  if (theme !== 'light' && theme !== 'dark') theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-  document.documentElement.dataset.theme = theme
+  let mode = 'auto'
+  try { mode = localStorage.getItem('gm-theme') } catch { /* storage unavailable */ }
+  if (mode !== 'light' && mode !== 'dark') mode = 'auto'
+  let actual = mode
+  if (mode === 'auto') {
+    // Preserve the existing dark fallback when browser preference is unavailable.
+    let prefersLight = false
+    try { prefersLight = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches }
+    catch { /* color-scheme support unavailable */ }
+    actual = prefersLight ? 'light' : 'dark'
+  }
+  document.documentElement.dataset.theme = actual
+  document.documentElement.dataset.themeMode = mode
 })()

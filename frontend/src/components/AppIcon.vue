@@ -15,6 +15,7 @@ const paths = {
   shield: 'm12 2 8 3v7c0 5-8 10-8 10S4 17 4 12V5z m-4 10 3 3 5-6',
   sun: 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M12 2v2 M12 20v2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M2 12h2 M20 12h2 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4',
   moon: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z',
+  auto: 'm8.5 16 3.5-8 3.5 8 M10 13h4',
   info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0 M12 11v5 M12 8h.01',
   star: 'm12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z',
   plus: 'M12 5v14 M5 12h14',
@@ -29,9 +30,9 @@ const parts = computed(() => {
   return [paths[iconName.value]]
 })
 </script>
-<template><svg :data-app-icon="iconName" :width="size" :height="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g data-icon-part="body"><path v-for="(path, index) in parts" :key="index" :d="path" :data-icon-part="iconName === 'grid' ? 'tile' : iconName === 'menu' ? 'line' : iconName === 'check' ? 'stroke' : 'path'" :pathLength="iconName === 'check' ? 1 : undefined" /><g v-if="iconName === 'calendar'" data-icon-part="cells"><path d="M7 15h.01 M12 15h.01 M17 15h.01 M7 18h.01 M12 18h.01" /></g></g></svg></template>
+<template><svg :data-app-icon="iconName" :width="size" :height="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g data-icon-part="body"><path v-for="(path, index) in parts" :key="index" :d="path" :data-icon-part="iconName === 'grid' ? 'tile' : iconName === 'menu' ? 'line' : iconName === 'check' ? 'stroke' : 'path'" :pathLength="iconName === 'check' ? 1 : undefined" /><g v-if="iconName === 'calendar'" data-icon-part="cells"><path d="M7 15h.01 M12 15h.01 M17 15h.01 M7 18h.01 M12 18h.01" /></g><g v-if="iconName === 'auto'" data-icon-part="orbit"><path d="M4.5 8a8.5 8.5 0 0 1 14.5-1.5l1.5 2 M20.5 4.5v4h-4 M19.5 16A8.5 8.5 0 0 1 5 17.5l-1.5-2 M3.5 19.5v-4h4" /></g></g></svg></template>
 <style scoped>
 svg { flex-shrink: 0; display: block; }
-[data-icon-part="body"], [data-icon-part="tile"] { transform-box: view-box; transform-origin: 50% 50%; }
+[data-icon-part="body"], [data-icon-part="tile"], [data-icon-part="orbit"] { transform-box: view-box; transform-origin: 50% 50%; }
 [data-icon-part="cells"] { opacity: 0; stroke-width: 2; }
 </style>
