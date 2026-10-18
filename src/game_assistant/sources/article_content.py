@@ -22,6 +22,17 @@ def _image_url(value):
     return None
 
 
+def article_images(*sources):
+    """Normalize explicitly supplied source pictures, retaining their order."""
+    result = []
+    for source in sources:
+        for item in source if isinstance(source, list) else [source]:
+            url = _image_url(item.get('url') if isinstance(item, dict) else item)
+            if url and url not in result:
+                result.append(url)
+    return result
+
+
 class _Text(HTMLParser):
     BLOCKED = {'script', 'style', 'iframe', 'object', 'template', 'noscript'}
     BREAKS = {'p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr', 'br'}

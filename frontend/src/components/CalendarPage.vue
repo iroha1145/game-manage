@@ -185,7 +185,7 @@ async function closeDetail() {
 .calendar-page > .page-heading { margin-bottom: 0; }
 .calendar-timezone { gap: 6px; white-space: nowrap; }
 /* Board on the left; on the right the selected event's detail, or what ends first, then the counts. */
-.calendar-layout { display:grid; grid-template-columns:minmax(0, 2.2fr) minmax(280px, 1fr); gap:20px; align-items:start; }
+.calendar-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(280px, 320px); gap:20px; align-items:start; }
 .calendar-aside { position:sticky; top:16px; display:grid; gap:16px; min-width:0; }
 /* Counts under the side list, and the split by game. */
 .calendar-stats { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
@@ -200,7 +200,7 @@ async function closeDetail() {
 .calendar-split { grid-column:1 / -1; padding:14px 18px; display:flex; align-items:center; border-radius:var(--radius-tile); }
 .calendar-split :deep(.donut-chart) { width:100%; }
 .split-total { font-size:22px; font-weight:600; letter-spacing:-.02em; }
-.calendar-board { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); box-shadow: var(--card-shadow); overflow: visible; min-width: 0; display:flex; flex-direction:column; min-height:max(460px,calc(100dvh - var(--calendar-top) - 24px)); }
+.calendar-board { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius-card); box-shadow: var(--card-shadow); overflow: visible; min-width: 0; display:flex; flex-direction:column; min-height:max(520px,calc(100dvh - var(--calendar-top) - 24px)); }
 .calendar-board > .version-calendars { flex:none; }
 .calendar-board :deep(.calendar-content:not(.image-mode)) { flex:none; min-height:320px; max-height:max(320px,calc(100dvh - var(--calendar-top) - 180px)); overflow:auto; }
 .calendar-board > :not(.calendar-content):not(.version-calendars){flex-shrink:0}

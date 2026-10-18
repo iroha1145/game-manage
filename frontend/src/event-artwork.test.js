@@ -33,3 +33,10 @@ test('NTE API and public notice links share the verified post identity', () => {
   assert.deepEqual(eventArtwork({gameId:'nte',source_url:'https://bbs-api.tajiduo.com/bbs/wapi/getPostFull?postId=123',source:'community'},rows),[image('nte')])
   assert.deepEqual(eventArtwork({gameId:'nte',source_url:'https://unrelated.example.com/bbs/wapi/getPostFull?postId=123',source_post_id:'123'},rows),[])
 })
+
+
+test('matched supplementary notice pictures survive public calendar merging without unrelated news', () => {
+  const event = { gameId:'nte', source:'bilibili', source_url:'https://www.bilibili.com/read/cv123',
+    supplement_sources:[{source:'community', source_post_id:'42', image_urls:[image('supplement'), 'javascript:bad']} ] }
+  assert.deepEqual(eventArtwork(event,snapshots),[image('supplement')])
+})

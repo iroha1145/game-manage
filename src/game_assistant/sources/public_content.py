@@ -486,7 +486,7 @@ def merge_events(primary, community, version):
         item = {**row, 'source': 'community', 'source_name': row.get('source_name') or '社区补充'}
         same = next((e for e in result if _same_event(e, item)), None)
         if same:
-            same.setdefault('supplement_sources', []).append({k: item.get(k) for k in ('source_name', 'source_title', 'source_post_id', 'source_url', 'published_at')})
+            same.setdefault('supplement_sources', []).append({k: item.get(k) for k in ('source_name', 'source_title', 'source_post_id', 'source_url', 'published_at', 'image_urls')})
             if same.get('announced_pool') and not (same.get('start_at') or same.get('start_date') or same.get('end_at') or same.get('end_date')):
                 _fill_announced_pool_dates(same, item)
             elif any(same.get(k) != item.get(k) for k in ('start_at', 'end_at')):

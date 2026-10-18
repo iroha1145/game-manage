@@ -1,5 +1,6 @@
 from game_assistant.event_calendar import parse_ms_or_iso as _dt
 from game_assistant.models import AnnouncementItem
+from game_assistant.sources.article_content import article_images
 
 
 def parse_announcement_list(raw: dict) -> list[AnnouncementItem]:
@@ -15,6 +16,7 @@ def parse_announcement_list(raw: dict) -> list[AnnouncementItem]:
     for it in rows or []:
         items.append(AnnouncementItem(
             title=it.get("postTitle") or "",
+            images=article_images(it.get("coverUrl")),
             published_at=_dt(it.get("publishTime"), it.get("firstPublishTime")),
             url=f"https://www.kurobbs.com/forum/post/{it.get('postId')}"
             if it.get("postId") else None,

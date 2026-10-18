@@ -53,7 +53,7 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 </script>
 <template>
   <div ref="viewport" class="calendar-content" :class="{ 'image-mode': mode === 'image' }">
-<div v-if="range" class="timeline-scroll" :tabindex="mode === 'image' ? undefined : 0" role="region" aria-label="活动日期横轴，可横向和纵向滚动" :style="{ '--day-count': range.days.length, '--timeline-min': `${184 + range.days.length * (rangeMode === 'fortnight' ? 39 : 26)}px` }">
+<div v-if="range" class="timeline-scroll" :tabindex="mode === 'image' ? undefined : 0" role="region" aria-label="活动日期横轴，可横向和纵向滚动" :style="{ '--day-count': range.days.length, '--timeline-min': `calc(var(--timeline-label-width) + ${range.days.length * (rangeMode === 'fortnight' ? 44 : 40)}px)` }">
         <div :key="range.start" class="timeline-canvas t-panel">
           <div class="timeline-header" data-render-block>
             <div class="timeline-label header-label"><span>游戏</span><small v-if="mode === 'image'">{{ rangeMode === 'month' ? '当月时间轴' : rangeMode === 'rolling' ? '近 30 天时间轴' : rangeMode === 'version' ? '版本活动时间轴' : '14 天时间轴' }}</small></div>
@@ -108,11 +108,11 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .day-today { font-size: 11px; font-weight: 500; line-height: 14px; white-space: nowrap; color: var(--accent); }
 /* Keep each badge inside the same daily column used by the activity bars.
    Months get their own row instead of widening the first day's number. */
-.calendar-content:not(.image-mode) .date-cell { min-height:94px; grid-template-rows:14px 14px 26px 14px; }
+.calendar-content:not(.image-mode) .date-cell { min-height:108px; grid-template-rows:14px 16px 30px 16px; gap:4px; padding:10px 0; }
 .day-month { grid-row:1; font-size:11px; line-height:14px; white-space:nowrap; color:var(--text-muted); }
 .calendar-content:not(.image-mode) .day-weekday { grid-row:2; }
-.calendar-content:not(.image-mode) .date-cell strong { grid-row:3; min-width:0; width:min(28px,calc(100% - 2px)); padding:0; white-space:nowrap; }
-.calendar-content:not(.image-mode) .date-cell.is-month-start strong { font-size:14px; }
+.calendar-content:not(.image-mode) .date-cell strong { grid-row:3; min-width:0; width:min(32px,calc(100% - 8px)); height:30px; padding:0; font-size:16px; white-space:nowrap; }
+.calendar-content:not(.image-mode) .date-cell.is-month-start strong { font-size:16px; }
 .calendar-content:not(.image-mode) .day-today { grid-row:4; }
 .timeline-group { border-bottom: 1px solid var(--border); }
 .timeline-group:last-child { border-bottom: 0; }
@@ -208,12 +208,11 @@ function selectEvent(event, interaction) { if (props.mode!=='image') emit('selec
 .calendar-content:not(.image-mode) .timeline-event:not(.is-short):not(.is-point) { overflow:clip; }
 .calendar-content:not(.image-mode) .timeline-event:not(.is-short) .event-summary { position:sticky; left:calc(var(--timeline-label-width) + 8px); max-width:min(300px,calc(var(--calendar-width,100vw) - var(--timeline-label-width) - 34px)); }
 .calendar-content:not(.image-mode) .timeline-event:not(.is-short):has(.event-artwork) .event-summary { padding:3px 5px; border-radius:5px; background:rgba(7,13,22,.64); }
-.calendar-content:not(.image-mode) .group-label > .game-monogram,.calendar-content:not(.image-mode) .group-label > div { position:sticky; top:94px; }
+.calendar-content:not(.image-mode) .group-label > .game-monogram,.calendar-content:not(.image-mode) .group-label > div { position:sticky; top:108px; }
 .calendar-content:not(.image-mode) .calendar-unplaced { position:sticky; left:16px; flex:none; }
 .calendar-content:not(.image-mode) .timeline-group { border-top:8px solid var(--surface-soft); }
 .calendar-content:not(.image-mode) .group-track { padding:8px 0; }
 .group-category { display:block; margin-top:7px; color:var(--game-accent); font-size:12px; font-weight:600; line-height:1.5; }
-.calendar-content:not(.image-mode) .date-cell.is-boundary:not(.is-today) strong { background:var(--text); color:var(--card-bg); border-radius:4px; }
 .calendar-content:not(.image-mode) .event-lane:has(.event-artwork) { min-height:80px; padding-bottom:8px; }
 .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork) { min-height:72px; padding:10px 13px; color:#fff; background:#18212b; }
 .calendar-content:not(.image-mode) .timeline-event:has(.event-artwork)::before { inset:0; width:auto; border-radius:inherit; background:linear-gradient(90deg,rgba(7,13,22,.94) 0%,rgba(7,13,22,.86) 28%,rgba(7,13,22,.46) 60%,rgba(7,13,22,.05) 100%); z-index:1; }
