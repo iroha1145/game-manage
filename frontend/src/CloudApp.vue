@@ -47,7 +47,7 @@ useElasticCards(mainContent, {
   resetOn: () => page.value,
 })
 
-const today = computed(()=>new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'long',day:'numeric',weekday:'long'}).format(now.value))
+const today = computed(()=>new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(now.value))
 let routeGame = initialRoute.page === 'game' ? initialRoute.game : ''
 const routeTab = ref(initialRoute.page === 'game' ? initialRoute.tab || '' : '')
 // Jump-to search over pages, the games this account has, their tabs, events and roles.

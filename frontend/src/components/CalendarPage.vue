@@ -22,6 +22,10 @@ const props = defineProps({
   readErrors: { type: Object, default: () => ({}) },
   showSourceStatus: { type:Boolean, default:false },
 })
+const formatSnapshotTime = value => {
+  const formatted = formatBrowserDateTime(value)
+  return formatted === '未知' ? '未提供' : formatted
+}
 const timeZone = browserTimeZone()
 const now = ref(Date.now())
 const anchor = ref(now.value)
@@ -150,7 +154,7 @@ async function closeDetail() {
         <p v-if="failedReads.length" class="calendar-read-error" role="status">{{ failedReadNames }} · 活动读取失败。{{ readRetainedMessage }}</p>
         <p v-if="missingGames.length && !loading" class="calendar-missing" role="status">{{ missingGames.join('、') }} · 尚未取得活动，请稍后刷新。</p>
         <p v-if="neverGames.length && !loading" class="calendar-missing" role="status">{{ neverGames.join('、') }} · 等待活动更新。</p>
-        <details v-if="showSourceStatus || staleGames.length || failedReads.length || partialCollections.length || versionCalendars.length" class="calendar-source-states"><summary>数据来源详情</summary><p v-if="staleGames.length" class="calendar-stale">数据可能过期 · {{ staleGames.join('、') }}</p><p v-for="failure in partialCollections" :key="failure.id">{{ failure.name }} · 部分来源不可用，显示可用来源数据。</p><p v-for="failure in failedReads" :key="failure.id">{{ failure.name }}：{{ failure.error }}</p><div v-if="showSourceStatus" v-for="game in filteredGames" :key="game.game_id"><strong>{{ game.display_name }}</strong><CloudSnapshotStatus :snapshots="snapshots[game.game_id] || {}" :capabilities="['events']" /></div><VersionCalendarMetadata :calendars="versionCalendars" /></details>
+        <details v-if="showSourceStatus || staleGames.length || failedReads.length || partialCollections.length || versionCalendars.length" class="calendar-source-states"><summary>数据来源详情</summary><p v-if="staleGames.length" class="calendar-stale">数据可能过期 · {{ staleGames.join('、') }}</p><p v-for="failure in partialCollections" :key="failure.id">{{ failure.name }} · 部分来源不可用，显示可用来源数据。</p><p v-for="failure in failedReads" :key="failure.id">{{ failure.name }}：{{ failure.error }}</p><div v-if="showSourceStatus" v-for="game in filteredGames" :key="game.game_id"><strong>{{ game.display_name }}</strong><CloudSnapshotStatus :snapshots="snapshots[game.game_id] || {}" :capabilities="['events']" :format-time="formatSnapshotTime" /></div><VersionCalendarMetadata :calendars="versionCalendars" /></details>
         <p v-if="loading && !events.length" class="calendar-empty" role="status">加载中…</p>
         <VersionCalendarContent v-else-if="mode === 'version'" :calendars="versionCalendars" :snapshots="snapshots" :as-of="now" :selected-id="selectedId" :empty-title="emptyTitle" :show-source-details="false" @select="selectEvent" />
         <CalendarTimelineContent v-else :events="events" :snapshots="snapshots" :range="range" :as-of="now" :range-mode="mode" :selected-id="selectedId" :empty-title="emptyTitle" @select="selectEvent" />
