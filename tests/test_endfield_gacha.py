@@ -352,3 +352,45 @@ def test_scan_pending_addition_preserves_old_named_sql_and_sqlite_backup(tmp_pat
     reopened=EndfieldGachaStore(working)
     with closing(sqlite3.connect(backup)) as db:assert db.execute('SELECT * FROM pools ORDER BY pool_key').fetchall()==rows
     assert original.read_bytes()==before and reopened.path==working
+
+
+async def test_local_channels_with_colliding_role_ids_keep_separate_histories(tmp_path):
+    from game_assistant.endfield_gacha import local_ledger_role
+    store = EndfieldGachaStore(tmp_path / "g.sqlite3")
+    official, bilibili = local_ledger_role("r1", "official"), local_ledger_role("r1", "bilibili")
+    assert official == "r1" and bilibili != official
+    await sync(store, FakeClient(special=history(1, 3)), role=official)
+    await sync(store, FakeClient(special=[rec(seq, 6, name=f"B服{seq}") for seq in (3, 2, 1)]), role=bilibili)
+    assert pool(store, role=official).total == 3 and pool(store, role=official).six_star == 0
+    assert pool(store, role=bilibili).total == 3 and pool(store, role=bilibili).six_star == 3
+    assert store.summary(bilibili).role_id == "r1"
+    assert store.records(bilibili)["role_id"] == "r1"
+    assert {r["name"] for r in store.records(bilibili)["records"]} == {"B服1", "B服2", "B服3"}
+    assert store.export(bilibili)["role_id"] == "r1"
+
+
+async def test_routes_read_the_ledger_of_the_logged_in_channel(tmp_path):
+    from game_assistant.endfield_gacha import local_ledger_role
+    settings = Settings(db_path=str(tmp_path / "a.db"), auth_allowed_origins=["http://testserver"],
+                        endfield_role_id="r1", endfield_channel="bilibili")
+    app = FastAPI()
+    app.state.settings = settings
+    install_endfield_gacha_routes(app, settings)
+    store = EndfieldGachaStore(tmp_path / "a.endfield-gacha.sqlite3")
+    await sync(store, FakeClient(special=history(1, 2)), role="r1")
+    await sync(store, FakeClient(special=history(1, 5)), role=local_ledger_role("r1", "bilibili"))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+        summary = (await client.get("/api/endfield/gacha/summary")).json()
+        assert summary["role_id"] == "r1" and summary["pools"][0]["total"] == 5
+        settings.endfield_channel = "official"
+        assert (await client.get("/api/endfield/gacha/summary")).json()["pools"][0]["total"] == 2
+
+
+def test_adapter_scopes_only_the_local_ledger_by_channel(tmp_path):
+    from game_assistant.adapters.endfield.adapter import EndfieldAdapter
+    adapter = EndfieldAdapter(Settings(db_path=str(tmp_path / "a.db"), endfield_channel="bilibili"))
+    assert adapter._ledger_role(adapter.gacha_store(), "r1") == "bilibili:r1"
+    cloud_bridge = object()  # 云端注入的账本按授权建库，并校验原始角色 ID
+    assert adapter._ledger_role(cloud_bridge, "r1") == "r1"
+    adapter._settings.endfield_channel = "official"
+    assert adapter._ledger_role(adapter.gacha_store(), "r1") == "r1"

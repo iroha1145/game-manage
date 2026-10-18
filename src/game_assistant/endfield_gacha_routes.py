@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from starlette.responses import JSONResponse
 
-from .endfield_gacha import EndfieldGachaStore, store_path
+from .endfield_gacha import EndfieldGachaStore, local_ledger_role, store_path
 
 
 def install_endfield_gacha_routes(app, settings):
@@ -13,7 +13,7 @@ def install_endfield_gacha_routes(app, settings):
         identity = str(app.state.settings.endfield_role_id or '').strip()
         if not identity:
             raise HTTPException(status_code=409, detail='请先登录终末地')
-        return identity
+        return local_ledger_role(identity, app.state.settings.endfield_channel)
 
     @router.get('/summary')
     async def summary():

@@ -26,6 +26,18 @@ def store_path(db_path: str) -> Path:
     return Path(db_path).with_suffix(".endfield-gacha.sqlite3")
 
 
+def local_ledger_role(role_id: str, channel: str | None) -> str:
+    """本地单文件账本的角色键：官服保持原角色 ID（旧数据无需迁移），其他渠道加前缀，
+    避免官服与 B 服 role_id 撞号时合并历史、按 seqId 吞掉记录。云端每个授权独立建库，不经过这里。"""
+    role_id = str(role_id or "").strip()
+    channel = str(channel or "").strip() or "official"
+    return role_id if channel == "official" else f"{channel}:{role_id}"
+
+
+def _public_role(role: str) -> str:
+    return role.rpartition(":")[2]
+
+
 class EndfieldGachaStore:
     @classmethod
     def for_scope(cls, scope, private_root, *, role_uid, server_id):
@@ -212,7 +224,7 @@ class EndfieldGachaStore:
         # Empty/unvisited pools participate in coverage even though the UI's
         # record list continues to contain only pools with saved pulls.
         complete = False if has_pending else True if coverage_known else None
-        summary = EndfieldGacha(role_id=role, total=sum(p.total for p in pools), complete=complete, pools=pools)
+        summary = EndfieldGacha(role_id=_public_role(role), total=sum(p.total for p in pools), complete=complete, pools=pools)
         summary.report = build_gacha_report(summary)
         return summary
 
@@ -224,7 +236,7 @@ class EndfieldGachaStore:
             total = db.execute(f"SELECT COUNT(*) FROM records WHERE {where}", args).fetchone()[0]
             rows = db.execute(f"SELECT pool_key, payload FROM records WHERE {where} ORDER BY seq_id DESC"
                               " LIMIT ? OFFSET ?", (*args, limit, offset)).fetchall()
-        return {"role_id": role, "total": total,
+        return {"role_id": _public_role(role), "total": total,
                 "records": [_public_record(key, payload) for key, payload in rows]}
 
     def export(self, role: str) -> dict:
@@ -234,7 +246,7 @@ class EndfieldGachaStore:
             rows = db.execute("SELECT pool_key, payload FROM records WHERE role=? ORDER BY seq_id DESC",
                               (role,)).fetchall()
             breaks = db.execute("SELECT pool_key, seq_id, permanent FROM breaks WHERE role=?", (role,)).fetchall()
-        return {"format": EXPORT_FORMAT, "format_version": 1, "role_id": role,
+        return {"format": EXPORT_FORMAT, "format_version": 1, "role_id": _public_role(role),
                 "exported_at": datetime.now(timezone.utc).isoformat(),
                 "pools": [dict(zip(("key", "kind", "label", "last_sync_at"), row)) for row in pools],
                 "gaps": [{"pool_key": k, "below_seq_id": str(s), "permanent": bool(p)} for k, s, p in breaks],

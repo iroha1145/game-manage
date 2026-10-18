@@ -9,7 +9,7 @@ from game_assistant.adapters.endfield import parse
 from game_assistant.adapters.endfield.data_models import EndfieldEvent
 from game_assistant.adapters.endfield.hypergryph import EndfieldError, HypergryphClient
 from game_assistant.config import Settings
-from game_assistant.endfield_gacha import EndfieldGachaStore, store_path
+from game_assistant.endfield_gacha import EndfieldGachaStore, local_ledger_role, store_path
 from game_assistant.models import Capability, FetchResult
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,12 @@ class EndfieldAdapter(BaseGameAdapter):
             self._store = EndfieldGachaStore(store_path(self._settings.db_path))
         return self._store
 
+    def _ledger_role(self, store, role_id: str) -> str:
+        # 只有本地单文件账本需要按渠道区分；云端注入的账本按授权独立建库，并校验原始角色 ID。
+        if isinstance(store, EndfieldGachaStore):
+            return local_ledger_role(role_id, self._settings.endfield_channel)
+        return role_id
+
     async def _guarded_run(self, run) -> FetchResult:
         try:
             return await run()
@@ -104,8 +110,9 @@ class EndfieldAdapter(BaseGameAdapter):
                                   expected_role_id=role_id,
                                   expected_server_id=self._settings.endfield_server_id or "1")
                 u8_token = await client.u8_token(uid, grant)
-                await store.sync(role_id, client, u8_token, budget=self.sync_budget, interval=self.sync_interval)
-            return FetchResult(ok=True, payload=store.summary(role_id))
+                ledger_role = self._ledger_role(store, role_id)
+                await store.sync(ledger_role, client, u8_token, budget=self.sync_budget, interval=self.sync_interval)
+            return FetchResult(ok=True, payload=store.summary(ledger_role))
         return await self._guarded_run(run)
 
 
