@@ -61,9 +61,10 @@ class AccountService:
         keys = ('account_id', 'grant_id', 'game', 'channel', 'server', 'provider', 'is_default', 'version', 'state')
         for row in rows:
             item = dict(zip(keys, row))
-            item['roles'] = [dict(zip(('role_id', 'display_name', 'is_default'), r))
+            role_fields = ('role_id', 'display_name', 'is_default', 'game_uid') if item['game'] == 'endfield' else ('role_id', 'display_name', 'is_default')
+            item['roles'] = [dict(zip(role_fields, r))
                              for r in self.connection.execute(
-                                 'SELECT role_id,display_name,is_default FROM roles WHERE account_id=? AND user_id=?',
+                                 f"SELECT {','.join(role_fields)} FROM roles WHERE account_id=? AND user_id=?",
                                  (row[0], principal.user_id))]
             if item['state'] == 'active':
                 from game_assistant.auth.store import CredentialStoreError

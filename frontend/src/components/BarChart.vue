@@ -15,6 +15,10 @@ const props = defineProps({
   color: { type: String, default: 'var(--game-vivid, var(--chart-1))' },
 })
 const known = value => typeof value === 'number' && Number.isFinite(value)
+const separateAxis = computed(() => props.items.some(item => item.tick != null))
+const ticks = computed(() => props.items.flatMap((item, index) => item.tick ? [{
+  text: item.tick, index, position: `${(index + .5) / props.items.length * 100}%`,
+}] : []))
 const top = computed(() => niceCeil(Math.max(0, ...props.items.filter(item => known(item.value)).map(item => item.value))))
 const peak = computed(() => props.items.reduce((best, item, index) => known(item.value) && (best < 0 || item.value > props.items[best].value) ? index : best, -1))
 const bars = computed(() => props.items.map((item, index) => ({
@@ -34,13 +38,15 @@ const bars = computed(() => props.items.map((item, index) => ({
       <li v-for="bar in bars" :key="`${bar.label}:${bar.index}`" class="bar-col" tabindex="0" :data-muted="bar.muted || undefined">
         <span class="bar-slot" :style="{ '--pct': `${bar.pct ?? 0}%` }">
           <span class="bar-value" :class="{ shown: bar.labelled }">{{ bar.text }}<small v-if="bar.note" class="bar-note"> · {{ bar.note }}</small></span>
-          <span v-if="bar.pct != null" class="bar-fill t-draw" :style="{ '--series': bar.color || color, '--i': bar.index }"></span>
-          <span v-else class="bar-unknown" aria-hidden="true"></span>
+          <span v-if="bar.pct > 0" class="bar-fill t-draw" :style="{ '--series': bar.color || color, '--i': bar.index }"></span>
+          <span v-else-if="bar.pct == null" class="bar-unknown" aria-hidden="true"></span>
         </span>
-        <span class="bar-label" :aria-hidden="bar.tick != null && bar.tick !== bar.label ? 'true' : undefined">{{ bar.tick ?? bar.label }}</span>
-        <span v-if="bar.tick != null && bar.tick !== bar.label" class="sr-only">{{ bar.label }}</span>
+        <span :class="separateAxis ? 'sr-only' : 'bar-label'">{{ bar.label }}</span>
       </li>
     </ol>
+    <div v-if="separateAxis" class="bar-axis" aria-hidden="true">
+      <span v-for="tick in ticks" :key="tick.index" class="bar-tick" :class="{ 'axis-start': tick.index === 0, 'axis-end': tick.index === items.length - 1 }" :style="{ left: tick.position }">{{ tick.text }}</span>
+    </div>
   </figure>
 </template>
 
@@ -56,7 +62,13 @@ const bars = computed(() => props.items.map((item, index) => ({
 .bar-unknown { width:min(24px, 64%); height:2px; background:var(--track); }
 .bar-value { position:absolute; left:50%; bottom:calc(var(--pct) + 4px); transform:translateX(-50%); padding:1px 6px; border-radius:var(--radius-chip); color:var(--text); font-size:12px; font-weight:500; line-height:18px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity var(--duration-quick) var(--ease-smooth-out); }
 .bar-value.shown { opacity:1; }
-.bar-label { max-width:100%; overflow:hidden; color:var(--text-muted); font-size:12px; line-height:16px; text-overflow:ellipsis; white-space:nowrap; }
+.bar-label { min-height:16px; max-width:100%; overflow:hidden; color:var(--text-muted); font-size:12px; line-height:16px; text-overflow:ellipsis; white-space:nowrap; }
+/* Sparse dates share their own axis: text can use the space between ticks,
+   while every daily bar keeps exactly the same baseline. */
+.bar-axis { position:relative; height:16px; margin-top:8px; color:var(--text-muted); font-size:12px; line-height:16px; }
+.bar-tick { position:absolute; width:max-content; white-space:nowrap; transform:translateX(-50%); }
+.bar-tick.axis-start { left:0 !important; transform:none; }
+.bar-tick.axis-end { left:auto !important; right:0; transform:none; }
 .bar-col:is(:hover, :focus-visible) .bar-value { opacity:1; z-index:2; background:var(--text); color:var(--bg); }
 .bar-note { display:none; font-size:12px; font-weight:400; }
 .bar-col:is(:hover, :focus-visible) .bar-note { display:inline; }

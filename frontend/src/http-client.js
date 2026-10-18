@@ -19,7 +19,7 @@ export function subscribeSessionInvalidation(listener) { invalidationListeners.a
 export function configureHttpClient({ mode: next = 'local' } = {}) { invalidateSession(); mode = next }
 export function setAccountScope(next) {
   if (JSON.stringify(next) !== JSON.stringify(scope)) invalidateScope()
-  scope = next ? { ...next } : null
+  scope = next ? structuredClone(next) : null
 }
 export class HttpError extends Error {
   constructor(status, code = '', retryAfter = 0) {
@@ -56,7 +56,6 @@ function cloudPath(path, method) {
   if (method === 'GET' && publicRead.test(pathname)) return '/api/public/' + path.slice(5)
   if (method === 'POST' && path === pathname && publicWrite.test(pathname)) return '/api/admin/' + path.slice(5)
   if (scope) {
-    const prefix = `/api/accounts/${encodeURIComponent(scope.account_id)}/roles/${encodeURIComponent(scope.role_id)}`
     const ownedRead = {
       kuro: /^\/api\/wuwa\/(?:history|gacha(?:\/export)?|roles\/[^/?]+|resources\/(?:week|month|version)\/[^/?]+)$/,
       tajiduo: /^\/api\/nte\/gacha\/(?:summary|records|export|rules)$/,
@@ -69,7 +68,13 @@ function cloudPath(path, method) {
       skland: (method === 'POST' && pathname === '/api/endfield/blueprints') ||
         (['PUT','DELETE'].includes(method) && /^\/api\/endfield\/blueprints\/(?!export$)[^/?]+$/.test(pathname)),
     }
-    if ((method === 'GET' && ownedRead[scope.provider]?.test(pathname)) || (path === pathname && ownedWrite[scope.provider])) return prefix + path.slice(4)
+    const provider = pathname.startsWith('/api/endfield/gacha/') ? 'hypergryph'
+      : /^\/api\/endfield\/(?:skland\/|blueprints(?:\/|$))/.test(pathname) ? 'skland' : scope.provider
+    const target = scope.sources ? scope.sources[provider] : scope.provider === provider ? scope : null
+    if (target?.provider === provider && target.account_id && target.role_id && ((method === 'GET' && ownedRead[provider]?.test(pathname)) || (path === pathname && ownedWrite[provider]))) {
+      const prefix = `/api/accounts/${encodeURIComponent(target.account_id)}/roles/${encodeURIComponent(target.role_id)}`
+      return prefix + path.slice(4)
+    }
   }
   throw new Error('此功能尚未提供云端接口')
 }
@@ -81,7 +86,8 @@ export async function requestJson(path, options = {}) {
   // response never carries private data and cannot restore cleared state.
   const logout = cloud && path === '/api/identity/logout' && method === 'POST'
   path = cloud ? cloudPath(path, method) : path
-  const bound = cloud && !!scope && path.startsWith(`/api/accounts/${encodeURIComponent(scope.account_id)}/roles/${encodeURIComponent(scope.role_id)}/`)
+  const bound = cloud && !!scope && [scope, ...Object.values(scope.sources || {})].some(target =>
+    target?.account_id && target?.role_id && path.startsWith(`/api/accounts/${encodeURIComponent(target.account_id)}/roles/${encodeURIComponent(target.role_id)}/`))
   const stale = () => current !== epoch || (bound && scopedCurrent !== scopeEpoch)
   const headers = { Accept: 'application/json', ...rest.headers }
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
