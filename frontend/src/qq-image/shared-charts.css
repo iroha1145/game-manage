@@ -20,3 +20,13 @@
 .lab-sheet .nte-assets .team-list .recommendation-images{display:grid;grid-template-columns:1fr;gap:16px}
 .lab-sheet .nte-assets .team-list .recommendation-images a{grid-column:1/-1!important}
 .lab-sheet .nte-assets .team-list .recommendation-images img{max-height:none!important;width:100%;height:auto;object-fit:contain;border-radius:8px}
+
+/* Preserve the accepted three-row QQ date header when the shared screen
+   calendar adds explicit grid rows for its separate month labels. */
+.lab-sheet .cloud-calendar .calendar-content:not(.image-mode) .date-cell {
+  min-height:90px;grid-template-rows:24px 28px 22px;padding:10px 0;gap:2px;
+}
+.lab-sheet .cloud-calendar .calendar-content:not(.image-mode) .day-month {display:none}
+.lab-sheet .cloud-calendar .calendar-content:not(.image-mode) .day-weekday {grid-row:1}
+.lab-sheet .cloud-calendar .calendar-content:not(.image-mode) .date-cell strong {grid-row:2;height:auto}
+.lab-sheet .cloud-calendar .calendar-content:not(.image-mode) .day-today {grid-row:auto}
