@@ -6,13 +6,16 @@ The dimensions and typography below are project reading constraints, not
 pixel limits specified by QQ.
 
 QQ images retain the website's authorized Vue display data, game colors and
-rounded surfaces, with a separate 720-pixel chat reading layout. Calendar images
-use illustrated activity cards; role, gacha and game reports adapt the shared
+rounded surfaces. The selected A layout uses 960–1080-pixel single long images.
+Calendar images reuse the dashboard's illustrated timeline, showing exactly 14
+Beijing dates starting two days before today. Activities continuing beyond the
+window retain boundary arrows; dates before the window are omitted. Role, gacha and game reports adapt the shared
 content components. Body text uses 26–30 pixels and secondary text at least 22
 pixels, with no menus, scrolling rails or decorative motion. Long descriptions
 continue without text loss; table records retain their local context. Build both
 entries with `npm ci && npm run
-build` in `frontend`. The screenshot entry is `dist/render.html`; it needs no
+build` in `frontend`. The selected screenshot entry is `dist/render-a.html`;
+`dist/render.html` remains an internal pagination compatibility entry. Rendering needs no
 public screenshot service and does not grant anonymous API access. Existing
 cloud static validation accepts its HTML/JS/CSS files. Source maps, credentials,
 account profiles and private database files must never be placed in `dist`.
@@ -33,14 +36,22 @@ glyphs. Keep the website's Noto family installed/available when comparing modes.
 Missing build, font or browser produces the existing text fallback. Game panels
 and notices use the same runtime; no Pillow card renderer remains.
 
-Every job gets a new browser context, no storage state, cookies or account token,
-timezone Asia/Shanghai, fixed width 720, reduced motion and blocked service
-workers. Only the fixed `https://render.invalid/render.html`, its built assets,
+The A renderer retains a bounded browser context with no storage state or account
+token, timezone Asia/Shanghai, reduced motion and blocked service workers. Each
+job unmounts the prior Vue application, clears its model configuration, and
+mounts only the current authorized snapshot. It disposes that DOM immediately
+after capture. Only the fixed render entry, its built assets,
 configured font and pre-sanitized public asset cache can resolve. API requests,
 external navigation and unexpected resources abort; attempts at active requests
 invalidate rendering. Optional missing images show placeholders; required font
 or unstable/omitted content fails readiness. The job/fingerprint marker must
 match before a selected complete page is captured.
+
+Public role guides use the project's existing 46 Wuwa and 23 NTE guide entries
+and their reviewed role/equipment/skill icons. `攻略`, `鸣潮 攻略`,
+`异环 角色攻略 角色名` and the other game prefixes are public reads; they do not
+resolve bindings or collect private account data. Missing Endfield guide content
+remains explicitly unavailable while retaining its public role context.
 
 The existing queue admits at most ten requests and runs one worker. The total
 caller budget remains at most ten seconds. Cancelling an HTTP await does not free
@@ -51,7 +62,16 @@ component contents. Invalidation prevents results from being inserted again.
 Final link/grant checks still occur after render; this alone is not an atomic
 guarantee across QQ upload/send or concurrent revocation on the remote platform.
 
-The outbound protocol remains one image with `msg_seq=1`. Complete content blocks
+The outbound protocol remains one image with `msg_seq=1`. A retains the original
+text size and image dimensions: at most 1080 pixels wide, 16000 pixels tall,
+16 million pixels and 1 MiB. Fast capture is encoded as lossless or palette PNG,
+with readable JPEG as a bounded fallback. Content exceeding those limits returns
+the existing text explanation; it is never cropped or silently omitted. A has
+one page; later pages report its available range. Upload receives up to 40 seconds
+while reserving 5 seconds for the reply and remains bounded by the passive reply
+deadline. Uncertain uploads are not retried and file_info is not cached.
+
+The internal compatibility `pages` renderer retains the earlier behavior: blocks
 paginate into at most 100 pages, each at most 1440 pixels tall including its
 header and footer. Content keeps its readable size rather than shrinking the
 whole document. Every page geometry and the complete content-block count must
@@ -94,14 +114,14 @@ fingerprints. News `cover_url` and `image_urls` become sanitized `images` candid
 for the shared announcement component. No live article collection runs on a QQ
 query, and absent artwork leaves the original event text intact.
 
-Public artwork is a separate cache mode, bounded to a 720-pixel longest edge;
+Public artwork is a separate cache mode, bounded to a 1080-pixel longest edge;
 ordinary icons retain 192 pixels and reviewed Endfield loadout portraits retain
 512. References and fingerprints include the mode, so a cached thumbnail cannot
 replace a cover. All modes keep the same anonymous URL allowlist, pinned public
 DNS/TLS connection and redirect refusal. Icons and portraits retain a 2 MiB /
 4-million-pixel source limit. Artwork alone allows at most 6 MiB and 12 million
 source pixels, including bounded Content-Length, chunked and unframed reads;
-this admits official 3840×2160 JPEG covers while retaining the 720-pixel output.
+this admits official 3840×2160 JPEG covers while retaining bounded output.
 Artwork downloads may use up to five seconds (`artwork_request_timeout`,
 independently configurable); icons and portraits retain the three-second
 `request_timeout` default. Every fetch is shortened to the remaining shared

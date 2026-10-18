@@ -55,8 +55,9 @@ const tierTotal = computed(() => tiers.value.reduce((sum, row) => sum + (typeof 
     <div class="wuwa-bento">
       <section class="wuwa-panel span-5 is-hero profile-level">
         <div class="account-hero">
+          <p v-if="imageMode" class="wuwa-level-label">{{ profile.level_name || '联觉等级' }}</p>
           <RingGauge :value="exp?.cur" :max="exp?.max" :label="`${profile.level_name || '联觉等级'}经验`" :size="104" :stroke="10" color="var(--wuwa-vivid)">
-            <small class="ring-cap">{{ profile.level_name || '联觉等级' }}</small>
+            <small v-if="!imageMode" class="ring-cap">{{ profile.level_name || '联觉等级' }}</small>
             <b class="ring-value">{{ value(snap?.payload?.level) }}</b>
           </RingGauge>
           <p v-if="exp" class="wuwa-exp" :title="`下一级经验 ${value(exp.cur)} / 经验上限 ${value(exp.max)}`">经验 {{ count(exp.cur) }} / {{ count(exp.max) }}</p>

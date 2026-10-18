@@ -1,7 +1,7 @@
 <script setup>
 import { nteAssetImage } from '../nte-artwork.js'
 import { displayVehicleStat } from '../nte-display.js'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch,inject } from 'vue'
 import { fetchedLabel } from '../time.js'
 import { percentOf } from '../dashboard.js'
 import { safeUrl } from '../calendar.js'
@@ -32,6 +32,12 @@ function onFold(event, key) {
 const titles = { realestate: '房产详情', vehicles: '载具详情', teams: '官方配队推荐' }
 const searchLabels = { realestate: '搜索房产', vehicles: '搜索载具', teams: '搜索配队推荐' }
 const placeholders = { realestate: '搜索名称、入住角色、家具', vehicles: '搜索载具名称', teams: '搜索名称、描述' }
+// Official team cards carry other guide images too. The QQ team command keeps
+// every entry and its complete team diagram; skill/weapon guide images remain
+// in the original cached payload rather than repeating unrelated guide pages.
+const recommendationImages=entry=>props.imageMode
+  ? list(entry.image_urls).filter(url=>/peidui|2team_rec/i.test(url))
+  : list(entry.image_urls)
 const list = value => Array.isArray(value) ? value : []
 const display = (value) => displayRoleValue(value, '未知')
 const state = value => value === true ? '已拥有' : value === false ? '未拥有' : '拥有状态未知'
@@ -42,8 +48,9 @@ const payload = computed(() => props.snap?.payload ?? null)
 const legacy = computed(() => payload.value !== null && payload.value.schema_version !== 1)
 const data = computed(() => legacy.value ? {} : payload.value ?? {})
 const entries = computed(() => list(data.value.entries))
-const roleMap = computed(() => new Map(props.roles.map(role => [String(role.id), role])))
-const roleName = id => roleMap.value.get(String(id))?.name || `角色 ${id}`
+const renderRoleCatalog=inject('renderRoleCatalog',{})
+const roleMap = computed(() => new Map([...(renderRoleCatalog.nte||[]),...props.roles].map(role => [String(role.id), role])))
+const roleName = id => roleMap.value.get(String(id))?.name || (props.imageMode?'名称未提供':`角色 ${id}`)
 const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 const ownedShare = computed(() => percentOf(data.value.owned_count, data.value.total))
 const filtered = computed(() => {
@@ -157,7 +164,7 @@ watch(() => props.capability, () => { search.value = ''; ownership.value = 'all'
             <template v-else-if="capability === 'teams'">
               <p class="description">{{ entry.description || '未提供推荐说明' }}</p>
               <div class="recommendation-images">
-                <template v-for="(url, i) in list(entry.image_urls)" :key="i">
+                <template v-for="(url, i) in recommendationImages(entry)" :key="i">
                   <a v-if="safeUrl(url)" :href="safeUrl(url)" target="_blank" rel="noopener noreferrer" :aria-label="`${entry.name || '配队推荐'}图片 ${i + 1}，打开原图`">
                     <img v-if="imageUrl(url)" :src="imageUrl(url)" :alt="`${entry.name || '配队推荐'}图片 ${i + 1}`" loading="lazy" referrerpolicy="no-referrer" @error="imageFailed" />
                     <span v-else>图片暂时无法加载，打开原图 ↗</span>

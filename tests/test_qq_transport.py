@@ -235,3 +235,33 @@ async def test_reply_expiring_during_rate_wait_is_not_sent():
             await client.send_text(message(),'已经过期',1)
         assert calls==['/v2/groups/group/messages']
     finally:await client.aclose()
+
+
+async def test_image_upload_uses_forty_seconds_and_reserves_reply_time(monkeypatch):
+    import asyncio
+    from io import BytesIO
+    from types import SimpleNamespace
+    from PIL import Image
+    from game_assistant.qq.client import OfficialQqClient
+    calls=[];timeouts=[];wait=asyncio.wait_for
+    class API:
+        def __init__(self,*args,**kwargs):pass
+        def setup(self,http):pass
+        async def request(self,method,path,body):
+            calls.append((path,body))
+            return {'file_info':'fixture-media'} if path.endswith('/files') else {'id':'fixture-reply'}
+    async def observed(awaitable,timeout):
+        timeouts.append(timeout)
+        return await wait(awaitable,timeout)
+    monkeypatch.setattr(asyncio,'wait_for',observed)
+    image=BytesIO();Image.new('RGB',(32,32)).save(image,'PNG')
+    client=OfficialQqClient('fixture','fixture',None,None,sdk=SimpleNamespace(QQApiClient=API));client.now=lambda:NOW
+    try:
+        await client.send_image(message(),image.getvalue(),1)
+        assert timeouts==[40,20]
+        assert calls[0][1]['srv_send_msg'] is False
+        calls.clear();timeouts.clear()
+        await client.send_image(message(deadline=NOW+timedelta(seconds=12)),image.getvalue(),1)
+        assert timeouts==[7,12]
+        assert len(calls)==2 and calls[-1][1]['msg_seq']==1
+    finally:await client.aclose()

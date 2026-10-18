@@ -73,8 +73,9 @@ const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
       </ul>
 
       <div v-if="detections?.total != null" class="detection">
+        <h3 v-if="imageMode" class="detection-heading">残象已收录</h3>
         <DonutChart :segments="levels" label="残象按等级收录" :size="124" :stroke="14">
-          <span class="detection-label">残象已收录</span>
+          <span v-if="!imageMode" class="detection-label">残象已收录</span>
           <b class="detection-total">{{ detections.total }}</b>
           <span class="detection-unit">只</span>
         </DonutChart>

@@ -2,16 +2,17 @@
 import { computed } from 'vue'
 import { tokenizeGuide } from '../wuwa-icons.js'
 import WuwaIcon from './WuwaIcon.vue'
-const props = defineProps({ text: { type: String, default: '' }, sectionKey: { type: String, required: true }, characterId: { type: [String, Number], required: true } })
-const tokens = computed(() => tokenizeGuide(props.text, props.sectionKey, props.characterId))
+import {guideAtoms} from '../qq-image/guide-presentation.js'
+const props = defineProps({ text: { type: String, default: '' }, sectionKey: { type: String, required: true }, characterId: { type: [String, Number], required: true },imageMode:Boolean })
+const tokens = computed(() => {const raw=tokenizeGuide(props.text, props.sectionKey, props.characterId);return props.imageMode?guideAtoms(raw):raw})
 </script>
 <template>
   <div class="guide-visual-flow" :class="`visual-${sectionKey}`">
     <template v-for="(token, i) in tokens" :key="i">
-      <span v-if="token.entity" class="guide-entity" :title="token.name">
+      <span v-if="token.entity" class="guide-atom"><span class="guide-entity" :title="token.name">
         <WuwaIcon :src="token.icon" :name="token.name" :size="sectionKey === 'echo_stats' ? 'small' : 'normal'" />
         <span>{{ token.text }}</span>
-      </span>
+      </span><span v-if="token.trailing" class="guide-punctuation">{{token.trailing}}</span></span>
       <span v-else class="guide-connector">{{ token.text }}</span>
     </template>
   </div>

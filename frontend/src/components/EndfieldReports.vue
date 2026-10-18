@@ -117,7 +117,8 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
             <p v-if="mainMission" class="ef-main-mission"><span>主线进度</span><strong>{{ mainMission }}</strong></p>
           </div>
           <div class="ef-stamina">
-            <RingGauge :value="stamina.current" :max="stamina.maximum" label="理智" :size="136" :stroke="13" color="var(--ef-vivid)"><span class="ef-ring-center"><span class="k">理智</span><strong>{{ display(stamina.current) }} <small>/ {{ display(stamina.maximum) }}</small></strong></span></RingGauge>
+            <RingGauge :value="stamina.current" :max="stamina.maximum" label="理智" :size="136" :stroke="13" color="var(--ef-vivid)"><span v-if="imageMode" class="ef-pct">{{ Number.isFinite(stamina.current) && stamina.maximum > 0 ? Math.round(stamina.current / stamina.maximum * 100) + '%' : '—' }}</span><span v-else class="ef-ring-center"><span class="k">理智</span><strong>{{ display(stamina.current) }} <small>/ {{ display(stamina.maximum) }}</small></strong></span></RingGauge>
+            <p v-if="imageMode" class="ef-stamina-values">理智 {{ display(stamina.current) }} / {{ display(stamina.maximum) }}</p>
             <p class="ef-note">{{ staminaNote }}</p>
           </div>
         </div>
@@ -189,7 +190,8 @@ const detailName = computed(() => detail.value?.name || operators.value.find(ite
       <section v-for="(region,index) in regions" :key="region.id || index" v-reveal class="ef-card ef-region"><header><div><h2>{{ named(region) }}</h2></div><span class="ef-level">等级 {{ display(region.level) }}</span></header>
         <div class="ef-region-top">
           <div class="ef-money"><span class="k">地区调度券</span>
-            <RingGauge :value="region.money?.current ?? region.money?.count" :max="region.money?.total" label="地区调度券" :size="108" :stroke="11" color="var(--ef-vivid)"><span class="ef-ring-center"><strong>{{ display(region.money?.current ?? region.money?.count) }} <small>/ {{ display(region.money?.total) }}</small></strong></span></RingGauge>
+            <RingGauge :value="region.money?.current ?? region.money?.count" :max="region.money?.total" label="地区调度券" :size="108" :stroke="11" color="var(--ef-vivid)"><span v-if="imageMode" class="ef-pct">{{ typeof region.money?.percent === 'number' ? Math.round(region.money.percent) + '%' : '—' }}</span><span v-else class="ef-ring-center"><strong>{{ display(region.money?.current ?? region.money?.count) }} <small>/ {{ display(region.money?.total) }}</small></strong></span></RingGauge>
+            <p v-if="imageMode" class="ef-money-values">{{ display(region.money?.current ?? region.money?.count) }} / {{ display(region.money?.total) }}</p>
           </div>
           <div class="ef-bases"><div class="ef-bases-head"><span class="k">据点</span><strong>{{ display(settlementCount(region)) }}</strong></div>
             <HRail v-if="rows(region.settlements).length" label="据点"><article v-for="(settlement,number) in rows(region.settlements)" :key="settlement.id || number" class="ef-settlement"><h3>{{ settlement.name || '据点' }} <small>等级 {{ display(settlement.level) }}</small></h3><p>基地调度券 <strong>{{ pair(settlement.coupon || {current:settlement.money,total:settlement.money_max}) }}</strong></p><span v-if="couponPercent(settlement) != null" class="ef-bar meter" aria-hidden="true"><i :style="{ width: `${couponPercent(settlement)}%` }"></i></span><p class="ef-note">派驻干员：{{ rows(settlement.officers).map(item => item.name || item.id || '未知').join('、') || (settlement.officers_available === true ? '无派驻' : '未提供') }}</p><div v-if="rows(settlement.officers).length" class="ef-assigned"><EndfieldArtwork v-for="(officer,officerIndex) in rows(settlement.officers)" :key="officer.id || officerIndex" role :operator-id="officer.id" :src="officer.avatar_url" :name="officer.name || officer.id || '干员'" /></div></article></HRail>

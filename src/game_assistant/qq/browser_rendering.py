@@ -19,9 +19,10 @@ from PIL import Image
 
 from .assets import safe_public_url
 from .rendering import SummaryRenderer, RenderingUnavailable, RenderingPageUnavailable, RenderedImage
+from .a_rendering import AImageRenderer
 
 ORIGIN = 'https://render.invalid'
-KINDS = frozenset(('calendar', 'wuwa_role', 'nte_role', 'wuwa_gacha', 'nte_gacha','game_snapshot','notice'))
+KINDS = frozenset(('calendar', 'wuwa_role', 'nte_role', 'wuwa_gacha', 'nte_gacha','game_snapshot','notice','guide','guide_index'))
 UPLOAD_TARGET_BYTES = 256 * 1024
 PAGE_WIDTH = 720
 PAGE_MAX_HEIGHT = 1440
@@ -43,7 +44,7 @@ def validate_snapshot(value):
     try: datetime.fromisoformat(value['as_of'])
     except ValueError: raise RenderingUnavailable('qq_browser_invalid_snapshot') from None
     if not isinstance(value['display_data'], dict): raise RenderingUnavailable('qq_browser_invalid_snapshot')
-    expected = {'calendar':{'games','snapshots'},'wuwa_role':{'detail','fetched_at'},'nte_role':{'snapshot'},'wuwa_gacha':{'archive'},'nte_gacha':{'snapshot','ledger','roles'},'game_snapshot':{'panels','notices'},'notice':{'title','sections','notices'}}
+    expected = {'calendar':{'games','snapshots'},'wuwa_role':{'detail','fetched_at'},'nte_role':{'snapshot'},'wuwa_gacha':{'archive'},'nte_gacha':{'snapshot','ledger','roles'},'game_snapshot':{'panels','notices'},'notice':{'title','sections','notices'},'guide':{'guide'},'guide_index':{'guides'}}
     if set(value['display_data']) != expected[value['kind']]: raise RenderingUnavailable('qq_browser_invalid_snapshot')
     count = 0
     from .render_snapshot import CALENDAR, VERSION, ROLE, GACHA, DISPLAY_FIELDS, PANEL_CAPS, PROVIDERS, panel_payload
@@ -63,13 +64,18 @@ def validate_snapshot(value):
             if not isinstance(panel,dict) or set(panel)!={'game','provider','capability','snapshot'}:raise RenderingUnavailable('qq_browser_invalid_snapshot')
             game,provider,cap=panel['game'],panel['provider'],panel['capability']
             if game not in PANEL_CAPS or provider not in PROVIDERS or cap not in PANEL_CAPS[game]:raise RenderingUnavailable('qq_browser_invalid_snapshot')
-            if provider not in ({'public'} if cap in ('news','events','recent_events') else {'kuro'} if game=='wuthering_waves' else {'tajiduo'} if game=='nte' else {'hypergryph','skland'}):raise RenderingUnavailable('qq_browser_invalid_snapshot')
+            providers=({'public'} if cap in ('news','events','recent_events') else {'kuro'} if game=='wuthering_waves' else {'tajiduo'} if game=='nte' else {'hypergryph','skland'})
+            if game=='nte' and cap=='teams':providers={'public','tajiduo'}
+            if provider not in providers:raise RenderingUnavailable('qq_browser_invalid_snapshot')
             if game=='endfield' and ((cap in ('training','regions','ship','honor','operator_detail','combat') and provider!='skland') or (cap=='gacha' and provider!='hypergryph')):raise RenderingUnavailable('qq_browser_invalid_snapshot')
             row=panel['snapshot']
             if not isinstance(row,dict) or set(row)!={'payload','fetched_at','state','complete','stale'}:raise RenderingUnavailable('qq_browser_invalid_snapshot')
             if type(row['stale']) is not bool or row['complete'] is not None and type(row['complete']) is not bool or not isinstance(row['state'],str) or row['fetched_at'] is not None and not isinstance(row['fetched_at'],str):raise RenderingUnavailable('qq_browser_invalid_snapshot')
             if panel_payload(game,provider,cap,row['payload'])!=row['payload']:raise RenderingUnavailable('qq_browser_private_field')
-    display_keys=CALENDAR|VERSION|ROLE|GACHA|DISPLAY_FIELDS|frozenset('games snapshots game_id display_name events payload fetched_at state complete stale detail snapshot archive ledger roles wuthering_waves nte endfield all 0 1 2 3 4 5 6 S A B unknown panels game provider capability notices sections items 轻波级 巨浪级 怒涛级 海啸级'.split())
+    guide_fields=frozenset('guide guides key text note sourceId author version url aliases attribute element role status image sources asset_hints'.split()) if value['kind'] in ('guide','guide_index') else frozenset()
+    if value['kind']=='guide' and not isinstance(value['display_data']['guide'],dict):raise RenderingUnavailable('qq_browser_invalid_snapshot')
+    if value['kind']=='guide_index' and (not isinstance(value['display_data']['guides'],list) or len(value['display_data']['guides'])>100):raise RenderingUnavailable('qq_browser_invalid_snapshot')
+    display_keys=CALENDAR|VERSION|ROLE|GACHA|DISPLAY_FIELDS|guide_fields|frozenset('games snapshots game_id display_name events payload fetched_at state complete stale detail snapshot archive ledger roles wuthering_waves nte endfield all 0 1 2 3 4 5 6 S A B unknown panels game provider capability notices sections items 轻波级 巨浪级 怒涛级 海啸级'.split())
     def inspect(node, depth=0):
         nonlocal count
         count += 1
@@ -77,7 +83,7 @@ def validate_snapshot(value):
         if isinstance(node, dict):
             if len(node)>128: raise RenderingUnavailable('qq_browser_data_limit')
             for key, child in node.items():
-                if not isinstance(key,str) or key not in display_keys and not re.fullmatch(r'bucket_\d{1,4}',key) or len(key)>96 or any(word in key.lower() for word in ('token','password','cookie','credential','openid','account_id','user_id','authorization','uid')):
+                if not isinstance(key,str) or key not in display_keys and not re.fullmatch(r'bucket_\d{1,4}',key) or len(key)>96 or any(word in key.lower() for word in ('token','password','cookie','credential','openid','account_id','user_id','authorization','uid')) and key not in ('guide','guides'):
                     raise RenderingUnavailable('qq_browser_private_field')
                 inspect(child,depth+1)
         elif isinstance(node,list):
@@ -93,9 +99,11 @@ def validate_snapshot(value):
     return json.loads(encoded)
 
 
-class BrowserRenderer(SummaryRenderer):
-    def __init__(self, *, dist_path='', executable_path='', enabled=True, **kwargs):
+class BrowserRenderer(AImageRenderer,SummaryRenderer):
+    def __init__(self, *, dist_path='', executable_path='', enabled=True, template='pages', **kwargs):
         super().__init__(**kwargs)
+        if template not in ('pages','a'):raise ValueError('qq_template_invalid')
+        self.template=template
         self.enabled = enabled
         self.dist = Path(dist_path).resolve() if dist_path else Path(__file__).resolve().parents[3] / 'frontend' / 'dist'
         self.executable_path=executable_path
@@ -105,6 +113,8 @@ class BrowserRenderer(SummaryRenderer):
         self.cleanup_seconds=2
         self.disabled_reason=None
         self._memo={}
+        self._a_context=self._a_page=self._a_session=None
+        self._a_build=None;self._a_images={};self._a_forbidden=[]
 
     async def _bounded_close(self, operation):
         task=asyncio.create_task(operation)
@@ -121,6 +131,8 @@ class BrowserRenderer(SummaryRenderer):
         # a final bounded fault cleanup, never a user's installed browser/profile.
         runtime,browser=self._playwright,self._browser
         self._playwright=self._browser=None
+        self._a_context=self._a_page=self._a_session=None
+        self._a_build=None;self._a_images={}
         browser_closed=browser is None or await self._bounded_close(browser.close())
         runtime_closed=runtime is None or await self._bounded_close(runtime.stop())
         if browser_closed and runtime_closed:return
@@ -172,7 +184,7 @@ class BrowserRenderer(SummaryRenderer):
 
     def _build(self):
         if not (self.dist/'render.html').is_file():raise RenderingUnavailable('qq_browser_build_unavailable')
-        files = [self.dist/'render.html', *sorted((self.dist/'assets').glob('*')),self.dist/'render-font.woff2',self.dist/'render-font.json']
+        files = [self.dist/'render.html',self.dist/'render-a.html', *sorted((self.dist/'assets').glob('*')),self.dist/'render-font.woff2',self.dist/'render-font.json']
         def digest_files():
             digest=hashlib.sha256()
             for path in files:
@@ -236,7 +248,7 @@ class BrowserRenderer(SummaryRenderer):
         from .render_snapshot import asset_requests
         assets=[(url,mode,self.asset_cache.url_fingerprint(url,artwork=mode=='artwork',portrait=mode=='portrait'))
                 for url,mode in asset_requests(result.payload.get('render_snapshot'))] if self.asset_cache is not None else []
-        return hashlib.sha256(json.dumps([base,self._build(),font_hash,assets,'shared-vue-v1']).encode()).hexdigest()
+        return hashlib.sha256(json.dumps([base,self._build(),font_hash,assets,'shared-vue-v1',self.template]).encode()).hexdigest()
 
     async def render_summary_async(self, scope, result, *, budget_seconds):
         deadline=time.monotonic()+min(10,budget_seconds)
@@ -250,6 +262,7 @@ class BrowserRenderer(SummaryRenderer):
             cached=self.cache.get(key)
             if cached and cached[1]>time.monotonic():return cached[2]
             generation=self.generation
+        if self.template=='a':return await self._render_a(scope,result,snapshot,deadline,key,generation)
         context=None
         if time.monotonic()>=deadline:raise RenderingUnavailable('qq_image_time_limit')
         try:

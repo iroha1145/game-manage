@@ -111,7 +111,7 @@ class CloudPublicQuery:
         # The collector is scheduled once per game, never once per user/capability.
         if self.bilibili and game in self.bilibili.sources:
             await self.bilibili.run(game)
-        for cap in (Capability.NEWS, Capability.ANNOUNCEMENT, Capability.EVENTS):
+        for cap in (Capability.NEWS, Capability.ANNOUNCEMENT, Capability.EVENTS, Capability.TEAMS):
             if cap not in adapter.capabilities:
                 continue
             try:
@@ -128,6 +128,26 @@ class CloudPublicQuery:
 
     def read(self, game, capability):
         from game_assistant.sources.public_snapshot import read_public_snapshot
+        if game == 'nte' and capability == 'teams' and game in self.sources:
+            # Teams are public in PUBLIC_CAPABILITIES, so private refreshes
+            # deliberately omit them. Keep one public cache for website and QQ.
+            from game_assistant.sources.public_snapshot import expired
+            from game_assistant.scheduler import interval_for
+            now = datetime.now(timezone.utc)
+            snapshot = self.snapshots.get(game, capability)
+            status = self.snapshots.get_poll_status(game, capability) or dict(
+                game_id=game, capability=capability, state='never', last_attempt_at=None,
+                last_success_at=snapshot['fetched_at'] if snapshot else None,
+                consecutive_failures=0, error=None, error_kind=None)
+            payload = json.loads(snapshot['payload']) if snapshot else None
+            stale = bool(snapshot and (expired(snapshot['fetched_at'],
+                interval_for(Capability.TEAMS, self.settings), now)
+                or status['state'] in ('error', 'auth_expired')))
+            return PublicQueryResult(payload=payload,
+                fetched_at=snapshot['fetched_at'] if snapshot else None,
+                state=status['state'], complete=completeness(payload), stale=stale,
+                poll_status={**status, 'stale':stale, 'observed_at':now.isoformat()},
+                primary_source='official', version=None, bilibili_status=None)
         if game not in self.sources or capability not in ('news', 'events'):
             raise AccountNotFoundError()
         data = read_public_snapshot(self.snapshots, game, capability, self.settings, self.bilibili)

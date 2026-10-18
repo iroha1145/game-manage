@@ -401,14 +401,71 @@ def asset_requests(node):
                 if url:yield from emit(url)
     def visit(value,game='',mode='icon',role_ids=(),include_portrait=False):
         if isinstance(value,dict):
+            if value.get('kind')=='nte_gacha':
+                def pull_icons(child):
+                    if isinstance(child,dict):
+                        item=str(child.get('item_id',''))
+                        # Same reviewed fallback used by officialPullIcon; newly
+                        # released characters need not be in the static catalog.
+                        if re.fullmatch(r'\d+',item):
+                            yield from emit('https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/tall/'+item+'.PNG')
+                        elif re.fullmatch(r'fork_[a-zA-Z0-9_-]+',item):
+                            yield from emit('https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/character/fork/'+item+'.png')
+                        for nested in child.values():yield from pull_icons(nested)
+                    elif isinstance(child,list):
+                        for nested in child:yield from pull_icons(nested)
+                yield from pull_icons(value['display_data'])
             if value.get('kind')=='game_snapshot':
                 for panel in value['display_data']['panels']:
                     cap=panel['capability'];payload=panel['snapshot']['payload'];current=panel['game']
-                    if cap=='roles' and current=='nte':
+                    if current=='endfield' and isinstance(payload,dict) and cap not in ('gacha','combat','news','events','recent_events'):
+                        # A profile contains every report, and legacy copies of the
+                        # same medal artwork. Request only the component's view;
+                        # unused images must not evict visible icons from the LRU.
+                        report=payload.get('report') or {}
+                        training=report.get('training') or {}
+                        operators=training.get('items',payload.get('operators',[]))
+                        def roster():
+                            for operator in operators if isinstance(operators,list) else []:
+                                if isinstance(operator,dict):
+                                    yield from visit({key:operator[key] for key in ('id','char_id','name','avatar_url','icon_url') if key in operator},current)
+                        if cap in ('roles','training'):
+                            yield from roster()
+                        elif cap=='operator_detail':
+                            yield from visit(payload.get('operator_detail'),current,include_portrait=True)
+                        elif cap in ('honor','record'):
+                            yield from visit(report.get('honor',payload.get('achievements')),current)
+                        elif cap in ('regions','exploration'):
+                            yield from visit(report.get('regions',payload.get('regions')),current)
+                        elif cap=='ship':
+                            yield from visit(report.get('ship',payload.get('ship')),current)
+                            yield from roster()
+                        else:
+                            yield from visit(report.get('overview',{'base':payload.get('base')}),current)
+                    elif cap=='roles' and current=='nte':
                         entries=payload.get('entries',[]) if isinstance(payload,dict) else payload if isinstance(payload,list) else []
                         for entry in entries:
                             if isinstance(entry,dict):yield from visit({key:entry[key] for key in ('id','name','icon_url') if key in entry},current)
-                    else:yield from visit(payload,current,'artwork' if cap in ('news','events','recent_events') else 'icon')
+                    elif cap=='teams' and current=='nte' and isinstance(payload,dict):
+                        for entry in payload.get('entries',[]):
+                            if not isinstance(entry,dict):continue
+                            yield from visit({key:child for key,child in entry.items() if key!='image_urls'},current)
+                            for url in entry.get('image_urls',[]):
+                                if isinstance(url,str) and re.search(r'peidui|2team_rec',url,re.I):
+                                    yield from emit(url,'artwork')
+                    else:
+                        yield from visit(payload,current,'artwork' if cap in ('news','events','recent_events') else 'icon')
+                        if current=='nte' and cap in ('realestate','vehicles') and isinstance(payload,dict):
+                            for entry in payload.get('entries',[]):
+                                if not isinstance(entry,dict):continue
+                                entity=str(entry.get('id',''))
+                                # Exact public path contracts shared with nte-artwork.js.
+                                if cap=='realestate' and re.fullmatch(r'bigword_[a-z]+_\d+',entity):
+                                    yield from emit('https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/realestate/detail/'+entity+'.png')
+                                elif cap=='vehicles' and re.fullmatch(r'vehicle\d{3}',entity):
+                                    yield from emit('https://webstatic.tajiduo.com/bbs/yh-game-records-web-source/verhicle/wide/'+entity+'.png')
+                                for resident in entry.get('resident_ids',[]):
+                                    yield from catalogs({'id':resident},current,())
                 return
             current=value.get('game') if value.get('game') in CATALOG['games'] else game
             if value.get('kind')=='nte_role':
@@ -433,6 +490,10 @@ def asset_requests(node):
         elif isinstance(value,str):
             if game=='endfield' and mode=='icon' and safe_public_url(value) and urlsplit(value).hostname not in ('web.hycdn.cn','bbs.hycdn.cn'):return
             yield from emit(value,mode)
+    if isinstance(node,dict) and node.get('kind')=='notice' and node.get('game')=='endfield' and '攻略' in node.get('next_command',''):
+        from .guides import catalog
+        role=catalog().get('endfield_role')
+        if role:yield from emit(role.get('avatar_url'))
     # Small mounted icons come before optional full portraits in the bounded queue.
     yield from sorted(visit(node),key=lambda request:{'icon':0,'artwork':1,'portrait':2}[request[1]])
 

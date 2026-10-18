@@ -18,6 +18,7 @@ VERBS.update({'帮助':'help','help':'help','数据坞':'calabash','calabash':'c
 VERBS.update({'理智':'stamina','练度':'training','全员练度':'training','training':'training',
               '地区':'regions','地区建设':'regions','regions':'regions','帝江号':'ship','ship':'ship','寻访战报':'gacha',
               '光荣之路':'honor','勋章':'honor','奖章':'honor','honor':'honor'})
+VERBS.update({'攻略':'guide','角色攻略':'guide','guide':'guide','guides':'guide'})
 PAGED_COMMANDS = frozenset(('help','stamina','calabash','overview','summary','status','roles','exploration','combat','progress','gacha','calendar','events','recent_events','news',
                             'activities','resources','realestate','vehicles','teams','record','training','regions','ship','honor'))
 MAX_PAGE = 100
@@ -54,7 +55,7 @@ def parse_command(content):
         return Command('dashboard')
     if raw in GAMES:
         return Command('summary',GAMES[raw])
-    if parts and parts[0] in VERBS and VERBS[parts[0]] in ('help','events','recent_events','calendar'):
+    if parts and parts[0] in VERBS and VERBS[parts[0]] in ('help','events','recent_events','calendar','guide'):
         verb=VERBS[parts[0]]
         if len(parts)==1:return Command(verb)
         if len(parts)==2 and re.fullmatch(r'[0-9]+',parts[1]):
@@ -80,7 +81,7 @@ def parse_command(content):
         if verb not in PAGED_COMMANDS or not 1<=int(rest[-1])<=MAX_PAGE:return Command('help')
         page=int(rest.pop())
     if not rest:return Command(verb,game,page=page)
-    if verb=='roles' and len(rest)==1 and 1<=len(rest[0])<=64 and rest[0].isprintable():
+    if verb in ('roles','guide') and len(rest)==1 and 1<=len(rest[0])<=64 and rest[0].isprintable():
         return Command(verb,game,role_name=rest[0],page=page)
     return Command('help')
 

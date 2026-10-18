@@ -122,7 +122,7 @@ const isAttributeList = (v) =>
             <strong>{{ data.weapon_data.weapon?.weapon_effect_name }}</strong>
             {{ data.weapon_data.weapon?.effect_description }}
           </p>
-          <details class="wuwa-supplement" :open="imageMode">
+          <details v-if="!imageMode" class="wuwa-supplement">
             <summary>武器补充资料</summary>
             <WuwaFields
               :data="data.weapon_data.weapon"
@@ -168,7 +168,7 @@ const isAttributeList = (v) =>
             }}</span>
             <span class="wuwa-tile-end wuwa-gold">Lv.{{ value(entry.level) }}</span>
           </header>
-          <ul class="chip-list wuwa-skill-meta">
+          <ul v-if="!imageMode" class="chip-list wuwa-skill-meta">
             <li class="wuwa-meta">
               分支激活 {{ value(entry.active_branch) }}
             </li>
@@ -184,7 +184,7 @@ const isAttributeList = (v) =>
           <p v-if="entry.skill?.description" class="wuwa-description">
             {{ entry.skill.description }}
           </p>
-          <details class="wuwa-supplement" :open="imageMode">
+          <details v-if="!imageMode" class="wuwa-supplement">
             <summary>分支说明</summary>
             <WuwaFields
               :data="entry.skill"
@@ -232,7 +232,7 @@ const isAttributeList = (v) =>
           <p v-if="chain.description" class="wuwa-description">
             {{ chain.description }}
           </p>
-          <WuwaFields
+          <WuwaFields v-if="!imageMode"
             :data="chain"
             :exclude="['order', 'name', 'unlocked', 'description']"
           />
@@ -285,7 +285,7 @@ const isAttributeList = (v) =>
               >套装已装备 {{ value(echo.fetter_detail?.num) }} 件</span
             >
           </p>
-          <details class="wuwa-supplement" :open="imageMode">
+          <details v-if="!imageMode" class="wuwa-supplement">
             <summary>声骸技能与补充资料</summary>
             <template v-if="echo.phantom_prop?.skill_description">
               <p class="wuwa-field-label">声骸技能</p>
@@ -342,7 +342,7 @@ const isAttributeList = (v) =>
       />
     </section>
 
-    <details class="wuwa-supplement" :open="imageMode">
+    <details v-if="!imageMode" class="wuwa-supplement">
       <summary>声骸汇总属性</summary>
       <dl
         v-if="isAttributeList(data.equip_phantom_attribute_list)"

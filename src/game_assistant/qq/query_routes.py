@@ -26,7 +26,7 @@ class QueryBody(BaseModel):
     identity: IdentityBody
     command: Literal['help','status','overview','summary','roles','stamina','exploration','combat','progress','gacha',
                      'calendar','events','recent_events','news','refresh','dashboard','calabash','activities','resources','realestate','vehicles','teams','record',
-                     'training','regions','ship','honor']
+                     'training','regions','ship','honor','guide']
     game: Literal['wuthering_waves','nte','endfield'] | None = None
     image_requested: bool = False
     render_budget_seconds: float = Field(default=0, ge=0, le=10, allow_inf_nan=False)
@@ -35,7 +35,7 @@ class QueryBody(BaseModel):
 
     @model_validator(mode='after')
     def selectors_only(self):
-        if self.role_name is not None and (self.command!='roles' or self.game is None or not self.role_name.isprintable()):
+        if self.role_name is not None and (self.command not in ('roles','guide') or self.game is None or not self.role_name.isprintable()):
             raise ValueError('named_role_only')
         if self.page!=1 and self.command not in PAGED_COMMANDS:
             raise ValueError('page_not_supported')
@@ -336,7 +336,7 @@ class QqQueryService:
                     'exploration':'探索','combat':'挑战','progress':'进度','gacha':'抽卡','calendar':'日历','events':'活动',
                     'recent_events':'近期活动','news':'公告','refresh':'刷新','calabash':'数据坞','activities':'活动进度',
                     'resources':'资源','realestate':'房产','vehicles':'车辆','teams':'队伍','record':'档案',
-                    'training':'练度','regions':'地区','ship':'帝江号','honor':'光荣之路'}
+                    'training':'练度','regions':'地区','ship':'帝江号','honor':'光荣之路','guide':'攻略'}
             continuation=(GAME_NAMES[game]+' ' if game is not None and command not in ('overview','status') else '')+labels.get(command,command)
             if role_name is not None:continuation+=' '+role_name
             context.update(grants=[],grant_ids={},snapshots=[],fingerprints=[],user_id=None,panels=[],panel_notices=[],shared_required=True,
@@ -345,11 +345,29 @@ class QqQueryService:
         if command=='help':
             card=view.help_document(game)
             return reply(card)
+        if command=='guide':
+            from .guides import reply as guide_reply
+            card,snapshot=guide_reply(game,role_name,self.clock(),page)
+            if context is not None:context['render_snapshot']=snapshot
+            self._capture_snapshot(context,None,'guides',QueryResult(snapshot['display_data'],None,'ok',None))
+            return reply(card)
         if command=='dashboard':
             value=self.dashboard_url if self.urls_approved and self.dashboard_url else '看板网址尚未启用；请通过已保存的网站入口查看。'
             return {'text':safe_text(value,urls_approved=self.urls_approved)}
         if command in ('calendar','events','recent_events') and game is not None:
             return reply(self._public_events([game],command,context,page))
+        if command=='teams' and game=='nte':
+            # Public official recommendations must not be read through an
+            # account capability list, which excludes PUBLIC_CAPABILITIES.
+            if self.public is None:
+                return reply(view.message(game,'官方配队推荐','官方配队缓存尚未采集。'))
+            try:
+                snapshot=self.public.read(game,'teams')
+                self._capture_snapshot(context,None,game+':teams',snapshot)
+                if context is not None:self._panel(context,{'game':game,'provider':'public'},'teams',snapshot)
+                return reply(view.snapshot_card(game,'','teams',snapshot,self.asset_cache))
+            except AccountNotFoundError:
+                return reply(view.message(game,'官方配队推荐','官方配队缓存暂不可用。'))
         if command=='news':
             if self.public is None or game is None:return reply(view.message(game,'公共资讯','公共资讯暂不可用；请稍后再试。'))
             try:
@@ -611,11 +629,11 @@ def install_qq_query_routes(app, *, app_id, dashboard_url='', urls_approved=Fals
     from game_assistant.cloud_app import allow_cloud_route
     settings=app.state.settings
     from .assets import PublicAssetCache
-    asset_cache=PublicAssetCache(dns_resolver=settings.qq_asset_dns_resolver) if settings.qq_images_enabled else None
+    asset_cache=PublicAssetCache(dns_resolver=settings.qq_asset_dns_resolver,cache_entries=256,cache_bytes=32*1024*1024,prefetch_tasks=192) if settings.qq_images_enabled else None
     from .browser_rendering import BrowserRenderer
     render_queue=RenderQueue(BrowserRenderer(font_path=settings.qq_image_font_path,max_bytes=settings.qq_image_max_bytes,asset_cache=asset_cache,
         enabled=settings.qq_browser_render_enabled,dist_path=settings.qq_browser_render_dist_path,
-        executable_path=settings.qq_browser_render_executable_path)) if settings.qq_images_enabled else None
+        executable_path=settings.qq_browser_render_executable_path,template='a')) if settings.qq_images_enabled else None
     service=QqQueryService(app.state.qq_bindings,getattr(app.state,'account_query',None),
                            getattr(app.state,'public_query',None),dashboard_url=dashboard_url,urls_approved=urls_approved,render_queue=render_queue,asset_cache=asset_cache)
     app.state.qq_query=service

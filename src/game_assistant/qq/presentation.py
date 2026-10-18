@@ -128,7 +128,7 @@ def message(game, title, explanation, *, kind='status'):
 def help_document(game=None):
     prefix=GAME_NAMES.get(game,'游戏')
     sections=[{'title':'绑定与账号','layout':'help','fields':[field('绑定','绑定 实际绑定码'),field('授权状态','我的账号'),field('网站入口','看板')]},
-        {'title':'总览与角色','layout':'help','fields':[field('本人总览','我的总览'),field('单游戏总览',prefix+' 总览'),field('角色列表',prefix+' 角色'),field('角色详情',prefix+' 角色 精确名称')]},
+        {'title':'总览与角色','layout':'help','fields':[field('本人总览','我的总览'),field('单游戏总览',prefix+' 总览'),field('角色列表',prefix+' 角色'),field('角色详情',prefix+' 角色 精确名称'),field('攻略索引',prefix+' 攻略'),field('角色攻略',prefix+' 攻略 精确名称')]},
         {'title':'资源与进度','layout':'help','fields':[field(title,prefix+' '+title) for title in ('体力','探索','进度')]+[field('刷新缓存','刷新 '+prefix)]},
         {'title':'抽卡','layout':'help','fields':[field('抽卡记录',prefix+' 抽卡')]},
         {'title':'公告与活动','layout':'help','fields':[field(title,prefix+' '+title) for title in ('公告','近期活动','活动','日历')]}]

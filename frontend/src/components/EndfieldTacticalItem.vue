@@ -1,8 +1,9 @@
 <script setup>
-import { computed } from 'vue'
+import { computed,inject,unref } from 'vue'
 import { displayValue as display } from '../endfield-reports.js'
 import EndfieldArtwork from './EndfieldArtwork.vue'
 const props=defineProps({ item:Object })
+const imageMode=inject('wuwaImageMode',false)
 const text = value => typeof value === 'string' && value.trim() ? value : null
 // These three paired color markers were observed in live game effect text.
 // Remove only a complete flat pair; retain unknown tags and source parameters.
@@ -11,7 +12,7 @@ const active=computed(()=>effect(props.item?.active_effect)), passive=computed((
 const hasParameters=computed(()=>[active.value,passive.value].some(value=>value && /\{[^{}]+\}/.test(value)))
 </script>
 <template>
-  <section class="ef-tactical"><header><h3>战术道具</h3></header><template v-if="item"><div class="tactical-heading"><EndfieldArtwork :src="item.icon_url" :name="text(item.name) || '战术道具'" /><div><strong>{{ text(item.name) || '名称未提供' }}</strong><p>稀有度 {{ display(item.rarity) }}</p></div></div><details v-if="active || passive" class="tactical-effects"><summary>查看效果说明</summary><dl><div v-if="active"><dt>主动效果</dt><dd>{{ active }}</dd></div><div v-if="passive"><dt>被动效果</dt><dd>{{ passive }}</dd></div></dl><p v-if="hasParameters" class="tactical-note">效果包含来源参数，未代入数值。</p></details><p v-else class="tactical-note">来源未提供效果说明。</p></template><p v-else class="tactical-note">来源未提供战术道具，无法判断当前装备状态。</p></section>
+  <section class="ef-tactical"><header><h3>战术道具</h3></header><template v-if="item"><div class="tactical-heading"><EndfieldArtwork :src="item.icon_url" :name="text(item.name) || '战术道具'" /><div><strong>{{ text(item.name) || '名称未提供' }}</strong><p>稀有度 {{ display(item.rarity) }}</p></div></div><details v-if="!unref(imageMode) && (active || passive)" class="tactical-effects"><summary>查看效果说明</summary><dl><div v-if="active"><dt>主动效果</dt><dd>{{ active }}</dd></div><div v-if="passive"><dt>被动效果</dt><dd>{{ passive }}</dd></div></dl><p v-if="hasParameters" class="tactical-note">效果包含来源参数，未代入数值。</p></details><p v-else-if="!active && !passive" class="tactical-note">来源未提供效果说明。</p></template><p v-else class="tactical-note">来源未提供战术道具，无法判断当前装备状态。</p></section>
 </template>
 <style scoped>
 .ef-tactical{min-width:0;padding:20px;border:1px solid var(--card-border);border-radius:var(--radius-card);background:var(--card-bg);box-shadow:var(--card-shadow)}

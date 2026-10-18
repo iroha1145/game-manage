@@ -2,10 +2,11 @@
 import { computed } from 'vue'
 import { tokenizeNteGuide } from '../nte-icons.js'
 import NteIcon from './NteIcon.vue'
-const props=defineProps({text:{type:String,default:''},sectionKey:{type:String,required:true},roleName:{type:String,required:true}})
-const tokens=computed(()=>tokenizeNteGuide(props.text,props.sectionKey,props.roleName))
+import {guideAtoms} from '../qq-image/guide-presentation.js'
+const props=defineProps({text:{type:String,default:''},sectionKey:{type:String,required:true},roleName:{type:String,required:true},imageMode:Boolean})
+const tokens=computed(()=>{const raw=tokenizeNteGuide(props.text,props.sectionKey,props.roleName);return props.imageMode?guideAtoms(raw):raw})
 </script>
-<template><div class="nte-visual-flow" :class="sectionKey"><template v-for="(token,index) in tokens" :key="index"><span v-if="token.entity" class="visual-token" :title="token.name"><NteIcon :src="token.icon" :name="token.name" :size="sectionKey === 'skills' ? 'skill' : 'medium'" /><span>{{ token.text }}</span></span><span v-else class="plain-token">{{ token.text }}</span></template></div></template>
+<template><div class="nte-visual-flow" :class="sectionKey"><template v-for="(token,index) in tokens" :key="index"><span v-if="token.entity" class="guide-atom"><span class="visual-token" :title="token.name"><NteIcon :src="token.icon" :name="token.name" :size="sectionKey === 'skills' ? 'skill' : 'medium'" /><span>{{ token.text }}</span></span><span v-if="token.trailing" class="guide-punctuation">{{token.trailing}}</span></span><span v-else class="plain-token">{{ token.text }}</span></template></div></template>
 <style scoped>
 .nte-visual-flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;line-height:1.8;white-space:pre-wrap;font-size:13px}
 .visual-token{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 8px 7px;min-width:56px;border-radius:var(--radius-well);background:var(--surface-soft);box-shadow:inset 0 0 0 1px var(--overlay-2);color:var(--text)}

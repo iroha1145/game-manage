@@ -201,7 +201,7 @@ class OfficialQqClient:
         self.sdk=sdk or load_sdk()
         self.gate,self.dispatcher=gate,dispatcher
         self.api=self.sdk.QQApiClient(app_id,app_secret,log_tag='game-assistant')
-        self.http=httpx.AsyncClient(timeout=20,trust_env=False,event_hooks={'response':[_log_upload_response]})
+        self.http=httpx.AsyncClient(timeout=httpx.Timeout(40,connect=5,pool=5),trust_env=False,event_hooks={'response':[_log_upload_response]})
         self.api.setup(self.http)
         self.session=[None,None]
         self.ws=None
@@ -252,7 +252,7 @@ class OfficialQqClient:
         try:
             # srv_send_msg=False ensures even an ambiguous upload cannot deliver a reply.
             uploaded=await asyncio.wait_for(self.api.request('POST',f'/v2/{kind}/{target}/files',
-                {'file_type':1,'file_name':file_name,'file_data':base64.b64encode(image).decode('ascii'),'srv_send_msg':False}),timeout=min(20,remaining-5))
+                {'file_type':1,'file_name':file_name,'file_data':base64.b64encode(image).decode('ascii'),'srv_send_msg':False}),timeout=min(40,remaining-5))
             file_info=uploaded.get('file_info') if isinstance(uploaded,dict) else None
             if not isinstance(file_info,str) or not file_info or len(file_info)>16384:raise ValueError()
         except asyncio.TimeoutError:

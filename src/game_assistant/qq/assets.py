@@ -38,8 +38,8 @@ MAX_ICON_EDGE = 192
 MAX_SANITIZED_BYTES = 192 * 192 * 4 + 2048
 MAX_PORTRAIT_EDGE = 512
 MAX_PORTRAIT_BYTES = 512 * 512 * 4 + 4096
-MAX_ARTWORK_EDGE = 720
-MAX_ARTWORK_BYTES = 720 * 720 * 4 + 4096
+MAX_ARTWORK_EDGE = 1080
+MAX_ARTWORK_BYTES = MAX_ARTWORK_EDGE * MAX_ARTWORK_EDGE * 4 + 4096
 
 
 def safe_public_url(value):
@@ -205,7 +205,7 @@ async def _download(value, *, timeout_seconds=3, dns_resolver='system', artwork=
 
 class PublicAssetCache:
     def __init__(self, *, cache_entries=128, cache_bytes=16*1024*1024, cache_ttl=3600,
-                 concurrency=6, request_timeout=3, artwork_request_timeout=5, dns_resolver='system'):
+                 concurrency=6, request_timeout=3, artwork_request_timeout=5, dns_resolver='system', prefetch_tasks=80):
         if dns_resolver not in ('system', 'cloudflare'):
             raise ValueError('qq_asset_dns_resolver_invalid')
         self.dns_resolver = dns_resolver
@@ -221,6 +221,7 @@ class PublicAssetCache:
         self._lock = threading.RLock()
         self._semaphore = asyncio.Semaphore(max(1, min(concurrency, 8)))
         self._bytes = 0
+        self.prefetch_tasks=max(1,min(int(prefetch_tasks),256))
         self._catalog = CATALOG
         self._portrait_sources = frozenset(CATALOG['games'].get('endfield', {}).get('portrait', {}).values())
         self._portrait_refs = set()
@@ -352,8 +353,8 @@ class PublicAssetCache:
         Input is opaque refs already registered by the safe projection. Cached
         refs consume no sockets; misses are coalesced across concurrent replies.
         Scan at most 512 document refs; cached early rows do not prevent later
-        rows being filled on the next reply. No more than 80 tasks or eight
-        sockets can exist for this cache.
+        rows being filled on the next reply. At most prefetch_tasks (default
+        80, hard bound 256) tasks and eight sockets can exist for this cache.
         """
         if budget_seconds <= 0:
             return
@@ -366,7 +367,7 @@ class PublicAssetCache:
                     continue
             task = self._inflight.get(ref)
             if task is None:
-                if len(self._inflight) >= 80:
+                if len(self._inflight) >= self.prefetch_tasks:
                     break
                 task = asyncio.create_task(self._fetch(ref, deadline))
                 self._inflight[ref] = task

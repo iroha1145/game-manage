@@ -9,7 +9,7 @@ import { articleArtwork } from '../game-visuals.js'
 const props = defineProps({ snap: { type: Object, default: null }, extraSnaps: { type: Array, default: () => [] }, gameId: { type: String, default: '' }, imageMode:Boolean })
 const category = ref('all'), selectedKey = ref('')
 const snapshots = computed(() => [props.snap, ...props.extraSnaps].filter(Boolean))
-const rows = computed(() => prepareArticles(snapshots.value))
+const rows = computed(() => prepareArticles(snapshots.value).map(row=>props.imageMode?{...row,excerpt:row.excerpt.replace(/\[图片\]/g,'').replace(/\s+/g,' ').trim()}:row))
 const selected = computed(() => rows.value.find(row => row.key === selectedKey.value))
 const categories = computed(() => ARTICLE_CATEGORIES.map(rule => ({ ...rule, count: rows.value.filter(row => row.categoryId === rule.id).length })).filter(rule => rule.count))
 const filtered = computed(() => category.value === 'all' ? rows.value : rows.value.filter(row => row.categoryId === category.value))
