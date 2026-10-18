@@ -5,7 +5,7 @@
 """
 from datetime import datetime, timezone
 
-from game_assistant.sources.bilibili import classify_dynamic
+from game_assistant.sources.bilibili import RULE_VERSION, classify_dynamic
 from game_assistant.sources.public_content import calendar_from_posts, parse_post_events
 
 XUESONG = """「雪凇幽梦」版本更新说明
@@ -245,4 +245,4 @@ def test_bilibili_keeps_endfield_notices_that_mention_web_events():
     assert classify_dynamic(dynamic(XUESONG), '1265652806', now)['decision'] == 'accepted'
     assert classify_dynamic(dynamic(MORNING_STAR), '1265652806', now)['decision'] == 'accepted'
     promotion = classify_dynamic(dynamic('「山团团」网页活动开启！\n活动时间：2026/10/01 12:00 - 2026/10/14 23:59'), '1265652806', now)
-    assert (promotion['decision'], promotion['reason'], promotion['rule_version']) == ('excluded', 'promotion', 6)
+    assert (promotion['decision'], promotion['reason'], promotion['rule_version']) == ('excluded', 'promotion', RULE_VERSION)
