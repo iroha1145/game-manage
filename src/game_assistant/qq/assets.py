@@ -3,7 +3,8 @@
 Only anonymous HTTPS images from the frontend's audited official CDN hosts are
 accepted. DNS results are vetted then the TLS socket is connected to that exact
 IP, with the original CDN hostname used for certificate verification and SNI.
-No disk cache, proxies, account headers, redirects, SVG or token URLs are used.
+An optional bounded disk tier retains sanitized public PNGs only, with opaque
+content-mode keys. No proxies, account headers, redirects, SVG or token URLs are used.
 System DNS is the default; operators may explicitly select a fixed trusted DoH
 resolver for public-image hosts without changing machine-wide DNS settings.
 """
@@ -205,7 +206,7 @@ async def _download(value, *, timeout_seconds=3, dns_resolver='system', artwork=
 
 class PublicAssetCache:
     def __init__(self, *, cache_entries=128, cache_bytes=16*1024*1024, cache_ttl=3600,
-                 concurrency=6, request_timeout=3, artwork_request_timeout=5, dns_resolver='system', prefetch_tasks=80):
+                 concurrency=6, request_timeout=3, artwork_request_timeout=5, dns_resolver='system', prefetch_tasks=80, disk_directory=None):
         if dns_resolver not in ('system', 'cloudflare'):
             raise ValueError('qq_asset_dns_resolver_invalid')
         self.dns_resolver = dns_resolver
@@ -226,6 +227,11 @@ class PublicAssetCache:
         self._portrait_sources = frozenset(CATALOG['games'].get('endfield', {}).get('portrait', {}).values())
         self._portrait_refs = set()
         self._artwork_refs = set()
+        self._disk=None
+        if disk_directory is not None:
+            from .public_png_cache import PublicPngCache
+            try:self._disk=PublicPngCache(disk_directory)
+            except OSError:pass
 
     def register_url(self, url, *, portrait=False, artwork=False):
         safe = safe_public_url(url)
@@ -275,7 +281,7 @@ class PublicAssetCache:
             if expiry <= now:
                 del self._failures[ref]
 
-    def _store(self, ref, png):
+    def _store(self, ref, png, *, persist=True):
         with self._lock:
             self._expire()
             if ref in self._cache:
@@ -287,6 +293,7 @@ class PublicAssetCache:
             while len(self._cache) > self.cache_entries or self._bytes > self.cache_bytes:
                 _, (_, expired, _) = self._cache.popitem(last=False)
                 self._bytes -= len(expired)
+        if persist and self._disk is not None:self._disk.write(ref,png)
 
     def get_png(self, ref):
         """The stored PNG bytes, already sanitized when they were fetched."""
@@ -295,6 +302,10 @@ class PublicAssetCache:
         with self._lock:
             self._expire()
             item = self._cache.get(ref)
+            if item is None and self._disk is not None:
+                png=self._disk.read(ref)
+                if png is not None:
+                    self._store(ref,png,persist=False);item=self._cache.get(ref)
             if not item:
                 return None
             self._cache.move_to_end(ref)
@@ -363,7 +374,7 @@ class PublicAssetCache:
         for ref in dict.fromkeys(ref for ref in islice(refs, 512) if isinstance(ref, str)):
             with self._lock:
                 self._expire()
-                if ref not in self._sources or ref in self._cache or ref in self._failures:
+                if ref not in self._sources or self.get_png(ref) is not None or ref in self._failures:
                     continue
             task = self._inflight.get(ref)
             if task is None:

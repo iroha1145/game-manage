@@ -629,7 +629,9 @@ def install_qq_query_routes(app, *, app_id, dashboard_url='', urls_approved=Fals
     from game_assistant.cloud_app import allow_cloud_route
     settings=app.state.settings
     from .assets import PublicAssetCache
-    asset_cache=PublicAssetCache(dns_resolver=settings.qq_asset_dns_resolver,cache_entries=256,cache_bytes=32*1024*1024,prefetch_tasks=192) if settings.qq_images_enabled else None
+    from pathlib import Path
+    cache_directory=Path(settings.cloud_data_root).parent/'qq-public-assets' if settings.cloud_data_root else None
+    asset_cache=PublicAssetCache(dns_resolver=settings.qq_asset_dns_resolver,cache_entries=256,cache_bytes=32*1024*1024,prefetch_tasks=192,disk_directory=cache_directory) if settings.qq_images_enabled else None
     from .browser_rendering import BrowserRenderer
     render_queue=RenderQueue(BrowserRenderer(font_path=settings.qq_image_font_path,max_bytes=settings.qq_image_max_bytes,asset_cache=asset_cache,
         enabled=settings.qq_browser_render_enabled,dist_path=settings.qq_browser_render_dist_path,

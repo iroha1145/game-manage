@@ -53,6 +53,14 @@ and their reviewed role/equipment/skill icons. `攻略`, `鸣潮 攻略`,
 resolve bindings or collect private account data. Missing Endfield guide content
 remains explicitly unavailable while retaining its public role context.
 
+The existing public asset cache has a bounded disk tier at `qq-public-assets`
+beside the cloud data directory: at most 512 sanitized PNGs, 128 MiB and seven
+days. It stores opaque URL/mode hashes and PNG bytes, with no URLs, account data,
+credentials or uploaded file_info. Prewarming reviewed current assets during
+release preparation keeps a service restart from downloading 153 medal icons in
+the first reply's five-second asset budget. Memory remains capped at 256 images
+and 32 MiB; network allowlists, DNS validation and source limits are unchanged.
+
 The existing queue admits at most ten requests and runs one worker. The total
 caller budget remains at most ten seconds. Cancelling an HTTP await does not free
 the worker until the browser job finishes/closes its context. Shutdown drains the
