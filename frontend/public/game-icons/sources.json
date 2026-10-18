@@ -39,14 +39,14 @@
     "kind": "original text identifier; not official game artwork",
     "file_light": "nte-mark-light.svg",
     "official_icon": {
-      "url": "https://nte.perfectworld.com/public/images/icon.png",
+      "url": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/89/67/dc/8967dc31-ed86-3907-2306-8a2d09c51e60/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
       "owner": "Hotta Studio / Perfect World Games",
       "website": "https://nte.perfectworld.com/cn/index.html",
-      "store_listing": null,
-      "verified_at": "2026-10-17",
+      "store_listing": "https://apps.apple.com/cn/app/%E5%BC%82%E7%8E%AF/id6514281568",
+      "verified_at": "2026-10-18",
       "kind": "external official game icon; loaded at runtime, not bundled",
       "license": "All rights reserved by the respective owner; not covered by the project GPL-3.0-only license",
-      "evidence": "Official website apple-touch-icon.",
+      "evidence": "Official CN App Store listing, seller Perfect World Interactive Entertainment Co., Ltd; artworkUrl512 from Apple lookup API. Replaces publisher-hosted apple-touch-icon after reproduced TLS failures and visible fallback on 2026-10-18.",
       "fallback_urls": []
     },
     "official_banners": {

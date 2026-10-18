@@ -67,7 +67,7 @@ test('each supported game records separate rights for official artwork and bundl
     assert.match(banner.kind, /not a current-version/)
     assert.match(official.url, /^https:\/\//)
     assert.match(official.license, /not covered by the project GPL/)
-    assert.equal(official.verified_at, '2026-10-17')
+    assert.equal(official.verified_at, id === 'nte' ? '2026-10-18' : '2026-10-17')
     assert.ok(official.owner && official.website && official.evidence)
     const src = gameStyle(id).icon
     assert.match(src, /^\/game-icons\//)
