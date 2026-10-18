@@ -8,8 +8,8 @@ import { lazyPage } from './lazy-page.js'
 const staticComponents = file => [...readFileSync(new URL(file, import.meta.url), 'utf8').matchAll(/^import \w+ from '\.\/([\w/]+\.vue)'/gm)].map(match => match[1])
 const tick = async () => { await new Promise(resolve => setImmediate(resolve)); await nextTick() }
 
-test('the cloud app loads only the login form, overview, icons, shared menu and idle update control before its first paint', () => {
-  assert.deepEqual(staticComponents('./CloudApp.vue').sort(), ['components/AppIcon.vue', 'components/GameIcon.vue', 'components/MenuSelect.vue', 'components/OverviewPage.vue', 'components/SiteLogin.vue', 'components/SystemUpdateControl.vue'])
+test('the cloud app loads only the login form, overview, icons, shared menu, theme toggle and idle update control before its first paint', () => {
+  assert.deepEqual(staticComponents('./CloudApp.vue').sort(), ['components/AppIcon.vue', 'components/GameIcon.vue', 'components/MenuSelect.vue', 'components/OverviewPage.vue', 'components/SiteLogin.vue', 'components/SystemUpdateControl.vue', 'components/ThemeToggle.vue'])
 })
 test('the update dialog stays in its own lazy chunk behind the lightweight control', () => {
   assert.ok(!staticComponents('./components/SystemUpdateControl.vue').some(file => file.endsWith('SystemUpdateDialog.vue')))
