@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Endfield Bilibili-channel binding: choose the channel before Hypergryph SMS login, verify the complete bound identity before account/headhunting reads, retain channel-scoped cloud identities and enforce the same role in derived Skland grants. Unknown channel metadata is not promoted to official. Bilibili SESSDATA remains a separate public-source credential; upstream access restrictions, storage errors and uncertain request outcomes now have accurate status and recovery controls. Real Bilibili game-account acceptance remains pending; see `docs/endfield-bilibili-server.md`.
+
 - Web updates: add an upper-right version dialog for local Windows and cloud administrators, with fixed official-main checks, pinned update confirmation and restart recovery. An independent helper prepares an isolated release before stopping services, backs up state and verifies matching backend/frontend commits; ahead/diverged or modified installs cannot be downgraded. Linux requires the documented operator setup. A lost browser response never resubmits an update.
 - Calendar header: keep date badges inside their daily columns and put month labels on a separate line, preventing overlap in long cross-month ranges while preserving activity positions and the compact image-rendering layout.
 - UI review: preserve unknown and partially observed task/challenge states, distinguish cached equipment from live equipment, restore QQ group-query visibility, and avoid describing every source retry delay as rate limiting. Cloud overview refresh remains busy until all account and public reads settle, including partial failures.

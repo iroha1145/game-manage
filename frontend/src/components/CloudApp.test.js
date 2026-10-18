@@ -78,7 +78,7 @@ test('minute session check defers during an accepted refresh and resumes after s
     return new Response(JSON.stringify(data))
   })
   const root = mount(t, CloudApp); await tick(); await tick()
-  nodes(root,'button').find(n=>content(n).includes('授权 1')).props.onClick(); await tick(); await tick()
+  nodes(root,'button').find(n=>content(n)==='终末地').props.onClick(); await tick(); await tick()
   t.mock.timers.tick(59000); await tick()
   await nodes(root, 'button').find(n => content(n) === '刷新数据').props.onClick(); await tick()
   t.mock.timers.tick(1000); await tick(); await tick()
@@ -106,7 +106,7 @@ test('refresh UI converges without the minute timer and public never state is ex
     return new Response(JSON.stringify(data))
   })
   const root = mount(t, CloudApp); await tick(); await tick()
-  nodes(root,'button').find(n=>content(n).includes('授权 1')).props.onClick(); await tick(); await tick()
+  nodes(root,'button').find(n=>content(n)==='终末地').props.onClick(); await tick(); await tick()
   const refresh = nodes(root, 'button').find(n => content(n) === '刷新数据')
   await refresh.props.onClick(); await tick(); assert.equal(refresh.props.disabled, true)
   t.mock.timers.tick(0); await tick(); assert.match(content(root), /刷新已排队/)
@@ -336,7 +336,7 @@ test('a logout answered with 401 ends at the login form without a retry', async 
   assert.equal(nodes(root, 'button').some(n => content(n) === '退出登录'), false)
 })
 
-test('web authorization and role menus read the selected identity without default-role writes',async t=>{
+test('Endfield role menu selects across accounts without source switches or default-role writes',async t=>{
   configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
   const accounts=['first','second'].map(id=>({account_id:id,provider:'hypergryph',state:'active',capabilities:['account'],roles:[{role_id:`${id}-default`,display_name:`${id}默认角色`,is_default:true},{role_id:`${id}-other`,display_name:`${id}备选角色`}]}))
   const calls=[]
@@ -346,12 +346,12 @@ test('web authorization and role menus read the selected identity without defaul
     return new Response(JSON.stringify(data))
   })
   const root=mount(t,CloudApp);await tick();await tick()
-  nodes(root,'button').find(n=>content(n).includes('授权 1')).props.onClick();await tick();await tick()
+  nodes(root,'button').find(n=>content(n)==='终末地').props.onClick();await tick();await tick()
   assert.equal(nodes(root,'select').length,0)
-  choose(root,'查看授权','second');await tick();await tick()
-  choose(root,'查看角色','second-other');await tick();await tick()
+  assert.equal(nodes(root,'ul').some(n=>n.props['aria-label']==='查看授权'),false)
+  choose(root,'查看角色','second:second-other');await tick();await tick()
   assert.ok(calls.some(call=>call.path==='/api/accounts/second/roles/second-other/snapshot/account'))
   assert.ok(!calls.some(call=>call.method==='PUT'||call.path.endsWith('/default-role')))
   const roleMenu=nodes(root,'ul').find(n=>n.props['aria-label']==='查看角色')
-  assert.deepEqual(nodes(roleMenu,'li').map(n=>n.props['data-value']),['second-default','second-other'])
+  assert.deepEqual(nodes(roleMenu,'li').map(n=>n.props['data-value']),['first:first-default','first:first-other','second:second-default','second:second-other'])
 })

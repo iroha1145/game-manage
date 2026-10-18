@@ -59,7 +59,7 @@ test('missing collection metadata stays unknown and fetched time does not become
 test('cloud reports consume the selected snapshot without extra profile collection and clear after owner changes',async t=>{
   configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}));setAccountScope({user_id:'u',account_id:'a',role_id:'r',provider:'skland'})
   const calls=[];t.mock.method(globalThis,'fetch',async path=>{calls.push(path);return new Response(JSON.stringify({supported:false}))})
-  const props=reactive({cloudAccount:{account_id:'a',provider:'skland',roles:[{role_id:'r',display_name:'角色甲'}]},cloudRole:'r',snaps:{account:{payload}},initialSection:'regions'})
+  const props=reactive({cloudAccount:{account_id:'a',provider:'skland',roles:[{role_id:'r',display_name:'角色甲'},{role_id:'other',display_name:'角色乙'}]},cloudRole:'r',snaps:{account:{payload}},initialSection:'regions'})
   const root=mount(t,Dashboard,props);await tick()
   assert.match(content(root),/四号谷地/);assert.equal(calls.length,0)
   props.cloudRole='other';await tick();assert.doesNotMatch(content(root),/四号谷地|合成管理员/)

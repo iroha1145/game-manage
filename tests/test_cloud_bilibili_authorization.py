@@ -305,3 +305,51 @@ def test_identity_change_during_cookie_validation_cannot_commit(cloud, monkeypat
     assert write(client,ROOT+f'/sessions/{sid}/cookie',{'sessdata':'SYNTHETIC'}).status_code == 410
     with sqlite3.connect(settings.cloud_db_path) as db:
         assert db.execute('SELECT COUNT(*) FROM grants').fetchone()[0] == 0
+
+
+@pytest.mark.parametrize('code,status', [('UPSTREAM_RESTRICTED',502), ('UNSUPPORTED_RESPONSE',502), ('UPSTREAM_UNAVAILABLE',502), ('INVALID_CREDENTIALS',400)])
+def test_cookie_failure_category_is_returned_without_saving_new_grant(cloud, monkeypatch, code, status):
+    from game_assistant.auth.bilibili_provider import BilibiliProtocolError
+    client, _, _, settings, _ = cloud
+    login(client)
+    sid = start(client, 'cookie')
+    async def reject(values):
+        raise BilibiliProtocolError(code, status)
+    monkeypatch.setattr(Provider, 'validate_credentials', staticmethod(reject))
+    response = write(client, ROOT+f'/sessions/{sid}/cookie', {'sessdata':'SYNTHETIC_NOT_SAVED'})
+    assert response.status_code == status
+    assert response.json()['error_code'] == code
+    assert 'SYNTHETIC_NOT_SAVED' not in response.text
+    assert client.get(ROOT+'/status').json()['configured'] is False
+    with sqlite3.connect(settings.cloud_db_path) as db:
+        assert db.execute('SELECT COUNT(*) FROM grants').fetchone()[0] == 0
+
+
+def test_public_grant_status_survives_service_restart(cloud):
+    from game_assistant.auth.cloud_bilibili import CloudBilibiliLoginService
+    client, *_ = cloud
+    login(client)
+    sid = start(client, 'cookie')
+    assert write(client, ROOT+f'/sessions/{sid}/cookie', {'sessdata':'SYNTHETIC_RESTART'}).status_code == 200
+    restarted = CloudBilibiliLoginService(client.app.state.bilibili, client.app.state.identity)
+    status = client.portal.call(restarted.status)
+    assert status['configured'] is True and status['state'] == 'configured'
+    assert status['uid'] == '10001'
+    assert 'SYNTHETIC_RESTART' not in str(status)
+
+
+def test_unreadable_grant_status_is_storage_error_and_preserves_grant(cloud, monkeypatch):
+    from game_assistant.auth.store import CredentialStoreError
+    client, _, _, settings, _ = cloud
+    login(client)
+    sid = start(client, 'cookie')
+    assert write(client, ROOT+f'/sessions/{sid}/cookie', {'sessdata':'SYNTHETIC_STORED'}).status_code == 200
+    def unreadable(*args): raise CredentialStoreError('SYNTHETIC_PRIVATE_ERROR')
+    monkeypatch.setattr(client.app.state.bilibili.credentials.credentials, 'load_grant', unreadable)
+    response = client.get(ROOT+'/status')
+    assert response.status_code == 200
+    assert response.json()['state'] == 'storage_error'
+    assert '读取失败' in response.json()['message']
+    assert 'SYNTHETIC' not in response.text
+    with sqlite3.connect(settings.cloud_db_path) as db:
+        assert db.execute("SELECT COUNT(*) FROM grants WHERE state='active'").fetchone()[0] == 1

@@ -29,9 +29,12 @@ VERSION_TITLE_KEYS = ("更新公告", "更新优化公告", "内容说明", "维
 VERSION_NUMBER = re.compile(r'(?<!\d)(\d+\.\d+)\s*版本')
 
 
-def _parse_notice_events(post, detail, version):
+def _parse_notice_events(post, detail, version, *, date_content=None):
+    if detail.get('postId') is not None and str(detail['postId']) != str(post.get('postId') or ''):
+        raise ValueError('public notice identity mismatch')
+    # Date parsing may prepend a verified list heading; retain original HTML for artwork.
     # content 为 HTML 或明文：strip_html 对明文原样按行拆分
-    lines = event_calendar.strip_html(str(detail.get("content") or ""))
+    lines = event_calendar.strip_html(str(date_content if date_content is not None else detail.get("content") or ""))
     title = str(post.get('subject') or '')
     post_id = str(post.get('postId') or '')
     declarations = [VERSION_NUMBER.search(title), VERSION_NUMBER.search('\n'.join(lines)[:4000])]
@@ -54,7 +57,10 @@ def _parse_notice_events(post, detail, version):
         # Preserve legacy notices with bracket headings and explicit years.
         events = [NteCalendarEvent(**{**e.model_dump(), 'version':version}) for e in event_calendar.parse_events_from_lines(
             lines, source_post_id=post_id, source_title=title)]
-    return events
+    from game_assistant.sources.article_content import article_content, article_images
+    images = article_images(detail.get('images'), post.get('images'),
+                            article_content(detail.get('content'))['images'])
+    return [event.model_copy(update={'image_urls': images}) for event in events]
 
 
 class _UnconfiguredCredentialsError(TajiduoError):
@@ -220,7 +226,8 @@ class NteAdapter(BaseGameAdapter):
                         continue
                     if not declared and stamp and base_stamp and stamp < base_stamp:
                         continue
-                    parsed = _parse_notice_events(row, {**detail, 'content':'● '+str(row.get('subject') or '')+'\n'+body}, version)
+                    parsed = _parse_notice_events(row, detail, version,
+                        date_content='● '+str(row.get('subject') or '')+'\n'+body)
                     if not parsed:
                         raise ValueError('independent public notice has no dated events')
                     if not declared:

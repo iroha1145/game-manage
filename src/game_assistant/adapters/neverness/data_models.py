@@ -9,6 +9,7 @@ from game_assistant.models import StaminaInfo, GameEvent
 
 class NteCalendarEvent(GameEvent):
     """Official notice dates retain their source precision through serialization."""
+    image_urls: list[str] = Field(default_factory=list)
     version: str | None = None
     source: Literal['community'] = 'community'
     source_name: str = '塔吉多官方公告'

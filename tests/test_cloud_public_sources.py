@@ -232,3 +232,25 @@ def test_cloud_http_preserves_public_source_metadata(tmp_path):
         assert data['primary_source'] == 'community' and data['version'] == '3.6'
         assert data['poll_status']['source_statuses']['community']['state'] == 'ok'
         assert data['complete'] is None
+
+
+def test_matched_community_pictures_survive_cached_public_events_and_news():
+    now = datetime.now(timezone.utc).isoformat()
+    primary = {'name': '材料双倍', 'version': '3.6', 'source': 'bilibili',
+               'source_url': 'https://www.bilibili.com/read/cv42',
+               'start_at': '2026-10-01T04:00:00+08:00', 'end_at': '2026-10-30T04:00:00+08:00'}
+    q, store = query(rows=[primary], status='ok', last_success=now)
+    community = {**primary, 'source': 'community', 'source_post_id': '42',
+                 'source_url': 'https://www.kurobbs.com/forum/post/42',
+                 'image_urls': ['https://img.kurobbs.com/42.jpg']}
+    save(store, 'wuthering_waves', 'events', [community], now)
+    result = q.read('wuthering_waves', 'events')
+    assert len(result.payload) == 1
+    assert result.payload[0]['source_url'] == primary['source_url']
+    assert result.payload[0]['start_at'] == primary['start_at']
+    assert result.payload[0]['supplement_sources'][0]['image_urls'] == community['image_urls']
+    save(store, 'wuthering_waves', 'announcement', [{
+        'id': '42', 'title': '材料双倍', 'url': community['source_url'],
+        'images': community['image_urls'], 'content_status': 'full'}], now)
+    news = q.read('wuthering_waves', 'news')
+    assert any(row.get('images') == community['image_urls'] for row in news.payload)

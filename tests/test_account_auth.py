@@ -272,3 +272,30 @@ async def test_direct_grant_save_persists_and_cannot_revive_revoked_grant(tmp_pa
     with pytest.raises(CredentialStoreError):
         store.save_grant('a',row['grant_id'],{'access_token':'revived'},2)
     copied.close()
+
+
+def test_endfield_listing_exposes_only_owned_verified_game_uids(tmp_path):
+    db, store, accounts, _ = setup(tmp_path)
+    principal = Principal('a', False)
+    common = {'role_id': '9001', 'server_id': '1', 'channel': 'bilibili', 'nickname': 'same name'}
+    accounts.save_verified(principal, 'hypergryph', {**common, 'uid': 'hg-owner', 'hg_token': 'never-expose-hg-token'})
+    sk = accounts.save_verified(principal, 'skland', {**common, 'user_id': 'sk-owner', 'cred': 'never-expose-sk-cred'})
+    accounts.save_verified(Principal('b', False), 'hypergryph', {**common, 'role_id': 'foreign-role', 'uid': 'other-owner', 'hg_token': 'never-expose-foreign'})
+    rows = accounts.list_accounts(principal)
+    assert {row['provider'] for row in rows} == {'hypergryph', 'skland'}
+    assert [role['game_uid'] for row in rows for role in row['roles']] == ['9001', '9001']
+    assert all(role['role_id'] != role['game_uid'] for row in rows for role in row['roles'])
+    assert not any(secret in str(rows) for secret in ('never-expose', 'foreign-role', 'hg-owner', 'sk-owner', 'other-owner'))
+    # A role removed from the provider's verified response must not return with a UID.
+    saved = store.load_grant('a', sk['grant_id'])
+    store.save_grant('a', sk['grant_id'], {**saved, 'role_id': 'different', '_verified_roles': [{'role_id': 'different', 'server_id': '1', 'channel': 'bilibili'}]}, 1)
+    row = next(row for row in accounts.list_accounts(principal) if row['provider'] == 'skland')
+    assert row['roles'] == []
+    assert row['state'] == 'role_unavailable'
+
+
+async def test_other_game_listing_keeps_opaque_role_contract(tmp_path):
+    _, _, accounts, login = setup(tmp_path)
+    await authorize(login)
+    roles = accounts.list_accounts(Principal('a', False))[0]['roles']
+    assert set(roles[0]) == {'role_id', 'display_name', 'is_default'}

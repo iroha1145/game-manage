@@ -180,3 +180,63 @@ test('system update cloud allowlist accepts only the three exact method/path pai
   ]) await assert.rejects(requestJson(path, { method }), /尚未提供云端接口/)
   assert.equal(calls.length, accepted, 'unsupported update paths must not reach the network')
 })
+
+const mergedScope = () => ({ user_id: 'u', account_id: 'h', role_id: 'hr', provider: 'hypergryph', version: 1, grant_id: 'hg', sources: {
+  hypergryph: { user_id: 'u', account_id: 'h', role_id: 'hr', provider: 'hypergryph', version: 1, grant_id: 'hg' },
+  skland: { user_id: 'u', account_id: 's', role_id: 'sr', provider: 'skland', version: 1, grant_id: 'sg' },
+} })
+test('merged Endfield tools route to their verified source without changing the selected physical scope', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (path, options) => { calls.push([options.method, path]); return json(path.endsWith('/csrf') ? { csrf_token: 'csrf' } : {}) })
+  const scope = mergedScope(); setAccountScope(scope)
+  const hgReads = ['summary', 'records?limit=100', 'export']
+  for (const path of hgReads) await requestJson(`/api/endfield/gacha/${path}`)
+  const skReads = ['skland/card', 'skland/attendance', 'skland/operators/char%2F1', 'skland/challenges?kind=war', 'skland/tools?kind=materials', 'blueprints', 'blueprints/export']
+  for (const path of skReads) await requestJson(`/api/endfield/${path}`)
+  for (const [method, path] of [['POST', 'blueprints'], ['PUT', 'blueprints/item'], ['DELETE', 'blueprints/item']]) await requestJson(`/api/endfield/${path}`, { method, body: {} })
+  assert.deepEqual(calls.filter(([, path]) => !path.endsWith('/csrf')), [
+    ...hgReads.map(path => ['GET', `/api/accounts/h/roles/hr/endfield/gacha/${path}`]),
+    ...skReads.map(path => ['GET', `/api/accounts/s/roles/sr/endfield/${path}`]),
+    ...[['POST', 'blueprints'], ['PUT', 'blueprints/item'], ['DELETE', 'blueprints/item']].map(([method, path]) => [method, `/api/accounts/s/roles/sr/endfield/${path}`]),
+  ])
+  setAccountScope({ ...scope, account_id: 's', role_id: 'sr', provider: 'skland' })
+  await requestJson('/api/endfield/gacha/summary')
+  assert.equal(calls.at(-1)[1], '/api/accounts/h/roles/hr/endfield/gacha/summary')
+  setAccountScope({ ...scope, sources: { hypergryph: scope.sources.hypergryph } })
+  await assert.rejects(requestJson('/api/endfield/skland/card'), /尚未提供云端接口/)
+})
+for (const change of ['role', 'version', 'grant', 'revoked']) test(`merged Endfield ${change} changes abort both source reads but preserve session reads`, async t => {
+  const { answers, read } = hungReads(t), scope = mergedScope()
+  setAccountScope(scope)
+  const listing = read('/api/accounts')
+  const pending = [read('/api/endfield/gacha/summary'), read('/api/endfield/skland/tools?kind=materials'), read('/api/accounts/s/roles/sr/snapshot/account')]
+  const next = mergedScope()
+  if (change === 'role') { next.role_id = 'next'; next.sources.hypergryph.role_id = 'next' }
+  if (change === 'version') next.sources.skland.version = 2
+  if (change === 'grant') next.sources.skland.grant_id = 'new-grant'
+  if (change === 'revoked') delete next.sources.skland
+  setAccountScope(next)
+  for (const result of await Promise.all(pending)) assert.equal(result.error?.name, 'AbortError')
+  answers.get('/api/accounts')(json({ accounts: ['kept'] }))
+  assert.deepEqual(await listing, { data: { accounts: ['kept'] } })
+})
+test('merged Endfield ignores late source data after an authorization change even when fetch ignores abort', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const answers = []
+  t.mock.method(globalThis, 'fetch', () => new Promise(resolve => answers.push(resolve)))
+  setAccountScope(mergedScope())
+  const pending = [requestJson('/api/endfield/gacha/summary'), requestJson('/api/accounts/s/roles/sr/snapshot/account')]
+  const next = mergedScope(); next.sources.skland.version = 2; setAccountScope(next)
+  answers.forEach(resolve => resolve(json({ payload: 'old-secret' })))
+  for (const result of await Promise.allSettled(pending)) assert.equal(result.reason?.name, 'AbortError')
+})
+test('an unchanged merged scope does not cancel either source request', async t => {
+  const { answers, read } = hungReads(t)
+  setAccountScope(mergedScope())
+  const pending = [read('/api/endfield/gacha/summary'), read('/api/endfield/skland/card')]
+  setAccountScope(mergedScope())
+  answers.get('/api/accounts/h/roles/hr/endfield/gacha/summary')(json({ source: 'hypergryph' }))
+  answers.get('/api/accounts/s/roles/sr/endfield/skland/card')(json({ source: 'skland' }))
+  assert.deepEqual(await Promise.all(pending), [{ data: { source: 'hypergryph' } }, { data: { source: 'skland' } }])
+})

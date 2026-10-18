@@ -105,6 +105,23 @@ jobs:
           tests/test_system_update_worker.py
           tests/test_release_build_metadata.py
           -q
+      - name: Verify channel identity and public-source authorization on Linux
+        run: >-
+          .venv/bin/python -m pytest
+          tests/test_endfield_channel_auth.py
+          tests/adapters/test_endfield_channels.py
+          tests/test_auth_providers.py
+          tests/adapters/test_endfield_adapter.py
+          tests/test_endfield_skland.py
+          tests/test_cloud_skland_passport.py
+          tests/test_account_auth.py
+          tests/test_account_runtime.py
+          tests/test_cloud_bilibili_authorization.py
+          tests/test_bilibili_auth_provider.py
+          tests/test_bilibili_auth_service.py
+          tests/test_auth_routes.py
+          tests/test_wuwa_login_initialization.py
+          -q
       - name: Verify privileged updater isolation in temporary Linux units
         run: >-
           sudo env

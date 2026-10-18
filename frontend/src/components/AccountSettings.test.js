@@ -52,3 +52,10 @@ test('Skland grants display only safe explicit source metadata without guessing 
   assert.match(content(rows[3]), /来源未提供/)
   assert.doesNotMatch(content(root), /source-role|grant-/)
 })
+
+test('Endfield authorization cards distinguish official, B server and unknown channels', t => {
+  const root = mount(t, AccountSettings, { accounts: ['official', 'bilibili', 'unknown'].map(channel => ({
+    account_id: channel, provider: 'hypergryph', channel, state: 'active', roles: [],
+  })) })
+  assert.deepEqual(nodes(root, 'article').map(row => content(nodes(row, 'p')[0])), ['游戏渠道：官服', '游戏渠道：B 服', '游戏渠道：渠道未提供'])
+})

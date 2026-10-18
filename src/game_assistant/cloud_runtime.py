@@ -67,6 +67,7 @@ def load_runtime(path):
         from .auth.service import FIELDS
         secret_fields = {field for mapping in FIELDS.values() for field in mapping.values()}
         secret_fields.discard('wuwa_token_source')
+        secret_fields.discard('endfield_channel')
         secret_fields.update({'wuwa_app_token','notify_send_key','auth_store_path'})
         if any(getattr(settings, field) for field in secret_fields):
             raise RuntimeConfigurationError('local_credentials_forbidden')

@@ -39,7 +39,7 @@ class Client:
         return 'sign-token'
 
     async def binding(self, *args):
-        return {'list': [{'appCode': 'endfield', 'bindingList': [{'roles': [
+        return {'list': [{'appCode': 'endfield', 'bindingList': [{'channelMasterId': 1, 'isOfficial': True, 'roles': [
             {'roleId': r, 'serverId': s} for r, s in self.roles]}]}]}
 
     async def user(self, *args):
