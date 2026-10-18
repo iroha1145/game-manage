@@ -100,7 +100,7 @@ const choiceSources = choice => choice.sources.hypergryph && choice.sources.skla
 function openChoice(key) { const choice = endfieldChoices.value.find(row => row.key === key); if (choice) openAccount(choice.account, choice.role) }
 const navigationAccounts = computed(() => [
   ...state.accounts.filter(account => gameFor(account) !== 'endfield').map((account, index) => ({ key: account.account_id, account, role: defaultRole(account), name: providerName(account), note: `授权 ${index + 1}` })),
-  ...endfieldChoices.value.map(choice => ({ ...choice, name: `终末地 · ${choiceName(choice)}`, note: choiceSources(choice) })),
+  ...endfieldChoices.value.map(choice => ({ ...choice, name: choice.account.roles?.find(role => role.role_id === choice.role)?.display_name || '未命名角色', channel: channelLabel(choice.account), detail: `终末地 · ${choiceName(choice)} · ${choiceSources(choice)}`, note: choiceSources(choice).replace('与', ' · ') })),
 ])
 const overviewEntries = computed(() => Object.fromEntries(ownerGames.value.map(game => {
   if (game.game_id === 'endfield') {
@@ -271,7 +271,14 @@ onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',sync
       <aside id="workspace-sidebar" ref="sidebar" class="workspace-sidebar cloud-navigation" :style="gameVars(selectedGame)" :inert="mobileNavigation && !menuOpen">
         <a class="brand" href="#/" @click.prevent="setPage('overview')"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>游戏管家<small aria-hidden="true">game · manage</small></span></a>
         <button class="mobile-sidebar-close icon-button" aria-label="关闭导航" @click="closeMenu"><AppIcon name="close" /></button>
-        <nav class="primary-nav" aria-label="云端导航"><button :aria-current="page === 'overview' ? 'page' : undefined" @click="setPage('overview')"><AppIcon name="grid" /><span>今日总览</span></button><button :aria-current="page === 'calendar' ? 'page' : undefined" @click="openCalendar()"><AppIcon name="calendar" /><span>活动日历</span></button><button :aria-current="page === 'accounts' ? 'page' : undefined" @click="setPage('accounts')"><AppIcon name="user" /><span>账号与授权</span></button><button :aria-current="page === 'sessions' ? 'page' : undefined" @click="setPage('sessions')"><AppIcon name="shield" /><span>网站会话</span></button></nav><div class="sidebar-label"><span>我的游戏</span></div><nav class="game-nav" aria-label="游戏导航"><button v-for="game in ownerGames" :key="game.game_id" :aria-current="page === 'game' && selectedGame === game.game_id ? 'page' : undefined" @click="openAccount(overviewOwners[game.game_id])"><GameIcon class="nav-game-mark" :game-id="game.game_id" :name="game.display_name" :style="{ '--mark-tone': gameStyle(game.game_id).tone }" /><span>{{ game.display_name }}</span></button></nav><nav class="cloud-grants" aria-label="本人游戏角色"><button v-for="entry in navigationAccounts" :key="entry.key" :aria-pressed="entry.sources ? sameChoice(entry, state.selected, state.role) : entry.account.account_id === state.selected?.account_id" @click="openAccount(entry.account, entry.role)">{{ entry.name }}<small>{{ entry.note }}</small></button></nav></aside>
+        <nav class="primary-nav" aria-label="云端导航"><button :aria-current="page === 'overview' ? 'page' : undefined" @click="setPage('overview')"><AppIcon name="grid" /><span>今日总览</span></button><button :aria-current="page === 'calendar' ? 'page' : undefined" @click="openCalendar()"><AppIcon name="calendar" /><span>活动日历</span></button><button :aria-current="page === 'accounts' ? 'page' : undefined" @click="setPage('accounts')"><AppIcon name="user" /><span>账号与授权</span></button><button :aria-current="page === 'sessions' ? 'page' : undefined" @click="setPage('sessions')"><AppIcon name="shield" /><span>网站会话</span></button></nav><div class="sidebar-label"><span>我的游戏</span></div><nav class="game-nav" aria-label="游戏导航"><button v-for="game in ownerGames" :key="game.game_id" :aria-current="page === 'game' && selectedGame === game.game_id ? 'page' : undefined" @click="openAccount(overviewOwners[game.game_id])"><GameIcon class="nav-game-mark" :game-id="game.game_id" :name="game.display_name" :style="{ '--mark-tone': gameStyle(game.game_id).tone }" /><span>{{ game.display_name }}</span></button></nav><nav class="cloud-grants" aria-label="本人游戏角色">
+          <p v-if="navigationAccounts.length" class="role-list-label">角色档案</p>
+          <button v-for="entry in navigationAccounts" :key="entry.key" type="button" class="role-entry" :aria-label="entry.detail || `${entry.name} · ${entry.note}`" :title="entry.detail || entry.name" :aria-pressed="entry.sources ? sameChoice(entry, state.selected, state.role) : entry.account.account_id === state.selected?.account_id" @click="openAccount(entry.account, entry.role)">
+            <GameIcon class="role-entry-icon" :game-id="gameFor(entry.account)" aria-hidden="true" />
+            <span class="role-entry-copy"><span class="role-entry-heading"><span class="role-entry-name">{{ entry.name }}</span><span v-if="entry.channel" class="role-entry-channel">{{ entry.channel }}</span></span><span class="role-entry-note">{{ entry.note }}</span></span>
+            <AppIcon class="role-entry-check" name="check" :size="14" aria-hidden="true" />
+          </button>
+        </nav></aside>
       <nav class="mobile-tabbar" aria-label="常用页面">
         <button type="button" :class="{ active: page === 'overview' }" :aria-current="page === 'overview' ? 'page' : undefined" @click="setPage('overview')"><AppIcon name="grid" :size="19" /><span>总览</span></button>
         <button type="button" :class="{ active: page === 'calendar' }" :aria-current="page === 'calendar' ? 'page' : undefined" @click="openCalendar()"><AppIcon name="calendar" :size="19" /><span>日历</span></button>
@@ -296,12 +303,24 @@ onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',sync
 /* One column that may shrink below its content: a rail of fixed-width cards must scroll, not widen the page. */
 .cloud-content{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:20px}.cloud-navigation{overflow:auto}.cloud-navigation nav{display:grid;gap:5px}
 .cloud-navigation nav button{display:flex;align-items:center;gap:11px;min-height:46px;text-align:left;padding:0 14px;border:0;border-radius:13px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:14px;line-height:1.2}
-.cloud-navigation small{font-size:12px;color:var(--text-muted)}.cloud-grants{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}.cloud-grants button{flex-wrap:wrap;gap:2px 8px;padding:8px 14px}
+.cloud-navigation small{font-size:12px;color:var(--text-muted)}
+.cloud-grants{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+.role-list-label{padding:0 14px 4px;color:var(--text-muted);font-size:12px;line-height:18px;font-weight:500}
+.cloud-navigation .role-entry{display:grid;grid-template-columns:28px minmax(0,1fr) 14px;gap:10px;min-height:64px;min-width:0;padding:10px 14px;border-radius:12px;color:var(--text-body);font-weight:400;transition:background var(--duration-quick) var(--ease-smooth-out)}
+.role-entry-icon{width:28px;height:28px;border-radius:8px;box-shadow:inset 0 0 0 1px var(--card-border)}
+.role-entry-copy{display:grid;gap:2px;min-width:0}
+.role-entry-heading{display:flex;align-items:center;gap:6px;min-width:0}
+.role-entry-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:20px;font-weight:500}
+.role-entry-channel{flex-shrink:0;padding:0 4px;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);font-size:11px;line-height:16px;font-weight:400;white-space:nowrap}
+.role-entry-note{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:12px;line-height:18px;font-weight:400}
+.role-entry-check{color:var(--accent);opacity:0;transition:opacity var(--duration-quick) var(--ease-smooth-out)}
+.role-entry[aria-pressed="true"] .role-entry-check{opacity:1}
+.cloud-navigation .role-entry:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* Selected page: the pale accent with accent text, as on the local sidebar. */
 .cloud-navigation .primary-nav button[aria-current="page"],
 .cloud-navigation .game-nav button[aria-current="page"] { background:var(--nav-active-bg); color:var(--accent); font-weight:600; }
 /* The chosen authorization is a setting, not the current page: a neutral tile, so only one item reads as "here". */
-.cloud-navigation .cloud-grants button[aria-pressed="true"] { background:var(--panel-bg); box-shadow:inset 0 0 0 1px var(--border); color:var(--text); font-weight:600; }
+.cloud-navigation .cloud-grants button[aria-pressed="true"] { background:var(--panel-bg); color:var(--text); }
 /* A selected game takes its own tone and ink. */
 .cloud-navigation .game-nav button[aria-current="page"] { background:var(--game-tone, var(--nav-active-bg)); color:var(--game-accent, var(--accent)); }
 @media(hover:hover) and (pointer:fine) {
