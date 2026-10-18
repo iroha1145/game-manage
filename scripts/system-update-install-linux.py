@@ -35,6 +35,13 @@ safe_path = worker.safe_path
 load_config, release_identity, Runner, git_clean = worker.load_config, worker.release_identity, worker.Runner, worker.git_clean
 
 
+def render_unit_paths(text, replacements):
+    # Match only the original template. A configured destination may itself
+    # contain another template prefix and must never be expanded a second time.
+    pattern = '|'.join(re.escape(path) for path in sorted(replacements, key=len, reverse=True))
+    return re.sub(pattern, lambda match: replacements[match.group()], text)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, required=True)
@@ -112,7 +119,7 @@ def main():
         '/var/lib/game-manage-cloud': str(config.data_root),
         '/var/lib/game-manage-qq': str(config.qq_data_root),
     }
-    for old, new in replacements.items(): text = text.replace(old, new)
+    text = render_unit_paths(text, replacements)
     unit = Path('/etc/systemd/system/game-manage-updater.service')
     safe_path(unit)
     if unit.exists() and unit.read_text(encoding='utf-8') != text:
