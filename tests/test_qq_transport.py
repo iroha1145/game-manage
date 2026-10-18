@@ -197,7 +197,7 @@ async def test_uploads_and_text_share_one_paced_outbound_budget():
     class API:
         def __init__(self,*args,**kwargs):pass
         def setup(self,http):pass
-        async def request(self,method,path,body):
+        async def request(self,method,path,body,*,timeout=None):
             calls.append((time.monotonic(),path))
             return {'file_info':'media'} if path.endswith('/files') else {'id':'message'}
     client=OfficialQqClient('app','fixture',None,None,sdk=SimpleNamespace(QQApiClient=API))
@@ -247,7 +247,7 @@ async def test_image_upload_uses_forty_seconds_and_reserves_reply_time(monkeypat
     class API:
         def __init__(self,*args,**kwargs):pass
         def setup(self,http):pass
-        async def request(self,method,path,body):
+        async def request(self,method,path,body,*,timeout=None):
             calls.append((path,body))
             return {'file_info':'fixture-media'} if path.endswith('/files') else {'id':'fixture-reply'}
     async def observed(awaitable,timeout):

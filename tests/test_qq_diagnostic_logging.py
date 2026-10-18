@@ -158,7 +158,7 @@ async def test_official_upload_failure_retains_only_safe_category(caplog, error,
         def setup(self, http):
             pass
 
-        async def request(self, method, path, body):
+        async def request(self, method, path, body, *, timeout=None):
             calls.append(body['srv_send_msg'])
             raise error
 

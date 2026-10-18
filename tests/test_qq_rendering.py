@@ -196,7 +196,7 @@ async def test_sdk_upload_error_is_known_before_any_message_send(caplog):
             pass
         def setup(self, http):
             pass
-        async def request(self, method, path, body):
+        async def request(self, method, path, body, *, timeout=None):
             calls.append(path)
             raise TimeoutError('private-sdk-detail')
     client = OfficialQqClient('app', 'fixture', None, None, sdk=SimpleNamespace(QQApiClient=API))

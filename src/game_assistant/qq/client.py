@@ -71,14 +71,35 @@ class QqReply:
     image: bytes | None = None
 
 
+def _is_upload_request(request):
+    url=request.url
+    return (request.method=='POST' and url.scheme=='https' and url.host=='api.bot.qq.com'
+        and url.port in (None,443) and re.fullmatch(r'/v2/(?:groups|users)/[A-Za-z0-9_-]{1,256}/files',url.path) is not None)
+
+
+_UPLOAD_PHASES=frozenset(('connection.connect_tcp','connection.start_tls',
+    'http11.send_request_body','http11.receive_response_headers',
+    'http2.send_request_body','http2.receive_response_headers'))
+
+
+async def _trace_upload_request(request):
+    """Only phase timestamps and byte count; never retain trace info/headers."""
+    if not _is_upload_request(request):return
+    length=request.headers.get('content-length','')
+    timing={'start':time.monotonic(),'wire_bytes':int(length) if length.isascii() and length.isdigit() and len(length)<12 else None,'events':{}}
+    request.extensions['qq_upload_timing']=timing
+    async def trace(event,info):
+        phase,_,suffix=event.rpartition('.')
+        if phase not in _UPLOAD_PHASES:return
+        if suffix in ('started','complete'):timing['events'][event]=time.monotonic()
+        elif suffix=='failed':logger.warning('QQ image upload transport failed: phase=%s elapsed_ms=%.1f',phase,(time.monotonic()-timing['start'])*1000)
+    request.extensions['trace']=trace
+
+
 async def _log_upload_response(response):
     """Observe the official upload response without exposing remote text or IDs."""
     request=response.request
-    url=request.url
-    if (request.method!='POST' or url.scheme!='https' or url.host!='api.bot.qq.com'
-            or url.port not in (None,443)
-            or not re.fullmatch(r'/v2/(?:groups|users)/[A-Za-z0-9_-]{1,256}/files',url.path)):
-        return
+    if not _is_upload_request(request):return
     status=response.status_code
     if type(status) is not int or not 100<=status<=599:return
     # AsyncClient.request already reads this body before returning it to the SDK.
@@ -90,6 +111,17 @@ async def _log_upload_response(response):
     safe_code=code if type(code) is int and 0<=code<=2**31-1 else 'unavailable'
     logger.log(logging.WARNING if status>=400 else logging.INFO,
         'QQ image upload response: http_status=%d api_code=%s',status,safe_code)
+    timing=request.extensions.get('qq_upload_timing')
+    if timing is not None:
+        events=timing['events']
+        def elapsed(*phases):
+            for phase in phases:
+                start,end=events.get(phase+'.started'),events.get(phase+'.complete')
+                if start is not None and end is not None:return round(max(0,end-start)*1000,1)
+            return 'unavailable'
+        logger.info('QQ image upload timing: wire_bytes=%s connect_ms=%s tls_ms=%s send_body_ms=%s wait_headers_ms=%s total_ms=%.1f',
+            timing['wire_bytes'],elapsed('connection.connect_tcp'),elapsed('connection.start_tls'),
+            elapsed('http11.send_request_body','http2.send_request_body'),elapsed('http11.receive_response_headers','http2.receive_response_headers'),(time.monotonic()-timing['start'])*1000)
 
 
 def load_sdk():
@@ -201,7 +233,7 @@ class OfficialQqClient:
         self.sdk=sdk or load_sdk()
         self.gate,self.dispatcher=gate,dispatcher
         self.api=self.sdk.QQApiClient(app_id,app_secret,log_tag='game-assistant')
-        self.http=httpx.AsyncClient(timeout=httpx.Timeout(40,connect=5,pool=5),trust_env=False,event_hooks={'response':[_log_upload_response]})
+        self.http=httpx.AsyncClient(timeout=httpx.Timeout(40,connect=5,pool=5),trust_env=False,event_hooks={'request':[_trace_upload_request],'response':[_log_upload_response]})
         self.api.setup(self.http)
         self.session=[None,None]
         self.ws=None
@@ -251,8 +283,10 @@ class OfficialQqClient:
         file_name='reply.png' if image.startswith(b'\x89PNG\r\n\x1a\n') else 'reply.jpg'
         try:
             # srv_send_msg=False ensures even an ambiguous upload cannot deliver a reply.
+            upload_timeout=min(40,remaining-5)
             uploaded=await asyncio.wait_for(self.api.request('POST',f'/v2/{kind}/{target}/files',
-                {'file_type':1,'file_name':file_name,'file_data':base64.b64encode(image).decode('ascii'),'srv_send_msg':False}),timeout=min(40,remaining-5))
+                {'file_type':1,'file_name':file_name,'file_data':base64.b64encode(image).decode('ascii'),'srv_send_msg':False},
+                timeout=httpx.Timeout(upload_timeout,connect=min(5,upload_timeout),pool=min(5,upload_timeout))),timeout=upload_timeout)
             file_info=uploaded.get('file_info') if isinstance(uploaded,dict) else None
             if not isinstance(file_info,str) or not file_info or len(file_info)>16384:raise ValueError()
         except asyncio.TimeoutError:

@@ -2,7 +2,22 @@
 import io
 from PIL import Image
 MAX_BYTES=1048576
-def encode(png,prefer_palette=False,max_bytes=MAX_BYTES):
+def encode(png,prefer_palette=False,max_bytes=MAX_BYTES,*,optimize_transfer=False):
+    data,metadata=_encode(png,prefer_palette,max_bytes)
+    if optimize_transfer and metadata['format']=='png':
+        # Repack the already-selected frame. Palette, dimensions and decoded
+        # pixels remain unchanged; this cannot trade text clarity for bytes.
+        with Image.open(io.BytesIO(data)) as image:
+            buffer=io.BytesIO();image.save(buffer,'PNG',compress_level=9,optimize=True)
+        candidate=buffer.getvalue()
+        if len(candidate)<len(data):
+            metadata={**metadata,'lossless_repacked':True,'saved_bytes':len(data)-len(candidate),
+                      'method':metadata['method']+'; lossless PNG repack'}
+            data=candidate
+    return data,metadata
+
+
+def _encode(png,prefer_palette=False,max_bytes=MAX_BYTES):
     max_bytes=max(1,min(int(max_bytes),MAX_BYTES))
     with Image.open(io.BytesIO(png)) as im:
         if len(png)<=min(850*1024,max_bytes):

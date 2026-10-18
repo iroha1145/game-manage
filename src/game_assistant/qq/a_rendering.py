@@ -42,10 +42,11 @@ class AImageRenderer:
         self._a_session=await self._a_context.new_cdp_session(self._a_page)
         self._a_build=build
 
-    async def _a_encode(self,png):
+    async def _a_encode(self,png,*,optimize_transfer=False):
         # A cancelled HTTP caller cannot release the queue while its owned
         # Pillow worker is still consuming CPU/memory in another thread.
-        task=asyncio.create_task(asyncio.to_thread(encode,png,True,self.max_bytes))
+        options={'optimize_transfer':True} if optimize_transfer else {}
+        task=asyncio.create_task(asyncio.to_thread(encode,png,True,self.max_bytes,**options))
         try:return await asyncio.shield(task)
         except asyncio.CancelledError:
             await asyncio.gather(task,return_exceptions=True)
@@ -77,7 +78,8 @@ class AImageRenderer:
                 shot=await self._a_session.send('Page.captureScreenshot',{'format':'png','clip':{'x':box['x'],'y':box['y'],'width':width,'height':height,'scale':1},'captureBeyondViewport':True,'fromSurface':True,'optimizeForSpeed':True})
                 await self._a_page.evaluate('window.disposeLongRender()')
                 raw=base64.b64decode(shot['data']);del shot
-                try:png,encoding=await self._a_encode(raw)
+                optimize_transfer=snapshot['kind']=='calendar' or any(panel['game']=='endfield' and panel['capability'] in ('honor','record') for panel in snapshot['display_data'].get('panels',[]))
+                try:png,encoding=await self._a_encode(raw,optimize_transfer=optimize_transfer)
                 except ValueError:raise RenderingUnavailable('qq_image_size_limit') from None
                 with Image.open(BytesIO(png)) as image:
                     if image.size!=(width,height) or image.n_frames!=1:raise RenderingUnavailable('qq_image_pixel_limit')

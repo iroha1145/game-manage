@@ -75,9 +75,20 @@ text size and image dimensions: at most 1080 pixels wide, 16000 pixels tall,
 16 million pixels and 1 MiB. Fast capture is encoded as lossless or palette PNG,
 with readable JPEG as a bounded fallback. Content exceeding those limits returns
 the existing text explanation; it is never cropped or silently omitted. A has
-one page; later pages report its available range. Upload receives up to 40 seconds
+one page; later pages report its available range. Calendar and Endfield medal
+images additionally repack the selected PNG losslessly, accepting only a smaller
+result with the same dimensions, palette and decoded pixels. Other A images keep
+their existing encoding path. Upload receives up to 40 seconds
 while reserving 5 seconds for the reply and remains bounded by the passive reply
 deadline. Uncertain uploads are not retried and file_info is not cached.
+The request passes its timeout explicitly to the QQ SDK: the SDK's default
+30-second argument otherwise overrides the HTTPX client's configured timeout.
+Connect/pool waits are capped at five seconds and the outer upload deadline still
+covers the entire call. Files-only timing logs record numeric wire bytes,
+connection, TLS, body-send and response-header wait durations. Trace metadata,
+URLs, account identifiers, request bodies, credentials and file_info are never
+logged. Measure upload separately from sample downloads: these share the host's
+outbound bandwidth and can materially delay the request body.
 
 The internal compatibility `pages` renderer retains the earlier behavior: blocks
 paginate into at most 100 pages, each at most 1440 pixels tall including its
