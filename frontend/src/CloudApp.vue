@@ -115,7 +115,7 @@ const overviewOwners = computed(() => Object.fromEntries(Object.entries(overview
 const overviewGames = computed(() => ownerGames.value.map(game => {
   const entry = overviewEntries.value[game.game_id], sources = entry?.sources || {}
   const capabilities = Object.keys(sources).length ? [...new Set(Object.values(sources).flatMap(source => accountCapabilities(source.account)))] : accountCapabilities(entry?.account)
-  if (sources.skland && !capabilities.includes('stamina')) capabilities.push('stamina')
+  if (sources.skland) for (const cap of ['stamina', 'progress']) if (!capabilities.includes(cap)) capabilities.push(cap)
   return { ...game, capabilities, credentials_configured: true }
 }))
 const overviewSnapshots = computed(() => Object.fromEntries(overviewGames.value.map(game => {
@@ -127,11 +127,12 @@ const overviewSnapshots = computed(() => Object.fromEntries(overviewGames.value.
   let snaps = read(entry)
   if (game.game_id === 'endfield' && entry) {
     const sources = entry.sources, passport = read(sources.hypergryph), profile = read(sources.skland).account
-    snaps = { ...passport }
+    snaps = { ...passport, passport_account: passport.account || null }
     if (profile) {
       snaps.skland_account = profile
       if (profile.payload?.base) snaps.account = { ...profile, payload: { schema_version: 1, nickname: profile.payload.base.name, level: profile.payload.base.level } }
       snaps.stamina = { ...profile, payload: profile.payload?.stamina ? { schema_version: 1, ...profile.payload.stamina } : null }
+      snaps.progress = { ...profile, payload: Array.isArray(profile.payload?.progress) ? { schema_version: 1, items: profile.payload.progress } : null }
     }
   }
   return [game.game_id, { ...snaps, ...publicSnapshots.value[game.game_id], ...calendarSnapshots.value[game.game_id] }]

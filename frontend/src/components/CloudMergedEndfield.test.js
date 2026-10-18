@@ -14,7 +14,7 @@ const sources = { hypergryph: { account: h, role: 'role-h' }, skland: { account:
 const envelope = (id, payload, extra = {}) => ({ account_id: id, role_id: `role-${id}`, state: 'ok', fetched_at: '2026-10-18T05:00:00Z', payload, ...extra })
 const passport = envelope('h', { role_id: '9001', nickname: '鹰角本人' })
 const gacha = envelope('h', { schema_version: 1, role_id: '9001', total: 12, pools: [], report: { schema_version: 1, role_id: '9001', total: 12, six_star: 1, five_star: 2, free: 0, pending: false } })
-const profile = envelope('s', { base: { name: '同角色档案', role_id: '9001', level: 32 }, stamina: { current: 86, maximum: 240 }, operators: [{ id: 'op', name: '合并干员', level: 40 }] })
+const profile = envelope('s', { base: { name: '同角色档案', role_id: '9001', level: 32 }, stamina: { current: 86, maximum: 240 }, progress: [{ id: 'daily', name: '每日活跃', cur: 20, total: 100 }, { id: 'weekly', name: '每周任务', cur: 30, total: 400 }], operators: [{ id: 'op', name: '合并干员', level: 40 }] })
 const sourceSnapshots = { hypergryph: { account: passport, gacha }, skland: { account: profile } }
 
 test('the same Endfield role shows profile and gacha together, while tools keep their source-specific routes', async t => {
@@ -35,6 +35,9 @@ test('the same Endfield role shows profile and gacha together, while tools keep 
   })
   const root = mount(t, App); await settle()
   assert.match(content(root), /86/)
+  assert.match(content(root), /每日活跃/); assert.match(content(root), /每周任务/)
+  const digest = nodes(root, 'section').find(node => String(node.props.class).split(' ').includes('ov-gacha'))
+  assert.match(content(digest), /12 抽/)
   button(root, '终末地').props.onClick(); await settle()
   assert.match(content(root), /同角色档案/); assert.match(content(root), /已记录寻访 12/)
   assert.doesNotMatch(content(root), /单独选择|上方切换|查看授权/)
