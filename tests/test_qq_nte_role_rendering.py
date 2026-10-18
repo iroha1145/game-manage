@@ -97,7 +97,8 @@ async def test_real_production_sized_nte_roster_and_selected_detail(selected, tm
                     self.skill_texts = await page.locator('.render-page .nte-equipped-details > section').evaluate_all(
                         "sections => sections.filter(section => section.querySelector('h4')?.textContent === '战技说明').flatMap(section => [...section.querySelectorAll('p')].map(p => p.textContent))")
             return await super()._bounded_close(operation)
-    renderer = InspectableRenderer(executable_path=executable, font_path=font)
+    renderer = InspectableRenderer(executable_path=executable, font_path=font,
+        dist_path=os.environ.get('QQ_RENDER_TEST_DIST', ''), template='pages')
     value = role_snapshot('nte', rich_roster(), NOW, resolved_id='9008' if selected else None)
     envelope = QueryResult({'text': '合成角色渲染验证', 'shared_required': True, 'render_snapshot': value,
         'scopes': [{'account_id': SCOPE.account_id, 'role_id': SCOPE.role_id, 'grant_version': 1}]}, NOW.isoformat(), 'ok', False)

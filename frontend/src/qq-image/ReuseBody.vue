@@ -16,7 +16,7 @@ const special=computed(()=>['calendar','guide','guide_index','nte_gacha'].includ
 <template>
  <div class="reuse-content">
   <div v-if="special" class="page-body"><div v-if="snapshot.kind==='guide' && model.hero" class="guide-role-context"><img v-if="model.hero.image" :src="model.hero.image" :alt="model.hero.name" /><div><h2>{{model.hero.name}}</h2><p>{{model.hero.meta.join('　')}}</p></div></div><Panel v-for="(panel,i) in model.panels" :panel="panel" :index="i" scheme="dossier" /></div>
-  <div v-else-if="cap==='combat'" id="render-content" class="render-image"><WuwaCombatRecord v-for="mode in ['tower','hologram','slash']" :mode="mode" :snap="snapshot.display_data.panels[0].snapshot" /></div>
+  <div v-else-if="cap==='combat' && snapshot.display_data.panels[0].game==='wuthering_waves'" id="render-content" class="render-image"><WuwaCombatRecord v-for="mode in ['tower','hologram','slash']" :mode="mode" :snap="snapshot.display_data.panels[0].snapshot" /></div>
   <div v-else-if="cap==='activities'" id="render-content" class="render-image"><WuwaActivities :snap="snapshot.display_data.panels[0].snapshot" /></div>
   <RenderRoot v-else :snapshot="snapshot" />
  </div>

@@ -104,7 +104,7 @@ def test_noncredential_roster_identifiers_survive_text_sanitization_for_exact_jo
     assert data['operators'][0]['id']==identity
 
 
-@pytest.mark.parametrize('command,role_name',[('training',None),('regions',None),('ship',None),('honor',None),('roles','佩丽卡'),('combat',None),('gacha',None)])
+@pytest.mark.parametrize('command,role_name',[('training',None),('regions',None),('ship',None),('honor',None),('roles','佩丽卡'),('roles_icon','佩丽卡'),('combat',None),('gacha',None)])
 async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfield_views(tmp_path,monkeypatch,command,role_name):
     import os
     from io import BytesIO
@@ -120,6 +120,9 @@ async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfi
     executable=os.environ.get('QQ_RENDER_TEST_EXECUTABLE');font=os.environ.get('QQ_RENDER_TEST_FONT')
     if not executable or not font:pytest.skip('Real shared rendering requires QQ_RENDER_TEST_EXECUTABLE and QQ_RENDER_TEST_FONT')
     query,scope,grant,bundle,scoped=fixture(tmp_path)
+    skill_icon='https://web.hycdn.cn/public/fixture-skill.png'
+    if command=='roles_icon':
+        scoped._service._operator_cache['c1']['operator']['skills'][0]['icon_url']=skill_icon
     payload=synthetic_account(35);payload['operators'][0].update(id='c1',name='佩丽卡');payload['operators'][1]['name']='祀'
     payload['achievements']={'count':34,'medals':[{'level':1,'achievementData':{'id':f'm{i}','name':f'奖章{i}','cateName':f'类别{i//2}'}} for i in range(34)]};payload['availability']['honor']=True
     query.data[('sk','account')]=QueryResult(payload,NOW.isoformat(),'ok',None)
@@ -128,15 +131,44 @@ async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfi
     query.add('endfield','hypergryph','hg',{'gacha':gacha})
     query.accounts.describe=lambda checked:{**query.describe(checked),'game':'endfield','provider':'skland' if checked.account_id=='sk' else 'hypergryph','grant_id':grant['id'] if checked.account_id=='sk' else 'grant-hg'}
     scoped._service._challenge_cache.update({(kind,None,None,None):value for kind,value in synthetic_challenges().items()})
-    app=create_cloud_app(Settings(cloud_db_path=str(tmp_path/'cloud.db'),cloud_allowed_origins=['https://cloud.example'],qq_app_id='app',qq_service_token='fixture-service',qq_images_enabled=True,qq_image_font_path=font,qq_browser_render_executable_path=executable),start_scheduler=False)
+    app=create_cloud_app(Settings(cloud_db_path=str(tmp_path/'cloud.db'),cloud_allowed_origins=['https://cloud.example'],qq_app_id='app',qq_service_token='fixture-service',qq_images_enabled=True,qq_image_font_path=font,qq_browser_render_executable_path=executable,qq_browser_render_dist_path=os.environ.get('QQ_RENDER_TEST_DIST', '')),start_scheduler=False)
     svc=app.state.qq_query;svc.query_service=query;query.accounts._listeners.append(svc.invalidate)
+    if command=='roles_icon':
+        output=BytesIO();Image.new('RGB',(54,54),'#437b75').save(output,'PNG')
+        svc.asset_cache._store(svc.asset_cache.register_url(skill_icon),output.getvalue())
     identity=QqIdentity('app','group','fixture-group','fixture-sender')
     with svc.bindings.store.connect(write=True) as db:db.execute("INSERT INTO users(user_id,username,password_hash) VALUES('u','fixture','fixture')")
     svc.bindings.redeem_link_code(identity,svc.bindings.create_link_code(Principal('u',False))['code'],'fixture-binding')
+    renderer=svc.render_queue.renderer
     captured=[];original=Page.evaluate
     async def evaluate(page,expression,*args,**kwargs):
         value=await original(page,expression,*args,**kwargs)
-        if expression=='window.__RENDER_STATE__':captured.append('\n'.join(await page.locator('.render-page').all_inner_texts()))
+        if expression=='window.__LONG_RENDER_STATE__':
+            captured.append({'state':value,'text':'\n'.join(await page.locator('.lab-sheet').all_inner_texts()),
+                'sheet_count':await page.locator('.lab-sheet').count(),
+                'forbidden_requests':list(renderer._a_forbidden),
+                'layout':await original(page,"""() => {
+                    const box = element => {
+                        const rect = element.getBoundingClientRect();
+                        return {x:rect.x,y:rect.y,right:rect.right,bottom:rect.bottom,width:rect.width,height:rect.height};
+                    };
+                    return {
+                        skills:[...document.querySelectorAll('.skill-art')].map(element => ({
+                            artwork:box(element.querySelector('.endfield-artwork')),
+                            level:box(element.querySelector('.skill-level')),
+                            level_font:getComputedStyle(element.querySelector('.skill-level')).fontSize,
+                            images:element.querySelectorAll('img').length,
+                        })),
+                        bars:[...document.querySelectorAll('.endfield-gacha .bar-col')].map(element => ({
+                            column:box(element),value:element.querySelector('.bar-value').innerText,
+                            label:element.querySelector('.bar-label').innerText,
+                            value_font:getComputedStyle(element.querySelector('.bar-value')).fontSize,
+                            fill_height:element.querySelector('.bar-fill')?.getBoundingClientRect().height ?? 0,
+                        })),
+                        pools:document.querySelectorAll('.endfield-gacha .pool-card').length,
+                        history:document.querySelectorAll('.endfield-gacha .pool-card .chip-list > li').length,
+                    };
+                }""")})
         return value
     monkeypatch.setattr(Page,'evaluate',evaluate)
     svc.asset_cache.prefetch=__import__('unittest.mock',fromlist=['AsyncMock']).AsyncMock()
@@ -147,26 +179,51 @@ async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfi
         now=datetime.now(timezone.utc)
         raw='终末地 干员 佩丽卡' if role_name else {'training':'终末地 练度','regions':'终末地 地区','ship':'终末地 帝江号','honor':'终末地 光荣之路','combat':'终末地 挑战','gacha':'终末地 寻访战报'}[command]
         reply=await internal.execute(InboundMessage(identity,'synthetic-once',raw,now.isoformat(),(now+timedelta(minutes=5)).isoformat()))
-        assert reply.image is not None,reply.text
-        with Image.open(BytesIO(reply.image)) as picture:assert picture.width==720 and 0<picture.height<=1440
-        state=svc.render_queue.renderer.last_state
-        assert state['state']=='ready' and state['displayed_blocks']==state['content_blocks'] and 1<=len(state['pages'])<=100
-        assert all(row['width']==720 and 0<row['height']<=1440 for row in state['pages'])
-        text=captured[-1]
+        # Synthetic-only diagnostics are captured before the rejected page is
+        # recycled. A text fallback must still fail the image contract.
+        diagnostic={'command':command,'reply_type':type(reply).__name__,
+            'reply_text':getattr(reply,'text',reply),'state':renderer.last_state,
+            'capture':captured[-1] if captured else None}
+        (tmp_path/'a-render-diagnostic.json').write_text(json.dumps(diagnostic,ensure_ascii=False,indent=2),encoding='utf-8')
+        assert getattr(reply,'image',None) is not None,json.dumps(diagnostic,ensure_ascii=False)
+        assert renderer.template=='a' and captured[-1]['sheet_count']==1
+        with Image.open(BytesIO(reply.image)) as picture:
+            assert picture.width==1080 and 0<picture.height<=16000
+            assert picture.width*picture.height<=renderer.max_pixels
+            assert (picture.width,picture.height)==(renderer.last_state['width'],renderer.last_state['height'])
+        assert len(reply.image)<=min(renderer.max_bytes,internal.max_image_bytes)
+        state=renderer.last_state
+        assert state['state']=='ready' and not state['overflow'] and state['layout_issues']==0 and state['bad_names']==0
+        assert not captured[-1]['forbidden_requests']
+        text=captured[-1]['text']
         if command=='training':assert '合成干员34' in text and '35' in text
         elif command=='honor':assert '奖章33' in text and '类别16' in text
         elif command=='gacha':
             assert '合成池16' in text and all(f'合成池{i}' in text for i in range(17))
             assert '本图卡池' not in text and '内容已省略' not in text
+            layout=captured[-1]['layout'];bars=layout['bars']
+            assert layout['pools']==17 and layout['history']==51 and len(bars)==17
+            assert [bar['label'] for bar in bars]==[f'合成池{i}' for i in range(17)]
+            assert all(bar['value']=='131 抽' and bar['value_font']=='26px' and bar['fill_height']>0 for bar in bars)
+            assert min(bar['column']['width'] for bar in bars)>=128
+            assert len({round(bar['column']['y']) for bar in bars})>1
         elif command=='combat':
             assert all(label+'观测时间' in text for label in ('战争','丰碑','危机'))
             assert all(moment in text for moment in ('2026-10-14 09:30','2026-10-14 10:30','2026-10-14 11:30'))
             assert '已有资料待更新' in text
-        elif command=='roles':assert '已观测详情武器' in text and '佩丽卡' in text
+        elif command in ('roles','roles_icon'):
+            assert '已观测详情武器' in text and '佩丽卡' in text and '已观测详情战技' in text
+            skills=captured[-1]['layout']['skills'];assert len(skills)==1
+            assert skills[0]['images']==int(command=='roles_icon')
+            assert skills[0]['level_font']=='26px'
+            assert skills[0]['level']['y']>=skills[0]['artwork']['bottom']+7
         elif command=='ship':assert '0%' in text and '未知' in text
         elif command=='regions':
             assert '四号谷地' in text and '武陵' in text and '地区数 2' in text
             assert all(label in text for label in ('宝箱','醚质','协议采录桩','装备制造模板','维修灵感点'))
-        assert not svc.render_queue.renderer._browser.contexts and query.refreshes==[]
+        assert len(renderer._browser.contexts)==1 and renderer._a_context is renderer._browser.contexts[0]
+        assert await renderer._a_page.locator('#app').inner_html()=='' and renderer._a_images=={}
+        assert query.refreshes==[]
     finally:
         await http.aclose();await svc.aclose();scoped.close()
+        assert renderer._browser is None and renderer._a_context is None and renderer._a_page is None

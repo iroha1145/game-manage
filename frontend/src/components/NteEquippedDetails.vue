@@ -4,12 +4,15 @@ defineProps({ role:{type:Object,required:true}, imageMode:{type:Boolean,default:
 const show = value => value == null || value === '' ? '未提供' : typeof value === 'object' ? JSON.stringify(value) : String(value)
 const text = value => displayNteText(value)
 const rows = value => Array.isArray(value) ? value : []
+const hasSkillItems = value => rows(value).some(skill => rows(skill?.items).length)
 </script>
 <template>
   <div class="nte-equipped-details">
     <section><h4>觉醒效果</h4><p v-for="(effect,i) in rows(role.awaken_effects)" :key="i">{{ text(effect) }}</p><p v-if="!rows(role.awaken_effects).length">未提供</p></section>
     <section v-if="role.weapon"><h4>弧盘资料</h4><p>{{ show(role.weapon.name) }} · 突破 {{ show(role.weapon.breakthrough_level) }}</p><p>{{ text(role.weapon.description) }}</p><p>{{ show(role.weapon.buff_name) }}：{{ text(role.weapon.buff_description) }}</p><dl><div v-for="(p,i) in rows(role.weapon.properties)" :key="i"><dt>{{ show(p.name) }}</dt><dd>{{ show(p.value) }}</dd></div></dl></section>
-    <template v-if="!imageMode"><section v-for="group in [{title:'战技说明',rows:role.skills},{title:'城区技能说明',rows:role.city_skills}]" :key="group.title"><h4>{{ group.title }}</h4><div v-for="(s,i) in rows(group.rows)" :key="i"><p>{{ show(s.name) }}</p><p v-for="(item,j) in rows(s.items)" :key="j">{{ show(item.title) }}：{{ text(item.desc) }}</p></div></section></template>
+    <template v-for="group in [{title:'战技说明',rows:role.skills},{title:'城区技能说明',rows:role.city_skills}]" :key="group.title">
+      <section v-if="!imageMode || hasSkillItems(group.rows)"><h4>{{ group.title }}</h4><div v-for="(s,i) in rows(group.rows)" :key="i"><p>{{ show(s.name) }}</p><p v-for="(item,j) in rows(s.items)" :key="j">{{ show(item.title) }}：{{ text(item.desc) }}</p></div></section>
+    </template>
     <section class="equipped-suit"><h4>已装备套装</h4><template v-if="role.suit"><p>{{ show(role.suit.name) }} · 激活数 {{ show(role.suit.activation_count) }}</p><p>二件：{{ text(role.suit.description_two) }}</p><p>四件：{{ text(role.suit.description_four) }}</p><div class="equipped-parts"><template v-for="group in ['core','pie']" :key="group"><section v-for="(item,i) in rows(role.suit[group])" :key="group+i" class="equipped-part"><h5>{{ show(item.name) }} · Lv{{ show(item.level) }}</h5><dl v-for="kind in ['main_properties','properties']" :key="kind"><div v-for="(p,j) in rows(item[kind])" :key="j"><dt>{{ kind==='main_properties'?'主':'副' }} · {{ show(p.name) }}</dt><dd>{{ show(p.value) }}</dd></div></dl></section></template></div></template><p v-else>未提供</p></section>
     <details v-if="!imageMode" data-render-collapsed><summary>补充资料与原文</summary><pre>{{ JSON.stringify({awakening:role.awaken_effects,weapon:role.weapon,skills:role.skills,city_skills:role.city_skills,suit:role.suit},null,2) }}</pre><p>角色命途来源值：{{ show(role.group_type) }}</p><p v-if="role.weapon">来源 ID {{ show(role.weapon.id) }} · 命途来源值 {{ show(role.weapon.group_type) }} · 效果数值表（未替换模板）：{{ show(role.weapon.lbd) }}</p><template v-if="role.suit"><p>来源条件：{{ show(role.suit.conditions) }}</p><p>装备品质、面积、完整副词条完成标记未得到来源验证。</p><p v-for="group in ['core','pie']" :key="group">{{ group }}：{{ rows(role.suit[group]).map(item=>show(item.id)).join('、') }}</p></template></details>
   </div>

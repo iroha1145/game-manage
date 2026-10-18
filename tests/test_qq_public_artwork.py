@@ -98,7 +98,7 @@ async def test_artwork_and_icon_cache_are_separate_bounded_resolutions(monkeypat
     async def download(url,**kwargs):return png((1600,900))
     monkeypatch.setattr(assets,'_download',download)
     await cache.prefetch([artwork,icon],budget_seconds=2)
-    assert cache.get_image(artwork).size==(720,405)
+    assert cache.get_image(artwork).size==(1080,608)
     assert cache.get_image(icon).size==(192,108)
     assert cache.get_url_png(COVER,artwork=True)==cache.get_png(artwork)
     assert cache.get_url_png(COVER)==cache.get_png(icon)
@@ -164,7 +164,7 @@ def test_selected_nte_weapon_skill_and_endfield_component_images_are_in_prefetch
     assert (CATALOG['games']['nte']['weapon']['勿忘伞'],'icon') in requests
     assert (CATALOG['games']['nte']['skill']['1003::鬼郎丸头锤'],'icon') in requests
     icon='https://web.hycdn.cn/endfield/weapon.png'
-    panel=shared.game_panel('endfield','skland','operator_detail',row({'name':'佩丽卡','weapon':{'icon_url':icon}}))
+    panel=shared.game_panel('endfield','skland','operator_detail',row({'operator_detail':{'name':'佩丽卡','weapon':{'icon_url':icon}}}))
     assert (icon,'icon') in set(shared.asset_requests(shared.game_snapshot([panel],NOW)))
 
 
@@ -204,7 +204,7 @@ async def test_browser_route_serves_prepared_cover_at_artwork_resolution(monkeyp
     await context.route.call_args.args[1](route)
     supplied=route.fulfill.call_args.kwargs
     assert supplied['content_type']=='image/png'
-    with Image.open(BytesIO(supplied['body'])) as image:assert image.size==(720,405)
+    with Image.open(BytesIO(supplied['body'])) as image:assert image.size==(1080,608)
     route.abort.assert_not_awaited()
 
 
@@ -256,7 +256,7 @@ def test_official_cover_shape_and_three_mib_body_are_artwork_only():
     raw=output.getvalue()
     padded=raw.ljust(3*1024*1024,b'\0')
     with Image.open(BytesIO(assets.sanitize_image(padded,artwork=True))) as image:
-        assert image.size==(720,405) and image.format=='PNG'
+        assert image.size==(1080,608) and image.format=='PNG'
     for source in (raw,padded):
         for options in ({},{'portrait':True}):
             with pytest.raises(ValueError,match='size_limit|pixels_or_animation'):
@@ -265,7 +265,7 @@ def test_official_cover_shape_and_three_mib_body_are_artwork_only():
 
 def test_artwork_source_limits_accept_exact_boundaries_and_reject_overflow():
     raw=png((4000,3000))
-    with Image.open(BytesIO(assets.sanitize_image(raw,artwork=True))) as image:assert image.size==(720,540)
+    with Image.open(BytesIO(assets.sanitize_image(raw,artwork=True))) as image:assert image.size==(1080,810)
     with pytest.raises(ValueError,match='pixels_or_animation'):
         assets.sanitize_image(png((4001,3000)),artwork=True)
     exact=png((720,405)).ljust(assets.MAX_ARTWORK_DOWNLOAD_BYTES,b'\0')
