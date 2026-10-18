@@ -312,12 +312,13 @@ onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',sync
 .cloud-calendar{min-width:0;display:grid;gap:18px}.cloud-calendar-controls{display:flex;justify-content:flex-end}p[role=alert]{color:var(--danger);overflow-wrap:anywhere}
 @media(max-width:960px){.cloud-game-heading>label{width:100%}.cloud-game-heading .cloud-identity-menu{width:100%}.cloud-content .cap-card{min-width:0}.topbar-right{gap:8px}}
 /* Sessions (mockup .session-card): one row per signed-in device, hairlines between. */
+.cloud-sessions{min-width:0;display:grid;gap:20px}
+.cloud-sessions > .page-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;margin-bottom:0}
 .session-note{color:var(--text-muted);font-size:13px}
 .session-card > article{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:14px 0;border-top:1px solid var(--border)}
 .session-card > .session-note + article{margin-top:14px}
 .session-card > article > svg{color:var(--text-muted)}
 .session-card > article > p{flex:1;min-width:0;font-size:13px;font-variant-numeric:tabular-nums}
-.cloud-sessions > .page-heading{margin-bottom:0}
 .cloud-owner-note{padding:12px 16px;border-radius:var(--radius-well);background:var(--panel-bg);border:1px solid var(--border);color:var(--text-muted);font-size:13px}
 .cloud-owner-note > summary{cursor:pointer;color:var(--text-body);font-weight:500}
 </style>
