@@ -68,40 +68,58 @@ export function createFloatingNavigation(refs) {
   let destroyed = false, frame = 0, lastTime = 0, gesture = null, suppressClickUntil = 0
   let unlock = null, generation = 0, corner = 'top-left', height = 300
   let x = 16, y = 16, vx = 0, vy = 0, progress = menuOpen.value ? 1 : 0, pv = 0
-  let tx = x, ty = y, tp = progress
+  let tx = x, ty = y, tp = progress, paintedHeight = 0, scrim = null
   try { const saved = win.localStorage.getItem(storageKey); if (corners.includes(saved)) corner = saved } catch { /* Private browsing can disable storage. */ }
   const bounds = () => navigationBounds(win.innerWidth, win.innerHeight, surface.value?.offsetWidth || 0, surface.value?.offsetHeight || 0)
   function targetCorner() {
+    if (mobileNavigation.value) return
     const b = bounds()
     tx = corner.endsWith('right') ? b.right : b.left
     ty = corner.startsWith('bottom') ? b.bottom : b.top
   }
   const drawerTravel = () => Math.max(1, height - 84)
   const stretchLimit = () => Math.max(8, Math.min(40, win.innerHeight - height - 24))
-  function paint() {
+  function getScrim() {
+    if (scrim?.isConnected) return scrim
+    scrim = root.value?.querySelector?.('.sidebar-scrim') || null
+    return scrim
+  }
+  function paint(settled = false) {
     if (!root.value || !surface.value) return
-    root.value.dataset.navDragging = String(Boolean(gesture?.moved))
+    const dragging = String(Boolean(gesture?.moved))
+    if (root.value.dataset.navDragging !== dragging) root.value.dataset.navDragging = dragging
     if (mobileNavigation.value) {
-      surface.value.style.removeProperty('transform')
+      if (surface.value.style.transform) surface.value.style.removeProperty('transform')
       cards.update(null, false)
-      for (const el of [root.value, surface.value]) {
-        el.style.setProperty('--drawer-progress', String(clamp(progress, 0, 1)))
-        el.style.setProperty('--nav-open-height', `${height}px`)
-        el.style.setProperty('--drawer-stretch', `${clamp((progress - 1) * drawerTravel(), 0, stretchLimit())}px`)
-        el.style.setProperty('--drawer-shift', `${clamp(-progress * drawerTravel(), 0, 8)}px`)
+      const travel = drawerTravel()
+      const clamped = String(clamp(progress, 0, 1))
+      const stretch = `${clamp((progress - 1) * travel, 0, stretchLimit())}px`
+      const shift = `${clamp(-progress * travel, 0, 8)}px`
+      surface.value.style.setProperty('--drawer-progress', clamped)
+      if (paintedHeight !== height) {
+        surface.value.style.setProperty('--nav-open-height', `${height}px`)
+        paintedHeight = height
+      }
+      surface.value.style.setProperty('--drawer-stretch', stretch)
+      surface.value.style.setProperty('--drawer-shift', shift)
+      getScrim()?.style.setProperty('--drawer-progress', clamped)
+      if ((settled || progress === 0 || progress === 1) && root.value.style.getPropertyValue('--drawer-progress') !== clamped) {
+        root.value.style.setProperty('--drawer-progress', clamped)
       }
     } else {
+      paintedHeight = 0
       const b = bounds()
       x = clamp(x, b.left, b.right); y = clamp(y, b.top, b.bottom)
       surface.value.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`
       const left = x + surface.value.offsetWidth / 2 < win.innerWidth / 2
-      root.value.dataset.navSide = left ? 'left' : 'right'
+      const side = left ? 'left' : 'right'
+      if (root.value.dataset.navSide !== side) root.value.dataset.navSide = side
       cards.update({ left: x, top: y, right: x + surface.value.offsetWidth, bottom: y + surface.value.offsetHeight, width: surface.value.offsetWidth }, true)
     }
   }
   function stop() { if (frame) win.cancelAnimationFrame(frame); frame = 0; lastTime = 0 }
   function settle() {
-    stop(); x = tx; y = ty; vx = vy = pv = 0; progress = tp; paint()
+    stop(); x = tx; y = ty; vx = vy = pv = 0; progress = tp; paint(true)
   }
   function animate(time) {
     frame = 0
@@ -129,7 +147,11 @@ export function createFloatingNavigation(refs) {
   }
   function controls() {
     return [...(surface.value?.querySelectorAll('button, a[href], input, select, textarea, [tabindex]') || [])]
-      .filter(el => !el.disabled && el.tabIndex >= 0 && !el.closest('[inert], [hidden]') && win.getComputedStyle(el).visibility !== 'hidden' && win.getComputedStyle(el).display !== 'none')
+      .filter(el => {
+        if (el.disabled || el.tabIndex < 0 || el.closest('[inert], [hidden]')) return false
+        const style = win.getComputedStyle(el)
+        return style.visibility !== 'hidden' && style.display !== 'none'
+      })
   }
   function syncOpen() {
     const ticket = ++generation
@@ -137,7 +159,8 @@ export function createFloatingNavigation(refs) {
       if (!unlock) unlock = lockScroll(doc)
       nextTick(() => {
         if (!destroyed && ticket === generation && menuOpen.value && !gesture) {
-          const first = controls().find(el => sidebar.value?.contains(el)) || controls()[0]
+          const items = controls()
+          const first = items.find(el => sidebar.value?.contains(el)) || items[0]
           first?.focus({ preventScroll: true })
         }
       })
@@ -248,7 +271,7 @@ export function createFloatingNavigation(refs) {
     if (gesture) end(null, true)
     height = Math.max(84, Math.min(win.innerHeight - 24, (sidebar.value?.offsetHeight || 216) + 84))
     targetCorner(); syncOpen(); paint()
-    cards.refresh()
+    if (!mobileNavigation.value) cards.refresh()
   }
   const up = event => end(event)
   const cancel = event => end(event, true)
@@ -261,7 +284,8 @@ export function createFloatingNavigation(refs) {
   win.addEventListener('blur', blur)
   win.addEventListener('resize', refresh)
   media.addEventListener?.('change', reduce)
-  const observer = win.ResizeObserver ? new win.ResizeObserver(() => {
+  const observer = win.ResizeObserver ? new win.ResizeObserver(entries => {
+    if (mobileNavigation.value && Array.isArray(entries) && entries.length && entries.every(entry => entry.target === surface.value)) return
     const newHeight = Math.max(84, Math.min(win.innerHeight - 24, (sidebar.value?.offsetHeight || 216) + 84))
     if (newHeight !== height) { height = newHeight; paint() }
     if (!mobileNavigation.value && !gesture) { targetCorner(); start() }
@@ -290,7 +314,8 @@ export function createFloatingNavigation(refs) {
       for (const [type, listener] of [['pointermove', move], ['pointerup', up], ['pointercancel', cancel], ['lostpointercapture', cancel], ['blur', blur], ['resize', refresh]]) win.removeEventListener(type, listener)
       media.removeEventListener?.('change', reduce)
       surface.value?.style.removeProperty('transform')
-      for (const el of [root.value, surface.value]) for (const key of ['--drawer-progress', '--nav-open-height', '--drawer-stretch', '--drawer-shift']) el?.style.removeProperty(key)
+      for (const el of [root.value, surface.value, getScrim()]) for (const key of ['--drawer-progress', '--nav-open-height', '--drawer-stretch', '--drawer-shift']) el?.style.removeProperty(key)
+      scrim = null
       if (root.value) { delete root.value.dataset.navDragging; delete root.value.dataset.navSide }
     },
   }

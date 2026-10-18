@@ -95,5 +95,9 @@ def test_cloud_operator_resolver_propagates_and_request_cannot_select_url(tmp_pa
         csrf = client.get('/api/identity/csrf').json()['csrf_token']
         response = client.post('/api/accounts/auth/kuro/sessions',
             json={'public_ip_url':'https://evil.example'}, headers={'X-CSRF-Token':csrf})
+        assert response.status_code == 422
+        assert not respx.calls
+        response = client.post('/api/accounts/auth/kuro/sessions',
+            json={}, headers={'X-CSRF-Token':csrf})
         assert response.status_code == 200
         assert response.json()['session_id']

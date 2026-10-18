@@ -1,7 +1,9 @@
+from typing import Literal
+
 from fastapi import APIRouter
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import request_validation_exception_handler
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import JSONResponse
 
 from .service import LoginError
@@ -11,6 +13,11 @@ class SmsRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=128)
     mobile: str = Field(min_length=11, max_length=11)
     captcha: dict | None = None
+
+
+class StartRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    channel: Literal['official', 'bilibili'] = 'official'
 
 
 class LoginBodyLimitMiddleware:
@@ -68,8 +75,8 @@ def install_auth_routes(app, service):
         return service.status()
 
     @router.post('/{game}/sessions')
-    async def start(game: str):
-        return await service.start(game)
+    async def start(game: str, body: StartRequest | None = None):
+        return await service.start(game, channel=body.channel if body else 'official')
 
     @router.post('/{game}/sms')
     async def sms(game: str, body: SmsRequest):

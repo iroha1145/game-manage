@@ -46,3 +46,9 @@ test('the request limit gives a Chinese message while a caller abort stays an ab
   await started; caller.abort()
   assert.equal((await pending).name, 'AbortError')
 })
+
+test('a malformed account status cannot be presented as unconfigured', async t => {
+  cloud(t)
+  t.mock.method(globalThis,'fetch',async()=>json({state:'configured'}))
+  await assert.rejects(getCloudBilibiliStatus(),/无法确认是否已配置/)
+})

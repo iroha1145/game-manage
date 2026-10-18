@@ -23,7 +23,15 @@ def adapter(tmp_path, **overrides):
     return result
 
 
+def mock_binding(accounts=None):
+    accounts = accounts if accounts is not None else [
+        {"uid": "hg-uid", "isOfficial": True, "channelName": "官服", "roles": [ROLE]}]
+    return respx.get(BINDING + "/binding_list").respond(200, json={"status": 0, "data": {"list": [
+        {"appCode": "endfield", "bindingList": accounts}]}})
+
+
 def mock_grant():
+    mock_binding()
     return respx.post(HG + "/user/oauth2/v2/grant").respond(200, json={"status": 0, "data": {"token": "grant-secret"}})
 
 
@@ -88,7 +96,7 @@ async def test_account_uses_the_logged_in_official_role(tmp_path):
         {"appCode": "endfield", "bindingList": [{"uid": "hg-uid", "isOfficial": True, "channelName": "官服", "roles": [ROLE]}]}]}})
     result = await adapter(tmp_path).fetch(Capability.ACCOUNT)
     assert result.payload.model_dump() == {"schema_version": 1, "nickname": "管理员", "level": 52, "role_id": "31000001",
-                                           "uid": "hg-uid", "server_name": "China", "channel": "官服"}
+                                           "uid": "hg-uid", "server_name": "China", "channel": "官服", "channel_id": "official"}
     route.respond(200, json={"status": 0, "data": {"list": [
         {"appCode": "endfield", "bindingList": [{"uid": "hg-uid", "isOfficial": True, "roles": [{**ROLE, "roleId": "9"}]}]}]}})
     changed = await adapter(tmp_path).fetch(Capability.ACCOUNT)
@@ -113,3 +121,36 @@ async def test_skland_code_requests_a_skland_grant_code():
     async with HypergryphClient() as client:
         assert await client.skland_code("hg-secret") == "grant-code"
     assert grant.calls[0].request.read() == b'{"token":"hg-secret","appCode":"4ca99fa6b56cc2ba","type":0}'
+
+
+@respx.mock
+async def test_bilibili_gacha_validates_binding_and_keeps_china_server(tmp_path):
+    mock_grant()
+    mock_binding([{"uid": "hg-uid", "channelMasterId": "2", "isOfficial": False,
+                   "channelName": "bilibili服", "roles": [ROLE]}])
+    u8, char = mock_records([])
+    result = await adapter(tmp_path, endfield_channel="bilibili", endfield_server_id="1").fetch_gacha()
+    assert result.ok, result.error
+    assert u8.called and char.calls[0].request.url.params["server_id"] == "1"
+
+
+@respx.mock
+@pytest.mark.parametrize("override", [
+    {"uid": "different"}, {"channelMasterId": "2", "isOfficial": False, "channelName": "bilibili服"},
+    {"roles": [{**ROLE, "serverId": "2"}]}, {"roles": [{**ROLE, "isBanned": True}]}])
+async def test_gacha_refuses_changed_identity_before_requesting_u8(tmp_path, override):
+    mock_grant()
+    mock_binding([{**{"uid": "hg-uid", "isOfficial": True, "roles": [ROLE]}, **override}])
+    u8 = respx.post(BINDING + "/u8_token_by_uid").respond(200, json={"status": 0, "data": {"token": "u8"}})
+    result = await adapter(tmp_path).fetch_gacha()
+    assert not result.ok and result.error_kind == "auth_expired"
+    assert not u8.called
+
+
+@respx.mock
+async def test_account_keeps_saved_role_when_upstream_default_changes(tmp_path):
+    mock_grant()
+    mock_binding([{"uid": "hg-uid", "isOfficial": True, "roles": [
+        {**ROLE, "roleId": "different", "isDefault": True}, {**ROLE, "isDefault": False}]}])
+    result = await adapter(tmp_path).fetch_account()
+    assert result.ok and result.payload.role_id == ROLE["roleId"]

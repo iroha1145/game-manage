@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from game_assistant.sources.bilibili import classify_dynamic
+from game_assistant.sources.bilibili import RULE_VERSION, classify_dynamic
 from game_assistant.sources.bilibili_store import BilibiliStore
 from game_assistant.sources.bilibili_service import BilibiliService
 from game_assistant.config import Settings
@@ -82,12 +82,14 @@ async def test_rule_upgrade_refetches_old_notices_beyond_incremental_window(tmp_
     path = tmp_path / 'bili.db'
     now = datetime.now(timezone.utc)
     raw = post(BODY, published=(now-timedelta(days=10)).timestamp())
+    raw['modules']['module_dynamic']['major']['opus']['pics'] = [{'url': 'http://i0.hdslb.com/bfs/new_dyn/old.jpg'}]
     original = classify_dynamic(raw, UID, now)
-    original.update(decision='excluded', reason='promotion', reason_text='宣传展示或社区内容', rule_version=5,
+    original['images'] = []
+    original.update(decision='excluded', reason='promotion', reason_text='宣传展示或社区内容', rule_version=RULE_VERSION-1,
                     last_observation_error='本次正文获取不完整，保留上次完整记录')
     store = BilibiliStore(path)
     store.save_rows('wuthering_waves', UID, [original])
-    store.set_state('wuthering_waves', UID, history_complete=True, last_success=now.isoformat(), rule_version=5)
+    store.set_state('wuthering_waves', UID, history_complete=True, last_success=now.isoformat(), rule_version=RULE_VERSION-1)
     store.close()
 
     class Client:
@@ -100,10 +102,11 @@ async def test_rule_upgrade_refetches_old_notices_beyond_incremental_window(tmp_
         await service.run('wuthering_waves')
         rows = service.store.rows('wuthering_waves', UID, 'accepted')
         assert len(rows) == 1
-        assert rows[0]['rule_version'] == 6
+        assert rows[0]['rule_version'] == RULE_VERSION
         assert rows[0]['body'] == original['body']
+        assert rows[0]['images'] == ['https://i0.hdslb.com/bfs/new_dyn/old.jpg']
         state = service.store.state('wuthering_waves', UID)
-        assert state['history_complete'] is True and state['rule_version'] == 6
+        assert state['history_complete'] is True and state['rule_version'] == RULE_VERSION
         assert not service.store.rows('nte', UID)
     finally:
         await service.close()

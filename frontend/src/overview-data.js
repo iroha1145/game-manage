@@ -77,7 +77,10 @@ export function deadlineDays(events, now, days = 7) {
 }
 
 function endfieldDigest(game, snaps, account) {
-  const view = endfieldGachaView({ snaps, configured: game.credentials_configured, authAccount: account })
+  // A combined role page may use Skland for its visible nickname and level.
+  // The ledger still checks the original passport identity, never that projection.
+  const passportSnaps = Object.hasOwn(snaps, 'passport_account') ? { ...snaps, account: snaps.passport_account } : snaps
+  const view = endfieldGachaView({ snaps: passportSnaps, configured: game.credentials_configured, authAccount: account })
   const payload = view.snapshot?.payload
   if (!payload) return null
   const pools = gachaPools(payload), report = payload.report?.schema_version === 1 ? payload.report : null

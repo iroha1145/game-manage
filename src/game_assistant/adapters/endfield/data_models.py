@@ -23,6 +23,7 @@ class EndfieldRole(BaseModel):
     level: int | None = None
     server_name: str | None = None
     channel: str | None = None
+    channel_id: Literal["official", "bilibili", "unknown"] = "unknown"
 
 
 class EndfieldAccount(EndfieldPayload):
@@ -32,6 +33,7 @@ class EndfieldAccount(EndfieldPayload):
     uid: str = ""
     server_name: str | None = None
     channel: str | None = None
+    channel_id: Literal["official", "bilibili", "unknown"] = "unknown"
 
 
 class EndfieldPity(BaseModel):

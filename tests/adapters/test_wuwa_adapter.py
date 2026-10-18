@@ -64,7 +64,7 @@ EVENTS_H5_CONTENT = (
 EVENTS_POST_DETAIL_RAW = {"code": 200, "msg": "success", "data": {"postDetail": {
     "postId": "9001",
     "postTitle": "「蜃云灯影，凡尘剑心」3.6版本内容说明",
-    "postH5Content": EVENTS_H5_CONTENT,
+    "postH5Content": EVENTS_H5_CONTENT + '<img src="https://img.kurobbs.com/calendar.jpg">',
 }}}
 DETAIL_URL = "https://api.kurobbs.com/forum/getPostDetail"
 
@@ -250,6 +250,7 @@ async def test_fetch_announcement_ok():
     a = WutheringWavesAdapter(Settings(wuwa_token="tok", wuwa_user_id="123"))
     r = await a.fetch(Capability.ANNOUNCEMENT)
     assert r.ok is True
+    assert r.payload[0].images == ["https://img.kurobbs.com/upload/9001.jpg"]
     assert r.payload[0].title == "2.6版本更新公告"
     assert r.payload[0].url == "https://www.kurobbs.com/forum/post/9001"
     assert "eventType=3" in route.calls.last.request.content.decode()
@@ -270,6 +271,7 @@ async def test_fetch_events_ok():
     assert [e.name for e in r.payload] == ["群声共振模拟域", "若梦仍有回声"]
     first, second = r.payload
     assert first.category == "战斗活动"
+    assert first.model_dump(mode="json")["image_urls"] == ["https://img.kurobbs.com/calendar.jpg"]
     assert first.start_at is not None and first.end_at is not None
     assert first.start_at.tzinfo is not None  # aware UTC+8（序列化后本地化展示）
     assert second.start_at is None            # "3.6版本更新后" 相对开始

@@ -84,3 +84,52 @@ test('login allows the multi-step upstream exchange 120 seconds while other oper
   await logoutAuth('nte')
   assert.deepEqual(timeouts, [30000, 30000, 30000, 120000, 30000])
 })
+
+test('Endfield channels are sent only when selected and legacy sessions keep an empty body', async t => {
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => { calls.push({ url, ...options }); return new Response(JSON.stringify({ session_id: 'fixture', expires_in: 600 })) })
+  await createAuthSession('endfield')
+  await createAuthSession('endfield', { channel: 'official' })
+  await createAuthSession('endfield', { channel: 'bilibili' })
+  await createAuthSession('nte', { channel: 'bilibili' })
+  assert.equal(calls[0].body, undefined)
+  assert.deepEqual(JSON.parse(calls[1].body), { channel: 'official' })
+  assert.deepEqual(JSON.parse(calls[2].body), { channel: 'bilibili' })
+  assert.equal(calls[3].body, undefined)
+})
+
+test('cloud Endfield channel sessions use Hypergryph and summary includes only usable channels', async t => {
+  const { configureHttpClient } = await import('./http-client.js')
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push({ url, ...options })
+    return new Response(JSON.stringify(url === '/api/accounts' ? { accounts: [
+      { provider: 'hypergryph', account_id: 'old', channel: 'official', state: 'expired' },
+      { provider: 'hypergryph', account_id: 'b', channel: 'bilibili', state: 'active' },
+      { provider: 'hypergryph', account_id: 'unknown', channel: 'unknown', state: 'role_unavailable' },
+    ] } : url.endsWith('/csrf') ? { csrf_token: 'fixture' } : { session_id: 'b', expires_in: 600 }))
+  })
+  await createAuthSession('endfield', { channel: 'bilibili' })
+  const write = calls.find(row => row.url.endsWith('/sessions'))
+  assert.equal(write.url, '/api/accounts/auth/hypergryph/sessions')
+  assert.deepEqual(JSON.parse(write.body), { channel: 'bilibili' })
+  const status = await getAuthStatus()
+  assert.equal(status.accounts.endfield.state, 'active')
+  assert.deepEqual(status.accounts.endfield.channels, ['bilibili'])
+  assert.equal(status.accounts.endfield.account_count, 3)
+  await assert.rejects(logoutAuth('endfield'), /按账号撤销授权/)
+  assert.equal(calls.some(row => row.method === 'DELETE'), false)
+})
+
+test('cloud Endfield expired and unavailable roles are never configured', async t => {
+  const { configureHttpClient } = await import('./http-client.js')
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ accounts: [
+    { provider: 'hypergryph', channel: 'official', state: 'expired' },
+    { provider: 'hypergryph', channel: 'bilibili', state: 'role_unavailable' },
+  ] })))
+  const status = await getAuthStatus()
+  assert.equal(status.accounts.endfield.configured, false)
+  assert.deepEqual(status.accounts.endfield.channels, [])
+})

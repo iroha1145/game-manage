@@ -4,13 +4,13 @@ import { subscribeSessionInvalidation } from '../http-client.js'
 import CloudBilibiliCollectionControls from './CloudBilibiliCollectionControls.vue'
 import { getCloudBilibiliStatus,startCloudBilibiliQr,startCloudBilibiliCookie,submitCloudBilibiliSessdata,pollCloudBilibiliQr,getCloudBilibiliSession,commitCloudBilibiliQr,cancelCloudBilibiliQr } from '../cloud-bilibili-api.js'
 const account=ref(null),session=ref(null),state=ref('ready'),busy=ref(false),error=ref(''),message=ref('')
-const mode=ref('cookie'),sessdata=ref('')
+const mode=ref('cookie'),sessdata=ref(''),loadingAccount=ref(false)
 let generation=0,stopped=false,timer,deadline=0,controller=new AbortController()
 const labels={waiting_scan:'请使用哔哩哔哩 App 扫码',waiting_confirm:'请在哔哩哔哩 App 确认授权',verifying:'正在验证 B 站授权',pending_save:'账号已验证，等待保存',expired:'授权会话已过期，请重新开始',blocked:'本次授权已停止',cancelled:'已取消授权'}
 function cancel(sid) {if(sid) void cancelCloudBilibiliQr(sid).catch(()=>{})}
 function clear() {
   generation++;controller.abort();controller=new AbortController();clearTimeout(timer)
-  cancel(session.value?.session_id);session.value=null;busy.value=false;sessdata.value=''
+  cancel(session.value?.session_id);session.value=null;busy.value=false;sessdata.value='';loadingAccount.value=false
 }
 const unsubscribe=subscribeSessionInvalidation(()=>{clear();account.value=null;state.value='ready';message.value='';error.value=''})
 function update(result) {
@@ -73,20 +73,30 @@ async function poll() {
 }
 async function commit() {const sid=session.value?.session_id;if(sid)await operation(signal=>commitCloudBilibiliQr(sid,signal))}
 async function checkStatus() {const sid=session.value?.session_id;if(sid){await operation(signal=>getCloudBilibiliSession(sid,signal));schedule()}}
+async function loadAccount() {
+  const run=generation;loadingAccount.value=true
+  try {
+    const value=await getCloudBilibiliStatus(controller.signal)
+    if(!stopped&&run===generation)account.value=value
+  }catch(e){if(!stopped&&run===generation&&e.name!=='AbortError'){account.value=null;if(!error.value)error.value=e.message}}
+  finally{if(run===generation)loadingAccount.value=false}
+}
 function close() {clear();state.value='cancelled';message.value=error.value=''}
-onMounted(async()=>{const run=generation;try{const value=await getCloudBilibiliStatus(controller.signal);if(!stopped&&run===generation)account.value=value}catch(e){if(!stopped&&run===generation&&e.name!=='AbortError')error.value=e.message}})
+onMounted(loadAccount)
 onUnmounted(()=>{stopped=true;unsubscribe();clear()})
 </script>
 <template>
   <section class="cap-card cloud-bili-source" aria-label="管理员 B 站公共源授权">
     <h2>管理员 · B 站公共源授权</h2>
-    <p>输入 B 站登录后的 SESSDATA 值即可（无需整段 Cookie），凭据在云端加密保存。</p>
-    <p v-if="account?.configured">当前来源账号：{{ account.nickname || account.uid || '已配置' }} · {{ account.state==='validated'?'本次运行已验证':'已配置' }}</p>
+    <p>填写 B 站 SESSDATA（无需完整 Cookie），在云端加密保存。</p>
+    <p v-if="account?.configured">当前来源账号：{{ account.nickname || account.uid || '已配置' }} · {{ account.state==='validated'?'已验证':'已配置' }}</p>
+    <p v-else-if="account?.state==='storage_error'" role="alert">云端授权读取失败，无法确认是否已配置。请检查服务端密钥与存储后刷新状态。</p>
     <p v-else-if="account">尚未配置 B 站公共源授权。</p>
+    <p v-else>{{ loadingAccount ? '正在读取云端授权状态…' : '云端授权状态尚未确认，请刷新状态。' }}</p>
     <p v-if="error" role="alert">{{ error }}</p><p v-if="message || labels[state]" role="status">{{ message || labels[state] }}</p>
     <form v-if="mode==='cookie'" @submit.prevent="submitSessdata"><label>SESSDATA<input v-model="sessdata" type="password" name="sessdata" autocomplete="off" maxlength="4096" required :disabled="busy" /></label><button class="ui-button primary" :disabled="busy || !sessdata.trim()">验证并加密保存</button></form>
     <img v-if="session?.qr_image?.startsWith('data:image/png;base64,') && ['waiting_scan','waiting_confirm'].includes(state)" :src="session.qr_image" alt="B站登录二维码" width="200" height="200" />
-    <div class="cloud-bili-actions"><button v-if="mode==='qr'" class="ui-button" @click="useSessdata">使用 SESSDATA</button><button class="ui-button" :class="{ primary: mode === 'qr' }" :disabled="busy" @click="start">{{ session && mode==='qr'?'重新生成二维码':'扫码授权 B 站' }}</button><button v-if="session" class="ui-button" @click="close">{{ mode==='qr'?'取消扫码':'取消授权' }}</button><button v-if="session && state==='failed'" class="ui-button" :disabled="busy" @click="checkStatus">检查授权状态</button><button v-if="state==='pending_save'" class="ui-button" :disabled="busy" @click="commit">重试保存</button></div>
+    <div class="cloud-bili-actions"><button class="ui-button" :disabled="busy || loadingAccount" @click="loadAccount">刷新授权状态</button><button v-if="mode==='qr'" class="ui-button" @click="useSessdata">使用 SESSDATA</button><button class="ui-button" :class="{ primary: mode === 'qr' }" :disabled="busy" @click="start">{{ session && mode==='qr'?'重新生成二维码':'扫码授权 B 站' }}</button><button v-if="session" class="ui-button" @click="close">{{ mode==='qr'?'取消扫码':'取消授权' }}</button><button v-if="session && ['failed','verifying','ready'].includes(state)" class="ui-button" :disabled="busy" @click="checkStatus">检查授权状态</button><button v-if="state==='pending_save'" class="ui-button" :disabled="busy" @click="commit">重试保存</button></div>
     <CloudBilibiliCollectionControls />
   </section>
 </template>

@@ -70,3 +70,13 @@ test('gacha digests come from the Endfield ledger and the NTE community card, an
   const other = { ...snapshots, endfield: { ...snapshots.endfield, account: { payload: { schema_version: 1, role_id: 'someone-else' } } } }
   assert.deepEqual(gachaDigests([endfield], other).length, 0)
 })
+
+test('a merged overview uses the passport identity even when the displayed account comes from Skland', () => {
+  const snaps = { account: { payload: { schema_version: 1, nickname: '森空岛角色' } },
+    passport_account: { payload: { role_id: 'r1' } },
+    gacha: { payload: { role_id: 'r1', report: { schema_version: 1, role_id: 'r1', total: 12 } } } }
+  assert.equal(gachaDigests([endfield], { endfield: snaps })[0].total, 12)
+  for (const passport_account of [null, { payload: { role_id: 'other' } }, { state: 'auth_expired', payload: { role_id: 'r1' } }]) {
+    assert.deepEqual(gachaDigests([endfield], { endfield: { ...snaps, passport_account } }), [])
+  }
+})

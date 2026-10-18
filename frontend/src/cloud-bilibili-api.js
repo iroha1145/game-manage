@@ -9,6 +9,7 @@ async function request(path,method='GET',signal,body,root=ROOT) {
   } catch(error) {
     // The 75 s limit aborts with the engine's English TimeoutError text; a caller's own abort passes through.
     if(timeout.aborted&&!signal?.aborted) throw new Error('请求超时，请检查会话状态后重试')
+    if(!signal?.aborted&&error.name!=='AbortError') throw new Error('连接中断，授权结果尚未确认，请检查授权状态')
     throw error
   }
   const data=await response.json().catch(()=>null)
@@ -22,7 +23,11 @@ async function request(path,method='GET',signal,body,root=ROOT) {
   return data
 }
 const session=sid=>'/sessions/'+encodeURIComponent(sid)
-export const getCloudBilibiliStatus=signal=>request('/status','GET',signal)
+export async function getCloudBilibiliStatus(signal) {
+  const value=await request('/status','GET',signal)
+  if(typeof value.configured!=='boolean') throw new Error('云端授权状态响应异常，无法确认是否已配置')
+  return value
+}
 export const startCloudBilibiliQr=signal=>request('/sessions','POST',signal,{mode:'qr'})
 export const startCloudBilibiliCookie=signal=>request('/sessions','POST',signal,{mode:'cookie'})
 export const submitCloudBilibiliSessdata=(sid,sessdata,signal)=>request(session(sid)+'/cookie','POST',signal,{sessdata})

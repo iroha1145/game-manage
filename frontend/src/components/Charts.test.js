@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
+import { deadlineDays } from '../overview-data.js'
 
 const find = (root, predicate) => {
   const walk = n => [...(predicate(n) ? [n] : []), ...n.children.flatMap(walk)]
@@ -36,6 +37,25 @@ test('bar charts label the peak and the highlighted bar, and keep unknown slots'
   assert.match(content(root), /未知/)
   assert.equal(byClass(root, 'bar-fill').length, 2)
   assert.equal(byClass(root, 'bar-unknown').length, 1)
+})
+
+test('deadline charts place complete sparse dates on a separate axis and leave zero days empty', async t => {
+  const Bars = await loadVue(new URL('./BarChart.vue', import.meta.url))
+  const now = Date.parse('2026-10-18T12:00:00+08:00')
+  for (const range of [7, 30]) {
+    const items = deadlineDays([{ gameName: '终末地', endTime: now + 2 * 86400000 }], now, range)
+    const root = mount(t, Bars, { label: '活动截止', items, unit: ' 项' })
+    assert.equal(byClass(root, 'bar-slot').length, range, 'every day keeps its own data slot')
+    assert.equal(byClass(root, 'bar-fill').length, 1, 'only days with events draw a filled bar')
+    assert.equal(byClass(root, 'bar-unknown').length, 0, 'known zero is not unknown')
+    assert.equal(byClass(root, 'bar-label').length, 0, 'date text cannot change an individual column height')
+    const axis = byClass(root, 'bar-axis')[0]
+    assert.equal(axis.props['aria-hidden'], 'true', 'the visible axis does not duplicate accessible day names')
+    assert.deepEqual(byClass(axis, 'bar-tick').map(content), items.filter(item => item.tick).map(item => item.tick))
+    assert.equal(byClass(root, 'sr-only').length, range, 'keyboard and screen readers retain every full date')
+    assert.ok(byClass(root, 'bar-col').every(col => col.props.tabindex === '0'))
+    if (range === 30) assert.deepEqual(byClass(axis, 'bar-tick').map(content), ['今天', '10/23', '10/28', '11/2', '11/7', '11/12'])
+  }
 })
 
 test('trend charts skip unknown points and list every known one for screen readers', async t => {

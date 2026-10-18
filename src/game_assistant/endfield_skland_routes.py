@@ -35,7 +35,8 @@ async def _json_object(request: Request) -> dict:
 def install_endfield_skland_routes(app, settings):
     def passport():
         # LoginService keeps these settings in step with the Endfield SMS login.
-        return settings.endfield_hg_token, settings.endfield_uid, settings.endfield_role_id
+        return (settings.endfield_hg_token, settings.endfield_uid, settings.endfield_role_id,
+                settings.endfield_channel, settings.endfield_server_id or "1")
 
     service = EndfieldSklandService(settings.db_path, passport=passport)
     app.state.endfield_skland = service

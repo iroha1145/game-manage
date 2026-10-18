@@ -265,3 +265,70 @@ test('account panel frames and Wuwa section headings participate without double-
   assert.ok(parseFloat(panel.style.marginLeft)>200)
   assert.equal(panel.querySelector('.account-row').style.width,'')
 })
+
+test('Endfield source footer avoids independently when collapsed or expanded, and restores after scrolling', async t => {
+  let resize
+  t.mock.method(window, 'ResizeObserver', class {
+    constructor(callback) { resize = callback }
+    observe() {}
+    disconnect() {}
+  })
+  const { root, controller, flush } = setup(t)
+  const page = window.document.createElement('section')
+  page.className = 'endfield-reports'
+  page.innerHTML = '<section class="ef-card"><footer class="ef-source"><details><summary>卡内来源</summary></details></footer></section><footer class="ef-source"><details><summary>档案来源</summary><p>森空岛档案 · 已采集资料</p></details></footer>'
+  const [card, footer] = page.children
+  const details = footer.querySelector('details')
+  let top = 100
+  card.getBoundingClientRect = () => box(24, 600, 1392)
+  footer.getBoundingClientRect = () => box(24, top, 1392, details.open ? 120 : 32)
+  root.append(page)
+  await new Promise(resolve => window.setTimeout(resolve, 0))
+  controller.update(menuAt(16), true); flush()
+  assert.equal(footer.dataset.menuAvoidance, 'clear', 'collapsed source row clears the edge menu')
+  assert.ok(parseFloat(footer.style.marginLeft) > 200)
+  assert.equal(page.style.width, '', 'the report container keeps its full layout')
+  assert.equal(card.style.width, '', 'a separate non-overlapping card stays unchanged')
+  for (const child of footer.querySelectorAll('*')) assert.equal(child.style.width, '', 'source contents follow their footer once')
+
+  // Opening details can grow back into the menu from above, without a route
+  // mutation or viewport change. ResizeObserver must refresh vertical targets.
+  top = -80
+  window.document.dispatchEvent(new window.Event('scroll')); flush()
+  assert.equal(footer.style.width, '', 'the collapsed row has scrolled above the menu')
+  details.open = true
+  resize([{ target: footer }]); flush()
+  assert.equal(footer.dataset.menuAvoidance, 'clear', 'expanded source content now reaches the menu')
+  assert.ok(parseFloat(footer.style.marginLeft) > 200)
+  const loss = 1392 - parseFloat(footer.style.width)
+  assert.ok(loss <= 1392 / 3, 'the footer keeps the same maximum width loss as cards')
+  for (const child of footer.querySelectorAll('*')) assert.equal(child.style.width, '')
+
+  card.getBoundingClientRect = () => box(24, 100, 1392)
+  controller.refresh(); flush()
+  assert.equal(card.dataset.menuAvoidance, 'clear')
+  assert.equal(card.querySelector('.ef-source').style.width, '', 'a source nested inside a participating card is never moved twice')
+  top = 600
+  window.document.dispatchEvent(new window.Event('scroll')); flush()
+  assert.equal(footer.style.cssText, '', 'the source row restores its styles below the menu')
+  controller.update(null, false)
+  assert.equal(card.style.width, '', 'mobile mode restores participating source containers too')
+})
+
+test('Endfield source footer responds immediately with reduced motion and restores when disabled', async t => {
+  t.mock.method(window, 'matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+  const { root, controller, step, frames } = setup(t)
+  const footer = window.document.createElement('footer')
+  footer.className = 'ef-source'
+  footer.innerHTML = '<details open><summary>档案来源</summary><p>森空岛档案</p></details>'
+  footer.getBoundingClientRect = () => box(24, 100, 1392, 100)
+  root.append(footer)
+  await new Promise(resolve => window.setTimeout(resolve, 0))
+  controller.update(menuAt(16), true); step()
+  assert.equal(footer.dataset.menuAvoidance, 'clear')
+  assert.ok(parseFloat(footer.style.marginLeft) > 200)
+  assert.equal(frames.size, 0, 'reduced motion does not run a settling animation')
+  controller.update(null, false)
+  assert.equal(footer.style.cssText, '')
+  assert.equal(footer.dataset.menuAvoidance, undefined)
+})

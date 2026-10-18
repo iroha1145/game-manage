@@ -47,7 +47,7 @@ test('cloud passport button submits selected internal IDs with CSRF then refresh
   assert.equal(write.options.credentials, 'same-origin')
   assert.match(content(root), /森空岛档案已连接/)
   assert.match(content(root), /来源：鹰角授权/)
-  assert.equal(nodes(root, 'nav').find(node => node.props['aria-label'] === '本人授权').children.find(node => node.props['aria-pressed'] === true).children.at(-1).text, '授权 1')
+  assert.match(content(nodes(root, 'nav').find(node => node.props['aria-label'] === '本人游戏角色').children.find(node => node.props['aria-pressed'] === true)), /角色A/)
   assert.equal(nodes(root, 'article').filter(node => content(node).includes('撤销这项游戏授权')).length, 3)
   assert.ok(calls.filter(call => call.path === '/api/accounts').length > 1)
   assert.ok(calls.every(call => !call.path.startsWith('/api/endfield/skland/passport')))

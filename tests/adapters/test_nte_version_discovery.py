@@ -107,7 +107,7 @@ async def test_short_calendar_dates_without_publication_year_remain_failure():
 
 
 @respx.mock
-async def test_same_version_independent_notice_adds_pool_and_keeps_version_precision():
+async def test_same_version_independent_notice_keeps_dates_and_html_only_artwork():
     respx.get(BASE+'/apihub/wapi/getAllCommunity').respond(200,json=COMMUNITY_RAW)
     card={'postId':700001,'subject':'1.4版本「独立棋盘」限定棋盘开放','createTime':1791741600000}
     other={**card,'postId':700002,'subject':'1.5版本「其它棋盘」限定棋盘开放'}
@@ -117,7 +117,8 @@ async def test_same_version_independent_notice_adds_pool_and_keeps_version_preci
         if ident=='494294':
             row={**NOTICES['data']['posts'][1],'content':NOTICE_BODY}
         elif ident=='700001':
-            row={**card,'content':'<p>活动期间概率限时提升！</p><p>开放时间</p><p>10月12日05:00-11月5日05:59</p>'}
+            row={**card,'content':'<img src="https://bbs-upload.tajiduo.com/independent-only.jpeg">'
+                '<p>活动期间概率限时提升！</p><p>开放时间</p><p>10月12日05:00-11月5日05:59</p>'}
         else:
             raise AssertionError('unrelated version detail must not be requested')
         return httpx.Response(200,json={'code':0,'data':{'post':row}})
@@ -127,6 +128,9 @@ async def test_same_version_independent_notice_adds_pool_and_keeps_version_preci
     event=next(e for e in result.payload if e.name=='独立棋盘')
     assert event.source_post_id=='700001' and event.version=='1.4' and event.source=='community'
     assert event.start_at.isoformat()=='2026-10-12T05:00:00+08:00'
+    assert event.end_at.isoformat()=='2026-11-05T05:59:00+08:00'
+    assert event.model_dump(mode='json')['image_urls'] == ['https://bbs-upload.tajiduo.com/independent-only.jpeg']
+    assert all(not other.image_urls for other in result.payload if other.source_post_id != '700001')
     assert detail.call_count==2
 
 

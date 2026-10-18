@@ -26,6 +26,7 @@ MESSAGES = {
     'SECURITY_VERIFICATION_REQUIRED': 'B站要求额外安全验证，请自行在官方登录页完成后重新登录',
     'INVALID_CREDENTIALS': '未取得有效的B站登录状态，原账号已保留',
     'SOURCE_UNCONFIGURED': '尚未配置B站资讯来源', 'STORAGE_ERROR': '登录状态保存失败，原账号已保留',
+    'STORAGE_READ_ERROR': '登录状态读取失败，无法确认已保存授权，请检查密钥与存储',
     'COLLECTION_BUSY': '资讯采集正在运行，请稍后重试保存', 'SMS_REQUIRED': '请先向当前手机号发送验证码',
 }
 
@@ -111,7 +112,7 @@ class BilibiliLoginService:
         try:
             saved = self.source.credentials.load()
         except CredentialStoreError:
-            return {**empty, 'state': 'storage_error', 'message': MESSAGES['STORAGE_ERROR']}
+            return {**empty, 'state': 'storage_error', 'message': MESSAGES['STORAGE_READ_ERROR']}
         configured = bool(saved.get('bilibili', {}).get('sessdata'))
         meta = saved.get('bilibili_meta', {})
         return {**empty, 'configured': configured, 'state': 'validated' if configured and self._validated else 'configured' if configured else 'unconfigured',
@@ -382,7 +383,9 @@ class BilibiliLoginService:
         return await self._run(sid, ('qr',), 'poll', poll, is_disconnected)
 
     async def cookie(self, sid, values, *, is_disconnected=None):
-        async def validate(s): return await s.provider.validate_credentials(normalize_cookie_input(values))
+        async def validate(s):
+            s.state = 'verifying'
+            return await s.provider.validate_credentials(normalize_cookie_input(values))
         return await self._run(sid, ('cookie',), 'cookie', validate, is_disconnected)
 
     async def commit(self, sid, *, is_disconnected=None):

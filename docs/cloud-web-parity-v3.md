@@ -20,11 +20,11 @@
 | 异环社区抽卡 | 卡池/幸运色/图标/明细 | 原NteCommunityGacha由NteGachaPanel承载 | 社区本人snapshot | 不推导逐抽账本或当前垫抽 | 原卡池/颜色回归；root手机合成检查通过 |
 | 异环逐抽账本 | JSON预览/确认、规则、分页/分段导出 | 原NteGachaLedger，精确summary/records/rules/export与preview/import/rules | 本人user/account/role账本 | 文案本人空间；作用域变化丢弃晚响应；保留连续范围和身份确认 | 合成完整preview→import携带ticket/CSRF；原规则/分页/导出回归通过 |
 | 终末地壳/身份 | EndfieldDashboard七分区 | 原完整组件，顶部provider/role选择 | 当前单项授权 | 不自动合并；需要另一身份时说明切换 | hypergryph不发skland请求测试；root看到分界 |
-| 终末地鹰角寻访 | 账号/抽卡/分页/导出 | 仅hypergryph使用原EndfieldGachaPanel | 本人鹰角snapshot及scoped archive | skland给切换说明，不拿档案冒充寻访 | 原gacha回归通过；真实授权待验 |
+| 终末地鹰角寻访 | 账号/抽卡/分页/导出 | 同角色合并页使用原EndfieldGachaPanel | 已验证同角色的鹰角snapshot及scoped archive | 未配对或身份不一致时不展示其他角色寻访 | 原gacha回归通过；真实授权待验 |
 | 终末地森空岛档案 | 理智/干员/探索/据点/飞船/成就/配装 | 原面板；status由当前授权构造，GET当前scope card/operator | 当前skland授权/角色 | 不读全局status；隐藏本地连接/断开控件，在网站授权页管理 | 原配装/探索回归，未知不补零；真实档案待验 |
 | 终末地挑战/图鉴 | 类型、分类/搜索/分页 | 原面板GET scoped challenges/tools | 当前skland原官方服务 | hypergryph不能调用skland私人接口 | 原分类/分页/竞态回归通过；真实字段待验 |
 | 终末地地图 | 地图/区域/类型/搜索/分页、点位描述 | 原面板GET public map/marks | T5公开地图缓存 | 公共资料独立于私人身份，仍要求网站会话 | 原地图分页/选点回归；真实上游地图待验 |
-| 终末地蓝图 | CRUD、复制、JSON导出 | 原界面映射当前skland scope | 本人角色BlueprintStore | hypergryph给切换说明，不请求skland store | 合成create→edit→export→delete、CSRF与身份路由通过 |
+| 终末地蓝图 | CRUD、复制、JSON导出 | 原界面映射同角色skland scope | 本人角色BlueprintStore | 未连接同角色森空岛时提示连接，不请求其他角色store | 合成create→edit→export→delete、CSRF与身份路由通过 |
 | 公告/活动/日历 | 原折叠、来源、筛选与详情 | 原AnnouncementList/CalendarPage，保留游戏内入口 | 按游戏公共快照 | 首页无重复块；保留陈旧/成功空/未采集/失败区别；初次失败也存状态 | 三游戏、未知日期、旧数据保留及会话变化回归通过 |
 | QQ绑定/网站会话 | 云必要新增 | 保留T1一步兑换和原会话撤销/退出 | identity/accounts/qq本人服务 | 未回退回执确认，未放开全局本地auth | 未修改T1文件；全套包含其测试通过 |
 
