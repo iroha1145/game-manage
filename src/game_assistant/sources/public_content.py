@@ -219,6 +219,9 @@ def parse_post_events(post, game, version):
                     source_post_id=post['id'], source_title=post.get('title') or content_title(post),
                     time_text=line, published_at=published, fetched_at=post.get('fetched_at'),
                     source_stale=post.get('source_stale', False)))
+    from .article_content import article_images
+    images = article_images(post.get('images'))
+    events = [{**event, 'image_urls': images} for event in events]
     events = resolve_relative_starts(events, [post], game, version)
     return [e for e in events if e.get('start_at') or e.get('start_date') or e.get('end_at') or e.get('end_date')
             or not any(other['name'] == e['name'] and other['category'] == e['category']
