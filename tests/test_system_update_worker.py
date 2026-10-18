@@ -3,6 +3,7 @@ from contextlib import closing, contextmanager
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -12,7 +13,7 @@ import pytest
 from game_assistant.system_update_protocol import lock, read_json, write_json_atomic, LockBusyError
 from game_assistant.system_update_worker import (Updater, WorkerConfig, Platform, UpdateError,
     OFFICIAL_REPO, OFFICIAL_REF, Runner, DataScope, backup_data, restore_data,
-    clean_environment, WindowsPlatform)
+    clean_environment, build_environment, WindowsPlatform)
 
 
 def git(root, *args):
@@ -28,6 +29,8 @@ class BuildRunner:
         self.remote = remote
         self.calls = []
         self.fail_build = False
+        self.fail_command = None
+        self.last_failure = None
         self.bad_frontend = False
         self.real = Runner()
 
@@ -49,6 +52,9 @@ class BuildRunner:
             (cwd / '.venv/Scripts/python.exe').write_text('fake environment')
         elif argv[:3] == ['npm.cmd', 'run', 'build']:
             if self.fail_build: raise UpdateError('test_build_failed')
+            if self.fail_command:
+                self.last_failure = {'command': 'npm.cmd run build', 'returncode': 1, 'stderr': self.fail_command}
+                raise UpdateError('command_failed')
             (cwd / 'dist').mkdir()
             (cwd / 'dist/index.html').write_text('<div id="app"></div>')
             write_json_atomic(cwd / 'dist/build-info.json', {'schema':1,
@@ -584,3 +590,55 @@ def test_backup_validation_closes_sqlite_before_temporary_directory_cleanup(inst
             backup_data(f.platform.scopes(), destination)
     assert events == ['connection_closed', 'temporary_directory_cleanup']
     assert not list(destination.glob('.verify-*'))
+
+
+def test_build_environment_keeps_npm_user_and_global_config_distinct(tmp_path):
+    first = build_environment(tmp_path, tmp_path / 'release', 'a' * 40, 'linux')
+    second = build_environment(tmp_path, tmp_path / 'release', 'a' * 40, 'linux')
+    # npm 10 exits before doing anything when one file is loaded as both layers.
+    assert first['NPM_CONFIG_GLOBALCONFIG'] == os.devnull
+    assert first['NPM_CONFIG_USERCONFIG'] != first['NPM_CONFIG_GLOBALCONFIG']
+    assert Path(first['NPM_CONFIG_USERCONFIG']).parent == tmp_path
+    assert not Path(first['NPM_CONFIG_USERCONFIG']).exists()
+    assert first['NPM_CONFIG_USERCONFIG'] != second['NPM_CONFIG_USERCONFIG']
+    assert first['npm_config_cache'] == str(tmp_path / 'npm-cache')
+    assert first['VITE_SERVICE_MODE'] == 'cloud'
+    assert build_environment(tmp_path, tmp_path, 'a' * 40, 'windows')['VITE_SERVICE_MODE'] == 'local'
+
+
+def test_real_npm_starts_with_the_exact_build_environment(tmp_path):
+    environment = build_environment(tmp_path / 'home', tmp_path / 'release', 'a' * 40,
+                                    'windows' if os.name == 'nt' else 'linux')
+    (tmp_path / 'home').mkdir()
+    npm = shutil.which('npm', path=environment.get('PATH'))
+    if not npm:
+        pytest.skip('npm is not installed')
+    result = Runner._run([npm, '--version'], cwd=tmp_path, env=environment, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip()
+
+
+def test_failing_command_keeps_its_output_tail_for_the_failure_log(tmp_path):
+    runner = Runner()
+    script = "import sys; sys.stderr.write('x' * 5000 + 'npm error tail'); sys.exit(3)"
+    with pytest.raises(UpdateError, match='command_failed'):
+        runner([sys.executable, '-c', script], cwd=tmp_path, timeout=60)
+    assert runner.last_failure['returncode'] == 3
+    assert runner.last_failure['stderr'].endswith('npm error tail')
+    assert len(runner.last_failure['stderr']) == 4096
+    assert Path(runner.last_failure['command']).name.startswith('python')
+
+
+def test_failed_build_writes_a_private_failure_log_without_publishing_output(installation):
+    f = installation; f.runner.fail_command = 'double-loading config "/dev/null"'
+    status = perform(f)
+    assert status['phase'] == 'failed' and status['error_code'] == 'command_failed'
+    assert 'double-loading' not in json.dumps(status)
+    log = json.loads((f.worker.private / 'last-command-failure.log').read_text(encoding='utf-8'))
+    assert log['job_id'] == f.request['job_id'] and log['returncode'] == 1
+    assert log['command'] == 'npm.cmd run build' and 'double-loading' in log['stderr']
+    if os.name != 'nt':
+        assert (f.worker.private / 'last-command-failure.log').stat().st_mode & 0o077 == 0
+    # Only the private journal directory (nested under state on Windows) may hold the output.
+    published = [p for p in f.state.rglob('*') if p.is_file() and f.worker.private not in p.parents]
+    assert published and not any('double-loading' in p.read_text(encoding='utf-8', errors='ignore') for p in published)

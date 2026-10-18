@@ -55,6 +55,10 @@ def digest(path):
     return h.hexdigest()
 
 
+FAILURE_OUTPUT_LIMIT = 4096
+FAILURE_LOG_NAME = 'last-command-failure.log'
+
+
 def clean_environment():
     # No GA_*, tokens, SSH agents, proxies, PYTHONPATH, npm configuration, Vite
     # overrides or ambient credentials reach fetched build/install scripts.
@@ -64,7 +68,23 @@ def clean_environment():
     result.update(GIT_TERMINAL_PROMPT='0', GIT_CONFIG_NOSYSTEM='1',
                   GIT_CONFIG_GLOBAL=os.devnull, PYTHONNOUSERSITE='1',
                   UV_NO_PROGRESS='1', UV_NO_MANAGED_PYTHON='1',
-                  NPM_CONFIG_USERCONFIG=os.devnull, NPM_CONFIG_GLOBALCONFIG=os.devnull)
+                  NPM_CONFIG_GLOBALCONFIG=os.devnull)
+    return result
+
+
+def build_environment(home, release, target, platform):
+    """The exact environment of one prepare() build, derived from clean_environment()."""
+    home = Path(home)
+    result = clean_environment()
+    # npm refuses to load one file as both user and global config ("double-loading
+    # config"), so the user layer is a per-build path that never exists: no
+    # ambient .npmrc can apply and the global layer stays os.devnull.
+    result.update(HOME=str(home), USERPROFILE=str(home), UV_CACHE_DIR=str(home / 'uv-cache'),
+                  npm_config_cache=str(home / 'npm-cache'),
+                  NPM_CONFIG_USERCONFIG=str(home / ('.npmrc-' + uuid.uuid4().hex)),
+                  GA_BUILD_COMMIT=target,
+                  VITE_SERVICE_MODE='cloud' if platform == 'linux' else 'local',
+                  UV_PROJECT_ENVIRONMENT=str(Path(release) / '.venv'))
     return result
 
 
@@ -84,13 +104,14 @@ class Runner:
         if not SERVICE_NAME.fullmatch(lifecycle_unit): fail('invalid_helper_unit')
         self.lifecycle_unit = lifecycle_unit
         self.last_unit = None
+        self.last_failure = None
 
     @staticmethod
     def _run(argv, *, cwd=None, env=None, timeout=1800):
         try:
             return subprocess.run([str(x) for x in argv], cwd=cwd,
                 env=env if env is not None else clean_environment(), stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=timeout,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout,
                 text=True, encoding='utf-8', errors='replace')
         except (OSError, subprocess.TimeoutExpired):
             fail('command_unavailable_or_timed_out')
@@ -178,7 +199,12 @@ class Runner:
                 timeout=timeout, write_paths=write_paths, private_network=private_network, tasks_max=tasks_max)
         else:
             result = self._run(argv, cwd=cwd, env=env, timeout=timeout)
-        if check and result.returncode: fail('command_failed')
+        if check and result.returncode:
+            # Kept only for the root-private failure log; never published in status.json.
+            self.last_failure = {'command': ' '.join([Path(argv[0]).name, *argv[1:3]]),
+                                 'returncode': result.returncode,
+                                 'stderr': (result.stderr or '')[-FAILURE_OUTPUT_LIMIT:]}
+            fail('command_failed')
         return result
 
 
@@ -913,13 +939,9 @@ class Updater:
         source_hashes = {name: digest(safe_path(release / name)) for name in tracked if name}
         git_config = (release / '.git/config').read_bytes()
         options = self.platform.prepare_options(release)
-        environment = clean_environment()
         home = options.pop('home', str(self.private / 'build-home'))
         Path(home).mkdir(parents=True, exist_ok=True)
-        environment.update(HOME=home, USERPROFILE=home, UV_CACHE_DIR=str(Path(home) / 'uv-cache'),
-                           npm_config_cache=str(Path(home) / 'npm-cache'), GA_BUILD_COMMIT=target,
-                           VITE_SERVICE_MODE='cloud' if c.platform == 'linux' else 'local',
-                           UV_PROJECT_ENVIRONMENT=str(release / '.venv'))
+        environment = build_environment(home, release, target, c.platform)
         argv = ['uv', 'sync', '--locked', '--no-dev']
         for extra in self.platform.dependency_extras(): argv += ['--extra', extra]
         self.run(argv, cwd=release, env=environment, **options)
@@ -954,6 +976,7 @@ class Updater:
     def execute(self):
         job = self.current_job
         critical_started = False
+        if hasattr(self.run, 'last_failure'): self.run.last_failure = None
         try:
             previous, current = self.platform.current()
             if current != job['previous_sha']: fail('current_version_changed')
@@ -971,7 +994,25 @@ class Updater:
                 self._activate_transaction(state)
         except Exception as error:
             code = str(error) if isinstance(error, UpdateError) else 'update_operation_failed'
+            self._record_command_failure(code)
             self.phase('recovery_required' if critical_started or code == 'build_processes_not_quiescent' else 'failed', code)
+
+    def _record_command_failure(self, code):
+        """Write the failed command's output tail to the root-private journal directory."""
+        detail = getattr(self.run, 'last_failure', None)
+        if code != 'command_failed' or not detail:
+            return
+        path = self.private / FAILURE_LOG_NAME
+        text = json.dumps({'job_id': self.current_job.get('job_id'), 'recorded_at': time.time(), **detail},
+                          ensure_ascii=False, indent=1)
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(descriptor, 'w', encoding='utf-8') as handle:
+                handle.write(text + '\n')
+            os.chmod(path, 0o600)
+        except OSError:
+            # Diagnostics must never change the update outcome.
+            pass
 
     def _activate_transaction(self, state):
         job = self.current_job
