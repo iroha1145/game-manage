@@ -193,7 +193,8 @@ export function createSystemUpdateController({
       if (disposed || version !== generation) return
       state.checkFailed = true
       state.error = systemUpdateReason(error.code) || '检查未成功，请稍后重试。'
-      confirm = !error.status || error.status >= 500
+      // A rejected POST may be CSRF rather than lost access: the confirming GET decides.
+      confirm = !error.status || error.status >= 500 || error.status === 401 || error.status === 403
     } finally {
       if (!disposed && version === generation) {
         state.operation = ''

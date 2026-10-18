@@ -236,6 +236,32 @@ test('a revoked administrator permission ends polling instead of pretending the 
   assert.deepEqual(c.calls.map(call => call.name), ['get', 'get'])
 })
 
+test('a check rejected after losing administrator rights ends access through the confirming GET', async t => {
+  for (const status of [401, 403]) {
+    let reads = 0
+    const c = harness(t, {
+      get: () => { if (++reads === 1) return snapshot(); throw new HttpError(status) },
+      check: () => { throw new HttpError(status) },
+    })
+    await c.start(); await c.check()
+    assert.deepEqual(c.calls.map(call => call.name), ['get', 'check', 'get'])
+    assert.equal(c.state.snapshot, null)
+    assert.equal(c.state.sessionEnded, true)
+    assert.equal(canApplySystemUpdate(c.state), false)
+    await c.check(); await c.tick(30000)
+    assert.equal(c.calls.length, 3)
+  }
+})
+
+test('a check rejected while the GET still succeeds keeps the dialog and its administrator snapshot', async t => {
+  const c = harness(t, { check: () => { throw new HttpError(403) } })
+  await c.start(); await c.check()
+  assert.deepEqual(c.calls.map(call => call.name), ['get', 'check', 'get'])
+  assert.equal(c.state.sessionEnded, false)
+  assert.equal(c.state.snapshot.latest.sha, TARGET)
+  assert.equal(c.state.checkFailed, true)
+})
+
 test('an expired website session stops status reads and asks for login', async t => {
   const c = harness(t, { get: () => { throw new HttpError(401) } })
   await c.start()
