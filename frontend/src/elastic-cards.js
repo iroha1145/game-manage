@@ -57,10 +57,12 @@ export function createElasticCards(root, { selector = CARD } = {}) {
     card.style.setProperty('translate', `${x.toFixed(3)}px ${y.toFixed(3)}px`)
     card.style.setProperty('rotate', `${(x * 0.05).toFixed(3)}deg`)
     card.style.setProperty('scale', scale.toFixed(5))
+    gesture.painted = true
   }
   const release = event => {
     if (!gesture || (event?.pointerId != null && event.pointerId !== gesture.id)) return
-    if (!available()) { reset(); return }
+    // A touch tap below the movement threshold showed no feedback, so it gets no rebound.
+    if (!available() || !gesture.painted) { reset(); return }
     gesture.released = true
     if (clock() - gesture.time > 60) gesture.vx = gesture.vy = 0
     if (frame) view.cancelAnimationFrame(frame)

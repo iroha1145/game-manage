@@ -87,6 +87,22 @@ test('touch observes passively, cancels vertical intent and never captures point
   assert.equal(frames.size, 0)
 })
 
+test('a touch tap below the movement threshold releases without a delayed shrink or rebound', t => {
+  const { card, pointer, frames } = setup(t)
+  card.style.setProperty('scale', '1.5')
+  pointer('pointerdown', card, { pointerType: 'touch' })
+  pointer('pointermove', card, { pointerType: 'touch', clientX: 3, clientY: 1 })
+  assert.equal(card.style.scale, '1.5')
+  pointer('pointerup', card, { pointerType: 'touch', clientX: 3, clientY: 1 })
+  assert.equal(frames.size, 0, 'no spring frame after an unpainted tap')
+  assert.equal(card.style.scale, '1.5')
+  assert.equal(card.style.translate, '')
+  pointer('pointerdown', card, { pointerType: 'touch' })
+  pointer('pointermove', card, { pointerType: 'touch', clientX: 40, clientY: 1 })
+  pointer('pointerup', card, { pointerType: 'touch', clientX: 40, clientY: 1 })
+  assert.equal(frames.size, 1, 'a painted touch drag still springs back')
+})
+
 test('controls, calendar regions, editable text and scroll surfaces remain untouched', t => {
   const { card, root, pointer } = setup(t, '<section data-elastic-card><button><span>Save</span></button><input><a href="#">Link</a><div contenteditable>Text</div><div class="calendar"><span>Day</span></div><div style="overflow-y:auto"><span>Scroll</span></div></section>')
   for (const target of root.querySelectorAll('button span, input, a, [contenteditable], .calendar span, [style] span')) {
