@@ -251,8 +251,9 @@ async def test_endfield_sms_login_selects_the_official_server_role():
     assert json.loads(grant.calls[0].request.content) == {"token": "hg-secret", "appCode": "be36d44aa36bfb5b", "type": 1}
     assert binding.calls[0].request.url.params["appCode"] == "endfield"
     assert binding.calls[0].request.url.params["token"] == "grant-secret"
-    assert credentials == {"hg_token": "hg-secret", "uid": "hg-uid-1", "role_id": "31000001",
-                           "server_id": "1", "nickname": "管理员"}
+    identity = {"uid": "hg-uid-1", "role_id": "31000001", "server_id": "1", "nickname": "管理员",
+                "channel": "official", "channel_name": "官服", "channel_master_id": "1"}
+    assert credentials == {"hg_token": "hg-secret", **identity, "_verified_roles": [identity]}
 
 
 @respx.mock
@@ -287,3 +288,19 @@ async def test_endfield_sms_rate_limit_is_not_retried():
     with pytest.raises(AuthError, match="频繁"):
         await EndfieldLoginProvider().send_sms({}, "13800000000")
     assert route.call_count == 1
+
+
+@respx.mock
+async def test_endfield_bilibili_login_uses_bound_channel_two_not_server_two():
+    mock_endfield_login([{**BILIBILI, "channelMasterId": 2}, OFFICIAL])
+    credentials = await EndfieldLoginProvider().login({"channel": "bilibili"}, "13800000000", "123456")
+    assert credentials["uid"] == "hg-uid-2" and credentials["server_id"] == "1"
+    assert credentials["channel"] == "bilibili" and credentials["channel_master_id"] == "2"
+    assert credentials["_verified_roles"][0]["uid"] == "hg-uid-2"
+
+
+@respx.mock
+async def test_endfield_bilibili_unbound_hint_names_passport_binding_and_mail():
+    mock_endfield_login([OFFICIAL])
+    with pytest.raises(AuthError, match="鹰角账号中心.*游戏内邮件"):
+        await EndfieldLoginProvider().login({"channel": "bilibili"}, "13800000000", "123456")

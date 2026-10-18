@@ -236,3 +236,74 @@ test('idle status polling reveals expiry and stops after unmount', async (t) => 
   await new Promise(setImmediate)
   assert.equal(requests.length, calls)
 })
+
+test('switching Endfield channels clears the SMS session and code, and cannot switch while busy', async t => {
+  const requests = network(t)
+  const { vm } = mount(t)
+  vm.selectGame('endfield')
+  assert.equal(vm.endfieldChannel, 'official')
+  vm.mobile = '13800000000'
+  await vm.startSession()
+  vm.code = '123456'
+  vm.selectEndfieldChannel('bilibili')
+  assert.equal(vm.session, null)
+  assert.equal(vm.code, '')
+  assert.equal(vm.mobile, '13800000000')
+  await vm.startSession()
+  assert.deepEqual(requests.filter(row => row.url.endsWith('/sessions')).map(row => row.body), [{ channel: 'official' }, { channel: 'bilibili' }])
+  vm.busy = 'sms'
+  vm.selectEndfieldChannel('official')
+  assert.equal(vm.endfieldChannel, 'bilibili')
+  assert.ok(vm.session)
+})
+
+test('B server login reports its selected channel and failures cannot report success', async t => {
+  let ok = false
+  network(t, url => url.endsWith('/login') ? { ok } : undefined)
+  const { vm } = mount(t)
+  vm.selectGame('endfield')
+  vm.selectEndfieldChannel('bilibili')
+  vm.mobile = '13800000000'
+  await vm.startSession()
+  vm.code = '123456'
+  await vm.submitLogin()
+  assert.equal(vm.notice, '')
+  assert.match(vm.error, /登录未成功/)
+  assert.equal(vm.expanded, true)
+  ok = true
+  await vm.submitLogin()
+  assert.equal(vm.notice, '终末地B 服登录成功。')
+  assert.equal(vm.error, '')
+})
+
+test('B server guide uses the official safe external link and appears only for Endfield B server', async t => {
+  network(t)
+  const root = mountView(t, await loadVue(new URL('./LoginPanel.vue', import.meta.url)))
+  const endfield = nodes(root, 'div').find(row => row.props['data-game'] === 'endfield')
+  nodes(endfield, 'button').find(row => content(row) === '登录').props.onClick()
+  await nextTick()
+  assert.equal(nodes(root, 'a').length, 0)
+  nodes(root, 'button').find(row => content(row) === 'B 服').props.onClick()
+  await nextTick()
+  const link = nodes(root, 'a')[0]
+  assert.equal(link.props.href, 'https://user.hypergryph.com/bindCharacters?game=endfield')
+  assert.equal(link.props.target, '_blank')
+  assert.equal(link.props.rel, 'noopener noreferrer')
+  assert.match(content(root), /游戏内邮件验证码/)
+  assert.match(content(root), /SESSDATA/)
+  assert.doesNotMatch(content(root), /仅支持官服/)
+})
+
+test('multiple cloud Endfield accounts show channels and direct account management without ambiguous logout', async t => {
+  configureHttpClient({ mode: 'cloud' }); t.after(() => configureHttpClient({ mode: 'local' }))
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ accounts: [
+    { provider: 'hypergryph', account_id: 'official', channel: 'official', state: 'active' },
+    { provider: 'hypergryph', account_id: 'bilibili', channel: 'bilibili', state: 'active' },
+  ] })))
+  const root = mountView(t, await loadVue(new URL('./LoginPanel.vue', import.meta.url)))
+  await new Promise(setImmediate); await nextTick()
+  const row = nodes(root, 'div').find(item => item.props['data-game'] === 'endfield')
+  assert.match(content(row), /已登录：官服、B 服/)
+  assert.match(content(row), /在下方按账号管理授权/)
+  assert.equal(nodes(row, 'button').some(button => content(button) === '退出'), false)
+})

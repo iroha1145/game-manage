@@ -5,7 +5,11 @@ import { isCloudMode } from '../http-client.js'
 
 const emit = defineEmits(['account-changed'])
 const GAMES = [{ id: 'wuthering_waves', name: '鸣潮' }, { id: 'nte', name: '异环' }, { id: 'endfield', name: '终末地' }]
-const LOGIN_HINTS = { endfield: '使用鹰角通行证绑定的手机号登录（仅支持官服）。' }
+const LOGIN_HINTS = { endfield: '官服与 B 服均使用鹰角通行证手机号接收短信登录。' }
+const ENDFIELD_CHANNELS = [{ id: 'official', name: '官服' }, { id: 'bilibili', name: 'B 服' }]
+const endfieldChannel = ref('official')
+const channelName = channel => ENDFIELD_CHANNELS.find(item => item.id === channel)?.name || '渠道未提供'
+const boundChannels = account => (account?.channels || (account?.channel ? [account.channel] : [])).map(channelName).join('、')
 const endfieldConnectionHint = computed(() => isCloudMode() ? '登录后可在下方一键连接森空岛。' : '登录后可在终末地页面一键连接森空岛。')
 const STATE_LABELS = { connected: '已登录', active: '已授权', configured: '已登录', expired: '登录已失效', revoked: '授权已撤销', unconfigured: '未登录' }
 const accounts = ref({})
@@ -76,6 +80,12 @@ function selectGame(game) {
   mobile.value = ''
   expanded.value = true
   refreshStatus()
+}
+
+function selectEndfieldChannel(channel) {
+  if (busy.value || endfieldChannel.value === channel) return
+  resetSession()
+  endfieldChannel.value = channel
 }
 
 function closeForm() {
@@ -204,7 +214,7 @@ async function startSession() {
   const game = selectedGame.value
   busy.value = 'session'
   try {
-    const data = await createAuthSession(game)
+    const data = await createAuthSession(game, game === 'endfield' ? { channel: endfieldChannel.value } : undefined)
     if (disposed || requestId !== generation) return
     if (!data.session_id || !(Number(data.expires_in) > 0) || (needsCaptcha.value && !data.captcha_id)) {
       throw new Error('登录服务响应异常，请重新登录。')
@@ -272,7 +282,7 @@ async function submitLogin() {
     resetSession()
     mobile.value = ''
     expanded.value = false
-    notice.value = `${selectedName.value}登录成功。`
+    notice.value = game === 'endfield' ? `终末地${channelName(endfieldChannel.value)}登录成功。` : `${selectedName.value}登录成功。`
     emit('account-changed', { game, loggedIn: true })
     await refreshStatus()
   } catch (e) {
@@ -337,12 +347,14 @@ onBeforeUnmount(() => {
           <span class="account-mark" aria-hidden="true">{{ game.name.slice(0, 1) }}</span>
           <span class="state" :class="accounts[game.id]?.state">{{ accounts[game.id] ? (STATE_LABELS[accounts[game.id].state] || '状态未知') : (statusLoading ? '读取中' : '状态未知') }}</span>
           <span v-if="accounts[game.id]?.nickname" class="nickname">{{ accounts[game.id].nickname }}</span>
+          <small v-if="game.id === 'endfield' && accounts[game.id]?.configured && boundChannels(accounts[game.id])" class="muted">已登录：{{ boundChannels(accounts[game.id]) }}</small>
+          <small v-if="game.id === 'endfield' && accounts[game.id]?.account_count > 1" class="muted">在下方按账号管理授权</small>
           <small v-if="accounts[game.id]?.source === 'config'" class="muted">来自原有配置</small>
           <p v-if="accounts[game.id]?.message" class="account-message muted">{{ accounts[game.id].message }}</p>
         </div>
         <div class="account-actions">
           <button class="text-button" :disabled="!!busy" @click="selectGame(game.id)">{{ accounts[game.id]?.configured ? '重新登录' : '登录' }}</button>
-          <button v-if="accounts[game.id]?.configured || accounts[game.id]?.state === 'expired'" class="text-button logout" :disabled="!!busy" @click="logout(game.id)">退出</button>
+          <button v-if="(accounts[game.id]?.configured || accounts[game.id]?.state === 'expired') && !(game.id === 'endfield' && accounts[game.id]?.account_count > 1)" class="text-button logout" :disabled="!!busy" @click="logout(game.id)">退出</button>
         </div>
       </div>
     </div>
@@ -350,6 +362,15 @@ onBeforeUnmount(() => {
     <form v-if="expanded" class="login-form" @submit.prevent="submitLogin">
       <div class="form-header"><h3>登录{{ selectedName }}</h3><button type="button" class="text-button" :disabled="!!busy" @click="closeForm">收起</button></div>
       <p v-if="LOGIN_HINTS[selectedGame] || selectedGame === 'endfield'" class="muted">{{ LOGIN_HINTS[selectedGame] || '' }}{{ selectedGame === 'endfield' ? endfieldConnectionHint : '' }}</p>
+      <fieldset v-if="selectedGame === 'endfield'" class="channel-selector" :disabled="!!busy">
+        <legend>游戏渠道</legend>
+        <div class="channel-options"><button v-for="channel in ENDFIELD_CHANNELS" :key="channel.id" type="button" :aria-pressed="endfieldChannel === channel.id" :disabled="!!busy" @click="selectEndfieldChannel(channel.id)">{{ channel.name }}</button></div>
+      </fieldset>
+      <div v-if="selectedGame === 'endfield' && endfieldChannel === 'bilibili'" class="binding-guide">
+        <p>首次登录 B 服前，请先在鹰角官方页面绑定游戏角色。</p>
+        <ol><li>打开<a href="https://user.hypergryph.com/bindCharacters?game=endfield" target="_blank" rel="noopener noreferrer">鹰角角色绑定页面</a>，登录鹰角通行证。</li><li>选择哔哩哔哩（bilibili）服，填写游戏角色编号（UID），通过游戏内邮件验证码完成绑定。</li><li>回到这里，使用已绑定该角色的鹰角通行证手机号登录。</li></ol>
+        <p class="muted">这里使用鹰角短信登录，与哔哩哔哩资讯采集的登录凭据（SESSDATA）无关。</p>
+      </div>
       <label for="community-mobile">手机号</label>
       <input id="community-mobile" v-model.trim="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="11" placeholder="11 位中国大陆手机号" :readonly="!!busy" />
       <p v-if="mobile && !validMobile" class="field-hint">请输入有效的 11 位中国大陆手机号。</p>
@@ -414,6 +435,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { .primary:not(:disabled):hover { color: var(--accent-ink); background: var(--accent-hover); } }
 .primary:not(:disabled):active { transform: translateY(1px); }
 .login-form { margin-top: 18px; padding: 18px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; max-width: 600px; border: 1px solid var(--border); border-radius: var(--radius-tile); background: var(--panel-bg); }
+.channel-selector { margin: 0; padding: 0; border: 0; min-width: 0; }
+.channel-selector legend { font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+.channel-options { display: flex; gap: 8px; }
+.channel-options button { flex: 1; }
+.channel-options button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--card-bg); }
+.binding-guide { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.binding-guide ol { margin: 8px 0; padding-left: 20px; }
+.binding-guide a { color: var(--accent); text-decoration: underline; }
 label { font-size: 13px; font-weight: 500; margin-top: 4px; }
 input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 10px 13px; font: inherit; color: var(--text); background: var(--card-bg); box-shadow: none; }
 input::placeholder { color: var(--text-faint); }

@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     endfield_uid: str = ""
     endfield_role_id: str = ""
     endfield_server_id: str = ""
+    endfield_channel: str = "official"
     auth_store_path: str = ""  # empty: adjacent to db_path, *.credentials.json
     auth_allowed_origins: list[str] = [
         "http://127.0.0.1:8010", "http://localhost:8010",

@@ -5,7 +5,7 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import JSONResponse
 
-from game_assistant.auth.routes import SmsRequest, LoginRequest
+from game_assistant.auth.routes import SmsRequest, LoginRequest, StartRequest
 from game_assistant.auth.service import LoginError
 from game_assistant.auth.store import CredentialStoreError
 from game_assistant.identity.dependencies import require_user
@@ -87,8 +87,8 @@ def install_account_routes(app, service, login=None, *, query=None):
         return service.revoke(principal,account_id)
 
     @router.post('/auth/{provider}/sessions')
-    async def start(provider: str,principal=Depends(require_user)):
-        return await login.start(principal,provider)
+    async def start(provider: str,body: StartRequest | None = None,principal=Depends(require_user)):
+        return await login.start(principal,provider,channel=body.channel if body else 'official')
 
     @router.post('/auth/{provider}/sms')
     async def sms(provider: str,body: SmsRequest,principal=Depends(require_user)):

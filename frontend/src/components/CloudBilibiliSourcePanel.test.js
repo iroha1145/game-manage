@@ -147,3 +147,82 @@ test('failed SESSDATA validation leaves the input empty and previous account vis
   assert.match(content(root),/原来源账号.*原授权已保留/)
   assert.doesNotMatch(content(root),/SYNTHETIC_BAD/)
 })
+
+test('a late initial status cannot overwrite saved authorization and refresh reads the server', async t => {
+  documentType(t)
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  let initial, reads=0
+  t.mock.method(globalThis,'fetch',async path=> {
+    if(path===ROOT+'/status') {
+      reads++
+      if(reads===1)return new Promise(resolve=>{initial=()=>resolve(new Response(JSON.stringify({configured:false})))})
+      return new Response(JSON.stringify({configured:true,nickname:'云端来源账号',state:'configured'}))
+    }
+    const data=path.endsWith('/csrf')?{csrf_token:'fixture'}:path.endsWith('/sessions')?{session_id:'cookie',state:'ready'}:path.endsWith('/cookie')?{state:'complete',account:{configured:true,nickname:'云端来源账号'}}:{state:'cancelled'}
+    return new Response(JSON.stringify(data))
+  })
+  const Panel=await loadVue(new URL('./CloudBilibiliSourcePanel.vue',import.meta.url))
+  const root=mount(t,Panel);await tick()
+  nodes(root,'input')[0].props['onUpdate:modelValue']('SYNTHETIC_NEW');await nextTick()
+  await nodes(root,'form')[0].props.onSubmit({preventDefault(){}});await tick()
+  initial();await tick()
+  assert.match(content(root),/当前来源账号：云端来源账号/)
+  assert.doesNotMatch(content(root),/尚未配置/)
+  await nodes(root,'button').find(n=>content(n)==='刷新授权状态').props.onClick();await tick()
+  assert.equal(reads,2)
+  assert.match(content(root),/当前来源账号：云端来源账号/)
+})
+
+test('an unreadable encrypted grant is shown as unknown rather than unconfigured', async t => {
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  t.mock.method(globalThis,'fetch',async path=>new Response(JSON.stringify(path===ROOT+'/status'?{configured:false,state:'storage_error'}:{sources:[]})))
+  const Panel=await loadVue(new URL('./CloudBilibiliSourcePanel.vue',import.meta.url))
+  const root=mount(t,Panel);await tick()
+  assert.match(content(root),/云端授权读取失败，无法确认是否已配置/)
+  assert.doesNotMatch(content(root),/尚未配置 B 站公共源授权/)
+})
+
+test('lost submit response can recover the confirmed save without submitting the secret again', async t => {
+  documentType(t)
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  let submits=0,checks=0
+  t.mock.method(globalThis,'fetch',async(path,options)=> {
+    if(path.endsWith('/cookie')&&options.method==='POST'){submits++;throw new TypeError('Failed to fetch')}
+    if(path===ROOT+'/sessions/cookie'&&options.method==='GET') {
+      checks++
+      return new Response(JSON.stringify(checks===1?{state:'verifying'}:{state:'complete',account:{configured:true,nickname:'云端已保存'}}))
+    }
+    const data=path.endsWith('/csrf')?{csrf_token:'fixture'}:path===ROOT+'/status'?{configured:false}:path.endsWith('/sessions')?{session_id:'cookie',state:'ready'}:{sources:[]}
+    return new Response(JSON.stringify(data))
+  })
+  const Panel=await loadVue(new URL('./CloudBilibiliSourcePanel.vue',import.meta.url))
+  const root=mount(t,Panel);await tick()
+  nodes(root,'input')[0].props['onUpdate:modelValue']('SYNTHETIC_UNCERTAIN');await nextTick()
+  await nodes(root,'form')[0].props.onSubmit({preventDefault(){}});await tick()
+  assert.match(content(root),/连接中断，授权结果尚未确认/)
+  for(let i=0;i<2;i++) {
+    await nodes(root,'button').find(n=>content(n)==='检查授权状态').props.onClick();await tick()
+  }
+  assert.equal(submits,1)
+  assert.equal(nodes(root,'input')[0].value,'')
+  assert.match(content(root),/当前来源账号：云端已保存/)
+  assert.doesNotMatch(content(root),/尚未配置|SYNTHETIC_UNCERTAIN/)
+})
+
+test('a failed status refresh discards an earlier unconfigured claim', async t => {
+  configureHttpClient({mode:'cloud'});t.after(()=>configureHttpClient({mode:'local'}))
+  let reads=0
+  t.mock.method(globalThis,'fetch',async path=> {
+    if(path===ROOT+'/status') {
+      if(++reads>1)throw new TypeError('Failed to fetch')
+      return new Response(JSON.stringify({configured:false}))
+    }
+    return new Response(JSON.stringify({sources:[]}))
+  })
+  const Panel=await loadVue(new URL('./CloudBilibiliSourcePanel.vue',import.meta.url))
+  const root=mount(t,Panel);await tick()
+  assert.match(content(root),/尚未配置 B 站公共源授权/)
+  await nodes(root,'button').find(n=>content(n)==='刷新授权状态').props.onClick();await tick()
+  assert.match(content(root),/云端授权状态尚未确认/)
+  assert.doesNotMatch(content(root),/尚未配置 B 站公共源授权/)
+})

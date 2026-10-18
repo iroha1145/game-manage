@@ -43,19 +43,27 @@ export const getAuthStatus = async () => {
   if (!isCloudMode()) return request('/status')
   const data = await getAccounts(), accounts = {}
   for (const [game, provider] of Object.entries({ wuthering_waves: 'kuro', nte: 'tajiduo', endfield: 'hypergryph' })) {
-    const account = data.accounts?.find(row => row.provider === provider)
-    accounts[game] = { configured: !!account && account.state !== 'revoked', state: account?.state || 'unconfigured', nickname: account?.roles?.find(row => row.is_default)?.display_name || '' }
+    const matches = (data.accounts || []).filter(row => row.provider === provider)
+    const usable = matches.filter(row => ['active', 'connected', 'configured'].includes(row.state))
+    const account = game === 'endfield' ? (usable[0] || matches[0]) : matches[0]
+    accounts[game] = { configured: game === 'endfield' ? usable.length > 0 : !!account && account.state !== 'revoked', state: account?.state || 'unconfigured', nickname: account?.roles?.find(row => row.is_default)?.display_name || '' }
+    if (game === 'endfield') {
+      accounts[game].channels = [...new Set(usable.map(row => row.channel || 'unknown'))]
+      accounts[game].account_count = matches.length
+    }
   }
   return { accounts }
 }
-export const createAuthSession = (game) => request(`/${encodeURIComponent(game)}/sessions`, 'POST')
+export const createAuthSession = (game, options) => request(`/${encodeURIComponent(game)}/sessions`, 'POST', game === 'endfield' && options?.channel ? { channel: options.channel } : undefined)
 export const sendAuthSms = (game, body) => request(`/${encodeURIComponent(game)}/sms`, 'POST', body)
 // Login exchanges several upstream credentials sequentially before saving the account.
 export const loginAuth = (game, body) => request(`/${encodeURIComponent(game)}/login`, 'POST', body, 120000)
 export const logoutAuth = async game => {
   if (!isCloudMode()) return request(`/${encodeURIComponent(game)}`, 'DELETE')
   const provider = { wuthering_waves: 'kuro', nte: 'tajiduo', endfield: 'hypergryph' }[game]
-  const data = await getAccounts(), account = data.accounts?.find(row => row.provider === provider)
+  const data = await getAccounts(), matches = (data.accounts || []).filter(row => row.provider === provider)
+  if (game === 'endfield' && matches.length > 1) throw new AuthError('请在游戏授权列表中按账号撤销授权')
+  const account = matches[0]
   if (!account) throw new AuthError('游戏授权不存在', 404)
   await revokeAuthorization(account.account_id)
   return { ok: true, account: { configured: false, state: 'unconfigured' } }

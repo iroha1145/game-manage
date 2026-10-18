@@ -4,6 +4,8 @@ from math import isfinite
 import re
 from urllib.parse import unquote, urlsplit, urlunsplit
 
+from game_assistant.adapters.endfield.channels import binding_channel, channel_master_id
+
 
 def obj(value):
     if value is None:
@@ -70,16 +72,22 @@ def parse_roles(data: dict) -> list[dict]:
         if app.get("appCode") != "endfield":
             continue
         for binding in rows(app.get("bindingList")):
-            if binding.get("isDelete"):
+            if binding.get("isDelete") or binding.get("isDeleted") or binding.get("isBanned"):
                 continue
             roles = rows(binding.get("roles"))
             for role in roles:
-                if role.get("isBanned"):
+                if role.get("isBanned") or role.get("isDelete") or role.get("isDeleted"):
                     continue
                 role_id, server_id = role.get("roleId"), role.get("serverId")
                 if role_id is None or server_id is None:
                     continue
+                channel = binding_channel(binding)
+                uid = binding.get("uid")
                 found.append({"role_id": str(role_id), "server_id": str(server_id),
+                              "uid": str(uid) if isinstance(uid, (str, int)) and not isinstance(uid, bool) else "",
+                              "channel_id": channel, "channel": channel,
+                              "channel_name": binding.get("channelName"),
+                              "channel_master_id": channel_master_id(channel),
                               "nickname": str(role.get("nickname") or binding.get("nickName") or "终末地角色")})
     return found
 
