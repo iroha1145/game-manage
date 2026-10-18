@@ -97,8 +97,11 @@ def create_app(registry=None, store=None, scheduler=None, notifier=None,
         except Exception:
             # Liveness retains its existing HTTP/status contract; updater checks ready separately.
             pass
-        return {"status": "ok", "service": "game-assistant",
+        body = {"status": "ok", "service": "game-assistant",
                 "version": app.state.running_version.health(), "ready": bool(ready)}
+        if app.state.system_update.background_start_error:
+            body.update(ready=False, background_start="failed")
+        return body
 
     def poll_status(game_id: str, capability: str, snap=None) -> dict:
         observed_at = datetime.now(timezone.utc).isoformat()

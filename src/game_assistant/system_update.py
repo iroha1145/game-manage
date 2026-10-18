@@ -7,7 +7,7 @@ never by a request parameter.
 from urllib.parse import quote
 import math
 import asyncio
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 import os
 from pathlib import Path
 import re
@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 import uuid
+import logging
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -26,6 +27,8 @@ from .system_update_protocol import (ACTIVE_PHASES, PHASES, LockBusyError,
     ProtocolError, lock, read_json, safe_path, valid_sha, write_json_atomic, SOURCE_BRANCHES)
 from .system_update_version import (REPOSITORY, capture_version, git_state,
                                      release_root_matches)
+
+logger = logging.getLogger(__name__)
 
 BRANCH = 'main'
 GITHUB_ROOT = f'https://api.github.com/repos/{REPOSITORY}'
@@ -103,6 +106,8 @@ class SystemUpdateService:
         self._memory_check = None
         self._persistence_failed = False
         self._check_lock = threading.Lock()
+        # Set when a deferred post-update background start fails; health then reports not ready.
+        self.background_start_error = None
 
     def state_dir(self):
         if not self.settings.system_update_state_dir:
@@ -372,13 +377,23 @@ async def background_start_after_maintenance(service, start):
                 await asyncio.sleep(BACKGROUND_START_POLL_SECONDS)
             start()
         task = asyncio.create_task(wait_and_start(), name='system-update-background-start')
+
+        def observe(done):
+            # The update has already finished, so a failure here must reach health readiness
+            # instead of dying unobserved while polling and notifications stay disabled.
+            if done.cancelled() or done.exception() is None:
+                return
+            service.background_start_error = type(done.exception()).__name__
+            logger.error('Deferred background startup failed after a system update',
+                         exc_info=done.exception())
+        task.add_done_callback(observe)
     try:
         yield
     finally:
         if task is not None:
             task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
+            # A recorded startup failure is not raised again during shutdown.
+            await asyncio.gather(task, return_exceptions=True)
 
 
 class UpdateMaintenanceGate:

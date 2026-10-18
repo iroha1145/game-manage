@@ -352,7 +352,10 @@ def create_cloud_app(settings: Settings, start_scheduler: bool = True) -> FastAP
         except Exception:
             # A healthy listener does not prove that an update activated matching assets/data.
             pass
-        return {'status': 'ok', 'version': app.state.running_version.health(), 'ready': bool(ready)}
+        body = {'status': 'ok', 'version': app.state.running_version.health(), 'ready': bool(ready)}
+        if app.state.system_update.background_start_error:
+            body.update(ready=False, background_start='failed')
+        return body
 
     install_identity_routes(app)
     from .qq.internal_routes import install_qq_routes

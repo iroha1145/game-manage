@@ -120,3 +120,41 @@ async def test_preparing_initial_and_disabled_keep_normal_startup(tmp_path,monke
         assert calls['bili'] == (1 if mode=='local' else 0)
         assert not [task for task in asyncio.all_tasks() if task.get_name()=='system-update-background-start']
     assert calls['shutdown'] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('mode',['local','cloud'])
+async def test_failed_deferred_start_reports_not_ready_without_breaking_liveness(tmp_path,monkeypatch,mode,caplog):
+    app,state,url,_,calls = application(tmp_path,monkeypatch,mode)
+    attempted = asyncio.Event()
+    def broken_start(self):
+        attempted.set()
+        raise RuntimeError('scheduler lease unavailable')
+    target = AccountPollingScheduler if mode == 'cloud' else type(app.state.scheduler)
+    monkeypatch.setattr(target,'start',broken_start)
+    worker_status(state,'verifying')
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url=url) as client:
+            assert (await client.get('/api/health')).json()['ready'] is True
+            worker_status(state,'completed')
+            await asyncio.wait_for(attempted.wait(),1)
+            await asyncio.sleep(0.02)
+            health = await client.get('/api/health')
+            # Liveness keeps HTTP 200/status ok for the launcher; readiness exposes the failure.
+            assert health.status_code == 200 and health.json()['status'] == 'ok'
+            assert health.json()['ready'] is False and health.json()['background_start'] == 'failed'
+    assert app.state.system_update.background_start_error == 'RuntimeError'
+    assert any('Deferred background startup failed' in r.getMessage() and r.levelname == 'ERROR' for r in caplog.records)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('mode',['local','cloud'])
+async def test_successful_deferred_start_reports_no_background_failure(tmp_path,monkeypatch,mode):
+    app,state,url,started,_ = application(tmp_path,monkeypatch,mode)
+    worker_status(state,'verifying')
+    async with app.router.lifespan_context(app):
+        worker_status(state,'completed')
+        await asyncio.wait_for(started.wait(),1)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url=url) as client:
+            body = (await client.get('/api/health')).json()
+        assert body['ready'] is True and 'background_start' not in body
