@@ -153,6 +153,14 @@
   transform: translate3d(0, 20px, 0) scale(var(--scale-small));
   filter: blur(var(--blur-medium));
 }
+@media (max-width: 960px) {
+  [data-reveal] {
+    transition:
+      opacity var(--duration-very-slow) var(--ease-smooth-out) var(--reveal-delay, 0ms),
+      transform 600ms var(--ease-spring-smooth) var(--reveal-delay, 0ms) !important;
+  }
+  [data-reveal="pending"] { filter: none; }
+}
 /* Keyboard focus never lands on something invisible. */
 [data-reveal="pending"]:focus-within { opacity: 1; transform: none; filter: none; }
 /* Chart marks (.t-draw) wait with their card and draw in as it rises. */
