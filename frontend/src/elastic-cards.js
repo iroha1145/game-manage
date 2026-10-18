@@ -30,7 +30,9 @@ export function createElasticCards(root, { selector = CARD } = {}) {
   const view = root?.ownerDocument?.defaultView
   if (!view || !root.addEventListener) return { reset() {}, destroy() {} }
   const doc = root.ownerDocument
-  const media = view.matchMedia?.('(prefers-reduced-motion: reduce)')
+  // Shells whose matchMedia throws behave like ones without it, as in theme.js.
+  let media = null
+  try { media = view.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null } catch { media = null }
   const clock = () => view.performance?.now?.() ?? Date.now()
   let gesture = null, frame = 0, disposed = false
   const listeners = []

@@ -128,6 +128,22 @@ test('cancel, route reset, blur and disposal clean active feedback and pending f
   assert.equal(card.style.scale, '')
 })
 
+test('a throwing matchMedia shell still mounts, gives feedback and disposes cleanly', t => {
+  const root = window.document.createElement('main')
+  root.innerHTML = '<section data-elastic-card><h2>Card</h2></section>'
+  window.document.body.append(root)
+  t.after(() => root.remove())
+  t.mock.method(window, 'matchMedia', () => { throw new Error('matchMedia unavailable') })
+  t.mock.method(window, 'requestAnimationFrame', () => 1)
+  t.mock.method(window, 'cancelAnimationFrame', () => {})
+  const controller = createElasticCards(root)
+  const card = root.querySelector('section')
+  card.dispatchEvent(new window.PointerEvent('pointerdown', { bubbles: true, pointerId: 1, isPrimary: true, pointerType: 'mouse', button: 0 }))
+  assert.equal(card.style.scale, '0.99400')
+  controller.destroy()
+  assert.equal(card.style.scale, '')
+})
+
 test('reduced motion disables feedback immediately and bot image roots stay excluded', t => {
   const { root, card, pointer, media, frames } = setup(t)
   pointer('pointerdown'); pointer('pointerup')
