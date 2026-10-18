@@ -1,27 +1,28 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import GameIcon from './GameIcon.vue'
 import ArtworkImage from './ArtworkImage.vue'
 import { eventArtwork } from '../event-artwork.js'
 import { beijingDayStart, eventGeometry, eventStatus, browserDayStart, browserEventGeometry, browserEventStatus, browserCalendarPosition } from '../calendar.js'
 import { presentationGroups, activityBoundaryDays } from '../calendar-presentation.js'
 import { useCalendarPan } from '../calendar-pan.js'
+import { createCalendarDefaultPosition } from '../calendar-position.js'
 import { gameStyle, gameVars } from '../dashboard.js'
 const props = defineProps({ events:{type:Array,default:()=>[]}, snapshots:{type:Object,default:()=>({})}, range:{type:Object,default:null}, asOf:{type:Number,required:true}, rangeMode:{type:String,default:'rolling'}, mode:{type:String,default:'screen'}, selectedId:{type:String,default:null}, emptyTitle:{type:String,default:'暂无活动数据'}, showUnplaced:{type:Boolean,default:true} })
 const emit = defineEmits(['select'])
 const viewport = ref(null)
 const pan = useCalendarPan(viewport, () => props.mode !== 'image')
-// A different game or date window starts at its own origin. Refreshing the same data
+let defaultPosition
+onMounted(() => { defaultPosition = createCalendarDefaultPosition(viewport.value, () => props.mode !== 'image') })
+onBeforeUnmount(() => defaultPosition?.destroy())
+// A different game or date window places today in the left third. Refreshing the same data
 // and the minute clock preserve the position the reader has chosen.
 watch([
-  () => props.range?.start, () => props.range?.end, () => props.rangeMode,
+  () => props.range?.start, () => props.range?.end, () => props.rangeMode, () => props.mode,
   () => [...new Set(props.events.map(event => event.gameId || event.game_id || ''))].sort().join(':'),
 ], () => {
   pan.reset()
-  if (props.mode !== 'image' && viewport.value) {
-    viewport.value.scrollLeft = 0
-    viewport.value.scrollTop = 0
-  }
+  defaultPosition?.reset()
 }, { flush:'post' })
 const dayStart = value => props.mode === 'image' ? beijingDayStart(value) : browserDayStart(value)
 const position = time => props.mode === 'image' ? (time-props.range.start)/(props.range.end-props.range.start)*100 : browserCalendarPosition(time,props.range)
