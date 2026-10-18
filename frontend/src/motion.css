@@ -239,7 +239,7 @@ details[open] > summary .t-disclosure { transform: rotate(180deg); }
 }
 
 /* ── Theme switch ─────────────────────────────────────────────────── */
-/* Icon swap (transitions.dev 09): sun and moon share one slot. */
+/* Day, night and automatic mode share the same button slot. */
 .icon-swap { display: inline-grid; place-items: center; }
 .icon-swap > svg {
   grid-area: 1 / 1;
@@ -249,16 +249,3 @@ details[open] > summary .t-disclosure { transform: rotate(180deg); }
     transform var(--duration-fast) var(--ease-in-out);
 }
 .icon-swap > svg[data-active="false"] { opacity: 0; filter: blur(var(--blur-small)); transform: scale(0.25) rotate(-45deg); }
-
-/* beUI theme toggle: the new theme opens as a circle from the toggle through
-   the View Transitions API; colour transitions wait until it ends. */
-::view-transition-old(root),
-::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
-::view-transition-new(root) { animation: t-theme-wipe var(--duration-very-slow) var(--ease-smooth-out); }
-@keyframes t-theme-wipe {
-  from { clip-path: circle(0 at var(--theme-x, 50%) var(--theme-y, 0)); }
-  to { clip-path: circle(var(--theme-r, 150vmax) at var(--theme-x, 50%) var(--theme-y, 0)); }
-}
-[data-theme-switching] :not(.icon-swap > svg),
-[data-theme-switching] ::before,
-[data-theme-switching] ::after { transition: none !important; }

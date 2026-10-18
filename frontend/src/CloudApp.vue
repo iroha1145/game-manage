@@ -5,7 +5,7 @@ import { createCloudDashboard } from './cloud-dashboard.js'
 import { accountCapabilities, providerName, getPublicSnapshot } from './accounts-api.js'
 import { endfieldRoleChoices } from './endfield-accounts.js'
 import { revokeSession, getMe } from './identity-api.js'
-import { followSystem, theme, setTheme } from './theme.js'
+import { followSystem } from './theme.js'
 import { lazyPage } from './lazy-page.js'
 import { useFloatingNavigation } from './floating-navigation.js'
 import { useElasticCards } from './elastic-cards.js'
@@ -13,6 +13,7 @@ import { collectionState } from './snapshot-state.js'
 import { capabilityLabel } from './cloud-display.js'
 import { displayBeijing } from './time.js'
 import AppIcon from './components/AppIcon.vue'
+import ThemeToggle from './components/ThemeToggle.vue'
 import SystemUpdateControl from './components/SystemUpdateControl.vue'
 import GameIcon from './components/GameIcon.vue'
 import { gameStyle, gameVars, readRoute } from './dashboard.js'
@@ -151,28 +152,7 @@ const refreshMessages = computed(() => Object.entries(state.refreshing).filter((
 const refreshLabel = key => { const [provider, cap] = key.split(':'); return cap ? `${provider === 'skland' ? '森空岛' : '鹰角'} · ${capabilityLabel(cap)}` : capabilityLabel(key) }
 const dataKey = computed(() => `${state.user?.user_id}:${state.selected?.account_id}:${state.role}:${state.revision}`)
 const publicReadVersions = new Map()
-let timer, stopTheme, publicGeneration = 0, calendarGeneration = 0, themeWipe = 0
-function toggleTheme(event) {
-  const next = theme.value === 'light' ? 'dark' : 'light'
-  const root = globalThis.document?.documentElement
-  if (!root || !globalThis.document?.startViewTransition || globalThis.window?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || !event?.currentTarget?.getBoundingClientRect) { setTheme(next); return }
-  const box = event.currentTarget.getBoundingClientRect()
-  const x = box.left + box.width / 2, y = box.top + box.height / 2
-  root.style.setProperty('--theme-x', `${x}px`)
-  root.style.setProperty('--theme-y', `${y}px`)
-  root.style.setProperty('--theme-r', `${Math.hypot(Math.max(x, globalThis.innerWidth - x), Math.max(y, globalThis.innerHeight - y))}px`)
-  const wipe = ++themeWipe
-  root.dataset.themeSwitching = ''
-  const settle = () => { if (wipe === themeWipe) delete root.dataset.themeSwitching }
-  try {
-    const transition = globalThis.document.startViewTransition(async () => { setTheme(next); await nextTick() })
-    transition.finished.then(settle, settle)
-    transition.ready.catch(() => {})
-  } catch {
-    setTheme(next)
-    settle()
-  }
-}
+let timer, stopTheme, publicGeneration = 0, calendarGeneration = 0
 function clearPublicData() {
   publicGeneration++; calendarGeneration++; publicReadVersions.clear()
   publicSnapshots.value = {}
@@ -286,7 +266,7 @@ onBeforeUnmount(() => { globalThis.window?.removeEventListener('hashchange',sync
         <button ref="menuToggle" class="nav-menu-toggle" type="button" :class="{ active: page === 'game' || page === 'sessions' }" :aria-expanded="menuOpen" aria-controls="workspace-sidebar" @pointerdown="onTogglePointerdown" @click="onToggleClick" @keydown="onToggleKeydown"><AppIcon name="chevron" :size="19" /><span>游戏与菜单</span></button>
       </nav>
     </div>
-      <div class="workspace-body" :inert="mobileNavigation && menuOpen"><header class="workspace-topbar"><div class="topbar-left"><button class="search-trigger" type="button" aria-haspopup="dialog" :aria-keyshortcuts="macKeys ? 'Meta+K' : 'Control+K'" @click="openSearch"><AppIcon name="search" :size="16" /><span>搜索页面、游戏、活动和角色</span><kbd aria-hidden="true">{{ macKeys ? '⌘ K' : 'Ctrl K' }}</kbd></button></div><div class="topbar-right"><span class="topbar-date"><AppIcon name="calendar" :size="15" /><span>{{ today }}</span></span><button class="icon-button theme-toggle" :aria-label="theme === 'light' ? '切换到夜间模式' : '切换到白天模式'" :title="theme === 'light' ? '夜间模式' : '白天模式'" @click="toggleTheme"><span class="icon-swap"><AppIcon name="sun" :size="16" :data-active="theme !== 'light'" /><AppIcon name="moon" :size="16" :data-active="theme === 'light'" /></span></button><SystemUpdateControl :allowed="state.user.is_admin === true" /><button class="ui-button small-button" :disabled="logoutBusy" @click="logout">退出登录</button></div></header>
+      <div class="workspace-body" :inert="mobileNavigation && menuOpen"><header class="workspace-topbar"><div class="topbar-left"><button class="search-trigger" type="button" aria-haspopup="dialog" :aria-keyshortcuts="macKeys ? 'Meta+K' : 'Control+K'" @click="openSearch"><AppIcon name="search" :size="16" /><span>搜索页面、游戏、活动和角色</span><kbd aria-hidden="true">{{ macKeys ? '⌘ K' : 'Ctrl K' }}</kbd></button></div><div class="topbar-right"><span class="topbar-date"><AppIcon name="calendar" :size="15" /><span>{{ today }}</span></span><ThemeToggle /><SystemUpdateControl :allowed="state.user.is_admin === true" /><button class="ui-button small-button" :disabled="logoutBusy" @click="logout">退出登录</button></div></header>
       <main id="main-content" ref="mainContent" tabindex="-1" class="workspace-main cloud-content"><p v-if="state.error" role="alert">{{ state.error }}</p>
         <template v-if="page === 'accounts'"><header class="page-heading"><div class="page-heading-copy"><h1>账号与授权</h1></div></header><CloudBilibiliSourcePanel v-if="state.user.is_admin" :key="state.user.user_id" /><QqBindingPanel :key="state.user.user_id" /><AccountSettings :key="state.user.user_id" :accounts="state.accounts" :is-admin="state.user.is_admin" @changed="dashboard.loadAccounts()" /><LoginPanel :key="state.user.user_id" @account-changed="dashboard.loadAccounts()" /><CloudSklandConnect :key="state.user.user_id" :accounts="state.accounts" :user-id="state.user.user_id" @changed="dashboard.loadAccounts()" /></template>
         <section v-else-if="page === 'calendar'" class="cloud-calendar"><div class="cloud-calendar-controls"><button class="ui-button" :disabled="calendarLoading" @click="loadCalendar">刷新活动</button></div><CalendarPage :key="state.user.user_id" :games="publicGames" :snapshots="calendarSnapshots" :initial-game-id="calendarGame" :read-errors="calendarReadErrors" :loading="calendarLoading" show-source-status /></section><section v-else-if="page === 'sessions'" class="cloud-sessions"><header class="page-heading"><div class="page-heading-copy"><h1>网站会话</h1></div><button class="ui-button" @click="dashboard.loadSessions()"><AppIcon name="refresh" :size="15" />刷新</button></header><div class="cap-card session-card"><p class="session-note">撤销后，该设备需要重新登录。</p><article v-for="(session, index) in state.sessions" :key="session.session_id"><AppIcon name="shield" :size="20" /><p>会话 {{ index + 1 }} · 创建 {{ displayBeijing(session.created_at) }} · 过期 {{ displayBeijing(session.expires_at) }}</p><button class="ui-button small-button" @click="revoke(session.session_id)">撤销此会话</button></article></div></section>

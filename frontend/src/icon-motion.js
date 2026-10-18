@@ -16,6 +16,7 @@ function motions(icon) {
   if (name === 'search') return move(['translate(0px, 0px)', 'translate(1px, -2px)', 'translate(-2px, 1px)', 'translate(0px, 0px)'], 560)
   if (name === 'sun') return move(['rotate(0deg)', 'rotate(90deg)'], 650)
   if (name === 'moon') return move(['rotate(0deg)', 'rotate(-15deg)', 'rotate(8deg)', 'rotate(0deg)'], 620)
+  if (name === 'auto') return [{ target: icon.querySelector('[data-icon-part="orbit"]'), frames: [{ transform: 'rotate(0deg)' }, { transform: 'rotate(180deg)' }], duration: 560 }]
   if (name === 'arrow') return move(['translateX(0px)', 'translateX(3px)', 'translateX(0px)'], 420)
   if (name === 'chevron') return move(['translateY(0px)', 'translateY(2px)', 'translateY(0px)'], 360)
   if (name === 'plus') return move(['rotate(0deg) scale(1)', 'rotate(90deg) scale(.86)', 'rotate(90deg) scale(1)'], 420)
