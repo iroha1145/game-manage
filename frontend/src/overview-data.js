@@ -1,5 +1,5 @@
 import { DAY_MS, parseBeijingTime } from './calendar.js'
-import { gachaPools, gachaView as endfieldGachaView, poolTotal, recentSixStars, sixPullsText } from './endfield-gacha-summary.js'
+import { gachaPools, gachaView as endfieldGachaView, kindSummary, poolTotal, recentSixStars, sixPullsText } from './endfield-gacha-summary.js'
 
 // Data for the overview's cards, read from snapshots the page already has. Nothing here fetches.
 const count = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
@@ -84,15 +84,17 @@ function endfieldDigest(game, snaps, account) {
   const payload = view.snapshot?.payload
   if (!payload) return null
   const pools = gachaPools(payload), report = payload.report?.schema_version === 1 ? payload.report : null
-  const total = count(report?.total) ?? poolTotal(pools, 'total')
+  // Weapon requisition is a different currency: once a ledger has weapon pools, the card counts operators only.
+  const operators = kindSummary(pools, 'character'), weapons = kindSummary(pools, 'weapon')
+  const total = weapons ? operators?.total : count(report?.total) ?? poolTotal(pools, 'total')
   if (total == null) return null
   const special = pools.find(pool => pool.key === 'E_CharacterGachaPoolType_Special')?.since_last_six
-  const average = count(report?.known_exact_intervals) ? count(report.average_exact_pulls) : null
-  const latest = recentSixStars(pools, 1)[0]
+  const average = operators ? operators.pace.average : count(report?.known_exact_intervals) ? count(report.average_exact_pulls) : null
+  const latest = recentSixStars(pools.filter(pool => pool.kind !== 'weapon'), 1)[0]
   return {
-    gameId: game.game_id, gameName: game.display_name, total, tab: 'gacha',
+    gameId: game.game_id, gameName: game.display_name, total, tab: 'gacha', scope: '干员寻访',
     stats: [
-      { label: '6★', value: count(report?.six_star) ?? poolTotal(pools, 'six_star') },
+      { label: '6★', value: weapons ? operators?.six_star : count(report?.six_star) ?? poolTotal(pools, 'six_star') },
       { label: '平均出 6★', value: average == null ? null : `${Math.round(average)} 抽` },
       { label: '特许距上次 6★', value: count(special?.count) == null ? null : `${special.status === 'exact' ? '' : '≥'}${special.count} 抽` },
     ],

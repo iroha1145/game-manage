@@ -33,7 +33,7 @@ export function gachaPools(summary) {
     const history = rows(pool.history), available = history.length
     const declared = number(pool.history_total) ?? number(pool.six_star)
     const total = declared != null && declared >= available ? declared : null
-    return { ...pool, history, history_available: available, history_total: total,
+    return { ...pool, history, banners: rows(pool.banners), history_available: available, history_total: total,
       history_truncated: total == null ? null : total > available,
       history_limit: number(pool.history_limit), four_star:number(pool.four_star), unknown_rarity:number(pool.unknown_rarity) }
   })
@@ -62,23 +62,83 @@ export function poolTotal(pools, field) {
   return values.length && values.every(value => value != null) ? values.reduce((sum, value) => sum + value, 0) : null
 }
 
-// The pool that was pulled from most recently, as an index into `pools`; -1 when no pool says when.
-export function latestPoolIndex(pools) {
-  const list = rows(pools)
-  let best = -1
-  list.forEach((pool, index) => {
-    const at = number(pool.newest_at)
-    if (at != null && (best < 0 || at > number(list[best].newest_at))) best = index
-  })
-  return best
+const isWeapon = pool => pool?.kind === 'weapon'
+
+// Operator and weapon pulls are different currencies with different odds, so they are never added together.
+export function kindSummary(pools, kind) {
+  const list = rows(pools).filter(pool => isWeapon(pool) === (kind === 'weapon'))
+  if (!list.length) return null
+  return { kind, label: kind === 'weapon' ? '武器申领' : '干员寻访', total: poolTotal(list, 'total'), six_star: poolTotal(list, 'six_star'),
+    five_star: poolTotal(list, 'five_star'), pace: poolPace({ history: list.flatMap(pool => rows(pool.history)) }) }
 }
 
-// Column spans (of 12) for pool cards so every row fills the width: up to three to a row
-// (four when there are only four), the cards shared out as evenly as the count allows.
-export function poolSpans(count) {
-  const total = Number.isInteger(count) && count > 0 ? count : 0
-  if (!total) return []
-  const perRow = total <= 4 ? total : 3, rows = Math.ceil(total / perRow)
-  const base = Math.floor(total / rows), extra = total % rows
-  return Array.from({ length: rows }, (_, row) => Array(base + (row < extra ? 1 : 0)).fill(12 / (base + (row < extra ? 1 : 0)))).flat()
+// What the page lets you pick: each operator pool type on its own (pity runs through a type),
+// and every weapon banner together under 武器申领 (each keeps its own pity).
+export function poolCategories(pools) {
+  const list = rows(pools), weapons = list.filter(isWeapon)
+  const categories = list.filter(pool => !isWeapon(pool)).map(pool => ({ key: pool.key, label: pool.label, kind: 'character', pools: [pool], ...pool }))
+  if (weapons.length) {
+    const latest = weapons.reduce((best, pool) => (number(pool.newest_at) ?? -1) > (number(best.newest_at) ?? -1) ? pool : best)
+    const times = field => weapons.map(pool => number(pool[field])).filter(value => value != null)
+    categories.push({ key: 'weapon', label: '武器申领', kind: 'weapon', pools: weapons, latest,
+      ...Object.fromEntries(['total', 'six_star', 'five_star', 'four_star', 'unknown_rarity', 'free', 'gaps'].map(field => [field, poolTotal(weapons, field)])),
+      pending: weapons.some(pool => pool.pending === true) ? true : weapons.every(pool => pool.pending === false) ? false : null,
+      newest_at: times('newest_at').length ? Math.max(...times('newest_at')) : null, oldest_at: times('oldest_at').length ? Math.min(...times('oldest_at')) : null,
+      history: weapons.flatMap(pool => rows(pool.history)).sort((a, b) => (number(b.obtained_at) ?? 0) - (number(a.obtained_at) ?? 0)) })
+  }
+  return categories
+}
+
+// A category's banners, newest first, each with only its own 6★. Operator banners come from the
+// ledger's per-banner counts (older snapshots: from the 6★ themselves, counts unknown); a weapon
+// banner is its own ledger pool and carries its own pity.
+export function bannerGroups(category) {
+  if (category?.kind === 'weapon') return rows(category.pools).map(pool => ({ ...pool, key: pool.key, name: pool.label, pity: pool.since_last_six }))
+    .sort((a, b) => (number(b.newest_at) ?? 0) - (number(a.newest_at) ?? 0))
+  const history = rows(category?.history), banners = rows(category?.banners)
+  const id = item => item.pool_id || item.pool_name || ''
+  if (!banners.length) {
+    const names = [...new Set(history.map(id))]
+    return names.map(key => ({ key, name: history.find(item => id(item) === key).pool_name || null, total: null, six_star: null, five_star: null, history: history.filter(item => id(item) === key) }))
+  }
+  return banners.map(banner => ({ ...banner, key: id(banner), name: banner.name || null,
+    history: history.filter(item => item.pool_id ? item.pool_id === banner.pool_id : item.pool_name === banner.name) }))
+}
+
+// A pool's 6★ pace from the exact intervals in its shown history only; a lower bound is never averaged in.
+// The fastest and slowest need two intervals to compare, otherwise they stay null.
+export function poolPace(pool) {
+  const exact = rows(pool?.history).filter(item => item.status === 'exact' && number(item.pulls) != null)
+  if (!exact.length) return { count: 0, average: null, fastest: null, slowest: null }
+  const pulls = exact.map(item => number(item.pulls))
+  const pick = target => exact[pulls.indexOf(target)]
+  const pair = exact.length > 1 && Math.min(...pulls) !== Math.max(...pulls)
+  return { count: exact.length, average: Math.round(pulls.reduce((sum, value) => sum + value, 0) / pulls.length * 10) / 10,
+    fastest: pair ? pick(Math.min(...pulls)) : null, slowest: pair ? pick(Math.max(...pulls)) : null }
+}
+
+// One bar ruler for every pool of a kind, so bars compare across pools: the longest recorded 6★ rounded up to ten.
+// No pity rule is assumed; null when no 6★ of that kind states its pulls.
+export function pullRuler(pools, kind) {
+  const values = rows(pools).filter(pool => (pool.kind === 'weapon') === (kind === 'weapon'))
+    .flatMap(pool => rows(pool.history)).filter(item => item.status === 'exact' || item.status === 'lower_bound')
+    .map(item => number(item.pulls)).filter(value => value != null)
+  return values.length ? Math.max(10, Math.ceil(Math.max(...values) / 10) * 10) : null
+}
+
+// Each rarity's count and share of the pool. An unstated count stays unknown and takes no share.
+const RARITIES = [['six_star', '6★'], ['five_star', '5★'], ['four_star', '4★'], ['unknown_rarity', '未知 / 其他']]
+export function rarityShares(pool) {
+  const total = number(pool?.total)
+  return RARITIES.map(([field, label]) => {
+    const count = number(pool?.[field])
+    return { field, label, count, share: count != null && total ? count / total : null }
+  })
+}
+
+// The ledger's sync state in one label: unfinished first, then a proven complete scan, else unknown.
+export function syncStatus(summary, report) {
+  if (summary?.complete === false || report?.pending === true) return { tone: 'warn', label: '部分待同步' }
+  if (summary?.complete === true) return { tone: 'done', label: '同步完成' }
+  return { tone: 'unknown', label: '完整性未知' }
 }

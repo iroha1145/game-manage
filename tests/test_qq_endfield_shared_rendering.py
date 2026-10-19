@@ -159,14 +159,13 @@ async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfi
                             level_font:getComputedStyle(element.querySelector('.skill-level')).fontSize,
                             images:element.querySelectorAll('img').length,
                         })),
-                        bars:[...document.querySelectorAll('.endfield-gacha .bar-col')].map(element => ({
-                            column:box(element),value:element.querySelector('.bar-value').innerText,
-                            label:element.querySelector('.bar-label').innerText,
-                            value_font:getComputedStyle(element.querySelector('.bar-value')).fontSize,
-                            fill_height:element.querySelector('.bar-fill')?.getBoundingClientRect().height ?? 0,
+                        rows:[...document.querySelectorAll('.endfield-gacha .pool-detail .pull-row')].map(element => ({
+                            row:box(element),track:box(element.querySelector('.pull-track')),
+                            value:element.querySelector('.pull-value').innerText.replace(/\\s+/g,' ').trim(),
+                            value_font:getComputedStyle(element.querySelector('.pull-value')).fontSize,
+                            fill_width:element.querySelector('.pull-fill').getBoundingClientRect().width,
                         })),
-                        pools:document.querySelectorAll('.endfield-gacha .pool-card').length,
-                        history:document.querySelectorAll('.endfield-gacha .pool-card .chip-list > li').length,
+                        pools:[...document.querySelectorAll('.endfield-gacha .pool-detail .detail-head h3')].map(element => element.innerText),
                     };
                 }""")})
         return value
@@ -201,12 +200,17 @@ async def test_real_internal_route_queue_and_browser_reuse_shared_complete_endfi
         elif command=='gacha':
             assert '合成池16' in text and all(f'合成池{i}' in text for i in range(17))
             assert '本图卡池' not in text and '内容已省略' not in text
-            layout=captured[-1]['layout'];bars=layout['bars']
-            assert layout['pools']==17 and layout['history']==51 and len(bars)==17
-            assert [bar['label'] for bar in bars]==[f'合成池{i}' for i in range(17)]
-            assert all(bar['value']=='131 抽' and bar['value_font']=='26px' and bar['fill_height']>0 for bar in bars)
-            assert min(bar['column']['width'] for bar in bars)>=128
-            assert len({round(bar['column']['y']) for bar in bars})>1
+            layout=captured[-1]['layout'];rows=layout['rows']
+            assert layout['pools']==[f'合成池{i}' for i in range(17)] and len(rows)==51
+            # Each pool prints 58 exact, ≥61 and an unknown interval on one 70-pull ruler.
+            assert [row['value'] for row in rows]==['58抽','≥61抽','抽数未知']*17
+            assert all(row['value_font']=='26px' for row in rows)
+            fills=[row['fill_width']/row['track']['width'] for row in rows]
+            assert all(abs(fill-58/70)<.01 for fill in fills[0::3]) and all(abs(fill-61/70)<.01 for fill in fills[1::3])
+            assert all(fill==0 for fill in fills[2::3])
+            # Images print 6★ history three cards to a row, each with a readable bar.
+            assert all(len({round(row['row']['y']) for row in rows[i:i+3]})==1 for i in range(0,len(rows),3))
+            assert min(row['track']['width'] for row in rows)>=200
         elif command=='combat':
             assert all(label+'观测时间' in text for label in ('战争','丰碑','危机'))
             assert all(moment in text for moment in ('2026-10-14 09:30','2026-10-14 10:30','2026-10-14 11:30'))

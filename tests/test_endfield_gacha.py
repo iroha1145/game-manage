@@ -144,7 +144,7 @@ async def test_discovered_weapon_pool_must_be_scanned_even_when_all_character_po
     assert store.summary('r1').complete is True
 
 
-@pytest.mark.parametrize('failure', ['discovery', 'first_page', 'empty_has_more'])
+@pytest.mark.parametrize('failure', ['discovery', 'first_page'])
 async def test_failed_scan_retains_success_time_and_cannot_claim_completion(tmp_path, failure):
     store = EndfieldGachaStore(tmp_path / 'g.sqlite3')
     await sync(store, FakeClient(special=history(1, 5)))
@@ -157,10 +157,9 @@ async def test_failed_scan_retains_success_time_and_cannot_claim_completion(tmp_
             return await super().weapon_pools(token)
 
         async def char_records(self, token, pool_type, seq_id=None):
-            if failure == 'empty_has_more':
-                return {'list': [], 'hasMore': True}
             raise EndfieldError('synthetic first page failure')
 
+    # Every pool this run tried failed, so the run itself reports the failure.
     with pytest.raises((EndfieldError, ValueError)):
         await sync(store, FailedClient())
     failed = store.summary('r1')
@@ -203,12 +202,13 @@ async def test_an_inclusive_cursor_still_walks_to_the_window_end(tmp_path):
 async def test_a_failed_page_keeps_fetched_records_and_resumes_later(tmp_path):
     store = EndfieldGachaStore(tmp_path / "g.sqlite3")
     client = FakeClient(special=history(1, 20), fail_on="16")
-    with pytest.raises(EndfieldError):
-        await sync(store, client)
+    await sync(store, client)  # the other pools succeed, so the run does not fail as a whole
     assert (pool(store).total, pool(store).pending) == (5, True)
+    assert [(e.key, e.label, e.message) for e in store.summary("r1").errors] == [(SPECIAL, "特许寻访", "网络错误: ReadTimeout")]
     client.fail_on = None
     await sync(store, client)
     assert (pool(store).total, pool(store).pending, pool(store).gaps) == (20, False, 0)
+    assert store.summary("r1").errors == []
 
 
 async def test_window_moving_past_old_records_leaves_a_permanent_gap(tmp_path):
@@ -291,9 +291,9 @@ async def test_invalid_records_fail_closed_without_writing(tmp_path):
     store = EndfieldGachaStore(tmp_path / "g.sqlite3")
     rows = history(1, 3)
     rows[1]["seqId"] = "abc"
-    with pytest.raises(ValueError):
-        await sync(store, FakeClient(special=rows))
+    await sync(store, FakeClient(special=rows))
     assert store.summary("r1").pools == []
+    assert [e.message for e in store.summary("r1").errors] == ["终末地数据格式无效，请刷新重试"]
     assert store.summary('r1').complete is False
     assert store.summary('r1').report['pending'] is True
 
@@ -394,3 +394,121 @@ def test_adapter_scopes_only_the_local_ledger_by_channel(tmp_path):
     assert adapter._ledger_role(cloud_bridge, "r1") == "r1"
     adapter._settings.endfield_channel = "official"
     assert adapter._ledger_role(adapter.gacha_store(), "r1") == "r1"
+
+
+async def test_a_pool_type_splits_into_its_banners_newest_first_with_six_stars_tagged(tmp_path):
+    store = EndfieldGachaStore(tmp_path / "g.sqlite3")
+    rows = history(1, 12, six={3, 10})
+    for row in rows:  # seq 1–6 是「冬猎」，7–12 是下一期「晨星」
+        if int(row["seqId"]) > 6:
+            row.update(poolId="special_2", poolName="晨星")
+    rows[0]["isFree"] = True
+    rows[1]["rarity"] = 5
+    await sync(store, FakeClient(special=rows))
+    special = pool(store)
+    assert [(b.pool_id, b.name, b.total, b.six_star, b.five_star, b.four_star, b.free) for b in special.banners] == [
+        ("special_2", "晨星", 6, 1, 1, 4, 1), ("special_1", "冬猎", 6, 1, 0, 5, 0)]
+    assert special.banners[0].oldest_at == 1_780_000_007_000 and special.banners[0].newest_at == 1_780_000_012_000
+    # The 晨星 6★ interval still counts back into 冬猎: the ledger keeps one sequence per pool type.
+    assert [(h.name, h.pool_id, h.pulls) for h in special.history] == [("干员10", "special_2", 7), ("干员3", "special_1", 3)]
+    assert sum(b.total for b in special.banners) == special.total
+
+
+class WeaponTroubleClient(FakeClient):
+    """A weapon pool that errors, a healthy one, and an optional listing failure."""
+    def __init__(self, *args, broken=(), listing=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.broken, self.listing = set(broken), listing
+
+    async def weapon_pools(self, u8_token):
+        if self.listing:
+            raise self.listing
+        return await super().weapon_pools(u8_token)
+
+    async def weapon_records(self, u8_token, pool_id, seq_id=None):
+        if pool_id in self.broken:
+            raise EndfieldError("接口错误 code=1001：参数错误", status_code=1001)
+        return await super().weapon_records(u8_token, pool_id, seq_id)
+
+
+def weapon_rows(first, last, pool_id):
+    return [{"seqId": str(seq), "weaponId": f"w{seq}", "weaponName": f"武器{seq}", "rarity": 4, "poolId": pool_id,
+             "poolName": pool_id, "isNew": False, "gachaTs": str(1_780_000_000_000 + seq * 1000)} for seq in range(last, first - 1, -1)]
+
+
+async def test_one_failing_weapon_pool_neither_blocks_the_others_nor_hides_its_error(tmp_path):
+    store = EndfieldGachaStore(tmp_path / "g.sqlite3")
+    weapons = {"w_bad": ("坏池", weapon_rows(1, 3, "w_bad")), "w_ok": ("好池", weapon_rows(11, 17, "w_ok"))}
+    client = WeaponTroubleClient(special=history(1, 4), weapons=weapons, broken={"w_bad"})
+    await sync(store, client)
+    summary = store.summary("r1")
+    assert {p.key: p.total for p in summary.pools} == {SPECIAL: 4, "weapon:w_ok": 7}
+    assert [(e.key, e.label, e.message) for e in summary.errors] == [("weapon:w_bad", "坏池", "接口错误 code=1001：参数错误")]
+    assert summary.complete is False
+    client.broken.clear()
+    await sync(store, client)
+    summary = store.summary("r1")
+    assert summary.errors == [] and summary.complete is True and pool(store, "weapon:w_bad").total == 3
+
+
+async def test_a_failed_weapon_listing_still_syncs_operator_pools_and_stays_pending(tmp_path):
+    store = EndfieldGachaStore(tmp_path / "g.sqlite3")
+    client = WeaponTroubleClient(special=history(1, 4), weapons={"w1": ("武库", weapon_rows(1, 2, "w1"))},
+                                 listing=EndfieldError("网络错误: ConnectTimeout"))
+    await sync(store, client)
+    summary = store.summary("r1")
+    assert [p.key for p in summary.pools] == [SPECIAL] and summary.complete is False
+    assert [(e.label, e.message) for e in summary.errors] == [("武器池列表", "网络错误: ConnectTimeout")]
+    assert [p["key"] for p in store.export("r1")["pools"]] == sorted(CHAR_POOL_TYPES)
+    client.listing = None
+    await sync(store, client)
+    summary = store.summary("r1")
+    assert summary.errors == [] and summary.complete is True and pool(store, "weapon:w1").total == 2
+
+
+async def test_an_expired_login_still_stops_the_whole_run(tmp_path):
+    store = EndfieldGachaStore(tmp_path / "g.sqlite3")
+
+    class Expired(WeaponTroubleClient):
+        async def weapon_records(self, u8_token, pool_id, seq_id=None):
+            raise EndfieldError("登录已失效", status_code=401, expired=True)
+
+    with pytest.raises(EndfieldError):
+        await sync(store, Expired(special=history(1, 4), weapons={"w1": ("武库", weapon_rows(1, 2, "w1"))}))
+    assert pool(store).total == 4
+
+
+async def test_empty_pages_end_a_pool_like_the_reference_clients_but_a_mid_walk_one_stays_resumable(tmp_path):
+    store = EndfieldGachaStore(tmp_path / "g.sqlite3")
+
+    class EmptyHead(FakeClient):
+        async def char_records(self, u8_token, pool_type, seq_id=None):
+            return {"list": [], "hasMore": True}
+
+    await sync(store, EmptyHead())
+    assert store.summary("r1").complete is True and store.summary("r1").errors == []
+
+    class EmptyAfterFirstPage(FakeClient):
+        async def char_records(self, u8_token, pool_type, seq_id=None):
+            if pool_type == SPECIAL and seq_id is not None:
+                return {"list": [], "hasMore": True}
+            return await super().char_records(u8_token, pool_type, seq_id)
+
+    store = EndfieldGachaStore(tmp_path / "g2.sqlite3")
+    await sync(store, EmptyAfterFirstPage(special=history(1, 12)))
+    assert (pool(store).total, pool(store).pending, pool(store).gaps) == (5, True, 1)
+
+
+@pytest.mark.parametrize("has_more,expected", [(None, False), (0, False), (1, True), (False, False), (True, True)])
+def test_record_pages_read_has_more_like_the_reference_clients(has_more, expected):
+    from game_assistant.adapters.endfield import parse
+    data = {"list": []} if has_more is None else {"list": [], "hasMore": has_more}
+    assert parse.record_page(data, "weapon") == ([], expected)
+
+
+@pytest.mark.parametrize("data", [{"list": [], "hasMore": "yes"}, {"list": [], "hasMore": 2}, {"list": [], "hasMore": 1.0},
+                                  {"list": [], "hasMore": [True]}, {"hasMore": False}, {"unexpected": "response"}])
+def test_record_pages_still_refuse_unrecognised_shapes(data):
+    from game_assistant.adapters.endfield import parse
+    with pytest.raises(ValueError):
+        parse.record_page(data, "weapon")

@@ -80,3 +80,13 @@ test('a merged overview uses the passport identity even when the displayed accou
     assert.deepEqual(gachaDigests([endfield], { endfield: { ...snaps, passport_account } }), [])
   }
 })
+
+test('the Endfield pull card counts operator headhunting only once the ledger also holds weapon requisition', () => {
+  const pool = (key, kind, total, six, history) => ({ key, label: key, kind, total, six_star: six, history })
+  const snaps = { account: { payload: { schema_version: 1, role_id: 'r1' } },
+    gacha: { payload: { schema_version: 1, role_id: 'r1', report: { schema_version: 1, role_id: 'r1', total: 230, six_star: 6, known_exact_intervals: 3, average_exact_pulls: 30 },
+      pools: [pool('E_CharacterGachaPoolType_Special', 'character', 150, 2, [{ name: '伊冯', pulls: 70, status: 'exact', obtained_at: 2 }]),
+        pool('weapon:w1', 'weapon', 80, 4, [{ name: '遥望', pulls: 10, status: 'exact', obtained_at: 9 }, { name: '玉中身', pulls: 10, status: 'exact', obtained_at: 8 }])] } } }
+  const [digest] = gachaDigests([endfield], { endfield: snaps })
+  assert.deepEqual([digest.total, digest.scope, digest.stats[0].value, digest.stats[1].value, digest.latest.name], [150, '干员寻访', 2, '70 抽', '伊冯'])
+})

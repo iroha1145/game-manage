@@ -363,7 +363,9 @@ async def test_real_large_roster_or_history_preserves_all_rows_across_bounded_pa
         row=QueryResult({'schema_version':1,'entries':[{'id':str(9000+i),'name':f'角色 {i:03}','level':80} for i in range(160)]},NOW.isoformat(),'ok',False)
         value=role_snapshot('nte',row,NOW)
     else:
-        row=QueryResult({'schema_version':1,'pools':[{'name':'角色池','total_draws':6000,'s_count':400,'details':[{'name':f'抽卡 {i:03}','item_id':str(9000+i),'pity':15} for i in range(400)]}]},NOW.isoformat(),'ok',False)
+        # A long history repeats a few dozen items. Each distinct icon is one intercepted
+        # request, so 400 distinct ids spent the 10 s budget on images, not on pagination.
+        row=QueryResult({'schema_version':1,'pools':[{'name':'角色池','total_draws':6000,'s_count':400,'details':[{'name':f'抽卡 {i:03}','item_id':str(9000+i%40),'pity':15} for i in range(400)]}]},NOW.isoformat(),'ok',False)
         value=gacha_snapshot('nte',row,NOW)
     try:
         image=await renderer.render_summary_async(SCOPE,envelope(value),budget_seconds=10)
