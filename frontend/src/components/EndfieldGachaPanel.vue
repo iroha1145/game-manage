@@ -229,11 +229,14 @@ async function download() {
 /* Laid out like a community gacha analysis page: a headline strip, a tile per pool,
    then the chosen pool's pity, pace, rarity split and 6★ bars. Rarity takes the
    in-game hues (6★ orange, 5★ gold, 4★ purple); selection takes the game colour.
+   The 5★ gold is lighter than the chart amber, so it stays apart from the 6★ orange
+   beside it (dataviz validator, both themes).
    Bot images set only --game-accent, so every colour has a static fallback. */
-.endfield-gacha { --eg-six:var(--chart-2,#d95926); --eg-five:var(--chart-4,#c98500); --eg-four:color-mix(in srgb,var(--chart-7,#9085e9) 42%,var(--track)); --eg-unknown:var(--border-strong);
+.endfield-gacha { --eg-six:var(--chart-2,#d95926); --eg-five:#dba11c; --eg-four:color-mix(in srgb,var(--chart-7,#9085e9) 42%,var(--track)); --eg-unknown:var(--border-strong);
   --eg-tone:var(--game-tone,var(--game-endfield-tone)); --eg-ink:var(--game-accent,var(--game-endfield));
   --eg-bar:color-mix(in srgb,var(--eg-six) 30%,var(--card-bg)); --eg-bar-end:color-mix(in srgb,var(--eg-six) 50%,var(--card-bg));
   display:grid; gap:16px; min-width:0; }
+:root[data-theme="light"] .endfield-gacha { --eg-five:#dcab4b; }
 .endfield-gacha > * { min-width:0; }
 .eg-card { position:relative; padding:20px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
 .notice { margin:0; color:var(--text-muted); font-size:13px; line-height:1.6; }
