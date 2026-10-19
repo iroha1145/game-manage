@@ -225,6 +225,24 @@ test('standalone game navigation, identity and status rows follow the same edge 
   assert.equal(page.querySelector('.cap-card header').style.width, '', 'content inside a card follows its card once')
 })
 
+test('Endfield pool groups and the record list clear the menu as whole rows, since a single pool tile is too narrow to move', async t => {
+  const { root, controller, flush } = setup(t)
+  const page = window.document.createElement('section')
+  page.className = 'endfield-gacha'
+  page.innerHTML = '<nav class="eg-pools"><div class="eg-group"><h3>干员寻访</h3><div class="pool-tiles"><button class="pool-tile">特许寻访</button></div></div><div class="eg-group"><h3>武器申领</h3></div></nav><details class="panel record-list"><summary>逐条记录</summary></details>'
+  const rows = [...page.querySelectorAll('.eg-group, .record-list')]
+  for (const el of rows) el.getBoundingClientRect = () => box(24, 100, 1392)
+  root.append(page)
+  await new Promise(resolve => window.setTimeout(resolve, 0))
+  controller.update(menuAt(16), true); flush()
+  for (const el of rows) {
+    assert.ok(parseFloat(el.style.marginLeft) > 0, el.className)
+    assert.equal(el.dataset.menuAvoidance, 'clear', el.className)
+  }
+  assert.equal(page.querySelector('.eg-pools').style.width, '', 'the pool navigation keeps its own layout')
+  assert.equal(page.querySelector('.pool-tile').style.width, '', 'a tile follows its group once')
+})
+
 test('scroll approach grows continuously before the card border reaches the menu', () => {
   const menu = menuAt(16)
   const losses = [1, 12, 32, 64, 96].map(depth => cardAvoidance(box(24, menu.bottom+64-depth, 900), menu, viewport).loss)
