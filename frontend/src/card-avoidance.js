@@ -1,7 +1,7 @@
 const CARD = [
   '.workspace-topbar', '.page-heading', '.h-rail-head', '.ov-hero', '.ov-tasks', '.ov-deadlines', '.ov-gacha', '.ov-news', '.ov-game', '.event-card',
   '.card-head', '.cap-card', '.wuwa-panel', '.wuwa-board-head', '.wuwa-board > .toolbar', '.wuwa-role', '.calendar-board', '.calendar-agenda', '.calendar-detail', '.account-row',
-  '.calendar-stat', '.calendar-split', '.ef-card', '.ef-count', '.eg-card', '.eg-pools > .eg-group', '.endfield-gacha > .record-list', '.pool-card', '.hl-card', '.challenge-report',
+  '.calendar-stat', '.calendar-split', '.ef-card', '.ef-count', '.eg-card', '.endfield-gacha > .eg-pools', '.endfield-gacha > .record-list', '.pool-card', '.hl-card', '.challenge-report',
   '.ef-news-summary', '.ef-attendance', '.ef-source', '.loadout-hero', '.loadout-module', '.ef-gacha-summary', '.ef-tactical', '.match-item', '.match-detail', '.role-card',
   '.game-card > .error-bar', '.game-card > .detail-navigation', '.wuwa-nav', '.endfield-nav', '.endfield-stack > p',
   '.lol-header', '.lol-toolbar', '.coverage-line', '.lol-dashboard > .lol-notice', '.lol-dashboard > .lol-error', '.lol-view > .legacy-note',
