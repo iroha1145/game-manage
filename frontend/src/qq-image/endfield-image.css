@@ -7,7 +7,7 @@
 .lab-sheet :is(.cloud-endfield,.reuse-content,#render-content) .endfield-gacha{display:grid!important;grid-template-columns:1fr!important;gap:24px}
 .lab-sheet :is(.cloud-endfield,.reuse-content,#render-content) .endfield-gacha .eg-card{padding:28px!important;border-radius:var(--radius-card);background:var(--card-bg);border:1px solid var(--border)}
 .lab-sheet :is(.cloud-endfield,.reuse-content,#render-content) .endfield-gacha .eg-hero{gap:20px;background:var(--eg-tone)}
-.lab-sheet :is(.cloud-endfield,.reuse-content,#render-content) .endfield-gacha .eg-kinds{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px}
+.lab-sheet :is(.cloud-endfield,.reuse-content,#render-content) .endfield-gacha .eg-kinds{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:14px}
 .lab-sheet :is(.cloud-endfield,.reuse-content,#render-content) .endfield-gacha .kind-block{grid-template-columns:1fr!important;grid-template-areas:"label" "total" "stats"!important;padding:16px 20px;gap:4px}
 .lab-sheet :is(.cloud-endfield,.reuse-content,#render-content) .endfield-gacha .eg-hero .kind-block h3{font-size:24px!important;line-height:1.5!important}
 .lab-sheet :is(.cloud-endfield,.reuse-content,#render-content) .endfield-gacha .eg-hero .kind-total{font-size:52px!important;line-height:1.45!important}
