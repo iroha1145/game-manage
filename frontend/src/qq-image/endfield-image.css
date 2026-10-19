@@ -1,60 +1,365 @@
-/* Existing dashboard gacha components, with image typography and the original graphical columns. */
-.lab-sheet .cloud-endfield{width:100%;--text:var(--ink);--text-muted:var(--muted);--text-body:var(--ink);--text-faint:var(--muted);--card-bg:var(--surface);--surface-soft:var(--soft);--border:var(--line);--game-tone:var(--soft);--game-accent:var(--accent);--game-vivid:var(--accent);--font-sans:TemplateNoto,sans-serif}
-.lab-sheet .cloud-endfield *{font-size:24px!important;line-height:1.5!important;min-width:0}
-.lab-sheet .cloud-endfield :is(h2,h3){font-size:30px!important;line-height:1.4!important}
-.lab-sheet .cloud-endfield :is(small,.notice,.cap-meta,.history-coverage){font-size:22px!important;line-height:1.5!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha{display:grid!important;grid-template-columns:1fr!important;gap:24px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha>*{grid-column:1/-1!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .eg-card{padding:24px!important;border-radius:var(--radius-card);background:var(--card-bg);border:1px solid var(--border)}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .eg-hero{background:var(--eg-tone)}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .eg-numbers{grid-template-columns:260px minmax(0,1fr);gap:26px;align-items:center}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .eg-big{font-size:48px!important;line-height:1.4!important;display:flex;align-items:baseline;gap:8px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .eg-big small{font-size:24px!important;line-height:1.5!important;margin:0}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha :is(.eg-total,.eg-tiles li){gap:8px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .eg-tiles strong{font-size:34px!important;line-height:1.4!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .donut-chart{display:flex!important;flex-direction:row!important;gap:28px;align-items:center}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .donut-ring{width:160px!important;height:160px!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .donut-legend{display:grid!important;grid-template-columns:1fr!important;flex:1;gap:10px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .donut-legend li{display:grid;grid-template-columns:12px minmax(0,1fr) auto 70px!important;gap:12px!important;align-items:center!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .donut-legend :is(.name,b,small){white-space:nowrap!important;font-size:22px!important;line-height:1.5!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .donut-center :is(span,strong){font-size:32px!important;line-height:1.4!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .donut-center small{font-size:22px!important;line-height:1.5!important;margin:0}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .donut-total{gap:4px;line-height:1.4!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .pool-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .pool-card{grid-column:auto!important;padding:24px;gap:16px;min-width:0}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .pity{display:grid;gap:8px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .pity strong{font-size:36px!important;line-height:1.4!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .pity small{font-size:24px!important;line-height:1.5!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha :is(.legend,.chip-list){gap:12px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .six-image{display:flex!important;flex-wrap:wrap;gap:10px;padding:8px 10px;white-space:normal!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .bar-plot{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(128px,1fr))!important;align-items:end;padding:0;gap:16px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .bar-col{display:grid!important;grid-template-columns:1fr!important;justify-items:center;gap:16px;align-items:end;padding-top:48px}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .bar-slot{display:flex!important;position:relative;height:160px;align-items:end;justify-content:center;width:100%;border-bottom:1px solid var(--border)}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .bar-fill{display:block!important;width:32px;height:var(--pct);min-height:2px;transform:none!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .bar-value{position:absolute!important;left:50%;bottom:calc(var(--pct) + 6px);transform:translateX(-50%)!important;opacity:1!important;font-size:22px!important;line-height:1.5!important;white-space:nowrap!important}
-.lab-sheet :is(.cloud-endfield,.reuse-content) .endfield-gacha .bar-label{font-size:24px!important;line-height:1.5!important;white-space:normal!important;text-align:center;overflow:visible!important}
-.reuse.lab-sheet #render-content .ef-region-top{grid-template-columns:1fr!important;gap:24px}
-.reuse.lab-sheet #render-content .ef-money{display:flex!important;flex-wrap:wrap;align-items:center;gap:14px 24px}
-.reuse.lab-sheet #render-content .ef-money>.k{flex-basis:100%}.reuse.lab-sheet #render-content .ef-money-values{font-size:26px!important;white-space:nowrap}
-.reuse.lab-sheet #render-content .ef-medals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:16px}
-.reuse.lab-sheet #render-content .ef-medals .ef-medal{padding:12px;display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:4px 8px;min-width:0;align-content:start}
-.reuse.lab-sheet #render-content .ef-medals .ef-medal>div:not(.endfield-artwork){display:contents}
-.reuse.lab-sheet #render-content .ef-medals .endfield-artwork{width:56px;height:56px;grid-column:2;grid-row:2/4;align-self:center}
-.reuse.lab-sheet #render-content .ef-medals .ef-medal h3{grid-column:1/-1;grid-row:1;text-wrap:balance}
-.reuse.lab-sheet #render-content .ef-medals .ef-medal-category{grid-column:1;grid-row:2;justify-self:start}
-.reuse.lab-sheet #render-content .ef-medals .ef-medal p:not(.ef-note){grid-column:1;grid-row:3}
-.reuse.lab-sheet #render-content .ef-medals .ef-medal .ef-note{grid-column:1/-1;grid-row:4}
-.reuse.lab-sheet #render-content .ef-medals .ef-medal h3{font-size:26px!important;line-height:1.4!important}
-.reuse.lab-sheet #render-content .ef-medals .ef-medal :is(p,span){font-size:22px!important;line-height:1.5!important}
-.reuse.lab-sheet #render-content .ef-loadout>*{grid-column:1/-1!important}
-.reuse.lab-sheet #render-content .loadout-hero{grid-template-columns:240px minmax(0,1fr)!important;grid-template-rows:1fr;align-items:center}
-.reuse.lab-sheet #render-content .operator-marks dt{white-space:nowrap!important}
-.reuse.lab-sheet #render-content .equipment-slots{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:18px}
-.reuse.lab-sheet #render-content .slot-level>span{position:static;width:auto;height:auto;clip-path:none;overflow:visible}
-.reuse.lab-sheet #render-content .skills-module .h-rail-track{display:block;overflow:visible}
-.reuse.lab-sheet #render-content .skill-slots{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-.reuse.lab-sheet #render-content .skill-slots>li{width:auto}
-.reuse.lab-sheet #render-content .skill-art{display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:0}
-.reuse.lab-sheet #render-content .skill-level{position:static;transform:none}
-.lab-sheet .portrait-card.no-portrait{grid-template-columns:1fr}
-.lab-sheet .kind-portraits p{text-wrap:pretty}
+/* Endfield gacha, regions, honor, and operator loadout QQ image styles. */
+.lab-sheet .cloud-endfield {
+  width: 100%;
+  --text: var(--ink);
+  --text-muted: var(--muted);
+  --text-body: var(--ink);
+  --text-faint: var(--muted);
+  --card-bg: var(--surface);
+  --surface-soft: var(--soft);
+  --border: var(--line);
+  --game-tone: var(--soft);
+  --game-accent: var(--accent);
+  --game-vivid: var(--accent);
+  --font-sans: TemplateNoto, sans-serif;
+}
+
+.lab-sheet .cloud-endfield * {
+  font-size: 20px !important;
+  line-height: 1.48 !important;
+  min-width: 0;
+}
+
+.lab-sheet .cloud-endfield :is(h2, h3) {
+  font-size: 24px !important;
+  line-height: 1.35 !important;
+}
+
+.lab-sheet .cloud-endfield :is(small, .notice, .cap-meta, .history-coverage) {
+  font-size: 17px !important;
+  line-height: 1.45 !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 18px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha > * {
+  grid-column: 1 / -1 !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .eg-card {
+  padding: 20px 22px !important;
+  border-radius: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .eg-hero {
+  background: var(--eg-tone);
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .eg-numbers {
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .eg-big {
+  font-size: 38px !important;
+  line-height: 1.3 !important;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .eg-big small {
+  font-size: 19px !important;
+  line-height: 1.45 !important;
+  margin: 0;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha :is(.eg-total, .eg-tiles li) {
+  gap: 6px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .eg-tiles strong {
+  font-size: 28px !important;
+  line-height: 1.35 !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .donut-chart {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 24px;
+  align-items: center;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .donut-ring {
+  width: 152px !important;
+  height: 152px !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .donut-legend {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  flex: 1;
+  gap: 8px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .donut-legend li {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto 64px !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .donut-legend :is(.name, b, small) {
+  white-space: nowrap !important;
+  font-size: 18px !important;
+  line-height: 1.45 !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .donut-center :is(span, strong) {
+  font-size: 26px !important;
+  line-height: 1.35 !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .donut-center small {
+  font-size: 18px !important;
+  line-height: 1.4 !important;
+  margin: 0;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .donut-total {
+  gap: 2px;
+  line-height: 1.35 !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .pool-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .pool-card {
+  grid-column: auto !important;
+  padding: 20px;
+  gap: 14px;
+  min-width: 0;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .pity {
+  display: grid;
+  gap: 6px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .pity strong {
+  font-size: 28px !important;
+  line-height: 1.35 !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .pity small {
+  font-size: 18px !important;
+  line-height: 1.45 !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha :is(.legend, .chip-list) {
+  gap: 10px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .six-image {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 10px;
+  white-space: normal !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .bar-plot {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)) !important;
+  align-items: end;
+  padding: 0;
+  gap: 14px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .bar-col {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  justify-items: center;
+  gap: 12px;
+  align-items: end;
+  padding-top: 44px;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .bar-slot {
+  display: flex !important;
+  position: relative;
+  height: 140px;
+  align-items: end;
+  justify-content: center;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .bar-fill {
+  display: block !important;
+  width: 30px;
+  height: var(--pct);
+  min-height: 2px;
+  transform: none !important;
+}
+
+/* Keep 26px on .bar-value as verified by test_qq_endfield_shared_rendering.py */
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .bar-value {
+  position: absolute !important;
+  left: 50%;
+  bottom: calc(var(--pct) + 6px);
+  transform: translateX(-50%) !important;
+  opacity: 1 !important;
+  font-size: 26px !important;
+  line-height: 1.35 !important;
+  white-space: nowrap !important;
+}
+
+.lab-sheet :is(.cloud-endfield, .reuse-content) .endfield-gacha .bar-label {
+  font-size: 18px !important;
+  line-height: 1.4 !important;
+  white-space: normal !important;
+  text-align: center;
+  overflow: visible !important;
+}
+
+.reuse.lab-sheet #render-content .ef-region-top {
+  grid-template-columns: 1fr !important;
+  gap: 18px;
+}
+
+.reuse.lab-sheet #render-content .ef-money {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+}
+
+.reuse.lab-sheet #render-content .ef-money > .k {
+  flex-basis: 100%;
+}
+
+.reuse.lab-sheet #render-content .ef-money-values {
+  font-size: 22px !important;
+  white-space: nowrap;
+}
+
+.reuse.lab-sheet #render-content .ef-medals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 14px;
+}
+
+.reuse.lab-sheet #render-content .ef-medals .ef-medal {
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px;
+  gap: 4px 8px;
+  min-width: 0;
+  align-content: start;
+}
+
+.reuse.lab-sheet #render-content .ef-medals .ef-medal > div:not(.endfield-artwork) {
+  display: contents;
+}
+
+.reuse.lab-sheet #render-content .ef-medals .endfield-artwork {
+  width: 52px;
+  height: 52px;
+  grid-column: 2;
+  grid-row: 2 / 4;
+  align-self: center;
+}
+
+.reuse.lab-sheet #render-content .ef-medals .ef-medal h3 {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  text-wrap: balance;
+  font-size: 20px !important;
+  line-height: 1.35 !important;
+}
+
+.reuse.lab-sheet #render-content .ef-medals .ef-medal-category {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
+}
+
+.reuse.lab-sheet #render-content .ef-medals .ef-medal p:not(.ef-note) {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.reuse.lab-sheet #render-content .ef-medals .ef-medal .ef-note {
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
+
+.reuse.lab-sheet #render-content .ef-medals .ef-medal :is(p, span) {
+  font-size: 17px !important;
+  line-height: 1.45 !important;
+}
+
+.reuse.lab-sheet #render-content .ef-loadout > * {
+  grid-column: 1 / -1 !important;
+}
+
+.reuse.lab-sheet #render-content .loadout-hero {
+  grid-template-columns: 200px minmax(0, 1fr) !important;
+  grid-template-rows: 1fr;
+  align-items: center;
+}
+
+.reuse.lab-sheet #render-content .operator-marks dt {
+  white-space: nowrap !important;
+}
+
+.reuse.lab-sheet #render-content .equipment-slots {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px;
+}
+
+.reuse.lab-sheet #render-content .slot-level > span {
+  position: static;
+  width: auto;
+  height: auto;
+  clip-path: none;
+  overflow: visible;
+}
+
+.reuse.lab-sheet #render-content .skills-module .h-rail-track {
+  display: block;
+  overflow: visible;
+}
+
+.reuse.lab-sheet #render-content .skill-slots {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.reuse.lab-sheet #render-content .skill-slots > li {
+  width: auto;
+}
+
+.reuse.lab-sheet #render-content .skill-art {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 0;
+}
+
+/* Keep 26px on .skill-level as verified by test_qq_endfield_shared_rendering.py */
+.reuse.lab-sheet #render-content .skill-level {
+  position: static;
+  transform: none;
+  font-size: 26px !important;
+}
+
+.lab-sheet .portrait-card.no-portrait {
+  grid-template-columns: 1fr;
+}
+
+.lab-sheet .kind-portraits p {
+  text-wrap: pretty;
+}
