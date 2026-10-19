@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { isCloudMode } from '../http-client.js'
 import { fetchedLabel } from '../time.js'
 import { exportRecords, getRecords, pityParts, pullDate, pullDay, rarityLabel } from '../endfield-gacha-api.js'
-import { gachaPools, poolGroups, poolPace, poolTotal, pullRuler, rarityShares, sixPullsParts, syncStatus } from '../endfield-gacha-summary.js'
+import { bannerGroups, gachaPools, kindSummary, poolCategories, poolPace, poolTotal, pullRuler, rarityShares, sixPullsParts, syncStatus } from '../endfield-gacha-summary.js'
 import { gachaArtwork } from '../endfield-reports.js'
 import { vReveal } from '../motion.js'
 import AppIcon from './AppIcon.vue'
@@ -17,22 +17,15 @@ const summary = computed(() => props.snap?.payload?.schema_version === 1 ? props
 const report = computed(() => summary.value?.report?.schema_version === 1 ? summary.value.report : null)
 const show = value => value == null || value === '' ? '未知' : value
 const pools = computed(() => gachaPools(summary.value))
-const groups = computed(() => poolGroups(pools.value))
+const categories = computed(() => poolCategories(pools.value))
 const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 const poolOptions = computed(() => [{ value: '', label: '全部卡池' }, ...pools.value.map(pool => ({ value: pool.key, label: pool.label }))])
 const opened = ref(false), recordPool = ref(''), records = ref([]), total = ref(0), offset = ref(0), busy = ref(false), message = ref('')
 const PAGE = 50
 let generation = 0
 
-// The headline: the report's own totals, else a sum only when every pool states the count.
-const grandTotal = computed(() => report.value?.total ?? summary.value?.total)
-const count = field => report.value?.[field] ?? poolTotal(pools.value, field)
-const kpis = computed(() => [
-  { label: '6★', value: count('six_star'), tone: 'six' },
-  { label: '5★', value: count('five_star'), tone: 'five' },
-  { label: '平均出 6★', value: report.value?.average_exact_pulls, unit: '抽',
-    hint: report.value?.average_exact_pulls != null ? `只统计已展示历史中 ${report.value.known_exact_intervals} 次抽数准确的 6★；跨缺口或含免费寻访的区间不计入。` : '' },
-])
+// The headline keeps operator headhunting and weapon requisition apart; they never add up.
+const kinds = computed(() => ['character', 'weapon'].map(kind => kindSummary(pools.value, kind)).filter(Boolean))
 const status = computed(() => syncStatus(summary.value, report.value))
 const statusHint = computed(() => {
   const gaps = report.value?.gaps ?? poolTotal(pools.value, 'gaps')
@@ -40,26 +33,33 @@ const statusHint = computed(() => {
     '跨缺口、更早记录缺失或含免费寻访时，抽数以 ≥ 表示已知最少值；免费寻访是否计入保底尚不确定。'].join('')
 })
 
-// The web page details one chosen pool at a time; a bot image prints every pool in turn.
+// The web page details one chosen category at a time; a bot image prints every category in turn.
+// Inside a category each banner (期) is listed on its own.
 const selected = ref('')
-const current = computed(() => pools.value.find(pool => pool.key === selected.value) || pools.value[0] || null)
+const current = computed(() => categories.value.find(category => category.key === selected.value) || categories.value[0] || null)
 const rulers = computed(() => ({ character: pullRuler(pools.value, 'character'), weapon: pullRuler(pools.value, 'weapon') }))
-const views = computed(() => (props.imageMode ? pools.value : current.value ? [current.value] : []).map(pool => {
-  const pace = poolPace(pool)
+const dayRange = item => Number.isFinite(item?.oldest_at) && Number.isFinite(item?.newest_at) ? `${pullDay(item.oldest_at)} – ${pullDay(item.newest_at)}` : ''
+const views = computed(() => (props.imageMode ? categories.value : current.value ? [current.value] : []).map(category => {
+  const banners = bannerGroups(category), split = banners.length > 1
   // Unknown/other is only listed when it is not a plain zero.
-  const shares = rarityShares(pool).filter(part => part.field !== 'unknown_rarity' || part.count !== 0)
+  const shares = rarityShares(category).filter(part => part.field !== 'unknown_rarity' || part.count !== 0)
   // Pulls of unstated rarity stay as empty track, so the bar has the legend's scale: shares of the total.
-  const counted = shares.reduce((sum, part) => sum + (part.count ?? 0), 0), pulls = Number(pool.total)
-  return { pool, pace, ruler: rulers.value[pool.kind === 'weapon' ? 'weapon' : 'character'], shares,
+  const counted = shares.reduce((sum, part) => sum + (part.count ?? 0), 0), pulls = Number(category.total)
+  return { category, split, pace: poolPace(category), ruler: rulers.value[category.kind === 'weapon' ? 'weapon' : 'character'], shares,
     rest: Number.isFinite(pulls) && pulls > counted ? pulls - counted : 0,
-    range:Number.isFinite(pool.oldest_at) && Number.isFinite(pool.newest_at) ? `${pullDay(pool.oldest_at)} – ${pullDay(pool.newest_at)}` : '' }
+    // One banner needs no banner header; its 6★ are the category's own.
+    banners: split ? banners : [{ ...banners[0], key: 'all', history: category.history }],
+    range: dayRange(category) }
 }))
-function select(key) { selected.value = key; recordPool.value = key }
-// A pool that is gone after a sync no longer filters the ledger either.
-watch(pools, list => { if (selected.value && !list.some(pool => pool.key === selected.value)) { selected.value = ''; if (!list.some(pool => pool.key === recordPool.value)) recordPool.value = '' } })
-const pity = pool => pityParts(pool.since_last_six)
+function select(key) { selected.value = key; recordPool.value = pools.value.some(pool => pool.key === key) ? key : '' }
+// A category that is gone after a sync no longer filters the ledger either.
+watch(categories, list => { if (selected.value && !list.some(category => category.key === selected.value)) { selected.value = ''; if (!pools.value.some(pool => pool.key === recordPool.value)) recordPool.value = '' } })
+const pity = pool => pityParts(pool?.since_last_six)
+// Each weapon banner keeps its own pity, so the weapon category shows its newest banner's.
+const categoryPity = category => pity(category.kind === 'weapon' ? category.latest : category)
 const percent = share => `${(share * 100).toFixed(share < .1 ? 1 : 0)}%`
-const banner = (item, pool) => item.pool_name && item.pool_name !== pool.label ? item.pool_name : ''
+// Split banners name themselves in their header; otherwise a row names its banner unless that is the category's own name.
+const banner = (item, view) => !view.split && item.pool_name && item.pool_name !== view.category.label ? item.pool_name : ''
 const barWidth = (item, ruler) => { const parts = sixPullsParts(item); return parts && ruler ? `${Math.min(100, Math.round(parts.count / ruler * 10000) / 100)}%` : '0%' }
 const tag = (item, pace) => item === pace.fastest ? { label: '最欧', tone: 'lucky' } : item === pace.slowest ? { label: '最非', tone: 'unlucky' } : null
 // Ledger rows carry their kind; older exports only say it through a weapon pool key.
@@ -117,10 +117,17 @@ async function download() {
       <p v-if="!accountId && !imageMode" class="notice">登录终末地后，点「刷新数据」开始同步寻访记录。</p>
       <p v-else-if="!summary" class="notice">尚未同步寻访记录，点「刷新数据」开始同步。</p>
       <template v-else>
-        <dl class="eg-kpis">
-          <div class="kpi-total"><dt>累计寻访</dt><dd>{{ show(grandTotal) }}<small v-if="grandTotal != null">抽</small></dd></div>
-          <div v-for="kpi in kpis" :key="kpi.label" :class="kpi.tone"><dt>{{ kpi.label }}<InfoHint v-if="kpi.hint && !imageMode" :text="kpi.hint" /></dt><dd>{{ show(kpi.value) }}<small v-if="kpi.unit && kpi.value != null">{{ kpi.unit }}</small></dd></div>
-        </dl>
+        <div v-if="kinds.length" class="eg-kinds">
+          <section v-for="kind in kinds" :key="kind.kind" class="kind-block" :aria-label="`${kind.label}合计`">
+            <h3>{{ kind.label }}</h3>
+            <p class="kind-total">{{ show(kind.total) }}<small v-if="kind.total != null">抽</small></p>
+            <dl class="kind-stats">
+              <div class="six"><dt>6★</dt><dd>{{ show(kind.six_star) }}</dd></div>
+              <div class="five"><dt>5★</dt><dd>{{ show(kind.five_star) }}</dd></div>
+              <div><dt>平均出 6★<InfoHint v-if="!imageMode && kind.pace.average != null" :text="`只统计已展示历史中 ${kind.pace.count} 次抽数准确的 6★；跨缺口或含免费寻访的区间不计入。`" /></dt><dd><template v-if="kind.pace.average != null">{{ kind.pace.average }}<small>抽</small></template><template v-else>—</template></dd></div>
+            </dl>
+          </section>
+        </div>
         <p v-if="summary.complete === false" class="notice warn" role="status">还有记录未同步完，下次刷新会接着同步。</p>
       </template>
     </div>
@@ -128,36 +135,31 @@ async function download() {
     <template v-if="summary">
       <p v-if="!pools.length" class="empty eg-card">暂无寻访记录。</p>
       <nav v-else-if="!imageMode" class="eg-pools" aria-label="选择卡池">
-        <div v-for="group in groups" :key="group.kind" class="eg-group">
-          <h3 class="eg-group-title">{{ group.label }}</h3>
-          <div class="pool-tiles">
-            <button v-for="pool in group.pools" :key="pool.key" type="button" class="pool-tile" :class="{ active: current?.key === pool.key }" :aria-pressed="current?.key === pool.key" @click="select(pool.key)">
-              <span class="tile-name">{{ pool.label }}<i v-if="pool.gaps || pool.pending" class="tile-flag" :title="pool.pending ? '部分待同步' : '记录有缺口'" /></span>
-              <span class="tile-pity"><small>已垫</small><b><template v-if="pity(pool)">{{ pity(pool).prefix }}{{ pity(pool).count }}</template><template v-else>?</template></b></span>
-              <span class="tile-meta">{{ pool.total }} 抽 · 6★ {{ pool.six_star }}</span>
-            </button>
-          </div>
-        </div>
+        <button v-for="category in categories" :key="category.key" type="button" class="pool-tile" :class="{ active: current?.key === category.key }" :aria-pressed="current?.key === category.key" @click="select(category.key)">
+          <span class="tile-name">{{ category.label }}<i v-if="category.gaps || category.pending" class="tile-flag" :title="category.pending ? '部分待同步' : '记录有缺口'" /></span>
+          <span class="tile-pity"><small>{{ category.kind === 'weapon' ? '当期已垫' : '已垫' }}</small><b><template v-if="categoryPity(category)">{{ categoryPity(category).prefix }}{{ categoryPity(category).count }}</template><template v-else>?</template></b></span>
+          <span class="tile-meta">{{ show(category.total) }} 抽 · 6★ {{ show(category.six_star) }}<template v-if="bannerGroups(category).length > 1"> · {{ bannerGroups(category).length }} 期</template></span>
+        </button>
       </nav>
 
-      <article v-for="view in views" :key="view.pool.key" v-reveal class="eg-card pool-detail">
+      <article v-for="view in views" :key="view.category.key" v-reveal class="eg-card pool-detail">
         <header class="detail-head">
-          <h3>{{ view.pool.label }}</h3>
-          <span class="chip">{{ view.pool.kind === 'weapon' ? '武器申领' : '干员寻访' }}</span>
-          <span v-if="view.pool.gaps || view.pool.pending" class="chip warn">{{ view.pool.pending ? '部分待同步' : '记录有缺口' }}<InfoHint v-if="!imageMode" align="end" text="记录不连续时，跨缺口的抽数以 ≥ 表示已知最少值。" /></span>
+          <h3>{{ view.category.label }}</h3>
+          <span class="chip">{{ view.category.kind === 'weapon' ? '武器申领' : '干员寻访' }}</span>
+          <span v-if="view.category.gaps || view.category.pending" class="chip warn">{{ view.category.pending ? '部分待同步' : '记录有缺口' }}<InfoHint v-if="!imageMode" align="end" text="记录不连续时，跨缺口的抽数以 ≥ 表示已知最少值。" /></span>
           <span v-if="view.range" class="detail-range">{{ view.range }}</span>
         </header>
 
         <div class="detail-top">
           <div class="pity-block">
-            <span class="k">已垫<InfoHint v-if="!imageMode && view.pool.since_last_six?.status === 'lower_bound'" text="≥ 表示已知最少抽数。记录缺口、更早记录缺失或免费寻访会影响统计；免费寻访是否计入保底尚不确定。" /></span>
-            <strong><template v-if="pity(view.pool)">{{ pity(view.pool).prefix }}{{ pity(view.pool).count }}<small>{{ pity(view.pool).unit }}</small></template><template v-else>未知</template></strong>
-            <span class="k-sub">距上次 6★</span>
+            <span class="k">{{ view.category.kind === 'weapon' ? '当期已垫' : '已垫' }}<InfoHint v-if="!imageMode && (view.category.kind === 'weapon' ? view.category.latest : view.category).since_last_six?.status === 'lower_bound'" text="≥ 表示已知最少抽数。记录缺口、更早记录缺失或免费寻访会影响统计；免费寻访是否计入保底尚不确定。" /></span>
+            <strong><template v-if="categoryPity(view.category)">{{ categoryPity(view.category).prefix }}{{ categoryPity(view.category).count }}<small>{{ categoryPity(view.category).unit }}</small></template><template v-else>未知</template></strong>
+            <span class="k-sub">{{ view.category.kind === 'weapon' ? `${view.category.latest.label} · 距上次 6★` : '距上次 6★' }}</span>
           </div>
           <dl class="detail-stats">
-            <div><dt>总抽数</dt><dd>{{ view.pool.total }}<small>抽</small></dd><dd v-if="view.pool.free" class="stat-sub">含免费 {{ view.pool.free }}</dd></div>
-            <div class="six"><dt>6★</dt><dd>{{ view.pool.six_star }}</dd></div>
-            <div class="five"><dt>5★</dt><dd>{{ view.pool.five_star }}</dd></div>
+            <div><dt>总抽数</dt><dd>{{ show(view.category.total) }}<small v-if="view.category.total != null">抽</small></dd><dd v-if="view.category.free" class="stat-sub">含免费 {{ view.category.free }}</dd></div>
+            <div class="six"><dt>6★</dt><dd>{{ show(view.category.six_star) }}</dd></div>
+            <div class="five"><dt>5★</dt><dd>{{ show(view.category.five_star) }}</dd></div>
             <div><dt>平均出 6★</dt><dd><template v-if="view.pace.average != null">{{ view.pace.average }}<small>抽</small></template><template v-else>—</template></dd></div>
             <div><dt>最欧</dt><dd><template v-if="view.pace.fastest">{{ view.pace.fastest.pulls }}<small>抽</small></template><template v-else>—</template></dd><dd v-if="view.pace.fastest" class="stat-sub">{{ view.pace.fastest.name || '未知' }}</dd></div>
             <div><dt>最非</dt><dd><template v-if="view.pace.slowest">{{ view.pace.slowest.pulls }}<small>抽</small></template><template v-else>—</template></dd><dd v-if="view.pace.slowest" class="stat-sub">{{ view.pace.slowest.name || '未知' }}</dd></div>
@@ -165,7 +167,7 @@ async function download() {
         </div>
 
         <div class="rarity">
-          <div class="stack-bar" role="img" :aria-label="`${view.pool.label}的稀有度：` + view.shares.map(part => `${part.label} ${part.count ?? '未知'}`).join('，')">
+          <div class="stack-bar" role="img" :aria-label="`${view.category.label}的稀有度：` + view.shares.map(part => `${part.label} ${part.count ?? '未知'}`).join('，')">
             <i v-for="part in view.shares.filter(part => part.count)" :key="part.field" :style="{ '--series': RARITY_COLOR[part.field], flex: part.count }" />
             <i v-if="view.rest" class="stack-rest" :style="{ flex: view.rest }" />
           </div>
@@ -175,24 +177,35 @@ async function download() {
         </div>
 
         <div class="six-head">
-          <h4>6★ 出货记录</h4>
-          <span>{{ view.pool.history_total ?? view.pool.history.length }} 次</span>
-          <InfoHint v-if="!imageMode && view.ruler" align="end" :text="`横条按${view.pool.kind === 'weapon' ? '武器' : '干员'}卡池中最长的一次 6★ 绘制（标尺 ${view.ruler} 抽），不代表保底；斜纹表示已知最少抽数。`" />
+          <h4>{{ view.split ? '按期统计' : '6★ 出货记录' }}</h4>
+          <span>{{ view.split ? `${view.banners.length} 期` : `${view.category.history_total ?? view.category.history.length} 次` }}</span>
+          <InfoHint v-if="!imageMode && view.ruler" align="end" :text="`${view.split && view.category.kind !== 'weapon' ? '6★ 抽数为距同类卡池上一次 6★ 的寻访次数，可能包含上一期的垫抽。' : ''}横条按${view.category.kind === 'weapon' ? '武器' : '干员'}卡池中最长的一次 6★ 绘制（标尺 ${view.ruler} 抽），不代表保底；斜纹表示已知最少抽数。`" />
         </div>
-        <p v-if="!view.pool.history.length" class="empty">该卡池暂无 6★ 记录。</p>
-        <ol v-else class="pull-list" :aria-label="`${view.pool.label}的 6★ 记录`">
-          <li v-for="(item, index) in view.pool.history" :key="index" class="pull-row" :class="{ lower: item.status === 'lower_bound' }" :title="`${item.pool_name || view.pool.label} · ${pullDate(item.obtained_at)}`">
-            <EndfieldArtwork class="pull-art" :src="gachaArtwork(item, view.pool.kind)" :name="item.name || '未知'" />
-            <div class="pull-who"><strong>{{ item.name || '未知' }}</strong><span><template v-if="banner(item, view.pool)">{{ banner(item, view.pool) }} · </template>{{ pullDay(item.obtained_at) }}</span></div>
-            <div class="pull-track">
-              <i class="pull-fill" :style="{ width: barWidth(item, view.ruler) }" />
-              <span class="pull-value"><template v-if="sixPullsParts(item)">{{ sixPullsParts(item).prefix }}{{ sixPullsParts(item).count }}<small>{{ sixPullsParts(item).unit }}</small></template><template v-else>抽数未知</template></span>
-              <span v-if="tag(item, view.pace)" class="pull-tag" :class="tag(item, view.pace).tone">{{ tag(item, view.pace).label }}</span>
-            </div>
-          </li>
-        </ol>
-        <p v-if="view.pool.history_truncated === true" class="notice">仅显示最近 {{ view.pool.history_available }} 次 6★（账本共 {{ view.pool.history_total }} 次）；{{ imageMode ? '完整记录请在网页查看。' : '更早的可在逐条记录中查看或导出。' }}</p>
-        <p v-else-if="view.pool.history_truncated == null" class="notice">6★ 历史的覆盖范围未知。</p>
+        <p v-if="!view.split && !view.category.history.length" class="empty">该卡池暂无 6★ 记录。</p>
+        <div v-else class="banners">
+          <section v-for="group in view.banners" :key="group.key" class="banner" :class="{ plain: !view.split }" :aria-label="view.split ? `${group.name || '未命名卡池'}的寻访` : undefined">
+            <header v-if="view.split" class="banner-head">
+              <strong>{{ group.name || '未命名卡池' }}</strong>
+              <span v-if="dayRange(group)" class="banner-range">{{ dayRange(group) }}</span>
+              <span class="banner-meta"><template v-if="group.pity && pity(group)">已垫 <b>{{ pity(group).prefix }}{{ pity(group).count }}</b> · </template><b>{{ show(group.total) }}</b> 抽 · 6★ <b>{{ show(group.six_star) }}</b> · 5★ <b>{{ show(group.five_star) }}</b></span>
+            </header>
+            <ol v-if="group.history.length" class="pull-list" :aria-label="`${group.name || view.category.label}的 6★ 记录`">
+              <li v-for="(item, index) in group.history" :key="index" class="pull-row" :class="{ lower: item.status === 'lower_bound' }" :title="`${item.pool_name || view.category.label} · ${pullDate(item.obtained_at)}`">
+                <EndfieldArtwork class="pull-art" :src="gachaArtwork(item, view.category.kind)" :name="item.name || '未知'" />
+                <div class="pull-who"><strong>{{ item.name || '未知' }}</strong><span><template v-if="banner(item, view)">{{ banner(item, view) }} · </template>{{ pullDay(item.obtained_at) }}</span></div>
+                <div class="pull-track">
+                  <i class="pull-fill" :style="{ width: barWidth(item, view.ruler) }" />
+                  <span class="pull-value"><template v-if="sixPullsParts(item)">{{ sixPullsParts(item).prefix }}{{ sixPullsParts(item).count }}<small>{{ sixPullsParts(item).unit }}</small></template><template v-else>抽数未知</template></span>
+                  <span v-if="tag(item, view.pace)" class="pull-tag" :class="tag(item, view.pace).tone">{{ tag(item, view.pace).label }}</span>
+                </div>
+              </li>
+            </ol>
+            <p v-else-if="view.split" class="banner-empty">{{ group.six_star ? '本期 6★ 不在已展示的历史中。' : '本期未出 6★。' }}</p>
+            <p v-if="view.split && group.history.length && group.six_star > group.history.length" class="banner-empty">另有 {{ group.six_star - group.history.length }} 次 6★ 不在已展示的历史中。</p>
+          </section>
+        </div>
+        <p v-if="view.category.history_truncated === true" class="notice">仅显示最近 {{ view.category.history_available }} 次 6★（账本共 {{ view.category.history_total }} 次）；{{ imageMode ? '完整记录请在网页查看。' : '更早的可在逐条记录中查看或导出。' }}</p>
+        <p v-else-if="view.category.kind !== 'weapon' && view.category.history_truncated == null" class="notice">6★ 历史的覆盖范围未知。</p>
       </article>
 
       <details v-if="!imageMode" class="panel record-list" @toggle="opened = $event.target.open">
@@ -226,8 +239,8 @@ async function download() {
 </template>
 
 <style scoped>
-/* Laid out like a community gacha analysis page: a headline strip, a tile per pool,
-   then the chosen pool's pity, pace, rarity split and 6★ bars. Rarity takes the
+/* Laid out like a community gacha analysis page: a headline per kind, a tile per pool type,
+   then the chosen type's pity, pace and rarity split, and each of its banners with its 6★ bars. Rarity takes the
    in-game hues (6★ orange, 5★ gold, 4★ purple); selection takes the game colour.
    The 5★ gold is lighter than the chart amber, so it stays apart from the 6★ orange
    beside it (dataviz validator, both themes).
@@ -254,22 +267,22 @@ small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:50
 .eg-status.done::before { background:var(--success); }
 .eg-status.warn { color:var(--stale-text); }
 .eg-status.warn::before { background:var(--stale-text); }
-.eg-kpis { display:grid; grid-template-columns:minmax(0,1.3fr) repeat(3,minmax(0,1fr)); gap:8px; margin:0; }
-.eg-kpis > div { display:grid; align-content:start; gap:2px; padding:12px 16px; border-radius:var(--radius-well); background:var(--card-bg); }
-.eg-kpis dt { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; white-space:nowrap; }
-.eg-kpis :is(.six,.five) dt::before { content:''; width:8px; height:8px; border-radius:3px; background:var(--eg-six); }
-.eg-kpis .five dt::before { background:var(--eg-five); }
-.eg-kpis dd { margin:0; font-size:28px; line-height:34px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.eg-kpis .kpi-total { background:transparent; padding-left:2px; }
-.eg-kpis .kpi-total dt { color:var(--eg-ink); }
-.eg-kpis .kpi-total dd { font-size:40px; line-height:34px; letter-spacing:-.05em; }
-.eg-kpis .kpi-total small { color:var(--eg-ink); }
+/* One block per kind: operator headhunting and weapon requisition are never summed. */
+.eg-kinds { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:10px; }
+.kind-block { display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-areas:"label label" "total stats"; align-items:end; gap:2px 20px; min-width:0; padding:14px 18px; border-radius:var(--radius-well); background:var(--card-bg); }
+.kind-block h3 { grid-area:label; margin:0; color:var(--eg-ink); font-size:12px; line-height:18px; font-weight:500; }
+.kind-total { grid-area:total; margin:0; font-size:40px; line-height:46px; font-weight:550; letter-spacing:-.05em; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.kind-total small { color:var(--eg-ink); }
+.kind-stats { grid-area:stats; display:flex; justify-content:flex-end; gap:4px 22px; margin:0 0 5px; }
+.kind-stats > div { display:grid; gap:0; min-width:0; }
+.kind-stats dt { display:inline-flex; align-items:center; gap:5px; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; white-space:nowrap; }
+.kind-stats :is(.six,.five) dt::before { content:''; width:8px; height:8px; border-radius:3px; background:var(--eg-six); }
+.kind-stats .five dt::before { background:var(--eg-five); }
+.kind-stats dd { margin:0; font-size:20px; line-height:26px; font-weight:550; letter-spacing:-.02em; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.kind-stats dd small { font-size:12px; }
 
-/* Pool tiles: the chosen one is filled with the game tone. */
-.eg-pools { display:grid; gap:14px; }
-.eg-group { display:grid; gap:8px; }
-.eg-group-title { margin:0; padding-left:4px; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; }
-.pool-tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(156px,1fr)); gap:10px; }
+/* One tile per pool type (all weapon banners share one): the chosen one is filled with the game tone. */
+.eg-pools { display:grid; grid-template-columns:repeat(auto-fill,minmax(156px,1fr)); gap:10px; }
 .pool-tile { display:grid; gap:2px; min-width:0; padding:12px 14px; border:1px solid var(--card-border); border-radius:var(--radius-tile); background:var(--card-bg); color:var(--text); text-align:left; font:inherit; cursor:pointer; transition:background-color var(--duration-fast,.15s) ease, border-color var(--duration-fast,.15s) ease; }
 .pool-tile:hover { border-color:color-mix(in srgb,var(--eg-ink) 40%,var(--card-border)); }
 .pool-tile:focus-visible { outline:2px solid var(--eg-ink); outline-offset:2px; }
@@ -309,6 +322,18 @@ small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:50
 .legend li { font-variant-numeric:tabular-nums; }
 .legend b { color:var(--text); font-weight:500; }
 .legend small { margin-left:2px; font-size:12px; color:var(--text-faint); }
+
+/* Banners (期) of the chosen type, newest first; a single banner needs no frame. */
+.banners { display:grid; gap:10px; }
+.banner { display:grid; gap:10px; min-width:0; padding:14px 16px; border-radius:var(--radius-tile); background:var(--surface-soft); }
+.banner.plain { padding:0; background:none; }
+.banner-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 12px; }
+.banner-head strong { font-size:15px; line-height:22px; font-weight:600; }
+.banner-range { color:var(--text-faint); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.banner-meta { margin-left:auto; color:var(--text-muted); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.banner-meta b { color:var(--text); font-size:13px; font-weight:600; }
+.banner-empty { margin:0; color:var(--text-muted); font-size:13px; }
+.banner:not(.plain) .pull-track { background:var(--card-bg); }
 
 /* 6★ bars: one row each, the fill measured on a shared ruler of its kind. */
 .six-head { display:flex; align-items:center; gap:8px; margin-bottom:-6px; }
@@ -356,23 +381,22 @@ small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:50
 .is-image .eg-hero { border-color:transparent; }
 
 @media (max-width:760px) {
-  .eg-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .eg-kpis .kpi-total { grid-column:1 / -1; }
   .detail-top { grid-template-columns:1fr; }
 }
 @media (max-width:600px) {
   .eg-card { padding:16px; border-radius:22px; }
-  .eg-kpis > div { padding:10px; }
-  .eg-kpis dt { gap:4px; }
-  .eg-kpis dd { font-size:22px; line-height:28px; }
-  .eg-kpis .kpi-total dd { font-size:36px; line-height:40px; }
+  .kind-block { grid-template-areas:"label label" "total total" "stats stats"; padding:12px 14px; }
+  .kind-stats { justify-content:space-between; margin:4px 0 0; }
+  .kind-total { font-size:36px; line-height:42px; }
   .eg-head .cap-meta { margin-left:0; width:100%; justify-content:space-between; }
-  /* Phones keep each group to one swipeable row so the chosen pool stays near the top. */
-  .pool-tiles { display:flex; gap:8px; margin:0 -16px; padding:0 16px 4px; overflow-x:auto; scroll-snap-type:x proximity; scroll-padding:0 16px; scrollbar-width:none; }
-  .pool-tiles::-webkit-scrollbar { display:none; }
+  /* Phones keep the tiles to one swipeable row so the chosen pool stays near the top. */
+  .eg-pools { display:flex; gap:8px; margin:0 -16px; padding:0 16px 4px; overflow-x:auto; scroll-snap-type:x proximity; scroll-padding:0 16px; scrollbar-width:none; }
+  .eg-pools::-webkit-scrollbar { display:none; }
   .pool-tile { flex:0 0 132px; padding:10px 12px; scroll-snap-align:start; }
   .tile-pity b { font-size:22px; line-height:28px; }
   .detail-range { margin-left:0; width:100%; }
+  .banner { padding:12px; }
+  .banner-meta { margin-left:0; width:100%; }
   .pity-block { grid-template-columns:auto 1fr; align-items:baseline; gap:0 10px; padding:12px 16px; }
   .pity-block .k { grid-row:1; }
   .pity-block strong { grid-row:1 / span 2; grid-column:2; justify-self:end; font-size:44px; line-height:50px; }

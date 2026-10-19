@@ -44,10 +44,25 @@ class EndfieldPity(BaseModel):
 
 class EndfieldSixStar(BaseModel):
     name: str | None = None
+    pool_id: str | None = None  # 具体某一期卡池；同类卡池的抽数可能跨期累计
     pool_name: str | None = None
     obtained_at: int | None = None  # 毫秒时间戳
     pulls: int | None = None
     status: Literal["exact", "lower_bound"] = "lower_bound"
+
+
+class EndfieldGachaBanner(BaseModel):
+    # 同一卡池类型下的某一期（官方 poolId），只统计这一期内的记录
+    pool_id: str | None = None
+    name: str | None = None
+    total: int = 0
+    six_star: int = 0
+    five_star: int = 0
+    four_star: int = 0
+    unknown_rarity: int = 0
+    free: int = 0
+    newest_at: int | None = None
+    oldest_at: int | None = None
 
 
 class EndfieldGachaPool(BaseModel):
@@ -71,6 +86,7 @@ class EndfieldGachaPool(BaseModel):
     gaps: int = 0
     pending: bool | None = None
     last_sync_at: str | None = None
+    banners: list[EndfieldGachaBanner] = []  # 由新到旧
 
 
 class EndfieldGacha(EndfieldPayload):

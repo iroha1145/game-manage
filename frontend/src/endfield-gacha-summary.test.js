@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { gachaView, gachaPools, recentSixStars, sixPullsText, sixPullsParts, poolTotal, poolGroups, poolPace, pullRuler, rarityShares, syncStatus } from './endfield-gacha-summary.js'
+import { gachaView, gachaPools, recentSixStars, sixPullsText, sixPullsParts, poolTotal, kindSummary, poolCategories, bannerGroups, poolPace, pullRuler, rarityShares, syncStatus } from './endfield-gacha-summary.js'
 const snaps={account:{payload:{role_id:'r',nickname:'本人'}},gacha:{stale:true,payload:{schema_version:1,role_id:'r',report:{schema_version:1,role_id:'r',total:42}}}}
 test('local passport identity keeps ordinary stale records but blocks wrong role and invalid credentials',()=>{
  assert.equal(gachaView({snaps,configured:true,authAccount:{configured:true,state:'connected'}}).snapshot,snaps.gacha)
@@ -79,11 +79,35 @@ test('pool totals are unknown unless every pool states the count, and zero stays
   assert.equal(poolTotal([{ five_star: '7' }], 'five_star'), 7)
 })
 
-test('pools group into character then weapon pools, keeping ledger order and dropping empty groups', () => {
-  const pools = [{ key: 'w1', kind: 'weapon' }, { key: 'c1', kind: 'character' }, { key: 'c2', kind: 'character' }, null]
-  assert.deepEqual(poolGroups(pools).map(group => [group.label, group.pools.map(pool => pool.key)]), [['干员寻访', ['c1', 'c2']], ['武器申领', ['w1']]])
-  assert.deepEqual(poolGroups([{ key: 'w', kind: 'weapon' }]).map(group => group.kind), ['weapon'])
-  assert.deepEqual(poolGroups([]), [])
+test('operator and weapon totals are summed only within their own kind', () => {
+  const pools = [{ kind: 'character', total: 100, six_star: 2, five_star: 9, history: [{ pulls: 60, status: 'exact' }] },
+    { kind: 'weapon', total: 40, six_star: 1, five_star: 4, history: [{ pulls: 20, status: 'exact' }] }, { kind: 'character', total: 30, six_star: 0, five_star: 3, history: [] }]
+  const character = kindSummary(pools, 'character'), weapon = kindSummary(pools, 'weapon')
+  assert.deepEqual([character.label, character.total, character.six_star, character.five_star, character.pace.average], ['干员寻访', 130, 2, 12, 60])
+  assert.deepEqual([weapon.label, weapon.total, weapon.six_star, weapon.pace.average], ['武器申领', 40, 1, 20])
+  assert.equal(kindSummary(pools.slice(0, 1), 'weapon'), null)
+  assert.equal(kindSummary([{ kind: 'character', total: 5 }, { kind: 'character' }], 'character').total, null)
+})
+
+test('each operator pool type is its own category and all weapon banners share one, led by the newest', () => {
+  const pools = [{ key: 'special', label: '特许寻访', kind: 'character', total: 10 }, { key: 'weapon:a', label: 'A', kind: 'weapon', total: 20, six_star: 1, newest_at: 5, oldest_at: 1, pending: false, history: [{ name: 'a', obtained_at: 3 }] },
+    { key: 'weapon:b', label: 'B', kind: 'weapon', total: 30, six_star: 2, newest_at: 9, oldest_at: 6, pending: true, history: [{ name: 'b', obtained_at: 8 }] }]
+  const [special, weapons] = poolCategories(pools)
+  assert.deepEqual([special.key, special.total, special.pools.length], ['special', 10, 1])
+  assert.deepEqual([weapons.key, weapons.label, weapons.total, weapons.six_star, weapons.latest.key, weapons.newest_at, weapons.oldest_at, weapons.pending], ['weapon', '武器申领', 50, 3, 'weapon:b', 9, 1, true])
+  assert.deepEqual(weapons.history.map(item => item.name), ['b', 'a'])
+  assert.equal(poolCategories(pools.slice(0, 1)).length, 1)
+})
+
+test('banners keep their own counts and only their own 6★; older snapshots fall back to the 6★ banner names', () => {
+  const history = [{ name: '伊冯', pool_id: 's2', pool_name: '晨星' }, { name: '余烬', pool_name: '熔火' }, { name: '别礼', pool_id: 's1', pool_name: '冬猎' }]
+  const banners = [{ pool_id: 's2', name: '晨星', total: 5 }, { pool_id: 's1', name: '冬猎', total: 3 }, { pool_id: 's0', name: '熔火', total: 9 }]
+  assert.deepEqual(bannerGroups({ kind: 'character', history, banners }).map(group => [group.key, group.total, group.history.map(item => item.name)]),
+    [['s2', 5, ['伊冯']], ['s1', 3, ['别礼']], ['s0', 9, ['余烬']]]) // a 6★ without pool_id matches its banner by name
+  assert.deepEqual(bannerGroups({ kind: 'character', history }).map(group => [group.name, group.total, group.history.length]), [['晨星', null, 1], ['熔火', null, 1], ['冬猎', null, 1]])
+  const weapons = bannerGroups({ kind: 'weapon', pools: [{ key: 'weapon:a', label: 'A', newest_at: 1, since_last_six: { count: 3 } }, { key: 'weapon:b', label: 'B', newest_at: 2 }] })
+  assert.deepEqual(weapons.map(group => [group.name, group.pity?.count]), [['B', undefined], ['A', 3]])
+  assert.deepEqual(bannerGroups(null), [])
 })
 
 test('pace averages exact intervals only and names the fastest and slowest once two differ', () => {

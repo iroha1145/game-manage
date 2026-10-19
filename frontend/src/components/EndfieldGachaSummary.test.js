@@ -4,23 +4,23 @@ import { loadVue, mount, nodes, content } from '../test-utils/vue.js'
 const Summary = await loadVue(new URL('./EndfieldGachaSummary.vue', import.meta.url))
 const snapshot = report => ({ stale: false, fetched_at: '2026-10-15T01:02:00Z', payload: { schema_version: 1, role_id: 'r', total: report.total, report: { schema_version: 1, role_id: 'r', ...report } } })
 const view = report => ({ account: { nickname: '本人', role_id: 'r' }, accountId: 'r', snapshot: snapshot(report), message: '' })
-const ring = root => nodes(root, 'figure').find(node => node.props['aria-label'] === '已记录寻访的稀有度占比')
 const hasClass = (node, name) => String(node.props.class).split(' ').includes(name)
 
-test('the ring splits the record into 6★, 5★ and the rest, with the same totals the tiles state', t => {
-  const root = mount(t, Summary, { view: view({ total: 120, six_star: 3, five_star: 12, free: 10, pending: false }) })
-  assert.ok(ring(root))
-  assert.match(content(ring(root)), /6★ 3 3%/); assert.match(content(ring(root)), /5★ 12 10%/); assert.match(content(ring(root)), /其余 105 88%/)
-  assert.match(content(root), /已记录寻访 120/); assert.match(content(root), /6★ 记录 3/); assert.match(content(root), /5★ 记录 12/); assert.match(content(root), /免费寻访 10/)
+test('operator headhunting and weapon requisition get separate lines and are never added together', t => {
+  const pools = [{ key: 'special', kind: 'character', total: 120, six_star: 3, five_star: 12, history: [{ pulls: 60, status: 'exact' }, { pulls: 40, status: 'exact' }] },
+    { key: 'weapon:w1', kind: 'weapon', total: 40, six_star: 2, five_star: 5, history: [{ pulls: 9, status: 'lower_bound' }] }]
+  const base = view({ total: 160, pending: false })
+  const root = mount(t, Summary, { view: { ...base, snapshot: { ...base.snapshot, payload: { ...base.snapshot.payload, pools } } } })
+  const lines = nodes(root, 'li').map(content)
+  assert.deepEqual(lines, ['干员寻访 120 抽 6★ 3 5★ 12 平均出 6★ 50 抽', '武器申领 40 抽 6★ 2 5★ 5 平均出 6★ —'])
+  assert.doesNotMatch(content(root), /160/)
+  assert.match(content(root), /本轮同步完成/)
 })
 
-test('without all three counts, or when they contradict each other, there is no ring and the numbers stay plain', t => {
-  for (const report of [{ total: 120, six_star: 3, five_star: null }, { total: null, six_star: 3, five_star: 12 }, { total: 10, six_star: 8, five_star: 8 }]) {
-    const root = mount(t, Summary, { view: view(report) })
-    assert.equal(ring(root), undefined)
-    assert.match(content(root), /已记录寻访/)
-  }
-  assert.match(content(mount(t, Summary, { view: view({ total: 120, six_star: 3, five_star: null }) })), /5★ 记录 未知/)
+test('a snapshot without pools still states its recorded total plainly', t => {
+  const root = mount(t, Summary, { view: view({ total: 120, six_star: 3 }) })
+  assert.equal(nodes(root, 'li').length, 0)
+  assert.match(content(root), /已记录寻访 120/)
 })
 
 test('an unsynced account gets a quiet placeholder and both actions keep working', t => {

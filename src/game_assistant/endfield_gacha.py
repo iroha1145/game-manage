@@ -14,7 +14,7 @@ from pathlib import Path
 
 from game_assistant.adapters.endfield import parse
 from game_assistant.adapters.endfield.data_models import (
-    EndfieldGacha, EndfieldGachaPool, EndfieldPity, EndfieldSixStar,
+    EndfieldGacha, EndfieldGachaBanner, EndfieldGachaPool, EndfieldPity, EndfieldSixStar,
 )
 from game_assistant.adapters.endfield.endpoints import CHAR_POOL_TYPES
 
@@ -277,7 +277,7 @@ def _pool_summary(key, kind, label, last_sync_at, rows, breaks) -> EndfieldGacha
             count += 1
         if row.get("rarity") == 6:
             history.append(EndfieldSixStar(
-                name=row.get("name"), pool_name=row.get("pool_name"), obtained_at=row.get("gacha_ts"),
+                name=row.get("name"), pool_id=row.get("pool_id"), pool_name=row.get("pool_name"), obtained_at=row.get("gacha_ts"),
                 pulls=count, status="exact" if exact and not free_in_count else "lower_bound"))
             count, exact, free_in_count = 0, True, False
     times = [row["gacha_ts"] for row in rows if row.get("gacha_ts")]
@@ -292,5 +292,24 @@ def _pool_summary(key, kind, label, last_sync_at, rows, breaks) -> EndfieldGacha
         history_total=len(history), history_available=min(len(history), HISTORY_LIMIT),
         history_limit=HISTORY_LIMIT, history_truncated=len(history)>HISTORY_LIMIT,
         newest_at=max(times, default=None), oldest_at=min(times, default=None),
-        gaps=len(breaks), pending=any(not permanent for permanent in breaks.values()), last_sync_at=last_sync_at)
+        gaps=len(breaks), pending=any(not permanent for permanent in breaks.values()), last_sync_at=last_sync_at,
+        banners=_banners(rows))
+
+
+def _banners(rows) -> list[EndfieldGachaBanner]:
+    """同类卡池按官方 poolId 拆成各期，计数只看这一期内的记录（抽数区间仍按同类连续计算）。"""
+    banners: dict[str, EndfieldGachaBanner] = {}
+    for row in rows:
+        key = row.get("pool_id") or row.get("pool_name") or ""
+        banner = banners.setdefault(key, EndfieldGachaBanner(pool_id=row.get("pool_id"), name=row.get("pool_name")))
+        banner.name = banner.name or row.get("pool_name")
+        banner.total += 1
+        rarity = row.get("rarity")
+        field = {6: "six_star", 5: "five_star", 4: "four_star"}.get(rarity, "unknown_rarity")
+        setattr(banner, field, getattr(banner, field) + 1)
+        banner.free += row.get("is_free") is True
+        if row.get("gacha_ts"):
+            banner.newest_at = max(banner.newest_at or 0, row["gacha_ts"])
+            banner.oldest_at = min(banner.oldest_at or row["gacha_ts"], row["gacha_ts"])
+    return sorted(banners.values(), key=lambda banner: -(banner.newest_at or 0))
 

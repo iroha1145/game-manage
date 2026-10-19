@@ -212,7 +212,7 @@ function quickLinks(card) {
 
       <section v-reveal class="ov-gacha" :class="{ 'is-empty': !digest }" :style="digest ? gameVars(digest.gameId) : undefined" aria-labelledby="ov-gacha-title">
         <div class="card-heading">
-          <div><h2 id="ov-gacha-title">抽卡概况</h2><p v-if="digest" class="sub">{{ digest.gameName }} · 全部卡池</p></div>
+          <div><h2 id="ov-gacha-title">抽卡概况</h2><p v-if="digest" class="sub">{{ digest.gameName }} · {{ digest.scope || '全部卡池' }}</p></div>
           <div v-if="digests.length > 1" v-glide class="segmented" role="group" aria-label="抽卡记录的游戏"><button v-for="item in digests" :key="item.gameId" type="button" :aria-pressed="item.gameId === digest.gameId" @click="gachaId = item.gameId">{{ item.gameName }}</button></div>
         </div>
         <template v-if="digest">

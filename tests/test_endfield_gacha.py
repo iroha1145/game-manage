@@ -394,3 +394,21 @@ def test_adapter_scopes_only_the_local_ledger_by_channel(tmp_path):
     assert adapter._ledger_role(cloud_bridge, "r1") == "r1"
     adapter._settings.endfield_channel = "official"
     assert adapter._ledger_role(adapter.gacha_store(), "r1") == "r1"
+
+
+async def test_a_pool_type_splits_into_its_banners_newest_first_with_six_stars_tagged(tmp_path):
+    store = EndfieldGachaStore(tmp_path / "g.sqlite3")
+    rows = history(1, 12, six={3, 10})
+    for row in rows:  # seq 1–6 是「冬猎」，7–12 是下一期「晨星」
+        if int(row["seqId"]) > 6:
+            row.update(poolId="special_2", poolName="晨星")
+    rows[0]["isFree"] = True
+    rows[1]["rarity"] = 5
+    await sync(store, FakeClient(special=rows))
+    special = pool(store)
+    assert [(b.pool_id, b.name, b.total, b.six_star, b.five_star, b.four_star, b.free) for b in special.banners] == [
+        ("special_2", "晨星", 6, 1, 1, 4, 1), ("special_1", "冬猎", 6, 1, 0, 5, 0)]
+    assert special.banners[0].oldest_at == 1_780_000_007_000 and special.banners[0].newest_at == 1_780_000_012_000
+    # The 晨星 6★ interval still counts back into 冬猎: the ledger keeps one sequence per pool type.
+    assert [(h.name, h.pool_id, h.pulls) for h in special.history] == [("干员10", "special_2", 7), ("干员3", "special_1", 3)]
+    assert sum(b.total for b in special.banners) == special.total

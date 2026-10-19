@@ -49,16 +49,18 @@ test('missing login, legacy snapshots and read errors are explained without inve
   assert.match(content(root), /请先登录终末地/)
 })
 
-test('the headline average names its bounded exact sample and unknown history never reads as a lower bound', t => {
+test('the headline keeps operators and weapons apart, averages exact intervals only and never reads unknown as a lower bound', t => {
   api(t, () => [200, {}])
-  const report = { schema_version: 1, total: 30, six_star: 1, five_star: 3, free: 0, gaps: 1, pending: true, known_exact_intervals: 2, average_exact_pulls: 44 }
-  const root = mount(t, Panel, { snap: { payload: { ...summary, report, pools: [{ ...summary.pools[0], history: [{ name: '未知区间', pulls: 12, status: 'unknown' }] }] } }, accountId: 'r1' })
-  assert.match(content(root), /平均出 6★ .*44 抽/)
-  const hint = nodes(root, 'dt').map(node => nodes(node, 'span')).flat().find(node => /只统计已展示历史中 2 次/.test(content(node)))
-  assert.ok(hint)
+  const report = { schema_version: 1, total: 50, six_star: 2, five_star: 5, free: 0, gaps: 1, pending: true }
+  const weapon = { ...summary.pools[0], key: 'weapon:w1', label: '熔铸申领', kind: 'weapon', total: 20, six_star: 1, five_star: 2, history: [{ name: '遥望', pulls: 12, status: 'exact' }] }
+  const root = mount(t, Panel, { snap: { payload: { ...summary, report, pools: [{ ...summary.pools[0], history: [{ name: '未知区间', pulls: 12, status: 'unknown' }] }, weapon] } }, accountId: 'r1' })
+  const kinds = by(root, 'section', 'kind-block')
+  assert.deepEqual(kinds.map(node => content(node)), ['干员寻访 30 抽 6★ 1 5★ 3 平均出 6★ —', '武器申领 20 抽 6★ 1 5★ 2 平均出 6★ 只统计已展示历史中 1 次抽数准确的 6★；跨缺口或含免费寻访的区间不计入。 12 抽'])
+  assert.doesNotMatch(content(root), /50 抽/) // the report's mixed total is never shown
   assert.match(content(root), /未知区间 .*抽数未知/); assert.doesNotMatch(content(root), /未知区间 .*≥12/)
   assert.match(content(root), /已知记录缺口 1 处/)
 })
+
 
 test('closing the ledger while its response is pending discards late private records',async t=>{
   let resolve
@@ -91,21 +93,47 @@ const wide = { ...summary.pools[0], total: 148, six_star: 2, five_star: 20, four
 const tiles = root => nodes(root, 'button').filter(node => String(node.props.class).includes('pool-tile'))
 const details = root => by(root, 'article', 'pool-detail')
 
-test('pool tiles group character and weapon pools, and choosing one switches the detail and the ledger filter', async t => {
+test('a tile per operator pool type and one for all weapon banners; choosing one switches the detail and the ledger filter', async t => {
   const calls = api(t, () => [200, { total: 0, records: [] }])
-  const weapon = { ...second, key: 'weapon:w1', label: '熔铸申领', kind: 'weapon', history: [{ name: '遥望', pulls: 30, status: 'exact', obtained_at: 1790000000000 }] }
-  const root = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, pools: [wide, second, weapon] }, fetched_at: '2026-09-24T12:00:00+08:00' } })
-  assert.deepEqual(nodes(root, 'h3').filter(node => String(node.props.class).includes('eg-group-title')).map(content), ['干员寻访', '武器申领'])
+  const weapon = { ...second, key: 'weapon:w1', label: '熔铸申领', kind: 'weapon', newest_at: 1791000000000, since_last_six: { count: 20, status: 'exact' }, history: [{ name: '遥望', pulls: 30, status: 'exact', obtained_at: 1790000000000 }] }
+  const older = { ...weapon, key: 'weapon:w0', label: '行舟申领', newest_at: 1780000000000, since_last_six: { count: 4, status: 'exact' }, history: [] }
+  const root = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, pools: [wide, older, second, weapon] }, fetched_at: '2026-09-24T12:00:00+08:00' } })
+  assert.deepEqual(tiles(root).map(node => content(nodes(node, 'span')[0])), ['特许寻访', '基础寻访', '武器申领'])
   assert.deepEqual(tiles(root).map(node => node.props['aria-pressed']), [true, false, false])
   assert.match(content(tiles(root)[1]), /基础寻访 已垫 17 48 抽 · 6★ 1/)
+  assert.match(content(tiles(root)[2]), /武器申领 当期已垫 20 96 抽 · 6★ 2 · 2 期/) // the newest weapon banner's pity
   assert.equal(details(root).length, 1); assert.match(content(details(root)[0]), /^特许寻访/)
+  tiles(root)[1].props.onClick(); await flush()
+  nodes(root, 'details')[0].props.onToggle({ target: { open: true } }); await flush()
+  assert.match(calls.at(-1), /pool_key=E_CharacterGachaPoolType_Standard&offset=0/)
   tiles(root)[2].props.onClick(); await flush()
   assert.deepEqual(tiles(root).map(node => node.props['aria-pressed']), [false, false, true])
-  assert.match(content(details(root)[0]), /^熔铸申领 武器申领/)
-  assert.match(content(details(root)[0]), /遥望 .*30 抽/)
-  nodes(root, 'details')[0].props.onToggle({ target: { open: true } }); await flush()
-  assert.match(calls.at(-1), /pool_key=weapon%3Aw1&offset=0/)
+  const detail = details(root)[0]
+  assert.match(content(detail), /^武器申领 武器申领 .*当期已垫 20 抽 熔铸申领 · 距上次 6★/)
+  assert.deepEqual(by(detail, 'section', 'banner').map(node => content(nodes(node, 'header')[0])), ['熔铸申领 已垫 20 · 48 抽 · 6★ 1 · 5★ 7', '行舟申领 已垫 4 · 48 抽 · 6★ 1 · 5★ 7'])
+  assert.match(calls.at(-1), /pool_key=&offset=0/) // weapons span several ledger pools
 })
+
+test('an operator pool type lists each banner with its own counts and only its own 6★', t => {
+  api(t, () => [200, {}])
+  const banners = [{ pool_id: 's2', name: '晨星', total: 100, six_star: 1, five_star: 9, newest_at: 1790000000000, oldest_at: 1789000000000 },
+    { pool_id: 's1', name: '冬猎', total: 20, six_star: 0, five_star: 2, newest_at: 1788000000000, oldest_at: 1787000000000 },
+    { pool_id: 's0', name: '熔火灼痕', total: 28, six_star: 2, five_star: 9, newest_at: 1786000000000, oldest_at: 1785000000000 }]
+  const pool = { ...wide, banners, history: [{ name: '伊冯', pool_id: 's2', pool_name: '晨星', pulls: 70, status: 'exact', obtained_at: 1789500000000 },
+    { name: '余烬', pool_id: 's0', pool_name: '熔火灼痕', pulls: 30, status: 'exact', obtained_at: 1785500000000 }], six_star: 3 }
+  const root = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, pools: [pool] } } })
+  assert.match(content(root), /按期统计 3 期/)
+  const sections = by(details(root)[0], 'section', 'banner')
+  assert.deepEqual(sections.map(node => content(nodes(node, 'strong')[0])), ['晨星', '冬猎', '熔火灼痕'])
+  assert.match(content(sections[0]), /100 抽 · 6★ 1 · 5★ 9 伊冯/)
+  assert.doesNotMatch(content(sections[0]), /余烬|已垫/) // operator banners share the type's pity, so none is shown per banner
+  assert.match(content(sections[1]), /本期未出 6★/)
+  assert.match(content(sections[2]), /余烬 .*30 抽.* 另有 1 次 6★ 不在已展示的历史中/)
+  assert.ok(nodes(sections[0], 'li').every(row => !content(row).includes('晨星'))) // the header names the banner, not each row
+  const legacy = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, pools: [{ ...pool, banners: undefined }] } } })
+  assert.deepEqual(by(legacy, 'section', 'banner').map(node => content(nodes(node, 'header')[0])), ['晨星 未知 抽 · 6★ 未知 · 5★ 未知', '熔火灼痕 未知 抽 · 6★ 未知 · 5★ 未知'])
+})
+
 
 test('the detail paces exact intervals only and tags the fastest and slowest 6★', t => {
   api(t, () => [200, {}])
@@ -159,13 +187,13 @@ test('6★ rows show weapons by pool kind and keep the name when artwork fails',
   const props = { accountId: 'r1', snap: { payload: { ...summary, pools: [weaponPool, characterPool] } } }
   const shared = mount(t, Panel, { ...props, imageMode: true })
   const rows = by(shared, 'li', 'pull-row')
-  assert.deepEqual(rows.map(row => nodes(row, 'img')[0]?.props.alt), ['破碎君王', '玉中身', '祀'])
-  assert.ok(nodes(rows[0], 'img')[0].props.src.startsWith('https://bbs.hycdn.cn/image/'))
-  assert.match(content(rows[1]), /玉中身 .*≥0 抽/)
-  nodes(rows[0], 'img')[0].props.onError()
+  assert.deepEqual(rows.map(row => nodes(row, 'img')[0]?.props.alt), ['祀', '破碎君王', '玉中身'])
+  assert.ok(nodes(rows[1], 'img')[0].props.src.startsWith('https://bbs.hycdn.cn/image/'))
+  assert.match(content(rows[2]), /玉中身 .*≥0 抽/)
+  nodes(rows[1], 'img')[0].props.onError()
   await nextTick()
-  assert.equal(nodes(rows[0], 'img').length, 0)
-  assert.match(content(rows[0]), /破碎君王/)
+  assert.equal(nodes(rows[1], 'img').length, 0)
+  assert.match(content(rows[1]), /破碎君王/)
 })
 
 test('a chosen pool that disappears after a sync falls back to the first pool and the whole ledger', async t => {

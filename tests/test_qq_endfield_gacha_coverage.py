@@ -114,3 +114,14 @@ def test_operator_skill_mastery_zero_is_visible_and_missing_stays_absent():
     skills=next(section['rows'] for section in card['sections'] if section.get('category')=='ef_skills')
     assert any(field['label']=='专精' and field['value']=='0' for field in skills[0]['fields'])
     assert all(field['label']!='专精' for field in skills[1]['fields'])
+
+
+def test_banner_breakdowns_and_six_star_banner_ids_reach_the_shared_image_view():
+    from game_assistant.qq.render_snapshot import game_panel
+    rows=[{'seq_id':i,'rarity':6 if i in (3,8) else 4,'is_free':False,'name':f'合成{i}','pool_id':'s2' if i>5 else 's1',
+           'pool_name':'晨星' if i>5 else '冬猎','gacha_ts':1791950400000+i} for i in range(1,11)]
+    pool=_pool_summary('special','character','特许',None,rows,{}).model_dump(mode='json')
+    data=game_panel('endfield','hypergryph','gacha',QueryResult({'schema_version':1,'role_id':'r','pools':[pool]},'2026-10-14T08:00:00+00:00','ok',None))['snapshot']['payload']
+    projected=data['pools'][0]
+    assert [(b['pool_id'],b['name'],b['total'],b['six_star'],b['four_star']) for b in projected['banners']]==[('s2','晨星',5,1,4),('s1','冬猎',5,1,4)]
+    assert [(h['name'],h['pool_id']) for h in projected['history']]==[('合成8','s2'),('合成3','s1')]
