@@ -388,4 +388,8 @@ small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:50
   .panel > summary { padding-left:16px; }
   .panel-body { padding:4px 14px 14px; }
 }
+/* .workspace-body narrows its gutter to 12px here; a wider bleed would scroll the page sideways. */
+@media (max-width:400px) {
+  .pool-tiles { margin:0 -12px; padding:0 12px 4px; scroll-padding:0 12px; }
+}
 </style>
