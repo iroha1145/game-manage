@@ -3,14 +3,11 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { isCloudMode } from '../http-client.js'
 import { fetchedLabel } from '../time.js'
 import { exportRecords, getRecords, pityParts, pullDate, pullDay, rarityLabel } from '../endfield-gacha-api.js'
-import { gachaPools, latestPoolIndex, poolSpans, poolTotal, recentSixStars, sixPullsParts } from '../endfield-gacha-summary.js'
+import { gachaPools, poolGroups, poolPace, poolTotal, pullRuler, rarityShares, sixPullsParts, syncStatus } from '../endfield-gacha-summary.js'
 import { gachaArtwork } from '../endfield-reports.js'
 import { vReveal } from '../motion.js'
 import AppIcon from './AppIcon.vue'
-import BarChart from './BarChart.vue'
-import DonutChart from './DonutChart.vue'
 import EndfieldArtwork from './EndfieldArtwork.vue'
-import HRail from './HRail.vue'
 import InfoHint from './InfoHint.vue'
 import MenuSelect from './MenuSelect.vue'
 
@@ -20,39 +17,49 @@ const summary = computed(() => props.snap?.payload?.schema_version === 1 ? props
 const report = computed(() => summary.value?.report?.schema_version === 1 ? summary.value.report : null)
 const show = value => value == null || value === '' ? '未知' : value
 const pools = computed(() => gachaPools(summary.value))
+const groups = computed(() => poolGroups(pools.value))
 const fetchedAt = computed(() => fetchedLabel(props.snap?.fetched_at))
 const poolOptions = computed(() => [{ value: '', label: '全部卡池' }, ...pools.value.map(pool => ({ value: pool.key, label: pool.label }))])
 const opened = ref(false), recordPool = ref(''), records = ref([]), total = ref(0), offset = ref(0), busy = ref(false), message = ref('')
 const PAGE = 50
 let generation = 0
 
-// Rarity colours follow the chart order (6★ takes the game colour, 5★ the second series);
-// 4★ is the quiet majority and an unknown share stays on the track colour.
-const RARITY = [
-  { field: 'six_star', label: '6★', series: 'var(--eg-six)' },
-  { field: 'five_star', label: '5★', series: 'var(--eg-five)' },
-  { field: 'four_star', label: '4★', series: 'var(--eg-four)' },
-  { field: 'unknown_rarity', label: '未知 / 其他', series: 'var(--eg-unknown)' },
-]
-// Unknown rarity stays unknown; old snapshots do not prove a 4★ remainder.
-const split = pool => RARITY.map(part => ({ label: part.label, count: pool[part.field], series: part.series }))
-// All pools together: the report's own totals when it has them, else a sum only if every pool states the count.
-const overall = computed(() => {
-  if (!summary.value || !pools.value.length) return null
-  const segments = RARITY.map(part => ({ label: part.label, value: report.value?.[part.field] ?? poolTotal(pools.value, part.field), color: part.series }))
-  return segments.some(part => Number.isFinite(part.value)) ? segments : null
-})
+// The headline: the report's own totals, else a sum only when every pool states the count.
 const grandTotal = computed(() => report.value?.total ?? summary.value?.total)
-const tiles = computed(() => [
-  { label: '6★ 记录', value: report.value?.six_star, tone: 'six' },
-  { label: '5★ 记录', value: report.value?.five_star, tone: 'five' },
-  { label: '免费寻访', value: report.value?.free, tone: '' },
+const count = field => report.value?.[field] ?? poolTotal(pools.value, field)
+const kpis = computed(() => [
+  { label: '6★', value: count('six_star'), tone: 'six' },
+  { label: '5★', value: count('five_star'), tone: 'five' },
+  { label: '平均出 6★', value: report.value?.average_exact_pulls, unit: '抽',
+    hint: report.value?.average_exact_pulls != null ? `只统计已展示历史中 ${report.value.known_exact_intervals} 次抽数准确的 6★；跨缺口或含免费寻访的区间不计入。` : '' },
 ])
-const poolBars = computed(() => pools.value.map(pool => ({ label: pool.label, value: pool.total })))
-const latestPool = computed(() => pools.value.length > 1 ? latestPoolIndex(pools.value) : -1)
-const recent = computed(() => recentSixStars(pools.value, 12))
+const status = computed(() => syncStatus(summary.value, report.value))
+const statusHint = computed(() => {
+  const gaps = report.value?.gaps ?? poolTotal(pools.value, 'gaps')
+  return [gaps == null ? '已知记录缺口数未知。' : gaps ? `已知记录缺口 ${gaps} 处。` : '',
+    '跨缺口、更早记录缺失或含免费寻访时，抽数以 ≥ 表示已知最少值；免费寻访是否计入保底尚不确定。'].join('')
+})
+
+// The web page details one chosen pool at a time; a bot image prints every pool in turn.
+const selected = ref('')
+const current = computed(() => pools.value.find(pool => pool.key === selected.value) || pools.value[0] || null)
+const rulers = computed(() => ({ character: pullRuler(pools.value, 'character'), weapon: pullRuler(pools.value, 'weapon') }))
+const views = computed(() => (props.imageMode ? pools.value : current.value ? [current.value] : []).map(pool => {
+  const pace = poolPace(pool)
+  return { pool, pace, ruler: rulers.value[pool.kind === 'weapon' ? 'weapon' : 'character'],
+    // Unknown/other is only listed when it is not a plain zero.
+    shares: rarityShares(pool).filter(part => part.field !== 'unknown_rarity' || part.count !== 0),
+    range: Number.isFinite(pool.oldest_at) && Number.isFinite(pool.newest_at) ? `${pullDay(pool.oldest_at)} – ${pullDay(pool.newest_at)}` : '' }
+}))
+function select(key) { selected.value = key; recordPool.value = key }
+// A pool that is gone after a sync no longer filters the ledger either.
+watch(pools, list => { if (selected.value && !list.some(pool => pool.key === selected.value)) { selected.value = ''; if (!list.some(pool => pool.key === recordPool.value)) recordPool.value = '' } })
 const pity = pool => pityParts(pool.since_last_six)
-const spans = computed(() => poolSpans(pools.value.length))
+const percent = share => `${(share * 100).toFixed(share < .1 ? 1 : 0)}%`
+const banner = (item, pool) => item.pool_name && item.pool_name !== pool.label ? item.pool_name : ''
+const barWidth = (item, ruler) => { const parts = sixPullsParts(item); return parts && ruler ? `${Math.min(100, Math.round(parts.count / ruler * 10000) / 100)}%` : '0%' }
+const tag = (item, pace) => item === pace.fastest ? { label: '最欧', tone: 'lucky' } : item === pace.slowest ? { label: '最非', tone: 'unlucky' } : null
+const RARITY_COLOR = { six_star: 'var(--eg-six)', five_star: 'var(--eg-five)', four_star: 'var(--eg-four)', unknown_rarity: 'var(--eg-unknown)' }
 
 async function load(start = 0) {
   if (props.imageMode) return
@@ -93,82 +100,94 @@ async function download() {
 </script>
 
 <template>
-  <section class="endfield-gacha" :class="{ 'is-image': imageMode, 'is-split': !!overall }" aria-labelledby="endfield-gacha-title">
+  <section class="endfield-gacha" :class="{ 'is-image': imageMode }" aria-labelledby="endfield-gacha-title">
     <div v-reveal class="eg-card eg-hero">
       <header class="eg-head">
-        <div class="gacha-heading"><h2 id="endfield-gacha-title">寻访记录</h2></div><span v-if="snap?.stale && !imageMode" class="badge badge-stale">待更新</span>
+        <h2 id="endfield-gacha-title">寻访分析</h2>
         <InfoHint v-if="!imageMode" :text="cloudMode ? '官方记录有查询时限，云端档案保留已同步数据；撤销授权会禁止读取。' : '官方可查询约 90 天记录；同步后保存在本机，退出登录不会删除本机记录。'" />
+        <span v-if="summary" class="eg-status" :class="status.tone">{{ status.label }}<InfoHint v-if="!imageMode" align="end" :text="statusHint" /></span>
+        <span v-if="snap?.stale && !imageMode" class="badge badge-stale">待更新</span>
         <span class="cap-meta"><template v-if="summary && fetchedAt">同步于 {{ fetchedAt }}</template><button v-if="!imageMode" type="button" class="ui-button small-button" :disabled="busy || !accountId" @click="download">导出记录</button></span>
       </header>
       <p v-if="!accountId && !imageMode" class="notice">登录终末地后，点「刷新数据」开始同步寻访记录。</p>
       <p v-else-if="!summary" class="notice">尚未同步寻访记录，点「刷新数据」开始同步。</p>
       <template v-else>
-        <div class="eg-numbers">
-          <div class="eg-total"><span class="k">已记录寻访</span><strong class="eg-big">{{ show(grandTotal) }}<small v-if="grandTotal != null">抽</small></strong></div>
-          <ul class="eg-tiles">
-            <li v-for="tile in tiles" :key="tile.label" :class="tile.tone"><span class="k">{{ tile.label }}</span><strong>{{ show(tile.value) }}</strong></li>
-          </ul>
-        </div>
-        <div v-if="report" class="gacha-coverage"><span>已知记录缺口 <b>{{ report.gaps ?? '未知' }}</b></span><span>同步状态 <b>{{ report.pending === true ? '部分待同步' : report.pending === false ? '本轮同步完成' : '未知' }}</b></span><span>记录内准确区间均值 <b>{{ report.average_exact_pulls == null ? '未知' : `${report.average_exact_pulls} 抽` }}</b></span></div>
-        <p v-if="report?.average_exact_pulls != null" class="notice">均值来自当前展示历史中 {{ report.known_exact_intervals }} 个抽数准确的 6★ 区间。</p>
-        <p v-if="summary.complete === false" class="notice warn" role="status">还有未同步完的记录，下次刷新会接着同步。</p>
-        <p v-else-if="summary.complete !== true" class="notice warn" role="status">当前记录完整性未知，请留意各卡池的记录范围。</p>
+        <dl class="eg-kpis">
+          <div class="kpi-total"><dt>累计寻访</dt><dd>{{ show(grandTotal) }}<small v-if="grandTotal != null">抽</small></dd></div>
+          <div v-for="kpi in kpis" :key="kpi.label" :class="kpi.tone"><dt>{{ kpi.label }}<InfoHint v-if="kpi.hint && !imageMode" :text="kpi.hint" /></dt><dd>{{ show(kpi.value) }}<small v-if="kpi.unit && kpi.value != null">{{ kpi.unit }}</small></dd></div>
+        </dl>
+        <p v-if="summary.complete === false" class="notice warn" role="status">还有记录未同步完，下次刷新会接着同步。</p>
       </template>
     </div>
 
     <template v-if="summary">
-      <div v-if="overall" v-reveal class="eg-card eg-rarity">
-        <h3 class="eg-title">稀有度占比</h3>
-        <DonutChart :segments="overall" label="全部卡池的稀有度占比" unit=" 抽" :size="148" :stroke="18">
-          <span class="donut-total"><strong>{{ show(grandTotal) }}</strong><small v-if="grandTotal != null">抽</small></span>
-        </DonutChart>
-      </div>
-
-      <template v-if="pools.length">
-        <div v-reveal class="eg-card eg-totals" :class="{ 'is-wide': imageMode || !recent.length }">
-          <h3 class="eg-title">各卡池抽数<span v-if="latestPool >= 0" class="eg-sub">高亮为最近寻访的卡池</span></h3>
-          <BarChart :items="poolBars" label="各卡池的寻访抽数" unit=" 抽" :highlight="latestPool" :height="116" color="var(--eg-six)" />
-        </div>
-        <div v-if="recent.length && !imageMode" v-reveal class="eg-card eg-recent">
-          <h3 class="eg-title">最近的 6★</h3>
-          <HRail label="最近的 6★ 记录">
-            <article v-for="(item, index) in recent" :key="`${item.pool_key}:${index}`" class="six-card" :class="{ latest: index === 0 }" :title="`${item.pool_name || item.pool_label} · ${pullDate(item.obtained_at)}`">
-              <div class="six-top"><EndfieldArtwork :src="gachaArtwork(item, item.pool_kind)" :name="item.name || '未知'" /><span v-if="index === 0" class="six-badge">最新</span></div>
-              <strong class="six-name">{{ item.name || '未知' }}</strong>
-              <b class="six-pulls"><template v-if="sixPullsParts(item)">{{ sixPullsParts(item).prefix }}{{ sixPullsParts(item).count }}<small>{{ sixPullsParts(item).unit }}</small></template><template v-else>未知</template></b>
-              <span class="six-meta">{{ item.pool_name || item.pool_label }} · {{ pullDay(item.obtained_at) }}</span>
-            </article>
-          </HRail>
-        </div>
-      </template>
-
       <p v-if="!pools.length" class="empty eg-card">暂无寻访记录。</p>
-      <div v-else class="pool-grid">
-        <article v-for="(pool,index) in pools" :key="pool.key" v-reveal class="pool-card" :class="{ 'is-latest': index === latestPool }" :style="{ '--span': spans[index] }">
-          <header class="pool-head">
-            <h3>{{ pool.label }}</h3>
-            <span v-if="index === latestPool && !imageMode" class="pool-latest">最近寻访</span>
-            <span v-if="pool.gaps" class="chip warn">{{ pool.pending ? '部分待同步' : '记录有缺口' }}<InfoHint v-if="!imageMode" align="end" text="记录不连续时，跨缺口的抽数以 ≥ 表示已知最少值。" /></span>
-          </header>
-          <div class="pity">
-            <span class="k">距上次 6★<InfoHint v-if="!imageMode && pool.since_last_six?.status === 'lower_bound'" text="≥ 表示已知最少抽数。记录缺口、更早记录缺失或免费寻访会影响统计；免费寻访是否计入保底尚不确定。" /></span>
-            <strong><template v-if="pity(pool)">{{ pity(pool).prefix }}{{ pity(pool).count }}<small>{{ pity(pool).unit }}</small></template><template v-else>未知</template></strong>
+      <nav v-else-if="!imageMode" class="eg-pools" aria-label="选择卡池">
+        <div v-for="group in groups" :key="group.kind" class="eg-group">
+          <h3 class="eg-group-title">{{ group.label }}</h3>
+          <div class="pool-tiles">
+            <button v-for="pool in group.pools" :key="pool.key" type="button" class="pool-tile" :class="{ active: current?.key === pool.key }" :aria-pressed="current?.key === pool.key" @click="select(pool.key)">
+              <span class="tile-name">{{ pool.label }}<i v-if="pool.gaps || pool.pending" class="tile-flag" :title="pool.pending ? '部分待同步' : '记录有缺口'" /></span>
+              <span class="tile-pity"><small>已垫</small><b><template v-if="pity(pool)">{{ pity(pool).prefix }}{{ pity(pool).count }}</template><template v-else>?</template></b></span>
+              <span class="tile-meta">{{ pool.total }} 抽 · 6★ {{ pool.six_star }}</span>
+            </button>
           </div>
-          <div class="stack-bar" role="img" :aria-label="split(pool).map(part => `${part.label} ${part.count ?? '未知'}`).join('，')">
-            <i v-for="part in split(pool).filter(part => part.count)" :key="part.label" :style="{ '--series': part.series, flex: part.count }" />
+        </div>
+      </nav>
+
+      <article v-for="view in views" :key="view.pool.key" v-reveal class="eg-card pool-detail">
+        <header class="detail-head">
+          <h3>{{ view.pool.label }}</h3>
+          <span class="chip">{{ view.pool.kind === 'weapon' ? '武器申领' : '干员寻访' }}</span>
+          <span v-if="view.pool.gaps || view.pool.pending" class="chip warn">{{ view.pool.pending ? '部分待同步' : '记录有缺口' }}<InfoHint v-if="!imageMode" align="end" text="记录不连续时，跨缺口的抽数以 ≥ 表示已知最少值。" /></span>
+          <span v-if="view.range" class="detail-range">{{ view.range }}</span>
+        </header>
+
+        <div class="detail-top">
+          <div class="pity-block">
+            <span class="k">已垫<InfoHint v-if="!imageMode && view.pool.since_last_six?.status === 'lower_bound'" text="≥ 表示已知最少抽数。记录缺口、更早记录缺失或免费寻访会影响统计；免费寻访是否计入保底尚不确定。" /></span>
+            <strong><template v-if="pity(view.pool)">{{ pity(view.pool).prefix }}{{ pity(view.pool).count }}<small>{{ pity(view.pool).unit }}</small></template><template v-else>未知</template></strong>
+            <span class="k-sub">距上次 6★</span>
+          </div>
+          <dl class="detail-stats">
+            <div><dt>总抽数</dt><dd>{{ view.pool.total }}<small>抽</small></dd><dd v-if="view.pool.free" class="stat-sub">含免费 {{ view.pool.free }}</dd></div>
+            <div class="six"><dt>6★</dt><dd>{{ view.pool.six_star }}</dd></div>
+            <div class="five"><dt>5★</dt><dd>{{ view.pool.five_star }}</dd></div>
+            <div><dt>平均出 6★</dt><dd><template v-if="view.pace.average != null">{{ view.pace.average }}<small>抽</small></template><template v-else>—</template></dd></div>
+            <div><dt>最欧</dt><dd><template v-if="view.pace.fastest">{{ view.pace.fastest.pulls }}<small>抽</small></template><template v-else>—</template></dd><dd v-if="view.pace.fastest" class="stat-sub">{{ view.pace.fastest.name || '未知' }}</dd></div>
+            <div><dt>最非</dt><dd><template v-if="view.pace.slowest">{{ view.pace.slowest.pulls }}<small>抽</small></template><template v-else>—</template></dd><dd v-if="view.pace.slowest" class="stat-sub">{{ view.pace.slowest.name || '未知' }}</dd></div>
+          </dl>
+        </div>
+
+        <div class="rarity">
+          <div class="stack-bar" role="img" :aria-label="`${view.pool.label}的稀有度：` + view.shares.map(part => `${part.label} ${part.count ?? '未知'}`).join('，')">
+            <i v-for="part in view.shares.filter(part => part.count)" :key="part.field" :style="{ '--series': RARITY_COLOR[part.field], flex: part.count }" />
           </div>
           <ul class="legend">
-            <li v-for="part in split(pool)" :key="part.label" :style="{ '--series': part.series }">{{ part.label }} <b>{{ part.count ?? '未知' }}</b></li>
-            <li class="plain">共 <b>{{ pool.total }}</b> 抽</li>
-            <li v-if="pool.free" class="plain">免费 <b>{{ pool.free }}</b></li>
+            <li v-for="part in view.shares" :key="part.field" :style="{ '--series': RARITY_COLOR[part.field] }">{{ part.label }} <b>{{ part.count ?? '未知' }}</b><small v-if="part.share != null">{{ percent(part.share) }}</small></li>
           </ul>
-          <p class="notice history-coverage">6★ 历史：最近 {{ pool.history_available }} 条 / 账本 {{ pool.history_total ?? '未知' }} 条<span v-if="pool.history_limit != null"> · 最多展示 {{ pool.history_limit }} 条</span></p>
-          <p v-if="pool.history_truncated === true" class="notice">此处未展示全部 6★ 历史；展开逐条记录或导出完整已保存账本查看。</p><p v-else-if="pool.history_truncated == null" class="notice">历史覆盖范围未知。</p>
-          <ul v-if="pool.history?.length" class="chip-list" :aria-label="`${pool.label}的 6★ 记录`">
-            <li v-for="(item, index) in pool.history" :key="index" class="chip six" :class="{ 'six-image': imageMode }" :title="`${item.pool_name || pool.label} · ${pullDate(item.obtained_at)}`"><EndfieldArtwork v-if="imageMode" :src="gachaArtwork(item, pool.kind)" :name="item.name || '未知'" />{{ item.name || '未知' }} <b>{{ sixPullsParts(item) ? `${sixPullsParts(item).prefix}${sixPullsParts(item).count} ${sixPullsParts(item).unit}` : '未知' }}</b></li>
-          </ul>
-        </article>
-      </div>
+        </div>
+
+        <div class="six-head">
+          <h4>6★ 出货记录</h4>
+          <span>{{ view.pool.history_total ?? view.pool.history.length }} 次</span>
+          <InfoHint v-if="!imageMode && view.ruler" align="end" :text="`横条按${view.pool.kind === 'weapon' ? '武器' : '干员'}卡池中最长的一次 6★ 绘制（标尺 ${view.ruler} 抽），不代表保底；斜纹表示已知最少抽数。`" />
+        </div>
+        <p v-if="!view.pool.history.length" class="empty">该卡池暂无 6★ 记录。</p>
+        <ol v-else class="pull-list" :aria-label="`${view.pool.label}的 6★ 记录`">
+          <li v-for="(item, index) in view.pool.history" :key="index" class="pull-row" :class="{ lower: item.status === 'lower_bound' }" :title="`${item.pool_name || view.pool.label} · ${pullDate(item.obtained_at)}`">
+            <EndfieldArtwork class="pull-art" :src="gachaArtwork(item, view.pool.kind)" :name="item.name || '未知'" />
+            <div class="pull-who"><strong>{{ item.name || '未知' }}</strong><span><template v-if="banner(item, view.pool)">{{ banner(item, view.pool) }} · </template>{{ pullDay(item.obtained_at) }}</span></div>
+            <div class="pull-track">
+              <i class="pull-fill" :style="{ width: barWidth(item, view.ruler) }" />
+              <span class="pull-value"><template v-if="sixPullsParts(item)">{{ sixPullsParts(item).prefix }}{{ sixPullsParts(item).count }}<small>{{ sixPullsParts(item).unit }}</small></template><template v-else>抽数未知</template></span>
+              <span v-if="tag(item, view.pace)" class="pull-tag" :class="tag(item, view.pace).tone">{{ tag(item, view.pace).label }}</span>
+            </div>
+          </li>
+        </ol>
+        <p v-if="view.pool.history_truncated === true" class="notice">仅显示最近 {{ view.pool.history_available }} 次 6★（账本共 {{ view.pool.history_total }} 次）；{{ imageMode ? '完整记录请在网页查看。' : '更早的可在逐条记录中查看或导出。' }}</p>
+        <p v-else-if="view.pool.history_truncated == null" class="notice">6★ 历史的覆盖范围未知。</p>
+      </article>
 
       <details v-if="!imageMode" class="panel record-list" @toggle="opened = $event.target.open">
         <summary>逐条记录（北京时间）<AppIcon name="chevron" :size="14" class="t-disclosure" /></summary>
@@ -201,83 +220,106 @@ async function download() {
 </template>
 
 <style scoped>
-.six-image { padding:6px 10px 6px 6px; gap:10px; white-space:normal; }
-.six-image :deep(.endfield-artwork) { width:48px; height:48px; flex-shrink:0; }
-/* One bento: a hero on the game tone, the rarity ring, the per-pool bars, a rail of recent 6★, a card per pool, and the ledger.
-   Bot images set only --game-accent, so every game colour has a static fallback. */
-.endfield-gacha { --eg-six:var(--game-vivid,var(--game-endfield-vivid)); --eg-tone:var(--game-tone,var(--game-endfield-tone)); --eg-ink:var(--game-accent,var(--game-endfield)); --eg-five:var(--chart-2); --eg-four:color-mix(in srgb,var(--text-faint) 34%,var(--card-bg)); --eg-unknown:var(--border-strong);
-  display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; min-width:0; }
-.endfield-gacha > * { grid-column:1 / -1; min-width:0; }
+/* Laid out like a community gacha analysis page: a headline strip, a tile per pool,
+   then the chosen pool's pity, pace, rarity split and 6★ bars. Rarity takes the
+   in-game hues (6★ orange, 5★ gold, 4★ purple); selection takes the game colour.
+   Bot images set only --game-accent, so every colour has a static fallback. */
+.endfield-gacha { --eg-six:var(--chart-2,#d95926); --eg-five:var(--chart-4,#c98500); --eg-four:color-mix(in srgb,var(--chart-7,#9085e9) 42%,var(--track)); --eg-unknown:var(--border-strong);
+  --eg-tone:var(--game-tone,var(--game-endfield-tone)); --eg-ink:var(--game-accent,var(--game-endfield));
+  --eg-bar:color-mix(in srgb,var(--eg-six) 30%,var(--card-bg)); --eg-bar-end:color-mix(in srgb,var(--eg-six) 50%,var(--card-bg));
+  display:grid; gap:16px; min-width:0; }
+.endfield-gacha > * { min-width:0; }
 .eg-card { position:relative; padding:20px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
-/* The hero is the page's feature block (mockup .gacha-overview): the game tone, ink labels, the total large. */
-.eg-hero { display:grid; gap:14px; align-content:start; overflow:hidden; border-color:transparent; background:var(--eg-tone); box-shadow:none; }
-.is-split .eg-hero { grid-column:span 7; }
-.is-split .eg-rarity { grid-column:span 5; }
-.eg-totals { grid-column:span 5; }
-.eg-totals.is-wide { grid-column:1 / -1; }
-.eg-recent { grid-column:span 7; overflow:hidden; }
-.eg-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:32px; }
-.gacha-heading h2 { margin:0; font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
-.eg-head .cap-meta { margin-left:auto; gap:10px; }
-.eg-head .cap-meta .ui-button { margin-left:2px; }
-.eg-hero .cap-meta { color:var(--text-muted); }
 .notice { margin:0; color:var(--text-muted); font-size:13px; line-height:1.6; }
 .notice.warn { color:var(--stale-text); }
-.eg-message { grid-column:1 / -1; }
-.eg-numbers { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:end; gap:12px 28px; }
-.eg-total { display:grid; gap:2px; }
-.k { color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; }
-.eg-hero .eg-total .k { color:var(--eg-ink); }
-.eg-big { font-size:56px; line-height:60px; font-weight:500; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
-.eg-big small, .pity strong small, .six-pulls small, .donut-total small { margin-left:4px; color:var(--text-muted); font-size:.5em; font-weight:500; letter-spacing:0; }
-.eg-hero .eg-big small { color:var(--eg-ink); }
-.eg-tiles { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-.eg-tiles li { display:grid; gap:2px; padding:12px 14px; border-radius:var(--radius-well); background:var(--card-bg); }
-.eg-tiles .k { display:inline-flex; align-items:center; gap:6px; }
-.eg-tiles .six .k::before, .eg-tiles .five .k::before { content:''; width:8px; height:8px; border-radius:3px; background:var(--eg-six); }
-.eg-tiles .five .k::before { background:var(--eg-five); }
-.eg-tiles strong { font-size:26px; line-height:32px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
-.gacha-coverage { display:flex; gap:6px 20px; flex-wrap:wrap; font-size:13px; color:var(--text-muted); }
-.gacha-coverage b { margin-left:6px; color:var(--text); font-weight:500; }
-.eg-hero .gacha-coverage, .eg-hero .notice { color:var(--text-body); }
-.eg-hero .notice.warn { color:var(--stale-text); }
-.eg-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; margin:0 0 6px; font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
-.eg-sub { color:var(--text-faint); font-size:12px; font-weight:400; letter-spacing:0; }
-.eg-rarity :deep(.donut-chart) { margin-top:10px; gap:12px 22px; }
-.donut-total { display:grid; justify-items:center; line-height:1; }
-.donut-total strong { font-size:30px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
-.donut-total small { margin:3px 0 0; font-size:12px; }
+.k { display:inline-flex; align-items:center; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; }
+small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:500; letter-spacing:0; }
 
-/* Recent 6★: tone-step cards; the newest takes the game tone. */
-.eg-recent :deep(.h-rail) { --rail-gap:12px; --rail-pad-block:10px; --rail-pad:2px; margin-top:6px; }
-.six-card { display:grid; align-content:start; gap:4px; width:176px; padding:14px; border-radius:var(--radius-tile); background:var(--surface-soft); color:var(--text); }
-.six-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:6px; }
-.six-top .endfield-artwork { width:52px; height:52px; border-radius:var(--radius-control); }
-.six-badge { padding:0 9px; border-radius:var(--radius-chip); background:var(--eg-ink); color:var(--accent-ink); font-size:12px; font-weight:500; line-height:20px; }
-.six-name { overflow:hidden; font-size:15px; line-height:22px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
-.six-pulls { font-size:30px; line-height:34px; font-weight:550; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
-.six-meta { color:var(--text-muted); font-size:12px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.six-card.latest { background:var(--eg-tone); }
-.six-card.latest .endfield-artwork { background:var(--card-bg); }
+/* Headline strip on the game tone: four numbers, the sync state as one chip. */
+.eg-hero { display:grid; gap:16px; border-color:transparent; background:var(--eg-tone); box-shadow:none; }
+.eg-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:32px; }
+.eg-head h2 { margin:0; font-size:16px; line-height:24px; font-weight:600; letter-spacing:-.02em; }
+.eg-head .cap-meta { gap:10px; color:var(--text-muted); }
+.eg-status { display:inline-flex; align-items:center; gap:2px; padding:0 8px; border-radius:var(--radius-chip); background:var(--card-bg); color:var(--text-body); font-size:12px; font-weight:500; line-height:22px; }
+.eg-status::before { content:''; width:6px; height:6px; margin-right:5px; border-radius:50%; background:var(--text-faint); }
+.eg-status.done::before { background:var(--success); }
+.eg-status.warn { color:var(--stale-text); }
+.eg-status.warn::before { background:var(--stale-text); }
+.eg-kpis { display:grid; grid-template-columns:minmax(0,1.3fr) repeat(3,minmax(0,1fr)); gap:8px; margin:0; }
+.eg-kpis > div { display:grid; align-content:start; gap:2px; padding:12px 16px; border-radius:var(--radius-well); background:var(--card-bg); }
+.eg-kpis dt { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; white-space:nowrap; }
+.eg-kpis :is(.six,.five) dt::before { content:''; width:8px; height:8px; border-radius:3px; background:var(--eg-six); }
+.eg-kpis .five dt::before { background:var(--eg-five); }
+.eg-kpis dd { margin:0; font-size:28px; line-height:34px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.eg-kpis .kpi-total { background:transparent; padding-left:2px; }
+.eg-kpis .kpi-total dt { color:var(--eg-ink); }
+.eg-kpis .kpi-total dd { font-size:40px; line-height:34px; letter-spacing:-.05em; }
+.eg-kpis .kpi-total small { color:var(--eg-ink); }
 
-/* One card per pool; the pool pulled from last takes a light wash of the game tone. */
-.pool-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:16px; }
-.pool-card { grid-column:span var(--span,4); display:grid; gap:10px; align-content:start; min-width:0; padding:18px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
-.pool-card.is-latest { background:color-mix(in srgb,var(--eg-tone) 55%,var(--card-bg)); }
-.pool-head { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
-.pool-head h3 { margin:0; color:var(--text); font-size:15px; line-height:22px; font-weight:600; letter-spacing:-.01em; }
-.pool-head .chip { margin-left:auto; }
-.pool-latest { padding:0 9px; border-radius:var(--radius-chip); background:var(--eg-ink); color:var(--accent-ink); font-size:12px; font-weight:500; line-height:20px; }
+/* Pool tiles: the chosen one is filled with the game tone. */
+.eg-pools { display:grid; gap:14px; }
+.eg-group { display:grid; gap:8px; }
+.eg-group-title { margin:0; padding-left:4px; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; }
+.pool-tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(156px,1fr)); gap:10px; }
+.pool-tile { display:grid; gap:2px; min-width:0; padding:12px 14px; border:1px solid var(--card-border); border-radius:var(--radius-tile); background:var(--card-bg); color:var(--text); text-align:left; font:inherit; cursor:pointer; transition:background-color var(--duration-fast,.15s) ease, border-color var(--duration-fast,.15s) ease; }
+.pool-tile:hover { border-color:color-mix(in srgb,var(--eg-ink) 40%,var(--card-border)); }
+.pool-tile:focus-visible { outline:2px solid var(--eg-ink); outline-offset:2px; }
+.pool-tile.active { border-color:var(--eg-ink); background:var(--eg-tone); }
+.tile-name { display:flex; align-items:center; gap:6px; overflow:hidden; color:var(--text-body); font-size:13px; font-weight:600; line-height:20px; white-space:nowrap; text-overflow:ellipsis; }
+.pool-tile.active .tile-name { color:var(--eg-ink); }
+.tile-flag { flex:0 0 auto; width:6px; height:6px; border-radius:50%; background:var(--stale-text); }
+.tile-pity { display:flex; align-items:baseline; gap:6px; }
+.tile-pity small { margin:0; font-size:12px; }
+.tile-pity b { font-size:26px; line-height:32px; font-weight:550; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+.tile-meta { color:var(--text-muted); font-size:12px; line-height:18px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+/* The chosen pool. */
+.pool-detail { display:grid; gap:18px; align-content:start; }
+.detail-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+.detail-head h3 { margin:0 4px 0 0; font-size:18px; line-height:26px; font-weight:600; letter-spacing:-.02em; }
 .chip.warn { background:var(--stale-bg); color:var(--stale-text); box-shadow:none; }
-.pity { display:grid; gap:0; }
-.pity .k { display:inline-flex; align-items:center; }
-.pity strong { color:var(--text); font-size:40px; line-height:46px; font-weight:550; letter-spacing:-.05em; font-variant-numeric:tabular-nums; }
-.stack-bar { height:12px; gap:3px; }
-.legend { margin:0; gap:4px 12px; }
-.legend .plain::before { display:none; }
-.legend > li:not(.plain)::before { border-radius:4px; }
-.chip.six { background:var(--eg-tone); box-shadow:none; color:var(--text); }
-.chip-list { gap:6px; }
+.detail-range { margin-left:auto; color:var(--text-faint); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.detail-top { display:grid; grid-template-columns:minmax(180px,220px) minmax(0,1fr); gap:12px; }
+.pity-block { display:grid; align-content:center; gap:0; padding:16px 20px; border-radius:var(--radius-tile); background:var(--eg-tone); }
+.pity-block .k { color:var(--eg-ink); }
+.pity-block strong { font-size:52px; line-height:58px; font-weight:550; letter-spacing:-.05em; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.pity-block strong small { color:var(--eg-ink); }
+.k-sub { color:var(--text-muted); font-size:12px; line-height:18px; }
+.detail-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:0; }
+.detail-stats > div { display:grid; align-content:start; gap:0; min-width:0; padding:10px 14px; border-radius:var(--radius-well); background:var(--surface-soft); }
+.detail-stats dt { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; }
+.detail-stats :is(.six,.five) dt::before { content:''; width:8px; height:8px; border-radius:3px; background:var(--eg-six); }
+.detail-stats .five dt::before { background:var(--eg-five); }
+.detail-stats dd { margin:0; font-size:22px; line-height:30px; font-weight:550; letter-spacing:-.02em; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.detail-stats dd small { font-size:12px; }
+.detail-stats .stat-sub { overflow:hidden; color:var(--text-muted); font-size:12px; line-height:16px; font-weight:400; letter-spacing:0; text-overflow:ellipsis; }
+
+.rarity .stack-bar { height:10px; gap:2px; }
+.rarity .legend { gap:4px 16px; margin-top:8px; }
+.legend li { font-variant-numeric:tabular-nums; }
+.legend b { color:var(--text); font-weight:500; }
+.legend small { margin-left:2px; font-size:12px; color:var(--text-faint); }
+
+/* 6★ bars: one row each, the fill measured on a shared ruler of its kind. */
+.six-head { display:flex; align-items:center; gap:8px; margin-bottom:-6px; }
+.six-head h4 { margin:0; font-size:14px; line-height:22px; font-weight:600; }
+.six-head > span { color:var(--text-muted); font-size:12px; }
+.pull-list { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.pull-row { display:grid; grid-template-columns:40px minmax(96px,168px) minmax(0,1fr); align-items:center; gap:12px; min-width:0; }
+.pull-art { width:40px; height:40px; border-radius:var(--radius-control); }
+.pull-who { display:grid; min-width:0; }
+.pull-who strong { overflow:hidden; font-size:14px; line-height:20px; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.pull-who span { overflow:hidden; color:var(--text-muted); font-size:12px; line-height:18px; text-overflow:ellipsis; white-space:nowrap; }
+.pull-track { position:relative; display:flex; align-items:center; gap:8px; min-width:0; height:32px; padding:0 12px; overflow:hidden; border-radius:var(--radius-control); background:var(--track); }
+.pull-fill { position:absolute; inset:0 auto 0 0; border-radius:inherit; background:linear-gradient(90deg,var(--eg-bar),var(--eg-bar-end)); transition:width var(--duration-slow,.4s) var(--ease-smooth-out,ease-out); }
+.pull-row.lower .pull-fill { background:repeating-linear-gradient(135deg,var(--eg-bar) 0 6px,color-mix(in srgb,var(--eg-bar) 45%,var(--track)) 6px 10px); }
+.pull-value { position:relative; color:var(--text); font-size:15px; line-height:1; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.pull-value small { font-size:12px; }
+.pull-tag { position:relative; padding:0 7px; border-radius:var(--radius-chip); background:var(--card-bg); font-size:12px; font-weight:500; line-height:20px; white-space:nowrap; }
+.pull-tag.lucky { color:var(--success); }
+.pull-tag.unlucky { color:var(--danger); }
+.empty { margin:0; padding:14px 0; color:var(--text-muted); font-size:13px; text-align:center; }
+.eg-message { padding:0 4px; }
 
 .panel { border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
 .panel > summary { display:flex; align-items:center; gap:8px; min-height:52px; padding:10px 14px 10px 20px; border-radius:var(--radius-card); color:var(--text); font-size:14px; font-weight:600; list-style:none; cursor:pointer; }
@@ -291,27 +333,45 @@ async function download() {
 .records .rarity { width:5em; }
 .data-table .name { font-weight:500; }
 .data-table .name .chip { margin-left:6px; }
-.data-table tr.six .name, .data-table tr.six .rarity { color:var(--eg-ink); font-weight:500; }
-.data-table tr.five .rarity { color:var(--text); font-weight:500; }
+.data-table tr.six td { background:color-mix(in srgb,var(--eg-six) 9%,transparent); }
+.data-table tr.six :is(.name,.rarity) { color:var(--eg-six); font-weight:600; }
+.data-table tr.five .rarity { color:var(--eg-five); font-weight:500; }
 .data-table .rarity { white-space:nowrap; }
 
 /* A bot image is one still frame: flat fills, no shadows (they inflate the PNG). */
-.is-image .eg-card, .is-image .pool-card, .is-image .panel { box-shadow:none; border-color:var(--border); }
+.is-image .eg-card, .is-image .panel { box-shadow:none; border-color:var(--border); }
 .is-image .eg-hero { border-color:transparent; }
 
-@media (max-width:900px) {
-  .is-split .eg-hero, .is-split .eg-rarity, .eg-totals, .eg-recent { grid-column:1 / -1; }
-  .pool-card { grid-column:span 6; }
+@media (max-width:760px) {
+  .eg-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .eg-kpis .kpi-total { grid-column:1 / -1; }
+  .detail-top { grid-template-columns:1fr; }
 }
 @media (max-width:600px) {
-  .data-table th:last-child, .data-table td:last-child { display:none; }
   .eg-card { padding:16px; border-radius:22px; }
-  .pool-card { grid-column:1 / -1; padding:16px; border-radius:22px; }
-  .eg-numbers { grid-template-columns:1fr; }
-  .eg-big { font-size:48px; line-height:52px; }
-  .eg-head .cap-meta { gap:8px; }
-  .eg-head .cap-meta .ui-button { margin-left:auto; }
-  .six-card { width:156px; }
+  .eg-kpis > div { padding:10px; }
+  .eg-kpis dt { gap:4px; }
+  .eg-kpis dd { font-size:22px; line-height:28px; }
+  .eg-kpis .kpi-total dd { font-size:36px; line-height:40px; }
+  .eg-head .cap-meta { margin-left:0; width:100%; justify-content:space-between; }
+  /* Phones keep each group to one swipeable row so the chosen pool stays near the top. */
+  .pool-tiles { display:flex; gap:8px; margin:0 -16px; padding:0 16px 4px; overflow-x:auto; scroll-snap-type:x proximity; scroll-padding:0 16px; scrollbar-width:none; }
+  .pool-tiles::-webkit-scrollbar { display:none; }
+  .pool-tile { flex:0 0 132px; padding:10px 12px; scroll-snap-align:start; }
+  .tile-pity b { font-size:22px; line-height:28px; }
+  .detail-range { margin-left:0; width:100%; }
+  .pity-block { grid-template-columns:auto 1fr; align-items:baseline; gap:0 10px; padding:12px 16px; }
+  .pity-block .k { grid-row:1; }
+  .pity-block strong { grid-row:1 / span 2; grid-column:2; justify-self:end; font-size:44px; line-height:50px; }
+  .pity-block .k-sub { grid-row:2; }
+  .detail-stats { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .detail-stats > div { padding:8px 10px; }
+  .detail-stats dd { font-size:18px; line-height:26px; }
+  .pull-row { grid-template-columns:40px minmax(0,1fr); grid-template-areas:"art who" "art bar"; gap:4px 10px; }
+  .pull-art { grid-area:art; align-self:start; }
+  .pull-who { grid-area:who; grid-auto-flow:column; justify-content:space-between; gap:8px; }
+  .pull-track { grid-area:bar; height:28px; }
+  .data-table th:last-child, .data-table td:last-child { display:none; }
   .panel > summary { padding-left:16px; }
   .panel-body { padding:4px 14px 14px; }
 }

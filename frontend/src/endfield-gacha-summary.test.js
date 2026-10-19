@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { gachaView, gachaPools, recentSixStars, sixPullsText, sixPullsParts, poolTotal, latestPoolIndex, poolSpans } from './endfield-gacha-summary.js'
+import { gachaView, gachaPools, recentSixStars, sixPullsText, sixPullsParts, poolTotal, poolGroups, poolPace, pullRuler, rarityShares, syncStatus } from './endfield-gacha-summary.js'
 const snaps={account:{payload:{role_id:'r',nickname:'本人'}},gacha:{stale:true,payload:{schema_version:1,role_id:'r',report:{schema_version:1,role_id:'r',total:42}}}}
 test('local passport identity keeps ordinary stale records but blocks wrong role and invalid credentials',()=>{
  assert.equal(gachaView({snaps,configured:true,authAccount:{configured:true,state:'connected'}}).snapshot,snaps.gacha)
@@ -79,26 +79,47 @@ test('pool totals are unknown unless every pool states the count, and zero stays
   assert.equal(poolTotal([{ five_star: '7' }], 'five_star'), 7)
 })
 
-test('the latest pool is the one with the newest pull, and unknown times never win', () => {
-  assert.equal(latestPoolIndex([{ newest_at: 100 }, { newest_at: 900 }, { newest_at: 300 }]), 1)
-  assert.equal(latestPoolIndex([{ newest_at: null }, { newest_at: 5 }]), 1)
-  assert.equal(latestPoolIndex([{}, { newest_at: 'x' }]), -1)
-  assert.equal(latestPoolIndex([]), -1)
+test('pools group into character then weapon pools, keeping ledger order and dropping empty groups', () => {
+  const pools = [{ key: 'w1', kind: 'weapon' }, { key: 'c1', kind: 'character' }, { key: 'c2', kind: 'character' }, null]
+  assert.deepEqual(poolGroups(pools).map(group => [group.label, group.pools.map(pool => pool.key)]), [['干员寻访', ['c1', 'c2']], ['武器申领', ['w1']]])
+  assert.deepEqual(poolGroups([{ key: 'w', kind: 'weapon' }]).map(group => group.kind), ['weapon'])
+  assert.deepEqual(poolGroups([]), [])
 })
 
-test('pool card spans fill every row of the 12-column grid', () => {
-  assert.deepEqual(poolSpans(5), [4, 4, 4, 6, 6])
-  assert.deepEqual(poolSpans(4), [3, 3, 3, 3])
-  assert.deepEqual(poolSpans(7), [4, 4, 4, 6, 6, 6, 6])
-  assert.deepEqual(poolSpans(8), [4, 4, 4, 4, 4, 4, 6, 6])
-  assert.deepEqual(poolSpans(1), [12])
-  for (let count = 1; count <= 20; count++) {
-    const spans = poolSpans(count)
-    assert.equal(spans.length, count)
-    // Rows are runs of equal spans; each run must add up to 12.
-    let row = 0
-    for (const span of spans) { row += span; if (row === 12) row = 0; assert.ok(row < 12) }
-    assert.equal(row, 0)
+test('pace averages exact intervals only and names the fastest and slowest once two differ', () => {
+  const fast = { name: '快', pulls: 12, status: 'exact' }, slow = { name: '慢', pulls: 80, status: 'exact' }
+  const pace = poolPace({ history: [fast, { name: '下限', pulls: 5, status: 'lower_bound' }, slow, { name: '未知', pulls: null, status: 'exact' }, { name: '?', pulls: 3, status: 'unknown' }] })
+  assert.deepEqual({ ...pace, fastest: pace.fastest.name, slowest: pace.slowest.name }, { count: 2, average: 46, fastest: '快', slowest: '慢' })
+  assert.equal(poolPace({ history: [{ pulls: 10, status: 'exact' }, { pulls: 11, status: 'exact' }, { pulls: 11, status: 'exact' }] }).average, 10.7)
+  for (const one of [[fast], [fast, { ...fast }]]) {
+    const single = poolPace({ history: one })
+    assert.equal(single.fastest, null); assert.equal(single.slowest, null); assert.equal(single.average, 12)
   }
-  for (const none of [0, -1, 2.5, NaN, undefined]) assert.deepEqual(poolSpans(none), [])
+  assert.deepEqual(poolPace({ history: [{ pulls: 9, status: 'lower_bound' }] }), { count: 0, average: null, fastest: null, slowest: null })
+  assert.deepEqual(poolPace(null), { count: 0, average: null, fastest: null, slowest: null })
+})
+
+test('a ruler per kind spans the longest stated 6★ up to the next ten and assumes no pity rule', () => {
+  const pools = [{ kind: 'character', history: [{ pulls: 66, status: 'exact' }, { pulls: 74, status: 'lower_bound' }, { pulls: 99, status: 'unknown' }] },
+    { kind: 'weapon', history: [{ pulls: 30, status: 'exact' }] }, { kind: 'character', history: [{ pulls: 80, status: 'exact' }] }]
+  assert.equal(pullRuler(pools, 'character'), 80)
+  assert.equal(pullRuler(pools, 'weapon'), 30)
+  assert.equal(pullRuler([{ kind: 'weapon', history: [{ pulls: 3, status: 'exact' }] }], 'weapon'), 10)
+  assert.equal(pullRuler([{ kind: 'character', history: [{ pulls: 0, status: 'lower_bound' }] }], 'character'), 10)
+  assert.equal(pullRuler([{ kind: 'character', history: [{ pulls: null, status: 'exact' }] }], 'character'), null)
+  assert.equal(pullRuler(pools.slice(0, 1), 'weapon'), null)
+})
+
+test('rarity shares divide by the pool total and leave an unstated count unknown', () => {
+  const shares = rarityShares({ total: 200, six_star: 4, five_star: 20, four_star: null, unknown_rarity: 0 })
+  assert.deepEqual(shares.map(part => [part.label, part.count, part.share]), [['6★', 4, .02], ['5★', 20, .1], ['4★', null, null], ['未知 / 其他', 0, 0]])
+  assert.ok(rarityShares({ total: 0, six_star: 0 }).every(part => part.share == null))
+})
+
+test('sync status puts an unfinished scan first and only calls a proven scan complete', () => {
+  assert.equal(syncStatus({ complete: false }, { pending: false }).label, '部分待同步')
+  assert.equal(syncStatus({ complete: true }, { pending: true }).tone, 'warn')
+  assert.equal(syncStatus({ complete: true }, null).label, '同步完成')
+  assert.equal(syncStatus({ complete: null }, { pending: null }).label, '完整性未知')
+  assert.equal(syncStatus(null, null).tone, 'unknown')
 })
