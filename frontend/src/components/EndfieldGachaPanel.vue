@@ -343,8 +343,9 @@ small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:50
 .row-art { width:30px; height:30px; border-radius:9px; }
 .data-table .name .chip { margin-left:-4px; }
 .data-table tr.six td { background:color-mix(in srgb,var(--eg-six) 9%,transparent); }
-.data-table tr.six :is(.name,.rarity) { color:var(--eg-six); font-weight:600; }
-.data-table tr.five .rarity { color:var(--eg-five); font-weight:500; }
+/* Text keeps the text colour; the row tint carries the rarity hue. */
+.data-table tr.six :is(.name,.rarity) { color:var(--text); font-weight:600; }
+.data-table tr.five .rarity { color:var(--text); font-weight:500; }
 .data-table .rarity { white-space:nowrap; }
 
 /* A bot image is one still frame: flat fills, no shadows (they inflate the PNG). */
