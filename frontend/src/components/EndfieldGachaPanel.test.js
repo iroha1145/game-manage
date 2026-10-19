@@ -178,3 +178,16 @@ test('a chosen pool that disappears after a sync falls back to the first pool an
   nodes(root, 'details')[0].props.onToggle({ target: { open: true } }); await flush()
   assert.match(calls.at(-1), /records\?pool_key=&offset=0/)
 })
+
+test('every ledger row shows its own operator or weapon artwork, keeping a name tile when none matches', async t => {
+  api(t, () => [200, { total: 3, records: [
+    { seq_id: '3', pool_key: 'E_CharacterGachaPoolType_Special', kind: 'character', name: '秋栗', rarity: 4, gacha_ts: 1788300000000 },
+    { seq_id: '2', pool_key: 'weapon:w1', name: '破碎君王', rarity: 6, gacha_ts: 1788200000000 },
+    { seq_id: '1', pool_key: 'E_CharacterGachaPoolType_Special', kind: 'character', name: '未收录干员', rarity: 5, gacha_ts: 1788100000000 }] }])
+  const root = mount(t, Panel, { snap, accountId: 'r1' }); await flush()
+  nodes(root, 'details')[0].props.onToggle({ target: { open: true } }); await flush()
+  const cells = nodes(root, 'td').filter(node => String(node.props.class).includes('name'))
+  assert.equal(nodes(cells[0], 'img')[0].props.src, 'https://web.hycdn.cn/endfield/official-v4/_next/static/media/akekuri.3df4a3dc.png')
+  assert.ok(nodes(cells[1], 'img')[0].props.src.startsWith('https://bbs.hycdn.cn/image/')) // weapon kind from its pool key
+  assert.equal(nodes(cells[2], 'img').length, 0); assert.match(content(cells[2]), /未 未收录干员/)
+})

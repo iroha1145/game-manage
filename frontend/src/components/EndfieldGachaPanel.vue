@@ -59,6 +59,8 @@ const percent = share => `${(share * 100).toFixed(share < .1 ? 1 : 0)}%`
 const banner = (item, pool) => item.pool_name && item.pool_name !== pool.label ? item.pool_name : ''
 const barWidth = (item, ruler) => { const parts = sixPullsParts(item); return parts && ruler ? `${Math.min(100, Math.round(parts.count / ruler * 10000) / 100)}%` : '0%' }
 const tag = (item, pace) => item === pace.fastest ? { label: '最欧', tone: 'lucky' } : item === pace.slowest ? { label: '最非', tone: 'unlucky' } : null
+// Ledger rows carry their kind; older exports only say it through a weapon pool key.
+const recordKind = row => row.kind || (String(row.pool_key || '').startsWith('weapon:') ? 'weapon' : 'character')
 const RARITY_COLOR = { six_star: 'var(--eg-six)', five_star: 'var(--eg-five)', four_star: 'var(--eg-four)', unknown_rarity: 'var(--eg-unknown)' }
 
 async function load(start = 0) {
@@ -204,7 +206,7 @@ async function download() {
               <tbody>
                 <tr v-for="row in records" :key="`${row.pool_key}-${row.seq_id}`" :class="{ six: row.rarity === 6, five: row.rarity === 5 }">
                   <td class="when">{{ pullDate(row.gacha_ts) }}</td>
-                  <td class="name">{{ row.name || '未知' }}<span v-if="row.is_free" class="chip">免费</span></td>
+                  <td class="name"><span class="name-cell"><EndfieldArtwork class="row-art" :src="gachaArtwork(row, recordKind(row))" :name="row.name || '未知'" />{{ row.name || '未知' }}<span v-if="row.is_free" class="chip">免费</span></span></td>
                   <td class="rarity">{{ rarityLabel(row.rarity) }}</td>
                   <td>{{ row.pool_name || '—' }}</td>
                 </tr>
@@ -332,7 +334,9 @@ small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:50
 .records .when { width:10em; white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--text-muted); }
 .records .rarity { width:5em; }
 .data-table .name { font-weight:500; }
-.data-table .name .chip { margin-left:6px; }
+.name-cell { display:inline-flex; align-items:center; gap:10px; }
+.row-art { width:30px; height:30px; border-radius:9px; }
+.data-table .name .chip { margin-left:-4px; }
 .data-table tr.six td { background:color-mix(in srgb,var(--eg-six) 9%,transparent); }
 .data-table tr.six :is(.name,.rarity) { color:var(--eg-six); font-weight:600; }
 .data-table tr.five .rarity { color:var(--eg-five); font-weight:500; }
