@@ -46,10 +46,13 @@ const current = computed(() => pools.value.find(pool => pool.key === selected.va
 const rulers = computed(() => ({ character: pullRuler(pools.value, 'character'), weapon: pullRuler(pools.value, 'weapon') }))
 const views = computed(() => (props.imageMode ? pools.value : current.value ? [current.value] : []).map(pool => {
   const pace = poolPace(pool)
-  return { pool, pace, ruler: rulers.value[pool.kind === 'weapon' ? 'weapon' : 'character'],
-    // Unknown/other is only listed when it is not a plain zero.
-    shares: rarityShares(pool).filter(part => part.field !== 'unknown_rarity' || part.count !== 0),
-    range: Number.isFinite(pool.oldest_at) && Number.isFinite(pool.newest_at) ? `${pullDay(pool.oldest_at)} – ${pullDay(pool.newest_at)}` : '' }
+  // Unknown/other is only listed when it is not a plain zero.
+  const shares = rarityShares(pool).filter(part => part.field !== 'unknown_rarity' || part.count !== 0)
+  // Pulls of unstated rarity stay as empty track, so the bar has the legend's scale: shares of the total.
+  const counted = shares.reduce((sum, part) => sum + (part.count ?? 0), 0), pulls = Number(pool.total)
+  return { pool, pace, ruler: rulers.value[pool.kind === 'weapon' ? 'weapon' : 'character'], shares,
+    rest: Number.isFinite(pulls) && pulls > counted ? pulls - counted : 0,
+    range:Number.isFinite(pool.oldest_at) && Number.isFinite(pool.newest_at) ? `${pullDay(pool.oldest_at)} – ${pullDay(pool.newest_at)}` : '' }
 }))
 function select(key) { selected.value = key; recordPool.value = key }
 // A pool that is gone after a sync no longer filters the ledger either.
@@ -164,6 +167,7 @@ async function download() {
         <div class="rarity">
           <div class="stack-bar" role="img" :aria-label="`${view.pool.label}的稀有度：` + view.shares.map(part => `${part.label} ${part.count ?? '未知'}`).join('，')">
             <i v-for="part in view.shares.filter(part => part.count)" :key="part.field" :style="{ '--series': RARITY_COLOR[part.field], flex: part.count }" />
+            <i v-if="view.rest" class="stack-rest" :style="{ flex: view.rest }" />
           </div>
           <ul class="legend">
             <li v-for="part in view.shares" :key="part.field" :style="{ '--series': RARITY_COLOR[part.field] }">{{ part.label }} <b>{{ part.count ?? '未知' }}</b><small v-if="part.share != null">{{ percent(part.share) }}</small></li>
@@ -297,6 +301,7 @@ small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:50
 .detail-stats .stat-sub { overflow:hidden; color:var(--text-muted); font-size:12px; line-height:16px; font-weight:400; letter-spacing:0; text-overflow:ellipsis; }
 
 .rarity .stack-bar { height:10px; gap:2px; }
+.rarity .stack-rest { background:transparent; }
 .rarity .legend { gap:4px 16px; margin-top:8px; }
 .legend li { font-variant-numeric:tabular-nums; }
 .legend b { color:var(--text); font-weight:500; }

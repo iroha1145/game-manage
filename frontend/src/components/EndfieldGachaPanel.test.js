@@ -191,3 +191,15 @@ test('every ledger row shows its own operator or weapon artwork, keeping a name 
   assert.ok(nodes(cells[1], 'img')[0].props.src.startsWith('https://bbs.hycdn.cn/image/')) // weapon kind from its pool key
   assert.equal(nodes(cells[2], 'img').length, 0); assert.match(content(cells[2]), /未 未收录干员/)
 })
+
+test('pulls of unstated rarity stay as empty track, so the rarity bar has the scale of the legend shares', async t => {
+  api(t, () => [200, { total: 0, records: [] }])
+  // The fixture pool states 1 six-star and 3 five-star of 30 pulls; its 4★ count is unknown.
+  const root = mount(t, Panel, { snap, accountId: 'r1' }); await flush()
+  const bar = nodes(root, 'div').find(node => String(node.props.class).includes('stack-bar'))
+  assert.deepEqual(nodes(bar, 'i').map(node => [node.props.class ?? '', node.props.style.flex]), [['', 1], ['', 3], ['stack-rest', 26]])
+  const full = { ...summary.pools[0], four_star: 26, unknown_rarity: 0 }
+  const whole = mount(t, Panel, { snap: { payload: { ...summary, pools: [full] } }, accountId: 'r1' }); await flush()
+  const filled = nodes(whole, 'div').find(node => String(node.props.class).includes('stack-bar'))
+  assert.deepEqual(nodes(filled, 'i').map(node => node.props.style.flex), [1, 3, 26])
+})
