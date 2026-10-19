@@ -125,11 +125,14 @@ def record_page(data: Any, kind: str) -> tuple[list[dict], bool]:
     """record/char、record/weapon 的 data → (记录列表, 是否还有下一页)。"""
     if not isinstance(data, dict):
         raise ValueError(_ERROR)
-    rows = [normalize_record(row, kind) for row in _rows(data.get("list", []))]
-    has_more = data.get("hasMore")
-    if not isinstance(has_more, bool):
+    if "list" not in data:
         raise ValueError(_ERROR)
-    return rows, has_more
+    rows = [normalize_record(row, kind) for row in _rows(data["list"] or [])]
+    # 参考实现按真值读取 hasMore（缺省即没有后续）；只接受布尔、0/1 和缺省，其他类型仍视为格式无效。
+    has_more = data.get("hasMore")
+    if has_more is None or (has_more in (0, 1) and not isinstance(has_more, float)):
+        return rows, bool(has_more)
+    raise ValueError(_ERROR)
 
 
 def weapon_pools(data: Any) -> list[tuple[str, str]]:

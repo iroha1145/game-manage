@@ -89,9 +89,17 @@ class EndfieldGachaPool(BaseModel):
     banners: list[EndfieldGachaBanner] = []  # 由新到旧
 
 
+class EndfieldGachaError(BaseModel):
+    # 本轮同步里读取失败的卡池（或武器池列表），下次同步时重试
+    key: str
+    label: str
+    message: str
+
+
 class EndfieldGacha(EndfieldPayload):
     role_id: str
     total: int = 0
     complete: bool | None = None  # 未采集或旧账本缺少覆盖证据时保持未知
     pools: list[EndfieldGachaPool] = []
+    errors: list[EndfieldGachaError] = []
     report: dict | None = None

@@ -231,3 +231,12 @@ test('pulls of unstated rarity stay as empty track, so the rarity bar has the sc
   const filled = nodes(whole, 'div').find(node => String(node.props.class).includes('stack-bar'))
   assert.deepEqual(nodes(filled, 'i').map(node => node.props.style.flex), [1, 3, 26])
 })
+
+test('pools the last sync could not read are named with their reason, without hiding what did sync', t => {
+  api(t, () => [200, {}])
+  const errors = [{ key: 'weapon:w1', label: '熔铸申领', message: '接口错误 code=1001：参数错误' }, { key: 'weapon:*', label: '武器池列表', message: '' }]
+  const root = mount(t, Panel, { accountId: 'r1', snap: { payload: { ...summary, errors } } })
+  assert.match(content(root), /本次未能读取： 熔铸申领 （接口错误 code=1001：参数错误） 、 武器池列表 （原因未知） 。其他卡池已正常同步，下次刷新会重试。/)
+  assert.match(content(root), /特许寻访/)
+  assert.doesNotMatch(content(mount(t, Panel, { accountId: 'r1', snap })), /本次未能读取/)
+})

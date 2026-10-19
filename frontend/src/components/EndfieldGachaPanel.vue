@@ -26,6 +26,8 @@ let generation = 0
 
 // The headline keeps operator headhunting and weapon requisition apart; they never add up.
 const kinds = computed(() => ['character', 'weapon'].map(kind => kindSummary(pools.value, kind)).filter(Boolean))
+// Pools the last sync could not read; the rest of the ledger synced normally and they are retried next time.
+const failures = computed(() => (Array.isArray(summary.value?.errors) ? summary.value.errors : []).filter(item => item && typeof item.label === 'string'))
 const status = computed(() => syncStatus(summary.value, report.value))
 const statusHint = computed(() => {
   const gaps = report.value?.gaps ?? poolTotal(pools.value, 'gaps')
@@ -128,6 +130,7 @@ async function download() {
             </dl>
           </section>
         </div>
+        <p v-if="failures.length" class="notice warn eg-failures" role="status">本次未能读取：<template v-for="(item, index) in failures" :key="item.key"><template v-if="index">、</template><b>{{ item.label }}</b>（{{ item.message || '原因未知' }}）</template>。其他卡池已正常同步，下次刷新会重试。</p>
         <p v-if="summary.complete === false" class="notice warn" role="status">还有记录未同步完，下次刷新会接着同步。</p>
       </template>
     </div>
@@ -254,6 +257,7 @@ async function download() {
 .eg-card { position:relative; padding:20px; border:1px solid var(--card-border); border-radius:var(--radius-card); background:var(--card-bg); box-shadow:var(--card-shadow); }
 .notice { margin:0; color:var(--text-muted); font-size:13px; line-height:1.6; }
 .notice.warn { color:var(--stale-text); }
+.eg-failures b { font-weight:600; }
 .k { display:inline-flex; align-items:center; color:var(--text-muted); font-size:12px; line-height:18px; font-weight:500; }
 small { margin-left:3px; color:var(--text-muted); font-size:.5em; font-weight:500; letter-spacing:0; }
 
